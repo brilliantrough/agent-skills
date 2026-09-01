@@ -13,5 +13,11 @@ This project uses a three-layer memory system (Magic Context + StrictDoc + claud
 3. After editing any `.sdoc` file, validate immediately: run `strictdoc export .` inside `docs/`. Prefer the `strictdoc` on PATH (the activated conda/uv/venv env is inherited by the agent shell); if absent, detect the project env (e.g. `.venv/bin/strictdoc`, `uv run strictdoc`) — do not assume a specific env manager. Never leave the tree broken.
 4. On conflict between memory sources, `ctx_memory` (the injected `<project-memory>` block) wins.
 
+### Code taste (always applies when writing or changing code)
+
+- Running code without errors IS the verification — no tests, no TDD, no verification scripts unless explicitly asked.
+- No over-encapsulation, no defensive programming, no speculative abstraction. Minimum code that works.
+- Report results in one line; no summary essays.
+
 (Procedures for reading/writing memory live in the `load-mem`/`save-mem` skills — keep this file short.)
 <!-- memory-system:end -->
