@@ -8,7 +8,7 @@ npx skills@latest add brilliantrough/agent-skills --all -g -y
 
 装完重开 agent session(opencode / claude-code 等)即生效,skill 装在 `~/.agents/skills/`。
 
-## 包含的 Skills(9 个)
+## 包含的 Skills(11 个)
 
 来自 [mattpocock/skills](https://github.com/mattpocock/skills)(MIT,见 NOTICE):
 
@@ -21,13 +21,22 @@ npx skills@latest add brilliantrough/agent-skills --all -g -y
 | `diagnosing-bugs` | 硬 bug 诊断回路:先建能变红的反馈回路,再假设原因 |
 | `code-review` | 双轴审查(规范符合度 + spec 忠实度),并行子代理 |
 
-自制(三层记忆系统):
+自制·三层记忆系统:
 
 | Skill | 用途 |
 |---|---|
 | `load-mem` | 会话启动时加载全部记忆层(注入记忆 / StrictDoc / claude-mem) |
 | `save-mem` | 里程碑时持久化记忆(ctx_memory 存事实,StrictDoc 存叙事) |
 | `migrate-mem` | 把散落的旧记忆文件迁入三层记忆系统 |
+
+自制·任务工作流(手动 cue 触发):
+
+| Skill | 用途 |
+|---|---|
+| `plan-brief` | 复杂需求的完整闭环:吃透需求 → 盘问细节(必问环境、验证模式)→ 生成中文计划文档 `docs/plans/<slug>.md` + 自包含启动 prompt → 拉起新会话执行 → 执行者写开发报告(`<slug>.report.md`,允许搁置、禁止造假)→ 规划会话审查(`<slug>.review.md`)。验证模式二选一:TDD(快反馈产品代码)/ smoke-and-read(科研长任务,禁测试脚手架)。规划会话本身永不执行、不开 sub-agent |
+| `quick-do` | 简单任务零仪式感,当前会话直接干完:最多问一个问题、不写计划、不测试不做 TDD、完工只报一行。批量覆盖/删除等不可逆操作先展示再动手 |
+
+**用法**:复杂需求 = 写完需求文本(输入框或文件)+ cue `plan-brief`;简单任务 = 一句话说明 + cue `quick-do`。手动 cue 保证稳定触发,两个 skill 的品味内核一致(ponytail)。
 
 ## 依赖说明
 
