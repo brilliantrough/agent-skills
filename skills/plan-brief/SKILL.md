@@ -1,0 +1,57 @@
+---
+name: plan-brief
+description: Turn a complex, thought-through requirement into a detailed execution plan document plus a standalone launcher prompt for a fresh agent session. Use when the user provides a long requirement (in chat or a file) and wants a plan before execution, or mentions 执行计划 / 计划文档 / 新会话执行 / 交接 prompt. Grills missing details first (runtime env, paths, verification philosophy), applies ponytail taste, and never executes the plan itself.
+---
+
+# Plan Brief: requirement → grilled plan → clean-session prompt
+
+One job: produce (1) a detailed execution plan document and (2) a copy-paste prompt that launches a FRESH agent session to execute it. You plan; you never execute. No execution sub-agents.
+
+## Phase 0 — Absorb the requirement
+
+- Read the raw requirement completely (chat text, or the file the user points at).
+- Restate in 2-3 sentences: goal, scope, what "done" looks like.
+- Split it into: explicit requirements vs open details. Do NOT plan yet.
+
+## Phase 1 — Survey the project
+
+- Skim directory structure, AGENTS.md/README, entry points, and everything the requirement touches.
+- Establish: what exists, its current state, which conventions the project already follows (env managers, doc locations, run commands).
+
+## Phase 2 — Grill the details
+
+Invoke the `grilling` skill (or `grill-with-docs` in memory-stack projects). The requirement never contains enough detail — interview the user, one question at a time, until every step of the plan is unambiguous. ALWAYS cover:
+
+- **Runtime environment**: exact interpreter and env (venv/conda path + activation command), env vars, working directory, package manager, versions. NEVER assume system python.
+- **Inputs/outputs**: formats, paths, expected artifacts.
+- **Execution order**: dependencies between steps, what is parallelizable.
+- **Conventions**: where outputs, docs, and configs live in this project.
+- **Verification philosophy (mandatory discussion)**: default is NO dedicated test scripts — running the feature code IS the verification, and the user will run the final result themselves. Only if a step genuinely cannot be eyeballed (data integrity, money, destructive operations, long pipelines) discuss a minimal check. Push back on any "add a test for everything" instinct.
+
+## Phase 3 — Set the taste
+
+Invoke `ponytail` if installed; otherwise apply these rules directly: minimum code that works. No over-encapsulation, no defensive programming, no redundant re-validation, no speculative abstraction. Functional code that runs correctly is DONE. Plan the lazy path.
+
+## Phase 4 — Write the plan document
+
+One Chinese markdown document, structured (tables for comparisons/params, lists for steps — no heading + wall of text), saved to the project's working-doc location (default `docs/plans/YYYY-MM-DD-<slug>.md`; confirm the location during grilling). Sections:
+
+1. **目标与范围** — the Phase 0 restatement
+2. **现状** — what exists now; Phase 1 findings
+3. **环境与前提** — exact activation commands, env vars, versions
+4. **执行步骤** — ordered; each step: what / command / expected result
+5. **注意事项与已知坑** — everything surfaced in grilling
+6. **验证方式** — minimal, per the Phase 2 discussion; who runs what at the end
+7. **交付物清单**
+
+## Phase 5 — Write the launcher prompt
+
+Append it to the plan doc inside a fenced block AND print it in chat for copying. It must be fully self-contained for a clean session:
+
+- Point to the plan doc path; instruct the new agent to read it plus AGENTS.md/project docs before acting.
+- Hard constraints: activate the specified env before running anything; follow the plan's step order; ponytail taste; no scope creep; stop and ask when the plan is ambiguous; report results per the verification section.
+- State the deliverables.
+
+## Hard boundary
+
+When plan + prompt are delivered, this session's job is DONE. Do not execute the plan here. Do not spawn execution sub-agents. The user launches the fresh session themselves.
