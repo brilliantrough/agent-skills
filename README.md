@@ -33,7 +33,7 @@ npx skills@latest add brilliantrough/agent-skills --all -g -y
 
 6 个 Matt 的 skill 零依赖,装了就能用。
 
-3 个记忆 skill 依赖三层记忆栈(magic-context 的 `ctx_memory` 插件 + claude-mem + `docs/` StrictDoc 结构)。目标服务器没有这套栈时,skill 仍可读,但需要先按 `templates-AGENTS-memory-block.md` 把触发块粘进项目的 `AGENTS.md`,并配好对应插件。
+3 个记忆 skill 依赖三层记忆栈(magic-context 的 `ctx_memory` 插件 + claude-mem + `docs/` StrictDoc 结构)。目标服务器没有这套栈时,skill 仍可读,但需要先按 [AGENTS.md](AGENTS.md)(即 `memory-system:start/end` 之间的块)把触发块粘进项目的 `AGENTS.md`,并配好对应插件。
 
 ## 更新
 
