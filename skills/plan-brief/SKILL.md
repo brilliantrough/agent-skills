@@ -42,7 +42,7 @@ One Chinese markdown document, structured (tables for comparisons/params, lists 
 4. **执行步骤** — ordered; each step: what / command / expected result
 5. **注意事项与已知坑** — everything surfaced in grilling
 6. **验证方式** — minimal, per the Phase 2 discussion; who runs what at the end
-7. **交付物清单**
+7. **交付物清单** — including the development report path: `docs/plans/YYYY-MM-DD-<slug>.report.md` (same slug as this plan)
 
 ## Phase 5 — Write the launcher prompt
 
@@ -50,8 +50,22 @@ Append it to the plan doc inside a fenced block AND print it in chat for copying
 
 - Point to the plan doc path; instruct the new agent to read it plus AGENTS.md/project docs before acting.
 - Hard constraints: activate the specified env before running anything; follow the plan's step order; ponytail taste; no scope creep; stop and ask when the plan is ambiguous; report results per the verification section.
+- **Development report (mandatory, even for partial work)**: when done — or when stopping — write `docs/plans/YYYY-MM-DD-<slug>.report.md` (Chinese, structured) with sections: 完成情况总表 (per plan step: 完成/部分/搁置/未动 + evidence) / 做了什么 / 没做什么与搁置原因 / 规范遵循情况 / 特殊处理与偏离 / 遗留问题与建议.
+- **Partial completion is legitimate**: steps blocked by real constraints (missing deps, env limits, out of scope) may be shelved — never fake completion, never silently skip. The report must say exactly what was and wasn't done.
 - State the deliverables.
+
+## Review loop (审查闭环)
+
+When the user returns saying the executor finished (or drops the report path), audit — do not re-explore the codebase from scratch:
+
+1. Read the plan doc and the report side by side. Spot-check the code only where claims need evidence.
+2. Build a 核对表: per plan step — report claim vs evidence vs verdict (符合/存疑/不符).
+3. Audit 规范遵循: env activation, step order, ponytail taste, test-script restraint.
+4. Judge each deviation/特殊处理: reasonable or should be reverted, with why.
+5. Verdict: 符合 / 部分符合 / 不符合, then concrete prioritized 修改意见 (minimal fixes, ponytail style).
+6. Write the review to `docs/plans/YYYY-MM-DD-<slug>.review.md` (never edit the executor's report — it is their artifact) and print it in chat.
+7. If fixes are needed, produce a new self-contained launcher prompt (Phase 5 rules) re-dispatching exactly the fix items to a fresh session.
 
 ## Hard boundary
 
-When plan + prompt are delivered, this session's job is DONE. Do not execute the plan here. Do not spawn execution sub-agents. The user launches the fresh session themselves.
+When plan + prompt are delivered, the planning job is DONE for now. Do not execute the plan here. Do not spawn execution sub-agents. The user launches the fresh session themselves; this session's next role is reviewer (see Review loop).
