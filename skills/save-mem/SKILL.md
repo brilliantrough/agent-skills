@@ -5,6 +5,10 @@ description: save memory according to current state and progress — durable fac
 
 Record the current state so the next session can resume quickly. Extract the most core and important content. Be concise and to the point.
 
+**When to run this:** at milestones, before ending any work session, and immediately after a decision or config change lands — do not wait for the human to ask.
+
+**Before writing, check what already exists:** the injected `<project-memory>` block lists current memories — update or merge an existing entry instead of writing a near-duplicate (`ctx_memory` action=`update`/`merge`/`archive`).
+
 **Route by content type — do not dump everything into files:**
 
 1. **Durable operational facts** (constraints, config values, naming conventions, architecture facts, hard-won workarounds) → write to `ctx_memory`. These are auto-injected into every future session.

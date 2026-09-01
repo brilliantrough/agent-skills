@@ -20,3 +20,8 @@ Build an understanding of this project from all available memory layers, then ve
 - In projects not yet migrated, legacy markdown may still exist in other subdirectories under `docs/` (e.g. old `superpowers/`, `research/`). Skim for context but treat as historical until migrated into `docs/handbook/`.
 
 You can use ripgrep and naive grep, and load relevant skills as needed.
+
+**Keep the loop closed (ongoing duty, not a one-shot load):**
+
+- The moment you learn a durable fact (constraint, config value, naming rule, hard-won workaround), write it to `ctx_memory` immediately — do not batch it for later.
+- At milestones and before ending any work session, run the `save-mem` skill so progress and decisions reach the StrictDoc tree.
