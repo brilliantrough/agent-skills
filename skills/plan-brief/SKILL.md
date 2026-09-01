@@ -26,7 +26,10 @@ Invoke the `grilling` skill (or `grill-with-docs` in memory-stack projects). The
 - **Inputs/outputs**: formats, paths, expected artifacts.
 - **Execution order**: dependencies between steps, what is parallelizable.
 - **Conventions**: where outputs, docs, and configs live in this project.
-- **Verification philosophy (mandatory discussion)**: default is NO dedicated test scripts — running the feature code IS the verification, and the user will run the final result themselves. Only if a step genuinely cannot be eyeballed (data integrity, money, destructive operations, long pipelines) discuss a minimal check. Push back on any "add a test for everything" instinct.
+- **Verification mode (mandatory decision — pick ONE and justify in one line)**:
+  - **TDD mode** — only when the feedback loop is fast and tests are cheap: frontend/UI, product services, library code with instant unit tests. Invoke the `tdd` skill.
+  - **Smoke-and-read mode** (default for research/exploration) — long-running or heavy-compute work (model training, data pipelines, experiments, one-off scripts). NO pytest, NO test scaffolding, NO wrapper harnesses: the run itself is expensive, so tests are 入不敷出. Verification = a short smoke run that exits without errors + the agent re-reads its own code to confirm the semantics are right + the user runs the real workload afterwards.
+  - Rule of thumb: if writing/running the test costs more than the failures it would catch, don't write it.
 
 ## Phase 3 — Set the taste
 
@@ -41,7 +44,7 @@ One Chinese markdown document, structured (tables for comparisons/params, lists 
 3. **环境与前提** — exact activation commands, env vars, versions
 4. **执行步骤** — ordered; each step: what / command / expected result
 5. **注意事项与已知坑** — everything surfaced in grilling
-6. **验证方式** — minimal, per the Phase 2 discussion; who runs what at the end
+6. **验证方式** — name the chosen verification mode (TDD / smoke-and-read) and why; per the Phase 2 discussion; who runs what at the end
 7. **交付物清单** — including the development report path: `docs/plans/YYYY-MM-DD-<slug>.report.md` (same slug as this plan)
 
 ## Phase 5 — Write the launcher prompt
