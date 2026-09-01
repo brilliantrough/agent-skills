@@ -14,6 +14,8 @@ Build an understanding of this project from all available memory layers, then ve
    - To query precisely instead of reading everything: `strictdoc export --formats=json .` in `docs/`, then e.g. `jq '.DOCUMENTS[].NODES[] | select(.STATUS=="Active")' output/json/index.json`.
 3. **Action history (claude-mem)** — a passive log of past tool activity with semantic search. If the files look stale or you need "what was actually done recently", use the `claude_mem_search` tool (fallback: `curl http://127.0.0.1:37700/...` worker API). Treat results as leads, not gospel — verify against files/git before acting on them.
 
+**Missing pieces are normal on new machines:** no `<project-memory>` block, no claude-mem tool/worker, or no `docs/` tree means that layer is simply absent — say which layers are unavailable and continue with what exists. Never stall and never invent tool output.
+
 **Then ground it in code:**
 
 - Glob the directory structure and read core files to confirm the memory matches reality.
