@@ -26,7 +26,7 @@ Migrate legacy memory files into the three-layer system WITHOUT losing informati
 ## Phase 3 — Execute (after approval)
 
 - UIDs: scan existing nodes, continue the sequence; topic prefixes (DEC-MEM-*, DEC-AUTH-*, ...).
-- Write `decisions.sdoc` / `journal.sdoc` nodes. STATEMENT keeps the original wording of the canon (light clarity edits only).
+- Write `decisions.sdoc` / `journal.sdoc` nodes. STATEMENT keeps the original wording of the canon (light clarity edits only). Newly authored node content follows the document taste in `save-mem` (中文为主;表格/列表优先,忌小标题+大段文字;不冗余). Legacy documents being wrapped stay verbatim — structure only.
 - **Document wrapping (md → handbook sdoc)**: one md file → one `.sdoc` under `docs/handbook/<topic>/`. `[DOCUMENT]` header: `TITLE:` + `DATE:` (no UID field exists) + `OPTIONS:` with `MARKUP: Markdown`. Map `##` headings to `[[SECTION]]` + `[TEXT]` nodes (double brackets ONLY — single-bracket `[SECTION]` is removed in 0.28.3+); close every section with `[[/SECTION]]`. Content stays verbatim — you add structure, not prose.
 - Write `ctx_memory` entries for operational facts — list existing memories first to avoid duplicates.
 - Validate after EVERY file edit: `strictdoc export .` in `docs/`. Fix parse errors immediately. Prefer plain `strictdoc` from the activated Python env (conda/uv/venv — the agent shell usually inherits it); if not on PATH, detect the project's env instead of assuming `.venv`.

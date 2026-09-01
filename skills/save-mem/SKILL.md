@@ -32,4 +32,8 @@ Record the current state so the next session can resume quickly. Extract the mos
 - Map `##` headings to `[[SECTION]]` + `[TEXT]` nodes; **every section must be closed with `[[/SECTION]]`**.
 - Keep the content verbatim; structure is the only thing you add.
 
-Chinese is preferable for node content, but English is acceptable; you may mix. Clarity matters most.
+**Document taste (applies to everything you author — decisions, journal, handbook):**
+
+- 中文为主,术语可保留英文。
+- 结构优先:对比/参数/状态用**表格**,步骤/要点用**列表**;不要"小标题 + 大段连续文字"的形态。
+- Ponytail 式简洁:一个节点只说一件事;不写铺垫、复述、总结性废话;同一信息只出现一处。
