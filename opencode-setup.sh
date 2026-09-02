@@ -30,7 +30,8 @@ SETTINGS="$HOME/.claude-mem/settings.json"
 
 ask() { # 读 /dev/tty:curl|bash 时 stdin 是脚本管道,绝不能从 stdin 读,否则会吞掉脚本行
   local a=""
-  if { [ -t 0 ] || [ -e /dev/tty ]; } && read -r -p "$1 [y/N] " a < /dev/tty 2>/dev/null; then
+  # 不能加 2>/dev/null:read -p 的提示符写往 stderr,吞掉后提示不可见,脚本像卡死
+  if { [ -t 0 ] || [ -e /dev/tty ]; } && read -r -p "$1 [y/N] " a < /dev/tty; then
     [[ "$a" =~ ^[Yy]$ ]]
   else
     false  # 非交互环境一律默认否
