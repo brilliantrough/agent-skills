@@ -30,6 +30,18 @@ SETTINGS="$HOME/.claude-mem/settings.json"
 
 ask() { local a; read -r -p "$1 [y/N] " a; [[ "$a" =~ ^[Yy]$ ]]; }
 
+RAW="https://raw.githubusercontent.com/brilliantrough/dot_file/master"
+# fetch_cfg <url> <dest> — 已存在则征求覆盖(.bak 备份),拒绝时返回非 0
+fetch_cfg() {
+  local dest="$2"
+  if [ -f "$dest" ]; then
+    ask "$dest 已存在,用 dot_file 仓库版本覆盖?(原文件存为 .bak,占位符需重新填充)" || return 1
+    cp "$dest" "$dest.bak"
+  fi
+  mkdir -p "$(dirname "$dest")"
+  curl -fsSL -o "$dest" "$1" && echo "fetched: $dest"
+}
+
 echo "== opencode 一键配置 =="
 
 # ---- 0. 代理提醒 ----
@@ -159,9 +171,10 @@ if ENTRY not in plugins:
 PYEOF
 fi
 
-# ---- 3. 部署 settings.json 品味模板(已存在则不覆盖)----
+# ---- 3. 部署 settings.json(优先 dot_file 仓库,下载失败用内嵌模板兜底)----
+mkdir -p "$HOME/.claude-mem"
+fetch_cfg "$RAW/opencode/claude-mem.settings.json" "$SETTINGS" || true
 if [ ! -f "$SETTINGS" ]; then
-  mkdir -p "$HOME/.claude-mem"
   cat > "$SETTINGS" <<'EOF'
 {
   "CLAUDE_MEM_RUNTIME": "worker",
@@ -175,8 +188,9 @@ EOF
   echo "wrote: $SETTINGS(含占位符,待填项见文末清单)"
 fi
 
-# ---- 3.1 magic-context 配置文件(historian.model 必填,否则插件报错)+ 占位符 ----
+# ---- 3.1 magic-context 配置文件(优先 dot_file 仓库;historian.model 必填,否则插件报错)----
 MC_CFG="$HOME/.config/cortexkit/magic-context.jsonc"
+fetch_cfg "$RAW/opencode/magic-context.jsonc" "$MC_CFG" || true
 if [ ! -f "$MC_CFG" ]; then
   mkdir -p "$HOME/.config/cortexkit"
   cat > "$MC_CFG" <<'EOF'
@@ -206,7 +220,15 @@ EOF
   echo "wrote: $MC_CFG(占位符待填项见文末清单;historian/dreamer 的 model 按实际 provider/model-id 修改)"
 fi
 
-# ---- 4. MCP 查询工具 → opencode.json ----
+# ---- 4. 完整 opencode.jsonc(可选,来自 dot_file 仓库:providers/agents/mcp/插件条目/compaction)----
+cfg_full=0
+if fetch_cfg "$RAW/opencode/opencode.jsonc" "$CFG/opencode.jsonc"; then
+  sed -i "s|/home/pzy000|$HOME|g" "$CFG/opencode.jsonc"
+  echo "fetched: $CFG/opencode.jsonc(home 路径已替换;网关与 key 占位符待填,见文末清单)"
+  cfg_full=1
+fi
+
+# ---- 4.1 MCP 查询工具 → opencode.json ----
 if [ -f "$BUNDLED" ] && [ -f "$MCP_CJS" ]; then
   configured=0
   for name in opencode.jsonc opencode.json; do
@@ -273,7 +295,8 @@ PYEOF
   fi
 fi
 
-# ---- 5.1 compaction 关闭(manual setup 要求:magic-context 接管压缩)----
+# ---- 5.1 compaction 关闭(manual setup 要求:magic-context 接管压缩;完整 jsonc 已含则跳过)----
+if ! grep -qs '"compaction"' "$CFG/opencode.jsonc" "$CFG/opencode.json" 2>/dev/null; then
 python3 - "$CFG/opencode.json" <<'PYEOF'
 import json, os, sys
 path = sys.argv[1]
@@ -290,6 +313,7 @@ if "compaction" not in cfg:
         f.write("\n")
     print(f"added: compaction auto=false prune=false -> {path}")
 PYEOF
+fi
 
 # ---- 6. notify 插件(brilliantrough/opencode-notify-hub,GitHub Release 预构建包)----
 NOTIFY_TARGET="$PLUGINS/session-notify.js"
@@ -335,6 +359,7 @@ echo "== done. 需要你手工完成的 =="
 echo "1. 填占位符:"
 echo "   - $SETTINGS:BASE_URL / MODEL / API_KEY"
 echo "   - $MC_CFG:BASE_URL / API_KEY(historian、dreamer 的 model 按实际 provider/model-id 改)"
+[ "$cfg_full" -eq 1 ] && echo "   - $CFG/opencode.jsonc:网关地址 / API key 占位符"
 echo "2. 重启 claude-mem worker 并验证:"
 echo "      cd ~/.claude/plugins/marketplaces/thedotmack && npm run worker:restart"
 echo "      curl -s 127.0.0.1:37700/api/health"
