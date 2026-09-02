@@ -23,6 +23,7 @@ set -euo pipefail
 CFG="${OPENCODE_CONFIG_DIR:-$HOME/.config/opencode}"
 PLUGINS="$CFG/plugins"
 LIB="$CFG/lib"
+mkdir -p "$CFG" "$PLUGINS"
 BUNDLED="$LIB/claude-mem.js"
 MCP_CJS="$HOME/.claude/plugins/marketplaces/thedotmack/plugin/scripts/mcp-server.cjs"
 SETTINGS="$HOME/.claude-mem/settings.json"
@@ -174,6 +175,37 @@ EOF
   echo "wrote: $SETTINGS(含占位符,待填项见文末清单)"
 fi
 
+# ---- 3.1 magic-context 配置文件(historian.model 必填,否则插件报错)+ 占位符 ----
+MC_CFG="$HOME/.config/cortexkit/magic-context.jsonc"
+if [ ! -f "$MC_CFG" ]; then
+  mkdir -p "$HOME/.config/cortexkit"
+  cat > "$MC_CFG" <<'EOF'
+{
+  "$schema": "https://raw.githubusercontent.com/cortexkit/magic-context/master/assets/magic-context.schema.json",
+  "historian": {
+    "opencode": {
+      "model": "anthropic-newapi/deepseek-v4-flash"
+    }
+  },
+  "embedding": {
+    "provider": "openai-compatible",
+    "model": "text-embedding-3-large",
+    "endpoint": "<YOUR_NEWAPI_BASE_URL>",
+    "api_key": "<YOUR_API_KEY>"
+  },
+  "dreamer": {
+    "opencode": {
+      "model": "anthropic-newapi/deepseek-v4-flash"
+    }
+  },
+  "sidekick": {
+    "disable": true
+  }
+}
+EOF
+  echo "wrote: $MC_CFG(占位符待填项见文末清单;historian/dreamer 的 model 按实际 provider/model-id 修改)"
+fi
+
 # ---- 4. MCP 查询工具 → opencode.json ----
 if [ -f "$BUNDLED" ] && [ -f "$MCP_CJS" ]; then
   configured=0
@@ -241,6 +273,24 @@ PYEOF
   fi
 fi
 
+# ---- 5.1 compaction 关闭(manual setup 要求:magic-context 接管压缩)----
+python3 - "$CFG/opencode.json" <<'PYEOF'
+import json, os, sys
+path = sys.argv[1]
+cfg = {}
+if os.path.exists(path):
+    with open(path) as f:
+        text = f.read()
+    if text.strip():
+        cfg = json.loads(text)
+if "compaction" not in cfg:
+    cfg["compaction"] = {"auto": False, "prune": False}
+    with open(path, "w") as f:
+        json.dump(cfg, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    print(f"added: compaction auto=false prune=false -> {path}")
+PYEOF
+
 # ---- 6. notify 插件(brilliantrough/opencode-notify-hub,GitHub Release 预构建包)----
 NOTIFY_TARGET="$PLUGINS/session-notify.js"
 if [ ! -f "$NOTIFY_TARGET" ] && command -v curl >/dev/null 2>&1; then
@@ -282,10 +332,9 @@ command -v strictdoc >/dev/null 2>&1 || echo "提示: 未检测到 strictdoc(记
 # ---- 完成:占位符清单 + 收尾动作 ----
 echo ""
 echo "== done. 需要你手工完成的 =="
-echo "1. 填占位符: $SETTINGS"
-echo "   - CLAUDE_MEM_OPENROUTER_BASE_URL  (你的 NewAPI 网关地址)"
-echo "   - CLAUDE_MEM_OPENROUTER_MODEL     (模型名)"
-echo "   - CLAUDE_MEM_OPENROUTER_API_KEY   (API Key)"
+echo "1. 填占位符:"
+echo "   - $SETTINGS:BASE_URL / MODEL / API_KEY"
+echo "   - $MC_CFG:BASE_URL / API_KEY(historian、dreamer 的 model 按实际 provider/model-id 改)"
 echo "2. 重启 claude-mem worker 并验证:"
 echo "      cd ~/.claude/plugins/marketplaces/thedotmack && npm run worker:restart"
 echo "      curl -s 127.0.0.1:37700/api/health"
@@ -294,5 +343,7 @@ if [ -f "$NOTIFY_TARGET" ]; then
   echo "4. notify 插件环境变量 —— 在启动 opencode 的 shell 配置(~/.zshrc 或 ~/.bashrc)里 export:"
   echo "      NOTIFY_GATEWAY_URL=<你的网关地址>    NOTIFY_INGEST_KEY=<你的 ingest key>"
   echo "      可选: NOTIFY_MACHINE=<机器名>(多机区分),其余 NOTIFY_* 调参项见插件 config.ts"
+  echo "5. 重启 opencode 生效"
+else
+  echo "4. 重启 opencode 生效"
 fi
-echo "5. 重启 opencode 生效"

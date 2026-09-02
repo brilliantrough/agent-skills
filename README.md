@@ -106,13 +106,43 @@ curl 127.0.0.1:37700/api/health
 
 ### 2. magic-context
 
+plugin 条目 + 关闭 opencode 内置 compaction(magic-context 接管压缩,manual setup 要求):
+
 ```jsonc
 "plugin": [
   "@cortexkit/opencode-magic-context@latest"
-]
+],
+"compaction": { "auto": false, "prune": false }
 ```
 
-可选配置文件 `~/.config/opencode/magic-context.jsonc`,不创建即全默认;键名见上游 README。故障自检:`npx @cortexkit/magic-context@latest doctor`。
+配置文件 `~/.config/cortexkit/magic-context.jsonc`(`historian.opencode.model` 必填,缺失时 historian 失败并反复提示):
+
+```jsonc
+{
+  "$schema": "https://raw.githubusercontent.com/cortexkit/magic-context/master/assets/magic-context.schema.json",
+  "historian": {
+    "opencode": {
+      "model": "<YOUR_PROVIDER>/<YOUR_MODEL>"
+    }
+  },
+  "embedding": {
+    "provider": "openai-compatible",
+    "model": "text-embedding-3-large",
+    "endpoint": "<YOUR_NEWAPI_BASE_URL>",
+    "api_key": "<YOUR_API_KEY>"
+  },
+  "dreamer": {
+    "opencode": {
+      "model": "<YOUR_PROVIDER>/<YOUR_MODEL>"
+    }
+  },
+  "sidekick": {
+    "disable": true
+  }
+}
+```
+
+故障自检:`npx @cortexkit/magic-context@latest doctor`。
 
 ### 3. ponytail
 
