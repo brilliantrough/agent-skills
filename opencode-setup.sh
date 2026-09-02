@@ -47,7 +47,8 @@ fetch_cfg() {
     cp "$dest" "$dest.bak"
   fi
   mkdir -p "$(dirname "$dest")"
-  curl -fsSL -o "$dest" "$1" && echo "fetched: $dest"
+  echo "fetching: $1"
+  curl -fsSL --connect-timeout 8 -m 30 -o "$dest" "$1" && echo "fetched: $dest"
 }
 
 echo "== opencode 一键配置 =="
@@ -69,7 +70,7 @@ command -v python3 >/dev/null 2>&1 || { echo "ERROR: 未检测到 python3(配置
 if ! command -v npx >/dev/null 2>&1; then
   echo "未检测到 npx(claude-mem 官方安装器与 skills 安装需要 Node)。"
   if ask "是否安装 fnm + Node LTS？"; then
-    curl -fsSL https://fnm.vercel.app/install | bash
+    curl -fsSL --connect-timeout 8 -m 60 https://fnm.vercel.app/install | bash
     export PATH="$HOME/.local/share/fnm:$PATH"
     eval "$(fnm env)"
     fnm install --lts
@@ -86,7 +87,7 @@ fi
 if ! command -v bun >/dev/null 2>&1; then
   echo "未检测到 bun(claude-mem 的 MCP server 依赖 bun:sqlite,node 运行会崩)。"
   if ask "是否安装 bun？"; then
-    curl -fsSL https://bun.sh/install | bash
+    curl -fsSL --connect-timeout 8 -m 60 https://bun.sh/install | bash
     export PATH="$HOME/.bun/bin:$PATH"
   else
     echo "跳过 bun(claude-mem MCP 工具将无法运行)"
