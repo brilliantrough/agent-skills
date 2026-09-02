@@ -76,7 +76,8 @@ BUN_BIN="$(command -v bun 2>/dev/null || echo "$HOME/.bun/bin/bun")"
 # ---- 2. claude-mem:安装(只为拿 bundle / MCP 资产)+ 修复 ----
 if [ ! -f "$BUNDLED" ] && [ ! -f "$PLUGINS/claude-mem.js" ]; then
   if command -v npx >/dev/null 2>&1 && ask "未找到 claude-mem,运行官方安装器 npx claude-mem install --ide opencode?"; then
-    npx -y claude-mem install --ide opencode
+    # </dev/null:非 TTY 让安装器结尾的 cmem Pro 试用推销自动跳过(skip = 继续本地生成)
+    npx -y claude-mem install --ide opencode < /dev/null
   fi
 fi
 
