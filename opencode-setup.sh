@@ -42,6 +42,10 @@ RAW="https://raw.githubusercontent.com/brilliantrough/dot_file/master"
 # fetch_cfg <url> <dest> — 已存在则征求覆盖(.bak 备份),拒绝时返回非 0
 fetch_cfg() {
   local dest="$2"
+  if [ -L "$dest" ]; then
+    echo "跳过: $dest 是符号链接(指向 $(readlink "$dest")),不覆盖以免破坏链接目标"
+    return 1
+  fi
   if [ -f "$dest" ]; then
     ask "$dest 已存在,用 dot_file 仓库版本覆盖?(原文件存为 .bak,占位符需重新填充)" || return 1
     cp "$dest" "$dest.bak"
