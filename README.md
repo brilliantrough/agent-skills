@@ -47,6 +47,12 @@ skill 装在 `~/.agents/skills/`,重开 agent session 生效。
 一键脚本(交互确认、幂等,含占位符清单输出):
 
 ```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/opencode-setup.sh)"
+```
+
+或克隆仓库后本地执行:
+
+```bash
 bash opencode-setup.sh
 ```
 
