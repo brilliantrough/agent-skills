@@ -28,7 +28,14 @@ BUNDLED="$LIB/claude-mem.js"
 MCP_CJS="$HOME/.claude/plugins/marketplaces/thedotmack/plugin/scripts/mcp-server.cjs"
 SETTINGS="$HOME/.claude-mem/settings.json"
 
-ask() { local a; read -r -p "$1 [y/N] " a; [[ "$a" =~ ^[Yy]$ ]]; }
+ask() { # 读 /dev/tty:curl|bash 时 stdin 是脚本管道,绝不能从 stdin 读,否则会吞掉脚本行
+  local a=""
+  if { [ -t 0 ] || [ -e /dev/tty ]; } && read -r -p "$1 [y/N] " a < /dev/tty 2>/dev/null; then
+    [[ "$a" =~ ^[Yy]$ ]]
+  else
+    false  # 非交互环境一律默认否
+  fi
+}
 
 RAW="https://raw.githubusercontent.com/brilliantrough/dot_file/master"
 # fetch_cfg <url> <dest> — 已存在则征求覆盖(.bak 备份),拒绝时返回非 0
