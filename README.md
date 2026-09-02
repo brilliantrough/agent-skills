@@ -52,7 +52,7 @@ bash opencode-setup.sh
 
 ## 插件配置(其他服务器)
 
-skills 只是说明书,三层记忆栈的运行依赖三个 opencode 插件:claude-mem、magic-context、ponytail。
+skills 只是说明书,三层记忆栈的运行依赖四个 opencode 插件:claude-mem、magic-context、ponytail、notify。
 
 **推荐:直接跑 `bash opencode-setup.sh`**,下列手工步骤它全部自动化(依赖安装与 claude-mem 安装均先征得同意)。手工步骤留作参考与故障排查。
 
@@ -140,7 +140,16 @@ plugin 条目加一行:
 ]
 ```
 
-### opencode.jsonc 汇总(新服务器最小可用)
+### 4. notify(brilliantrough/opencode-notify-hub)
+
+从 GitHub Release 下载预构建包,放进 `plugins/` 目录即自动加载(无需 config 条目);`opencode-setup.sh` 已自动化:
+
+- 脚本自动取最新 release(含 pre-release)的 `opencode-notify-plugin-*.zip`,解出 `session-notify.js` 落到 `~/.config/opencode/plugins/`
+- 环境变量在**启动 opencode 的 shell 配置**(~/.zshrc 或 ~/.bashrc)里 export:
+  - `NOTIFY_GATEWAY_URL`、`NOTIFY_INGEST_KEY`(**必填**)
+  - 可选:`NOTIFY_MACHINE`(多机区分)、`NOTIFY_HEARTBEAT_MS`/`NOTIFY_QUEUE_CAPACITY` 等调参项(见仓库 packages/plugin/src/config.ts)
+
+## opencode.jsonc 汇总(新服务器最小可用)
 
 本机 opencode.json / opencode.jsonc 并存是历史遗留;新服务器建议全部写进一个 `~/.config/opencode/opencode.jsonc`:
 

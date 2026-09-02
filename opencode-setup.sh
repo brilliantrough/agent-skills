@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# opencode-setup.sh — 个人 opencode 一键配置(claude-mem + magic-context + ponytail + skills 本体)
+# opencode-setup.sh — 个人 opencode 一键配置(claude-mem + magic-context + ponytail + notify + skills 本体)
 # 仓库: brilliantrough/agent-skills
 #
 # 干什么(交互确认 + 幂等,重复跑安全):
@@ -240,7 +240,34 @@ PYEOF
   fi
 fi
 
-# ---- 6. skills 本体 ----
+# ---- 6. notify 插件(brilliantrough/opencode-notify-hub,GitHub Release 预构建包)----
+NOTIFY_TARGET="$PLUGINS/session-notify.js"
+if [ ! -f "$NOTIFY_TARGET" ] && command -v curl >/dev/null 2>&1; then
+  if ask "未找到 notify 插件,从 GitHub Release 下载最新 opencode-notify-plugin?"; then
+    python3 - "$PLUGINS" <<'PYEOF' || echo "WARN: notify 插件下载失败,可按仓库 PLUGIN-INSTALL.md 手动安装" >&2
+import json, os, sys, urllib.request, zipfile
+plugins_dir = sys.argv[1]
+api = "https://api.github.com/repos/brilliantrough/opencode-notify-hub/releases"
+req = urllib.request.Request(api, headers={"User-Agent": "opencode-setup"})
+rels = json.load(urllib.request.urlopen(req, timeout=30))
+url = next((a["browser_download_url"] for r in rels if not r.get("draft")
+            for a in r.get("assets", [])
+            if a["name"].startswith("opencode-notify-plugin-") and a["name"].endswith(".zip")), None)
+if not url:
+    raise SystemExit("release 中没有 opencode-notify-plugin-*.zip 资产")
+print("downloading:", url)
+tmp, _ = urllib.request.urlretrieve(url)
+os.makedirs(plugins_dir, exist_ok=True)
+with zipfile.ZipFile(tmp) as z:
+    name = next(n for n in z.namelist() if n.endswith("session-notify.js"))
+    with z.open(name) as src, open(os.path.join(plugins_dir, "session-notify.js"), "wb") as dst:
+        dst.write(src.read())
+print("installed: plugins/session-notify.js")
+PYEOF
+  fi
+fi
+
+# ---- 7. skills 本体 ----
 if [ ! -d "$HOME/.agents/skills/load-mem" ]; then
   if command -v npx >/dev/null 2>&1 && ask "安装 skills 本体(brilliantrough/agent-skills 全部 11 个)?"; then
     # || true:PromptScript 等无关 agent 不支持全局安装会报错退出,但其余目标已装好
@@ -248,7 +275,7 @@ if [ ! -d "$HOME/.agents/skills/load-mem" ]; then
   fi
 fi
 
-# ---- 7. strictdoc 检查(只提醒,不代装——env 管理器是用户的选择)----
+# ---- 8. strictdoc 检查(只提醒,不代装——env 管理器是用户的选择)----
 command -v strictdoc >/dev/null 2>&1 || echo "提示: 未检测到 strictdoc(记忆 skill 的 .sdoc 校验依赖)。建议装进项目 venv/conda:pip install strictdoc==0.28.1"
 
 # ---- 完成:占位符清单 + 收尾动作 ----
@@ -262,4 +289,9 @@ echo "2. 重启 claude-mem worker 并验证:"
 echo "      cd ~/.claude/plugins/marketplaces/thedotmack && npm run worker:restart"
 echo "      curl -s 127.0.0.1:37700/api/health"
 echo "3. 项目接入记忆系统: 把本仓库 AGENTS.md 中 memory-system:start/end 之间的块,粘进项目 AGENTS.md"
-echo "4. 重启 opencode 生效"
+if [ -f "$NOTIFY_TARGET" ]; then
+  echo "4. notify 插件环境变量 —— 在启动 opencode 的 shell 配置(~/.zshrc 或 ~/.bashrc)里 export:"
+  echo "      NOTIFY_GATEWAY_URL=<你的网关地址>    NOTIFY_INGEST_KEY=<你的 ingest key>"
+  echo "      可选: NOTIFY_MACHINE=<机器名>(多机区分),其余 NOTIFY_* 调参项见插件 config.ts"
+fi
+echo "5. 重启 opencode 生效"
