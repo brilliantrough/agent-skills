@@ -8,12 +8,14 @@
 #      bun(缺 → 征得同意装,MCP server 依赖 bun:sqlite)
 #   2. claude-mem:未装 → 征得同意跑官方安装器(只为拿 bundle 和 MCP 资产);然后修复
 #      upstream bug(bundle 移出 plugins/ → lib/,写 wrapper;thedotmack/claude-mem#2854/#3328)
-#   3. 清理 config 里失效的 claude-mem 插件条目(官方安装器每次都会重新注册)
-#   4. 部署 ~/.claude-mem/settings.json 品味模板(已存在则不覆盖);占位符见文末清单
+#   3. 清理 config 里失效的 claude-mem 插件条目(官方安装器每次都会重新注册);
+#      部署 ~/.claude-mem/settings.json 品味模板(已存在则不覆盖)
+#   4. 部署/更新 ~/.config/opencode/opencode.json(模板来自 dot_file 仓库:providers/agents/mcp/
+#      插件条目/compaction)。已存在则只覆盖各 provider 的 models,apiKey 等本地字段保留;
+#      老 opencode.jsonc 的值自动并入后退役为 .migrated.bak
 #   5. MCP 查询工具(插件本体不带工具,MCP 是唯一来源)→ 自动写 opencode.json
 #   6. 插件条目:magic-context + ponytail 直接写入 opencode.json(不跑官方交互 setup,
-#      magic-context 无配置文件即全默认,与本机品味一致)。只写纯 JSON 的 opencode.json
-#      (带注释的 jsonc 留给用户手动维护,两份 config opencode 深度合并)
+#      magic-context 无配置文件即全默认,与本机品味一致)。统一纯 JSON 的 opencode.json
 #   7. skills 本体:npx skills add brilliantrough/agent-skills --all -g -y
 #
 # 用法:bash opencode-setup.sh   (遵循 OPENCODE_CONFIG_DIR,与官方安装器一致)
@@ -234,13 +236,84 @@ EOF
   echo "wrote: $MC_CFG(占位符待填项见文末清单;historian/dreamer 的 model 按实际 provider/model-id 修改)"
 fi
 
-# ---- 4. 完整 opencode.jsonc(可选,来自 dot_file 仓库:providers/agents/mcp/插件条目/compaction)----
+# ---- 4. opencode.json(来自 dot_file 仓库:providers/agents/mcp/插件条目/compaction)----
+# 已存在则只覆盖各 provider 的 models(新模型自动下发),options(apiKey/网关)等本地字段保留;
+# 老 opencode.jsonc 的值自动并入 opencode.json 后退役为 .migrated.bak
 cfg_full=0
-if fetch_cfg "$RAW/opencode/opencode.jsonc" "$CFG/opencode.jsonc"; then
-  sed -i "s|/home/pzy000|$HOME|g" "$CFG/opencode.jsonc"
-  echo "fetched: $CFG/opencode.jsonc(home 路径已替换;网关与 key 占位符待填,见文末清单)"
+oc_tpl="$(mktemp)"
+if curl -fsSL --connect-timeout 8 -m 30 -o "$oc_tpl" "$RAW/opencode/opencode.json"; then
+  python3 - "$CFG/opencode.json" "$CFG/opencode.jsonc" "$oc_tpl" "$HOME" <<'PYEOF'
+import json, re, os, sys, shutil, datetime
+
+target_p, jsonc_p, tpl_p, home = sys.argv[1:5]
+
+def strip_jsonc(t):  # 注释感知的 JSONC 剥离(字符串内的 // 不动),顺带去掉尾逗号
+    out, i, n, instr = [], 0, len(t), False
+    while i < n:
+        c = t[i]
+        if instr:
+            out.append(c)
+            if c == '\\': out.append(t[i + 1]); i += 2; continue
+            if c == '"': instr = False
+            i += 1; continue
+        if c == '"': instr = True; out.append(c); i += 1; continue
+        if c == '/' and i + 1 < n and t[i + 1] == '/':
+            while i < n and t[i] != '\n': i += 1
+            continue
+        if c == '/' and i + 1 < n and t[i + 1] == '*':
+            i += 2
+            while i + 1 < n and not (t[i] == '*' and t[i + 1] == '/'): i += 1
+            i += 2; continue
+        out.append(c); i += 1
+    return re.sub(r',(\s*[}\]])', r'\1', ''.join(out))
+
+def load(p):
+    try:
+        return json.loads(strip_jsonc(open(p, encoding='utf-8').read()))
+    except Exception:
+        return {}
+
+def deep_merge(base, over):  # over 优先(本地值优先),dict 递归
+    if isinstance(base, dict) and isinstance(over, dict):
+        out = dict(base)
+        for k, v in over.items():
+            out[k] = deep_merge(base.get(k), v) if k in base else v
+        return out
+    return over
+
+tpl = json.load(open(tpl_p, encoding='utf-8'))
+if home != '/home/pzy000':
+    tpl = json.loads(json.dumps(tpl).replace('/home/pzy000', home))
+
+live_json, live_jsonc = load(target_p), load(jsonc_p)
+live = live_json if live_json.get('provider') else (live_jsonc or live_json)
+
+merged = deep_merge(tpl, live)
+tpl_prov = tpl.get('provider') or {}
+merged.setdefault('provider', {})
+for name, p in tpl_prov.items():
+    if name not in merged['provider']:
+        merged['provider'][name] = p
+    else:
+        merged['provider'][name]['models'] = p.get('models', {})
+
+with open(target_p + '.tmp', 'w', encoding='utf-8') as f:
+    json.dump(merged, f, indent=2, ensure_ascii=False)
+    f.write('\n')
+os.replace(target_p + '.tmp', target_p)
+print(('updated: %s(%d 个 provider 的 models 已按模板覆盖,本地字段保留)' % (target_p, len(tpl_prov))) if live
+      else ('wrote: %s(占位符待填,见文末清单)' % target_p))
+
+if os.path.exists(jsonc_p):
+    bak = jsonc_p + '.migrated-' + datetime.datetime.now().strftime('%Y%m%d%H%M%S') + '.bak'
+    shutil.move(jsonc_p, bak)
+    print('retired: %s -> %s(值已并入 opencode.json)' % (jsonc_p, bak))
+PYEOF
   cfg_full=1
+else
+  echo "跳过: opencode.json 模板下载失败(检查代理),现有配置未改动"
 fi
+rm -f "$oc_tpl"
 
 # ---- 4.1 MCP 查询工具 → opencode.json ----
 if [ -f "$BUNDLED" ] && [ -f "$MCP_CJS" ]; then
@@ -373,7 +446,7 @@ echo "== done. 需要你手工完成的 =="
 echo "1. 填占位符:"
 echo "   - $SETTINGS:BASE_URL / MODEL / API_KEY"
 echo "   - $MC_CFG:BASE_URL / API_KEY(historian、dreamer 的 model 按实际 provider/model-id 改)"
-[ "$cfg_full" -eq 1 ] && echo "   - $CFG/opencode.jsonc:网关地址 / API key 占位符"
+[ "$cfg_full" -eq 1 ] && echo "   - $CFG/opencode.json:网关地址 / API key 占位符(仅首次部署需填;之后脚本更新只覆盖 models)"
 echo "2. 重启 claude-mem worker 并验证:"
 echo "      cd ~/.claude/plugins/marketplaces/thedotmack && npm run worker:restart"
 echo "      curl -s 127.0.0.1:37700/api/health"
