@@ -290,12 +290,14 @@ live = live_json if live_json.get('provider') else (live_jsonc or live_json)
 
 merged = deep_merge(tpl, live)
 tpl_prov = tpl.get('provider') or {}
-merged.setdefault('provider', {})
+live_prov = live.get('provider') or {}
+mp = merged.setdefault('provider', {})
 for name, p in tpl_prov.items():
-    if name not in merged['provider']:
-        merged['provider'][name] = p
-    else:
-        merged['provider'][name]['models'] = p.get('models', {})
+    if name in live_prov:
+        # 已存在的 provider:本地节点原样保留(options/apiKey 一个字节都不动),只换 models
+        mp[name] = {**live_prov[name], 'models': p.get('models', {})}
+    elif name not in mp:
+        mp[name] = p  # 模板新增的 provider:整块加入(含占位符 options,待首次填写)
 
 with open(target_p + '.tmp', 'w', encoding='utf-8') as f:
     json.dump(merged, f, indent=2, ensure_ascii=False)
