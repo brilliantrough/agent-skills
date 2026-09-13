@@ -1,6 +1,6 @@
 # agent-skills
 
-个人 agent skills 集,含三层记忆系统与任务工作流。
+个人 agent skills 集,含三层记忆系统、任务工作流与个人前端品味。
 
 ```bash
 npx skills@latest add brilliantrough/agent-skills --all -g -y
@@ -8,7 +8,7 @@ npx skills@latest add brilliantrough/agent-skills --all -g -y
 
 skill 装在 `~/.agents/skills/`,重开 agent session 生效。
 
-## Skills(11 个)
+## Skills(12 个)
 
 来自 [mattpocock/skills](https://github.com/mattpocock/skills)(MIT,见 [NOTICE](NOTICE.md)):
 
@@ -36,11 +36,17 @@ skill 装在 `~/.agents/skills/`,重开 agent session 生效。
 | `plan-brief` | 复杂需求 → 盘问细节 → 计划文档 `docs/plans/<slug>.md` + 启动 prompt → 新会话执行 → 开发报告 `<slug>.report.md` → 审查 `<slug>.review.md`。验证模式:TDD(快反馈代码)/ smoke-and-read(科研长任务) |
 | `quick-do` | 简单任务当前会话直接完成:不写计划、不测试、完工只报一行 |
 
+自制·个人领域知识:
+
+| Skill | 用途 |
+|---|---|
+| `personal-ui-taste` | 个人前端审美:已确认偏好、场景规则(浅色信息密集界面 / 预览型工作台)、交互陷阱、反馈演化协议 |
+
 ## 依赖
 
 - 6 个 Matt 的 skill:零依赖
 - 3 个记忆 skill:依赖三层记忆栈(magic-context `ctx_memory` 插件、claude-mem、`docs/` StrictDoc 结构);项目 `AGENTS.md` 需粘入本仓库 [AGENTS.md](AGENTS.md) 中 `memory-system:start/end` 之间的触发块
-- 2 个工作流 skill:无硬依赖,品味内联
+- 2 个工作流 + 1 品味 skill:无硬依赖,品味内联
 
 ## 插件配置
 
