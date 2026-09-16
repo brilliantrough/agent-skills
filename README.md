@@ -1,12 +1,20 @@
 # agent-skills
 
-个人 agent skills 集,含三层记忆系统、任务工作流与个人前端品味。
+个人 agent skills 集，含三层记忆系统、任务工作流与个人前端品味。
+
+**① 装 skills**（装到 `~/.agents/skills/`，重开 agent session 生效）：
 
 ```bash
 npx skills@latest add brilliantrough/agent-skills --all -g -y
 ```
 
-skill 装在 `~/.agents/skills/`,重开 agent session 生效。
+**② 配 opencode 插件**（交互确认、幂等，含占位符清单输出）：
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/opencode-setup.sh)"
+```
+
+或在克隆的仓库里 `bash opencode-setup.sh`。
 
 ## Skills(12 个)
 
@@ -48,21 +56,9 @@ skill 装在 `~/.agents/skills/`,重开 agent session 生效。
 - 3 个记忆 skill:依赖三层记忆栈(magic-context `ctx_memory` 插件、claude-mem、`docs/` StrictDoc 结构);项目 `AGENTS.md` 需粘入本仓库 [AGENTS.md](AGENTS.md) 中 `memory-system:start/end` 之间的触发块
 - 2 个工作流 + 1 品味 skill:无硬依赖,品味内联
 
-## 插件配置
+## 插件配置（手工步骤）
 
-一键脚本(交互确认、幂等,含占位符清单输出):
-
-```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/opencode-setup.sh)"
-```
-
-或克隆仓库后本地执行:
-
-```bash
-bash opencode-setup.sh
-```
-
-手工步骤如下。
+一键命令见顶部；下面是不用脚本时的手工步骤。
 
 ### 1. claude-mem
 
