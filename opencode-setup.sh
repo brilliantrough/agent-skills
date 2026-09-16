@@ -69,7 +69,7 @@ merge_cfg() {
   if [ ! -f "$dest" ]; then
     mkdir -p "$(dirname "$dest")"
     cp "$tmp" "$dest"
-    echo "wrote: $dest(含占位符,待填项见文末清单)"
+    echo "wrote: $dest(含占位符)"
     rm -f "$tmp"
     return 0
   fi
@@ -145,7 +145,7 @@ elif net_ok 2>/dev/null; then
   echo "未设代理环境变量,但直连 github.com 可达(可能是透明代理),继续"
 else
   echo "提醒: 未检测到代理环境变量(大小写的 http(s)_proxy / all_proxy 都查了),且直连 github.com 不通。"
-  echo "      国内网络下 curl / npm / npx 下载可能长时间卡住,建议先配置代理再执行;有透明代理则可忽略。"
+  echo "      建议先 export http_proxy/https_proxy 再继续;有透明代理则可忽略。"
   ask "仍要继续吗？" || exit 1
 fi
 
@@ -200,7 +200,8 @@ if [ ! -f "$BUNDLED" ]; then
   echo "WARN: 没有 claude-mem bundle,跳过 claude-mem 相关配置" >&2
 else
   mkdir -p "$PLUGINS"
-  cat > "$PLUGINS/claude-mem-wrapper.js" <<'EOF'
+  w_tmp="$(mktemp)"
+  cat > "$w_tmp" <<'EOF'
 // Wrapper for claude-mem's OpenCode plugin.
 // Works around upstream bug (thedotmack/claude-mem#2854/#3328): the bundled
 // claude-mem.js exports non-function constants (REAL_OPENCODE_EVENT_TYPES,
@@ -211,7 +212,8 @@ import { ClaudeMemPlugin } from "../lib/claude-mem.js";
 
 export default ClaudeMemPlugin;
 EOF
-  echo "wrote: plugins/claude-mem-wrapper.js"
+  if cmp -s "$w_tmp" "$PLUGINS/claude-mem-wrapper.js"; then rm -f "$w_tmp"
+  else mv "$w_tmp" "$PLUGINS/claude-mem-wrapper.js"; echo "wrote: plugins/claude-mem-wrapper.js"; fi
 
   # ---- 2.1 清理两份 config 里官方安装器注册的失效插件条目 ----
   for name in opencode.jsonc opencode.json; do
@@ -261,7 +263,7 @@ if [ ! -f "$SETTINGS" ]; then
   "CLAUDE_MEM_OPENROUTER_API_KEY": "<YOUR_API_KEY>"
 }
 EOF
-  echo "wrote: $SETTINGS(含占位符,待填项见文末清单)"
+  echo "wrote: $SETTINGS(含占位符)"
 fi
 
 # ---- 3.1 magic-context 配置文件(字段级合并 dot_file 模板;historian.model 必填,否则插件报错)----
@@ -290,7 +292,7 @@ if [ ! -f "$MC_CFG" ]; then
   }
 }
 EOF
-  echo "wrote: $MC_CFG(占位符待填项见文末清单;historian/dreamer 的 model 按实际 provider/model-id 修改)"
+  echo "wrote: $MC_CFG(含占位符;historian/dreamer 的 model 用 <provider>/<model-id>)"
 fi
 
 # ---- 4. opencode.json(来自 dot_file 仓库:providers/agents/mcp/插件条目/compaction)----
@@ -368,7 +370,7 @@ else:
         f.write(out)
     os.replace(target_p + '.tmp', target_p)
     print(('updated: %s(%d 个 provider 的 models 已按模板覆盖,本地字段保留)' % (target_p, len(tpl_prov))) if live
-          else ('wrote: %s(占位符待填,见文末清单)' % target_p))
+          else ('wrote: %s(含占位符)' % target_p))
 
 if os.path.exists(jsonc_p):
     bak = jsonc_p + '.migrated-' + datetime.datetime.now().strftime('%Y%m%d%H%M%S') + '.bak'
@@ -432,7 +434,7 @@ print(f"added: mcp.claude-mem -> {path}")
 PYEOF
   fi
 elif [ -f "$BUNDLED" ]; then
-  echo "WARN: 未找到 $MCP_CJS,跳过 MCP 配置(先完成 claude-mem 官方安装)" >&2
+  echo "WARN: 未找到 claude-mem 的 mcp-server.cjs,跳过 MCP 配置" >&2
 fi
 
 # ---- 4.2 codegraph MCP(预索引代码知识图谱;CLI 提供 graph,MCP 只是入口)----
@@ -585,7 +587,7 @@ PYEOF
 NOTIFY_TARGET="$PLUGINS/session-notify.js"
 if [ ! -f "$NOTIFY_TARGET" ] && command -v curl >/dev/null 2>&1; then
   if ask "未找到 notify 插件,从 GitHub Release 下载最新 opencode-notify-plugin?" Y; then
-    python3 - "$PLUGINS" <<'PYEOF' || echo "WARN: notify 插件下载失败,可按仓库 PLUGIN-INSTALL.md 手动安装" >&2
+    python3 - "$PLUGINS" <<'PYEOF' || echo "WARN: notify 插件下载失败(检查代理)" >&2
 import json, os, sys, urllib.request, zipfile
 plugins_dir = sys.argv[1]
 api = "https://api.github.com/repos/brilliantrough/opencode-notify-hub/releases"
@@ -617,15 +619,15 @@ if [ ! -d "$HOME/.agents/skills/load-mem" ]; then
 fi
 
 # ---- 8. strictdoc 检查(只提醒,不代装——env 管理器是用户的选择)----
-command -v strictdoc >/dev/null 2>&1 || echo "提示: 未检测到 strictdoc(记忆 skill 的 .sdoc 校验依赖)。建议装进项目 venv/conda:pip install strictdoc==0.28.1"
+command -v strictdoc >/dev/null 2>&1 || echo "提示: 未检测到 strictdoc(记忆 skill 的 .sdoc 校验依赖),可在项目环境 pip install strictdoc==0.28.1"
 
 # ---- 完成:占位符清单 + 收尾动作 ----
 echo ""
 echo "== done. 需要你手工完成的 =="
 n=1
 echo "$n. 填占位符:"; n=$((n+1))
-echo "   - $SETTINGS:BASE_URL / MODEL / API_KEY(provider=openrouter 走 OpenAI 协议 /chat/completions + Bearer,填 OpenAI 协议的 key)"
-echo "   - $MC_CFG:BASE_URL / API_KEY(historian、dreamer 的 model 按实际 provider/model-id 改)"
+echo "   - $SETTINGS:BASE_URL / MODEL / API_KEY(openrouter 走 OpenAI 协议,填 OpenAI 协议的 key,不是 Anthropic 的)"
+echo "   - $MC_CFG:BASE_URL / API_KEY;historian/dreamer 的 model 用 <provider>/<model-id>"
 [ "$cfg_full" -eq 1 ] && echo "   - $CFG/opencode.json:网关地址 / API key 占位符(仅首次部署需填;之后脚本更新只覆盖 models)"
 echo "$n. 重启 claude-mem worker 并验证:"; n=$((n+1))
 echo "      cd ~/.claude/plugins/marketplaces/thedotmack && npm run worker:restart"
@@ -637,6 +639,6 @@ fi
 if [ -f "$NOTIFY_TARGET" ]; then
   echo "$n. notify 插件环境变量 —— 在启动 opencode 的 shell 配置(~/.zshrc 或 ~/.bashrc)里 export:"; n=$((n+1))
   echo "      NOTIFY_GATEWAY_URL=<你的网关地址>    NOTIFY_INGEST_KEY=<你的 ingest key>"
-  echo "      可选: NOTIFY_MACHINE=<机器名>(多机区分),其余 NOTIFY_* 调参项见插件 config.ts"
+  echo "      可选: NOTIFY_MACHINE=<机器名>(多机区分)"
 fi
 echo "$n. 重启 opencode 生效"
