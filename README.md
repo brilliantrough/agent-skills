@@ -147,9 +147,6 @@ plugin 条目 + 关闭 opencode 内置 compaction(magic-context 接管压缩,man
     "opencode": {
       "model": "<YOUR_PROVIDER>/<YOUR_MODEL>"
     }
-  },
-  "sidekick": {
-    "disable": true
   }
 }
 ```
