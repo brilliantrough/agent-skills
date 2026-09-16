@@ -22,7 +22,7 @@
 #      → 写入纯 JSON 的 opencode.json(及 TUI 的 tui.jsonc)
 #   6. notify 插件(brilliantrough/opencode-notify-hub,GitHub Release 预构建包)
 #   7. skills 本体:npx skills add brilliantrough/agent-skills --all -g -y
-#   8. strictdoc 检查(只提醒,不代装——env 管理器是用户的选择)
+#   8. uv(缺则装)+ strictdoc(用 uv tool 全局安装,.sdoc 校验依赖)
 #
 # 用法:bash opencode-setup.sh   (遵循 OPENCODE_CONFIG_DIR,与官方安装器一致)
 
@@ -664,8 +664,31 @@ elif ask "安装 skills 本体(brilliantrough/agent-skills 全部 12 个)?" Y; t
   npx -y skills@latest add brilliantrough/agent-skills --all -g -y || true
 fi
 
-# ---- 8. strictdoc 检查(只提醒,不代装——env 管理器是用户的选择)----
-command -v strictdoc >/dev/null 2>&1 || echo "提示: 未检测到 strictdoc(记忆 skill 的 .sdoc 校验依赖),可在项目环境 pip install strictdoc==0.28.1"
+# ---- 8. uv(可选)+ strictdoc(.sdoc 校验依赖)----
+UVP="$HOME/.local/bin/uv"
+if ! command -v uv >/dev/null 2>&1 && [ ! -x "$UVP" ]; then
+  if ask "未检测到 uv,安装 uv(astral.sh 官方脚本,装到 ~/.local/bin)?" Y; then
+    uv_sh="$(mktemp)"
+    if curl -fsSL --connect-timeout 8 -m 60 -o "$uv_sh" https://astral.sh/uv/install.sh; then
+      UV_INSTALL_DIR="$HOME/.local/bin" UV_NO_MODIFY_PATH=1 sh "$uv_sh" \
+        || echo "WARN: uv 安装脚本退出码非 0,请看上方输出" >&2
+    else
+      echo "WARN: uv 安装脚本下载失败(检查代理)" >&2
+    fi
+    rm -f "$uv_sh"
+  fi
+fi
+UV_BIN="$(command -v uv 2>/dev/null || echo "$UVP")"
+if [ -x "$UV_BIN" ]; then
+  export PATH="$HOME/.local/bin:$PATH"
+  if command -v strictdoc >/dev/null 2>&1; then
+    echo "strictdoc 已存在,跳过(升级: uv tool upgrade strictdoc)"
+  elif ask "用 uv 全局安装 strictdoc==0.28.1(.sdoc 校验依赖)?" Y; then
+    "$UV_BIN" tool install strictdoc==0.28.1 || echo "WARN: strictdoc 安装失败(可稍后重试)" >&2
+  fi
+else
+  echo "提示: 未检测到 uv,跳过 strictdoc 安装(.sdoc 校验依赖);装好 uv 后重跑本脚本即可"
+fi
 
 # ---- 完成:占位符清单 + 收尾动作 ----
 echo ""
