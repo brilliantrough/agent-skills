@@ -609,7 +609,7 @@ echo ""
 echo "== done. 需要你手工完成的 =="
 n=1
 echo "$n. 填占位符:"; n=$((n+1))
-echo "   - $SETTINGS:BASE_URL / MODEL / API_KEY"
+echo "   - $SETTINGS:BASE_URL / MODEL / API_KEY(provider=openrouter 走 OpenAI 协议 /chat/completions + Bearer,填 OpenAI 协议的 key)"
 echo "   - $MC_CFG:BASE_URL / API_KEY(historian、dreamer 的 model 按实际 provider/model-id 改)"
 [ "$cfg_full" -eq 1 ] && echo "   - $CFG/opencode.json:网关地址 / API key 占位符(仅首次部署需填;之后脚本更新只覆盖 models)"
 echo "$n. 重启 claude-mem worker 并验证:"; n=$((n+1))

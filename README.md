@@ -109,6 +109,8 @@ bun 安装:`curl -fsSL https://bun.sh/install | bash`。
 }
 ```
 
+`CLAUDE_MEM_PROVIDER=openrouter` 走的是 **OpenAI Chat Completions 协议**(`POST <BASE_URL>/chat/completions`,`Authorization: Bearer <key>`),不是 Anthropic 的 `/v1/messages` + `x-api-key`。所以 `..._API_KEY` 要填 **OpenAI 协议**的 key,`..._BASE_URL` 填 OpenAI 兼容网关地址(同一网关若两套协议 key 不同,用 OpenAI 那个)。
+
 填完占位符后:
 
 ```bash
