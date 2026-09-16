@@ -6,17 +6,20 @@
 #   0. 代理环境提醒(国内网络下载易卡;http_proxy/https_proxy 未设时要求确认)
 #   1. 依赖检查:python3(配置写入用,缺失则退出)、npx(缺 → 征得同意装 fnm + Node LTS)、
 #      bun(缺 → 征得同意装,MCP server 依赖 bun:sqlite)
-#   2. claude-mem:未装 → 征得同意跑官方安装器(只为拿 bundle 和 MCP 资产);然后修复
-#      upstream bug(bundle 移出 plugins/ → lib/,写 wrapper;thedotmack/claude-mem#2854/#3328)
-#   3. 清理 config 里失效的 claude-mem 插件条目(官方安装器每次都会重新注册);
-#      部署 ~/.claude-mem/settings.json 品味模板(已存在则不覆盖)
-#   4. 部署/更新 ~/.config/opencode/opencode.json(模板来自 dot_file 仓库:providers/agents/mcp/
-#      插件条目/compaction)。已存在则只覆盖各 provider 的 models,apiKey 等本地字段保留;
+#   2. claude-mem:未装 → 征得同意跑官方安装器(只为拿 bundle 和 MCP 资产,--provider claude
+#      是唯一免浏览器 OAuth 的选项);然后修复 upstream bug(bundle 移出 plugins/ → lib/,
+#      写 wrapper;thedotmack/claude-mem#2854/#3328)。再清理 config 里失效的 claude-mem 插件条目
+#      (官方安装器每次都会重新注册),并确保 wrapper 条目存在
+#   3. 部署 ~/.claude-mem/settings.json 与 ~/.config/cortexkit/magic-context.jsonc(dot_file 仓库
+#      模板,下载失败用内嵌兜底;settings 已存在时征得同意才覆盖,拒绝则保留)
+#   4. 部署/更新 ~/.config/opencode/opencode.json(dot_file 模板:providers/agents/mcp/插件条目/
+#      compaction)。已存在则只覆盖各 provider 的 models,apiKey 等本地字段原样保留;
 #      老 opencode.jsonc 的值自动并入后退役为 .migrated.bak
-#   5. MCP 查询工具(插件本体不带工具,MCP 是唯一来源)→ 自动写 opencode.json
-#   6. 插件条目:magic-context + ponytail 直接写入 opencode.json(不跑官方交互 setup,
-#      magic-context 无配置文件即全默认,与本机品味一致)。统一纯 JSON 的 opencode.json
+#   5. MCP 查询工具(插件本体不带工具,MCP 是唯一来源)+ 插件条目(magic-context、ponytail)
+#      + compaction 关闭(manual setup 要求 magic-context 接管压缩)→ 统一写入纯 JSON 的 opencode.json
+#   6. notify 插件(brilliantrough/opencode-notify-hub,GitHub Release 预构建包)
 #   7. skills 本体:npx skills add brilliantrough/agent-skills --all -g -y
+#   8. strictdoc 检查(只提醒,不代装——env 管理器是用户的选择)
 #
 # 用法:bash opencode-setup.sh   (遵循 OPENCODE_CONFIG_DIR,与官方安装器一致)
 
@@ -433,7 +436,7 @@ fi
 
 # ---- 7. skills 本体 ----
 if [ ! -d "$HOME/.agents/skills/load-mem" ]; then
-  if command -v npx >/dev/null 2>&1 && ask "安装 skills 本体(brilliantrough/agent-skills 全部 11 个)?"; then
+  if command -v npx >/dev/null 2>&1 && ask "安装 skills 本体(brilliantrough/agent-skills 全部 12 个)?"; then
     # || true:PromptScript 等无关 agent 不支持全局安装会报错退出,但其余目标已装好
     npx -y skills@latest add brilliantrough/agent-skills --all -g -y || true
   fi
