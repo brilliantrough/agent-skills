@@ -3,7 +3,7 @@
 # 仓库: brilliantrough/agent-skills
 #
 # 干什么(交互确认 + 幂等,重复跑安全):
-#   0. 代理环境提醒(国内网络下载易卡;http_proxy/https_proxy 未设时要求确认)
+#   0. 代理环境提醒(大小写都查;未设则探测直连,透明代理不拦;都不通才要求确认)
 #   1. 依赖检查:python3(配置写入用,缺失则退出)、npx(缺 → 征得同意装 fnm + Node LTS)、
 #      bun(缺 → 征得同意装,MCP server 依赖 bun:sqlite)
 #   2. claude-mem:未装 → 征得同意跑官方安装器(只为拿 bundle 和 MCP 资产,--provider claude
@@ -131,14 +131,18 @@ PYEOF
 
 echo "== opencode 一键配置 =="
 
-# ---- 0. 代理提醒 ----
-proxy="${http_proxy:-${https_proxy:-${all_proxy:-}}}"
+# ---- 0. 代理环境提醒 ----
+# 大小写都查;无代理环境变量时再探测直连(排除路由器层透明代理的情况)
+proxy="${http_proxy:-${https_proxy:-${all_proxy:-${HTTP_PROXY:-${HTTPS_PROXY:-${ALL_PROXY:-}}}}}}"
+net_ok() { curl -fsSI --connect-timeout 5 -m 8 -o /dev/null https://github.com; }
 if [ -n "$proxy" ]; then
   echo "代理: $proxy"
+elif net_ok 2>/dev/null; then
+  echo "未设代理环境变量,但直连 github.com 可达(可能是透明代理),继续"
 else
-  echo "提醒: 未检测到代理环境变量(http_proxy/https_proxy/all_proxy)。"
-  echo "      国内网络下 curl / npm / npx 下载可能长时间卡住,建议先配置代理再执行。"
-  ask "没有代理也继续吗？" || exit 1
+  echo "提醒: 未检测到代理环境变量(大小写的 http(s)_proxy / all_proxy 都查了),且直连 github.com 不通。"
+  echo "      国内网络下 curl / npm / npx 下载可能长时间卡住,建议先配置代理再执行;有透明代理则可忽略。"
+  ask "仍要继续吗？" || exit 1
 fi
 
 # ---- 1. 依赖: python3(必需) ----
