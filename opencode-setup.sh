@@ -225,7 +225,7 @@ except json.JSONDecodeError:
 plugins = cfg.get("plugin")
 if not isinstance(plugins, list):
     sys.exit(0)
-clean = [x for x in plugins if not (isinstance(x, str) and "claude-mem" in x)]
+clean = [x for x in plugins if not (isinstance(x, str) and "claude-mem" in x and x != "./plugins/claude-mem-wrapper.js")]
 if len(clean) != len(plugins):
     if clean:
         cfg["plugin"] = clean
@@ -237,26 +237,6 @@ if len(clean) != len(plugins):
     print(f"cleaned: {path} plugin 数组中的 claude-mem 条目")
 PYEOF
   done
-
-  # ---- 2.2 确保 wrapper 条目存在(官方安装器注册的是失效条目,清理后可能两个 config 都没有)----
-  python3 - "$CFG/opencode.json" <<'PYEOF'
-import json, os, sys
-path = sys.argv[1]
-ENTRY = "./plugins/claude-mem-wrapper.js"
-cfg = {}
-if os.path.exists(path):
-    with open(path) as f:
-        text = f.read()
-    if text.strip():
-        cfg = json.loads(text)
-plugins = cfg.setdefault("plugin", [])
-if ENTRY not in plugins:
-    plugins.append(ENTRY)
-    with open(path, "w") as f:
-        json.dump(cfg, f, indent=2, ensure_ascii=False)
-        f.write("\n")
-    print(f"added: plugin {ENTRY} -> {path}")
-PYEOF
 fi
 
 # ---- 3. 部署 settings.json(字段级合并 dot_file 模板;下载失败用内嵌模板兜底)----
@@ -388,6 +368,29 @@ else
   echo "跳过: opencode.json 模板下载失败(检查代理),现有配置未改动"
 fi
 rm -f "$oc_tpl"
+
+# ---- 4.0 合并后补回 claude-mem wrapper 条目(旧 opencode.jsonc 自带 plugin 数组时,
+#      第 4 步的模板合并会丢掉它——2.1 只清理了失效条目,这里兜底确保 wrapper 在)----
+if [ -f "$BUNDLED" ]; then
+  python3 - "$CFG/opencode.json" <<'PYEOF'
+import json, os, sys
+path = sys.argv[1]
+ENTRY = "./plugins/claude-mem-wrapper.js"
+cfg = {}
+if os.path.exists(path):
+    with open(path) as f:
+        text = f.read()
+    if text.strip():
+        cfg = json.loads(text)
+plugins = cfg.setdefault("plugin", [])
+if ENTRY not in plugins:
+    plugins.append(ENTRY)
+    with open(path, "w") as f:
+        json.dump(cfg, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    print(f"added: plugin {ENTRY} -> {path}")
+PYEOF
+fi
 
 # ---- 4.1 MCP 查询工具 → opencode.json ----
 if [ -f "$BUNDLED" ] && [ -f "$MCP_CJS" ]; then
