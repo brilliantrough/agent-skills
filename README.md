@@ -173,6 +173,30 @@ plugin 条目 + 关闭 opencode 内置 compaction(magic-context 接管压缩,man
 - `NOTIFY_GATEWAY_URL`、`NOTIFY_INGEST_KEY`:必填
 - 可选:`NOTIFY_MACHINE`、`NOTIFY_HEARTBEAT_MS` 等,见仓库 `packages/plugin/src/config.ts`
 
+### 5. codegraph(代码知识图谱 MCP)
+
+来自 [colbymchenry/codegraph](https://github.com/colbymchenry/codegraph)。预索引代码知识图谱,查询一次取回符号源码与调用路径(含 grep 跟不上的动态分派跳转),索引随文件变更自动增量同步,100% 本地。
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh   # CLI 装到 ~/.local/bin
+```
+
+```jsonc
+"mcp": {
+  "codegraph": {
+    "type": "local",
+    "command": ["codegraph", "serve", "--mcp"],
+    "enabled": true
+  }
+}
+```
+
+全局只配一次,每个项目各建一次索引(未 init 时 MCP 无内容可查):
+
+```bash
+cd your-project && codegraph init
+```
+
 ## opencode.jsonc 最小配置
 
 ```jsonc
@@ -187,6 +211,11 @@ plugin 条目 + 关闭 opencode 内置 compaction(magic-context 接管压缩,man
     "claude-mem": {
       "type": "local",
       "command": ["<YOUR_BUN_PATH>", "<HOME>/.claude/plugins/marketplaces/thedotmack/plugin/scripts/mcp-server.cjs"],
+      "enabled": true
+    },
+    "codegraph": {
+      "type": "local",
+      "command": ["codegraph", "serve", "--mcp"],
       "enabled": true
     }
   }

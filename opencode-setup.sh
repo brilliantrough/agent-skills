@@ -15,8 +15,9 @@
 #   4. 部署/更新 ~/.config/opencode/opencode.json(dot_file 模板:providers/agents/mcp/插件条目/
 #      compaction)。已存在则只覆盖各 provider 的 models,apiKey 等本地字段原样保留;
 #      老 opencode.jsonc 的值自动并入后退役为 .migrated.bak
-#   5. MCP 查询工具(插件本体不带工具,MCP 是唯一来源)+ 插件条目(magic-context、ponytail)
-#      + compaction 关闭(manual setup 要求 magic-context 接管压缩)→ 统一写入纯 JSON 的 opencode.json
+#   5. MCP 查询工具(claude-mem)+ codegraph 代码知识图谱(CLI 可选安装 + MCP 条目)+
+#      插件条目(magic-context、ponytail)+ compaction 关闭(manual setup 要求 magic-context 接管压缩)
+#      → 统一写入纯 JSON 的 opencode.json
 #   6. notify 插件(brilliantrough/opencode-notify-hub,GitHub Release 预构建包)
 #   7. skills 本体:npx skills add brilliantrough/agent-skills --all -g -y
 #   8. strictdoc 检查(只提醒,不代装——env 管理器是用户的选择)
@@ -351,6 +352,44 @@ elif [ -f "$BUNDLED" ]; then
   echo "WARN: 未找到 $MCP_CJS,跳过 MCP 配置(先完成 claude-mem 官方安装)" >&2
 fi
 
+# ---- 4.2 codegraph MCP(预索引代码知识图谱;CLI 提供 graph,MCP 只是入口)----
+if ! command -v codegraph >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/codegraph" ]; then
+  echo "未检测到 codegraph(代码知识图谱,MCP 需要 CLI 提供 graph)。"
+  if ask "是否安装 codegraph CLI(curl 官方 install.sh)?"; then
+    cg_sh="$(mktemp)"
+    if curl -fsSL --connect-timeout 8 -m 60 -o "$cg_sh" https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh; then
+      sh "$cg_sh" || echo "WARN: codegraph 安装脚本退出码非 0,请看上方输出" >&2
+    else
+      echo "WARN: codegraph 安装脚本下载失败(检查代理)" >&2
+    fi
+    rm -f "$cg_sh"
+    export PATH="$HOME/.local/bin:$PATH"
+  fi
+fi
+CG_BIN="$(command -v codegraph 2>/dev/null || echo "$HOME/.local/bin/codegraph")"
+if [ -x "$CG_BIN" ]; then
+  if ! grep -qs '"codegraph"' "$CFG/opencode.json" "$CFG/opencode.jsonc" 2>/dev/null; then
+    python3 - "$CFG/opencode.json" "$CG_BIN" <<'PYEOF'
+import json, sys
+path, bin_ = sys.argv[1], sys.argv[2]
+try:
+    with open(path) as f:
+        text = f.read()
+    cfg = json.loads(text) if text.strip() else {"$schema": "https://opencode.ai/config.json"}
+except FileNotFoundError:
+    cfg = {"$schema": "https://opencode.ai/config.json"}
+cfg.setdefault("mcp", {})
+if "codegraph" in cfg["mcp"]:
+    sys.exit(0)
+cfg["mcp"]["codegraph"] = {"type": "local", "command": [bin_, "serve", "--mcp"], "enabled": True}
+with open(path, "w") as f:
+    json.dump(cfg, f, indent=2, ensure_ascii=False)
+    f.write("\n")
+print(f"added: mcp.codegraph -> {path}")
+PYEOF
+  fi
+fi
+
 # ---- 5. 插件条目: magic-context + ponytail(直写,不跑官方交互 setup)----
 need_mc=0
 grep -qs 'opencode-magic-context' "$CFG/opencode.jsonc" "$CFG/opencode.json" 2>/dev/null || need_mc=1
@@ -448,19 +487,21 @@ command -v strictdoc >/dev/null 2>&1 || echo "提示: 未检测到 strictdoc(记
 # ---- 完成:占位符清单 + 收尾动作 ----
 echo ""
 echo "== done. 需要你手工完成的 =="
-echo "1. 填占位符:"
+n=1
+echo "$n. 填占位符:"; n=$((n+1))
 echo "   - $SETTINGS:BASE_URL / MODEL / API_KEY"
 echo "   - $MC_CFG:BASE_URL / API_KEY(historian、dreamer 的 model 按实际 provider/model-id 改)"
 [ "$cfg_full" -eq 1 ] && echo "   - $CFG/opencode.json:网关地址 / API key 占位符(仅首次部署需填;之后脚本更新只覆盖 models)"
-echo "2. 重启 claude-mem worker 并验证:"
+echo "$n. 重启 claude-mem worker 并验证:"; n=$((n+1))
 echo "      cd ~/.claude/plugins/marketplaces/thedotmack && npm run worker:restart"
 echo "      curl -s 127.0.0.1:37700/api/health"
-echo "3. 项目接入记忆系统: 把本仓库 AGENTS.md 中 memory-system:start/end 之间的块,粘进项目 AGENTS.md"
+echo "$n. 项目接入记忆系统: 把本仓库 AGENTS.md 中 memory-system:start/end 之间的块,粘进项目 AGENTS.md"; n=$((n+1))
+if [ -x "$CG_BIN" ]; then
+  echo "$n. 代码知识图谱(按项目):cd <项目> && codegraph init(建 .codegraph/ 索引,之后自动增量同步;不 init 则 MCP 无内容可查)"; n=$((n+1))
+fi
 if [ -f "$NOTIFY_TARGET" ]; then
-  echo "4. notify 插件环境变量 —— 在启动 opencode 的 shell 配置(~/.zshrc 或 ~/.bashrc)里 export:"
+  echo "$n. notify 插件环境变量 —— 在启动 opencode 的 shell 配置(~/.zshrc 或 ~/.bashrc)里 export:"; n=$((n+1))
   echo "      NOTIFY_GATEWAY_URL=<你的网关地址>    NOTIFY_INGEST_KEY=<你的 ingest key>"
   echo "      可选: NOTIFY_MACHINE=<机器名>(多机区分),其余 NOTIFY_* 调参项见插件 config.ts"
-  echo "5. 重启 opencode 生效"
-else
-  echo "4. 重启 opencode 生效"
 fi
+echo "$n. 重启 opencode 生效"
