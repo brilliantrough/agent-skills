@@ -22,7 +22,7 @@
 #      → 写入纯 JSON 的 opencode.json(及 TUI 的 tui.jsonc)
 #   6. notify 插件(brilliantrough/opencode-notify-hub,GitHub Release 预构建包)
 #   7. skills 本体:npx skills add brilliantrough/agent-skills --all -g -y
-#   8. uv(缺则装)+ strictdoc(用 uv tool 全局安装,.sdoc 校验依赖)
+#   8. uv(缺则装;含自升级与清华 PyPI 镜像)+ strictdoc(用 uv tool 全局安装,.sdoc 校验依赖)
 #
 # 用法:bash opencode-setup.sh   (遵循 OPENCODE_CONFIG_DIR,与官方安装器一致)
 
@@ -681,6 +681,28 @@ fi
 UV_BIN="$(command -v uv 2>/dev/null || echo "$UVP")"
 if [ -x "$UV_BIN" ]; then
   export PATH="$HOME/.local/bin:$PATH"
+  uv_cur="$("$UV_BIN" --version 2>/dev/null | awk '{print $2}' || true)"
+  uv_latest="$(curl -fsSL --connect-timeout 5 -m 8 https://api.github.com/repos/astral-sh/uv/releases/latest 2>/dev/null \
+    | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4 || true)"
+  if [ -z "$uv_latest" ]; then
+    echo "跳过 uv 自升级:查不到最新版本(检查网络/代理)"
+  elif [ "$uv_latest" != "$uv_cur" ]; then
+    if ask "uv ${uv_cur:-未知} → $uv_latest,升级(uv self update)?" Y; then
+      "$UV_BIN" self update || echo "WARN: uv 自升级失败(系统包管理器装的请用系统方式升级)" >&2
+    fi
+  else
+    echo "uv 已是最新(${uv_cur:-未知})"
+  fi
+  UVCFG="$HOME/.config/uv/uv.toml"
+  if grep -q 'pypi.tuna' "$UVCFG" 2>/dev/null; then
+    echo "uv PyPI 镜像已配置(清华),跳过"
+  elif [ -f "$UVCFG" ]; then
+    echo "跳过 uv 镜像:$UVCFG 已存在(非本脚本写入),不覆盖"
+  elif ask "配置 uv 用清华 PyPI 镜像($UVCFG)?" Y; then
+    mkdir -p "$(dirname "$UVCFG")"
+    printf '%s\n' 'index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"' > "$UVCFG"
+    echo "wrote: $UVCFG"
+  fi
   if command -v strictdoc >/dev/null 2>&1; then
     echo "strictdoc 已存在,跳过(升级: uv tool upgrade strictdoc)"
   elif ask "用 uv 全局安装 strictdoc==0.28.1(.sdoc 校验依赖)?" Y; then

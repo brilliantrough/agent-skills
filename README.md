@@ -55,7 +55,7 @@ skill 装在 `~/.agents/skills/`，重开 agent session 生效。
 - 6 个 Matt 的 skill:零依赖
 - 3 个记忆 skill:依赖三层记忆栈(magic-context `ctx_memory` 插件、claude-mem、`docs/` StrictDoc 结构);项目 `AGENTS.md` 需粘入本仓库 [AGENTS.md](AGENTS.md) 中 `memory-system:start/end` 之间的触发块
 - 2 个工作流 + 1 品味 skill:无硬依赖,品味内联
-- `.sdoc` 校验需要 `strictdoc`:脚本末尾会检查 `uv`,并可选择用 `uv tool install strictdoc==0.28.1` 全局安装(升级:`uv tool upgrade strictdoc`)
+- `.sdoc` 校验需要 `strictdoc`:脚本末尾会检查 `uv`(缺则装,并处理 uv 自升级与清华 PyPI 镜像),并可选择用 `uv tool install strictdoc==0.28.1` 全局安装(升级:`uv tool upgrade strictdoc`)
 
 ## 插件配置（手工步骤）
 
