@@ -230,6 +230,16 @@ npm 形式条目在 opencode 重启时自动安装;配置改动重启 opencode �
 npx skills update -g
 ```
 
+重跑 `opencode-setup.sh` 是幂等的,配置文件按「字段级合并」更新,不覆盖本地敏感值:
+
+| 文件 | 更新方式(non-destructive) |
+|---|---|
+| `~/.config/opencode/opencode.json` | 已存在的 provider 保留本地 `options`(apiKey/网关),只按模板覆盖 `models`;模板新增的 provider 整块加入;模板的非 provider 字段仅在本地缺该键时补入 |
+| `~/.claude-mem/settings.json` | 模板的非敏感字段值优先下发;`api key` / `base url` 等敏感键与含 `<占位符>` 的值保留本地内容;本地独有键保留 |
+| `~/.config/cortexkit/magic-context.jsonc` | 同 settings.json |
+
+有改动时先把原文件存为时间戳 `.bak-YYYYmmddHHMMSS`;合并结果与本地一致则不写文件。magic-context 的合并会把 JSONC 规整为 JSON(注释丢失,原样保留在 `.bak` 里)。
+
 ## 单装某一个
 
 ```bash

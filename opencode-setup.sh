@@ -10,8 +10,8 @@
 #      是唯一免浏览器 OAuth 的选项);然后修复 upstream bug(bundle 移出 plugins/ → lib/,
 #      写 wrapper;thedotmack/claude-mem#2854/#3328)。再清理 config 里失效的 claude-mem 插件条目
 #      (官方安装器每次都会重新注册),并确保 wrapper 条目存在
-#   3. 部署 ~/.claude-mem/settings.json 与 ~/.config/cortexkit/magic-context.jsonc(dot_file 仓库
-#      模板,下载失败用内嵌兜底;settings 已存在时征得同意才覆盖,拒绝则保留)
+#   3. 部署(字段级合并)~/.claude-mem/settings.json 与 ~/.config/cortexkit/magic-context.jsonc:
+#      dot_file 模板的非敏感字段值优先下发,api key / base url 等本地敏感值保留;下载失败用内嵌兜底
 #   4. 部署/更新 ~/.config/opencode/opencode.json(dot_file 模板:providers/agents/mcp/插件条目/
 #      compaction)。已存在则只覆盖各 provider 的 models,apiKey 等本地字段原样保留;
 #      老 opencode.jsonc 的值自动并入后退役为 .migrated.bak
@@ -45,20 +45,88 @@ ask() { # 读 /dev/tty:curl|bash 时 stdin 是脚本管道,绝不能从 stdin �
 }
 
 RAW="https://raw.githubusercontent.com/brilliantrough/dot_file/master"
-# fetch_cfg <url> <dest> — 已存在则征求覆盖(.bak 备份),拒绝时返回非 0
-fetch_cfg() {
-  local dest="$2"
+# merge_cfg <url> <dest> — 拉 dot_file 模板后做「字段级」合并,而非整文件覆盖:
+#   模板中的非敏感字段值优先 → 新默认值能下发到服务器;
+#   敏感键(api key / secret / token / password / credential / bearer / url / endpoint / host)保留本地值;
+#   模板里含 <占位符> 的值不覆盖本地已填内容;本地独有的键保留。
+#   合并结果与本地一致时不写文件(幂等);有改动先存时间戳 .bak。
+#   dest 不存在则直接落模板。符号链接跳过(不穿透)。
+merge_cfg() {
+  local url="$1" dest="$2" tmp
   if [ -L "$dest" ]; then
     echo "跳过: $dest 是符号链接(指向 $(readlink "$dest")),不覆盖以免破坏链接目标"
     return 1
   fi
-  if [ -f "$dest" ]; then
-    ask "$dest 已存在,用 dot_file 仓库版本覆盖?(原文件存为 .bak,占位符需重新填充)" || return 1
-    cp "$dest" "$dest.bak"
+  tmp="$(mktemp)"
+  echo "fetching: $url"
+  if ! curl -fsSL --connect-timeout 8 -m 30 -o "$tmp" "$url"; then
+    rm -f "$tmp"; echo "WARN: $url 下载失败,保留现有 $dest" >&2; return 1
   fi
-  mkdir -p "$(dirname "$dest")"
-  echo "fetching: $1"
-  curl -fsSL --connect-timeout 8 -m 30 -o "$dest" "$1" && echo "fetched: $dest"
+  if [ ! -f "$dest" ]; then
+    mkdir -p "$(dirname "$dest")"
+    cp "$tmp" "$dest"
+    echo "wrote: $dest(含占位符,待填项见文末清单)"
+    rm -f "$tmp"
+    return 0
+  fi
+  python3 - "$dest" "$tmp" <<'PYEOF'
+import datetime, json, re, shutil, sys
+dest, tpl = sys.argv[1], sys.argv[2]
+SENSITIVE = re.compile(r'(api[_-]?key|secret|token|password|passwd|credential|bearer|base[_-]?url|endpoint|host)', re.I)
+PLACEHOLDER = re.compile(r'<[A-Za-z][A-Za-z0-9 _-]*>')
+
+def load(p):  # JSONC 感知:去注释与尾逗号(字符串内的 // 不动)
+    t = open(p, encoding='utf-8').read()
+    out, i, n, instr = [], 0, len(t), False
+    while i < n:
+        c = t[i]
+        if instr:
+            out.append(c)
+            if c == '\\': out.append(t[i + 1]); i += 2; continue
+            if c == '"': instr = False
+            i += 1; continue
+        if c == '"': instr = True; out.append(c); i += 1; continue
+        if c == '/' and i + 1 < n and t[i + 1] == '/':
+            while i < n and t[i] != '\n': i += 1
+            continue
+        if c == '/' and i + 1 < n and t[i + 1] == '*':
+            i += 2
+            while i + 1 < n and not (t[i] == '*' and t[i + 1] == '/'): i += 1
+            i += 2; continue
+        out.append(c); i += 1
+    return json.loads(re.sub(r',(\s*[}\]])', r'\1', ''.join(out)))
+
+try:
+    cur, new = load(dest), load(tpl)
+except Exception as e:
+    print(f"WARN: {dest} 解析失败({e}),保留原文件不合并", file=sys.stderr)
+    sys.exit(1)
+
+def merge(cur, new):
+    if not isinstance(new, dict) or not isinstance(cur, dict):
+        return new
+    out = dict(cur)
+    for k, v in new.items():
+        if k in cur and SENSITIVE.search(k):                       # 敏感键:本地值优先
+            continue
+        if k in cur and isinstance(v, str) and PLACEHOLDER.search(v):  # 占位值不覆盖已填内容
+            continue
+        out[k] = merge(cur.get(k), v) if isinstance(v, dict) else v
+    return out
+
+merged = merge(cur, new)
+if merged == cur:
+    print(f"unchanged: {dest}")
+else:
+    bak = dest + '.bak-' + datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+    shutil.copy(dest, bak)
+    with open(dest, 'w', encoding='utf-8') as f:
+        json.dump(merged, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    top = [k for k in merged if cur.get(k) != merged.get(k)]
+    print(f"merged: {dest}(变更: {', '.join(top) or '嵌套字段'};api key 等敏感值保留,原文件存 {bak})")
+PYEOF
+  rm -f "$tmp"
 }
 
 echo "== opencode 一键配置 =="
@@ -191,9 +259,9 @@ if ENTRY not in plugins:
 PYEOF
 fi
 
-# ---- 3. 部署 settings.json(优先 dot_file 仓库,下载失败用内嵌模板兜底)----
+# ---- 3. 部署 settings.json(字段级合并 dot_file 模板;下载失败用内嵌模板兜底)----
 mkdir -p "$HOME/.claude-mem"
-fetch_cfg "$RAW/opencode/claude-mem.settings.json" "$SETTINGS" || true
+merge_cfg "$RAW/opencode/claude-mem.settings.json" "$SETTINGS" || true
 if [ ! -f "$SETTINGS" ]; then
   cat > "$SETTINGS" <<'EOF'
 {
@@ -208,9 +276,9 @@ EOF
   echo "wrote: $SETTINGS(含占位符,待填项见文末清单)"
 fi
 
-# ---- 3.1 magic-context 配置文件(优先 dot_file 仓库;historian.model 必填,否则插件报错)----
+# ---- 3.1 magic-context 配置文件(字段级合并 dot_file 模板;historian.model 必填,否则插件报错)----
 MC_CFG="$HOME/.config/cortexkit/magic-context.jsonc"
-fetch_cfg "$RAW/opencode/magic-context.jsonc" "$MC_CFG" || true
+merge_cfg "$RAW/opencode/magic-context.jsonc" "$MC_CFG" || true
 if [ ! -f "$MC_CFG" ]; then
   mkdir -p "$HOME/.config/cortexkit"
   cat > "$MC_CFG" <<'EOF'
