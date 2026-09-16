@@ -611,11 +611,13 @@ PYEOF
 fi
 
 # ---- 7. skills 本体 ----
-if [ ! -d "$HOME/.agents/skills/load-mem" ]; then
-  if command -v npx >/dev/null 2>&1 && ask "安装 skills 本体(brilliantrough/agent-skills 全部 12 个)?" Y; then
-    # || true:PromptScript 等无关 agent 不支持全局安装会报错退出,但其余目标已装好
-    npx -y skills@latest add brilliantrough/agent-skills --all -g -y || true
-  fi
+if [ -d "$HOME/.agents/skills/load-mem" ]; then
+  echo "skills 已存在,跳过安装(更新用 npx skills update -g)"
+elif ! command -v npx >/dev/null 2>&1; then
+  echo "跳过 skills 安装(需要 npx:先装 Node 再重跑)"
+elif ask "安装 skills 本体(brilliantrough/agent-skills 全部 12 个)?" Y; then
+  # || true:PromptScript 等无关 agent 不支持全局安装会报错退出,但其余目标已装好
+  npx -y skills@latest add brilliantrough/agent-skills --all -g -y || true
 fi
 
 # ---- 8. strictdoc 检查(只提醒,不代装——env 管理器是用户的选择)----
