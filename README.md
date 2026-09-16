@@ -16,6 +16,14 @@ npx skills@latest add brilliantrough/agent-skills --all -g -y
 
 skill 装在 `~/.agents/skills/`，重开 agent session 生效。
 
+**Codex 插件配置(best effort)**：
+
+```bash
+bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.com/brilliantrough/agent-skills/main/codex-setup.sh)"
+```
+
+本仓库仍以 **OpenCode 为主**；Codex 复用现有 skills 原文，不为其修改技能工作流。详见下面的 Codex 说明。
+
 ## Skills(12 个)
 
 来自 [mattpocock/skills](https://github.com/mattpocock/skills)(MIT,见 [NOTICE](NOTICE.md)):
@@ -57,7 +65,50 @@ skill 装在 `~/.agents/skills/`，重开 agent session 生效。
 - 2 个工作流 + 1 品味 skill:无硬依赖,品味内联
 - `.sdoc` 校验需要 `strictdoc`:脚本末尾会检查 `uv`(缺则装,并处理 uv 自升级与清华 PyPI 镜像),并可选择用 `uv tool install strictdoc==0.28.1` 全局安装(升级:`uv tool upgrade strictdoc`)
 
-## 插件配置（手工步骤）
+## Codex 插件配置(best effort)
+
+| 项目 | `codex-setup.sh` 的行为 |
+|---|---|
+| 前置条件 | 已装 Codex ≥0.128.0，支持 `codex plugin marketplace`；Python ≥3.11、curl、git。脚本不升级系统 Python 或 Codex |
+| 依赖 | 缺失时询问安装 Node LTS、Bun、uv；可选用 uv 安装 strictdoc==0.28.1；已有 Node 需 ≥20 |
+| claude-mem | 优先复用 `~/.claude/plugins/marketplaces/thedotmack` 的 runtime，注册 `claude-mem@claude-mem-local`(自带 MCP、skills、hooks)；缺失/过旧时询问运行官方 `--ide codex-cli` 安装器 |
+| 共享记忆配置 | 已有 `~/.claude-mem/settings.json` 原样保留；官方安装器临时写入后也恢复，包括 provider/URL/key；首次创建 OpenAI 兼容记忆后端占位符，需手工填写 |
+| Ponytail | 使用官方 `ponytail@ponytail` 插件；Node 必须在启动 Codex 的 PATH 中 |
+| CodeGraph | 缺失时装 CLI，用 `codex mcp add` 注册；现有 `mcp_servers.codegraph` 原样保留；按项目执行 `codegraph init` |
+| skills | 仅安装缺失的本仓库 skills，指定 `--agent codex`；已存在的共享 skills 不覆盖 |
+| Magic Context / notify | 不安装；Codex 原生压缩保持原样；缺少 `ctx_*` 的记忆技能仅 best effort |
+| 配置安全 | 先显示待添加项并确认，修改前备份；TOML 写入交给 Codex CLI，模型/认证配置不纳入管理；已安装/显式禁用项保留，重复运行不自动升级 |
+
+- 使用 `${CODEX_HOME:-~/.codex}/config.toml`；**首次 claude-mem 官方安装器写死 `~/.codex`**，自定义 `CODEX_HOME` 时只复用已有 runtime，缺失则提示手工安装。`CLAUDE_CONFIG_DIR` / `CLAUDE_MEM_DATA_DIR` 可指定共享资产/记忆目录。
+- 官方 claude-mem 安装器会更新共享资产、注册 Claude 插件并停止 worker，即使传 `--no-auto-start` 也不会避免停机；已有 runtime 的升级默认不执行。安装后填好记忆后端配置，再运行 `npx claude-mem@latest start`。
+- 安装后在 Codex **`/hooks` 审阅并信任 hooks，再开新会话**；插件安装不等于 hooks 已信任。用 `/mcp` 确认服务连接并实际调用查询工具。
+- 普通安装/新增条目默认 `[Y/n]`，共享 runtime 升级默认 `[y/N]`；无终端时按对应默认执行。失败会告警并返回非零，避免误报全部完成。
+
+手工接入(claude-mem 首次安装同样有上述共享配置影响)：
+
+```bash
+npx claude-mem@latest install --ide codex-cli
+codex plugin marketplace add DietrichGebert/ponytail
+codex plugin add ponytail@ponytail
+codex mcp add codegraph -- codegraph serve --mcp
+npx skills@latest add brilliantrough/agent-skills --skill '*' --agent codex -g -y
+```
+
+更新已有安装时显式执行(不会在每次 setup 中自动更新)：
+
+```bash
+codex plugin marketplace upgrade ponytail
+codex plugin add ponytail@ponytail
+# claude-mem runtime 更新后,重新装入其本地插件快照:
+codex plugin add claude-mem@claude-mem-local
+npx skills@latest update -g
+```
+
+skills 是共享的，更新也会影响 OpenCode；claude-mem runtime 更新请按官方安装文档执行，先备份共享配置。
+
+官方参考：[Codex MCP](https://developers.openai.com/codex/mcp) · [Codex hooks](https://developers.openai.com/codex/hooks) · [claude-mem 安装器](https://github.com/thedotmack/claude-mem/blob/main/src/services/integrations/CodexCliInstaller.ts) · [Ponytail](https://github.com/DietrichGebert/ponytail#codex) · [CodeGraph](https://github.com/colbymchenry/codegraph#quick-start)
+
+## OpenCode 插件配置（手工步骤）
 
 一键命令见顶部；下面是不用脚本时的手工步骤。
 
