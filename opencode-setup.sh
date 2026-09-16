@@ -3,6 +3,8 @@
 # 仓库: brilliantrough/agent-skills
 #
 # 干什么(交互确认 + 幂等,重复跑安全):
+#   询问默认:装缺的软件/插件、写入条目 → [Y/n](回车即装);覆盖已有配置、无代理下继续 → [y/N];
+#            非交互环境按各自默认执行
 #   0. 代理环境提醒(大小写都查;未设则探测直连,透明代理不拦;都不通才要求确认)
 #   1. 依赖检查:python3(配置写入用,缺失则退出)、npx(缺 → 征得同意装 fnm + Node LTS)、
 #      bun(缺 → 征得同意装,MCP server 依赖 bun:sqlite)
@@ -34,13 +36,15 @@ BUNDLED="$LIB/claude-mem.js"
 MCP_CJS="$HOME/.claude/plugins/marketplaces/thedotmack/plugin/scripts/mcp-server.cjs"
 SETTINGS="$HOME/.claude-mem/settings.json"
 
-ask() { # 读 /dev/tty:curl|bash 时 stdin 是脚本管道,绝不能从 stdin 读,否则会吞掉脚本行
-  local a=""
+ask() { # $1=提示 $2=默认(Y/N,缺省 N)
+  local a="" def="${2:-N}" hint="y/N"
+  [ "$def" = Y ] && hint="Y/n"
   # 不能加 2>/dev/null:read -p 的提示符写往 stderr,吞掉后提示不可见,脚本像卡死
-  if { [ -t 0 ] || [ -e /dev/tty ]; } && read -r -p "$1 [y/N] " a < /dev/tty; then
-    [[ "$a" =~ ^[Yy]$ ]]
+  # 读 /dev/tty:curl|bash 时 stdin 是脚本管道,绝不能从 stdin 读,否则会吞掉脚本行
+  if { [ -t 0 ] || [ -e /dev/tty ]; } && read -r -p "$1 [$hint] " a < /dev/tty; then
+    if [ -z "$a" ]; then [ "$def" = Y ]; else [[ "$a" =~ ^[Yy]$ ]]; fi
   else
-    false  # 非交互环境一律默认否
+    [ "$def" = Y ]  # 非交互环境:按该询问的默认值(Y 则执行,N 则跳过)
   fi
 }
 
@@ -151,7 +155,7 @@ command -v python3 >/dev/null 2>&1 || { echo "ERROR: 未检测到 python3(配置
 # ---- 1.1 依赖: npx(fnm + Node)----
 if ! command -v npx >/dev/null 2>&1; then
   echo "未检测到 npx(claude-mem 官方安装器与 skills 安装需要 Node)。"
-  if ask "是否安装 fnm + Node LTS？"; then
+  if ask "是否安装 fnm + Node LTS？" Y; then
     curl -fsSL --connect-timeout 8 -m 60 https://fnm.vercel.app/install | bash
     export PATH="$HOME/.local/share/fnm:$PATH"
     eval "$(fnm env)"
@@ -168,7 +172,7 @@ fi
 # ---- 1.2 依赖: bun ----
 if ! command -v bun >/dev/null 2>&1; then
   echo "未检测到 bun(claude-mem 的 MCP server 依赖 bun:sqlite,node 运行会崩)。"
-  if ask "是否安装 bun？"; then
+  if ask "是否安装 bun？" Y; then
     curl -fsSL --connect-timeout 8 -m 60 https://bun.sh/install | bash
     export PATH="$HOME/.bun/bin:$PATH"
   else
@@ -179,7 +183,7 @@ BUN_BIN="$(command -v bun 2>/dev/null || echo "$HOME/.bun/bin/bun")"
 
 # ---- 2. claude-mem:安装(只为拿 bundle / MCP 资产)+ 修复 ----
 if [ ! -f "$BUNDLED" ] && [ ! -f "$PLUGINS/claude-mem.js" ]; then
-  if command -v npx >/dev/null 2>&1 && ask "未找到 claude-mem,运行官方安装器 npx claude-mem install --ide opencode?"; then
+  if command -v npx >/dev/null 2>&1 && ask "未找到 claude-mem,运行官方安装器 npx claude-mem install --ide opencode?" Y; then
     # --provider claude 是唯一免浏览器 OAuth 的选项(openrouter/gemini 非交互下强制 cmem.ai 登录并 exit 1);
     # 运行时 provider 由下面部署的 settings.json 决定,与安装期选项无关。|| true:安装器退出码不可靠
     npx -y claude-mem install --ide opencode --provider claude < /dev/null || true
@@ -434,7 +438,7 @@ fi
 # ---- 4.2 codegraph MCP(预索引代码知识图谱;CLI 提供 graph,MCP 只是入口)----
 if ! command -v codegraph >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/codegraph" ]; then
   echo "未检测到 codegraph(代码知识图谱,MCP 需要 CLI 提供 graph)。"
-  if ask "是否安装 codegraph CLI(curl 官方 install.sh)?"; then
+  if ask "是否安装 codegraph CLI(curl 官方 install.sh)?" Y; then
     cg_sh="$(mktemp)"
     if curl -fsSL --connect-timeout 8 -m 60 -o "$cg_sh" https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh; then
       sh "$cg_sh" || echo "WARN: codegraph 安装脚本退出码非 0,请看上方输出" >&2
@@ -482,7 +486,7 @@ if [ "$need_mc" -eq 1 ] || [ "$need_pt" -eq 1 ]; then
   # shellcheck disable=SC2086
   [ "$need_pt" -eq 1 ] && pkgs="$pkgs @dietrichgebert/ponytail"
   # shellcheck disable=SC2086
-  if ask "未检测到插件条目:$pkgs。直接写入 $CFG/opencode.json?"; then
+  if ask "未检测到插件条目:$pkgs。直接写入 $CFG/opencode.json?" Y; then
     # shellcheck disable=SC2086
     python3 - "$CFG/opencode.json" $pkgs <<'PYEOF'
 import json, sys
@@ -580,7 +584,7 @@ PYEOF
 # ---- 6. notify 插件(brilliantrough/opencode-notify-hub,GitHub Release 预构建包)----
 NOTIFY_TARGET="$PLUGINS/session-notify.js"
 if [ ! -f "$NOTIFY_TARGET" ] && command -v curl >/dev/null 2>&1; then
-  if ask "未找到 notify 插件,从 GitHub Release 下载最新 opencode-notify-plugin?"; then
+  if ask "未找到 notify 插件,从 GitHub Release 下载最新 opencode-notify-plugin?" Y; then
     python3 - "$PLUGINS" <<'PYEOF' || echo "WARN: notify 插件下载失败,可按仓库 PLUGIN-INSTALL.md 手动安装" >&2
 import json, os, sys, urllib.request, zipfile
 plugins_dir = sys.argv[1]
@@ -606,7 +610,7 @@ fi
 
 # ---- 7. skills 本体 ----
 if [ ! -d "$HOME/.agents/skills/load-mem" ]; then
-  if command -v npx >/dev/null 2>&1 && ask "安装 skills 本体(brilliantrough/agent-skills 全部 12 个)?"; then
+  if command -v npx >/dev/null 2>&1 && ask "安装 skills 本体(brilliantrough/agent-skills 全部 12 个)?" Y; then
     # || true:PromptScript 等无关 agent 不支持全局安装会报错退出,但其余目标已装好
     npx -y skills@latest add brilliantrough/agent-skills --all -g -y || true
   fi
