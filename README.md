@@ -2,19 +2,19 @@
 
 个人 agent skills 集，含三层记忆系统、任务工作流与个人前端品味。
 
-**① 装 skills**（装到 `~/.agents/skills/`，重开 agent session 生效）：
-
-```bash
-npx skills@latest add brilliantrough/agent-skills --all -g -y
-```
-
-**② 配 opencode 插件**（交互确认、幂等，含占位符清单输出）：
+**一键配置**（交互确认、幂等）——一条命令同时搞定「装 skills 本体」和「配 opencode 插件」（claude-mem / magic-context / ponytail / notify / codegraph）：
 
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/opencode-setup.sh)"
 ```
 
-或在克隆的仓库里 `bash opencode-setup.sh`。
+只想要 skills、不配 opencode 插件时：
+
+```bash
+npx skills@latest add brilliantrough/agent-skills --all -g -y
+```
+
+skill 装在 `~/.agents/skills/`，重开 agent session 生效。
 
 ## Skills(12 个)
 
