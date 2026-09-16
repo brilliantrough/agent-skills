@@ -352,12 +352,19 @@ for name, p in tpl_prov.items():
     elif name not in mp:
         mp[name] = p  # 模板新增的 provider:整块加入(含占位符 options,待首次填写)
 
-with open(target_p + '.tmp', 'w', encoding='utf-8') as f:
-    json.dump(merged, f, indent=2, ensure_ascii=False)
-    f.write('\n')
-os.replace(target_p + '.tmp', target_p)
-print(('updated: %s(%d 个 provider 的 models 已按模板覆盖,本地字段保留)' % (target_p, len(tpl_prov))) if live
-      else ('wrote: %s(占位符待填,见文末清单)' % target_p))
+out = json.dumps(merged, indent=2, ensure_ascii=False) + '\n'
+try:
+    same = open(target_p, encoding='utf-8').read() == out
+except FileNotFoundError:
+    same = False
+if same:
+    print('unchanged: %s' % target_p)
+else:
+    with open(target_p + '.tmp', 'w', encoding='utf-8') as f:
+        f.write(out)
+    os.replace(target_p + '.tmp', target_p)
+    print(('updated: %s(%d 个 provider 的 models 已按模板覆盖,本地字段保留)' % (target_p, len(tpl_prov))) if live
+          else ('wrote: %s(占位符待填,见文末清单)' % target_p))
 
 if os.path.exists(jsonc_p):
     bak = jsonc_p + '.migrated-' + datetime.datetime.now().strftime('%Y%m%d%H%M%S') + '.bak'
