@@ -56,7 +56,7 @@ RAW="https://raw.githubusercontent.com/brilliantrough/dot_file/master"
 #   合并结果与本地一致时不写文件(幂等);有改动先存时间戳 .bak。
 #   dest 不存在则直接落模板。符号链接跳过(不穿透)。
 merge_cfg() {
-  local url="$1" dest="$2" tmp
+  local url="$1" dest="$2" tmp cand out
   if [ -L "$dest" ]; then
     echo "跳过: $dest 是符号链接(指向 $(readlink "$dest")),不覆盖以免破坏链接目标"
     return 1
@@ -67,14 +67,19 @@ merge_cfg() {
     rm -f "$tmp"; echo "WARN: $url 下载失败,保留现有 $dest" >&2; return 1
   fi
   if [ ! -f "$dest" ]; then
-    mkdir -p "$(dirname "$dest")"
-    cp "$tmp" "$dest"
-    echo "wrote: $dest(含占位符)"
+    if ask "写入 $dest(来自 dot_file 模板,含占位符)?" Y; then
+      mkdir -p "$(dirname "$dest")"; cp "$tmp" "$dest"; echo "wrote: $dest(含占位符)"
+    else
+      echo "跳过: $dest 未创建"
+      rm -f "$tmp"
+      return 2
+    fi
     rm -f "$tmp"
     return 0
   fi
-  python3 - "$dest" "$tmp" <<'PYEOF'
-import datetime, json, re, shutil, sys
+  cand="$(mktemp)"
+  out="$(python3 - "$dest" "$tmp" "$cand" <<'PYEOF'
+import json, re, sys
 dest, tpl = sys.argv[1], sys.argv[2]
 SENSITIVE = re.compile(r'(api[_-]?key|secret|token|password|passwd|credential|bearer|base[_-]?url|endpoint|host)', re.I)
 PLACEHOLDER = re.compile(r'<[A-Za-z][A-Za-z0-9 _-]*>')
@@ -120,17 +125,26 @@ def merge(cur, new):
 
 merged = merge(cur, new)
 if merged == cur:
-    print(f"unchanged: {dest}")
+    print("unchanged")
 else:
-    bak = dest + '.bak-' + datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-    shutil.copy(dest, bak)
-    with open(dest, 'w', encoding='utf-8') as f:
+    with open(sys.argv[3], 'w', encoding='utf-8') as f:
         json.dump(merged, f, indent=2, ensure_ascii=False)
         f.write("\n")
     top = [k for k in merged if cur.get(k) != merged.get(k)]
-    print(f"merged: {dest}(变更: {', '.join(top) or '嵌套字段'};api key 等敏感值保留,原文件存 {bak})")
+    print("变更: " + (", ".join(top) or "嵌套字段"))
 PYEOF
+)"
   rm -f "$tmp"
+  local bak="$dest.bak-$(date +%Y%m%d%H%M%S)"
+  case "$out" in
+    unchanged) echo "unchanged: $dest"; rm -f "$cand" ;;
+    "")        echo "WARN: $dest 合并失败,保留原文件" >&2; rm -f "$cand"; return 1 ;;
+    *)         if ask "更新 $dest($out;api key 等敏感值保留,原文件存 $bak)?" Y; then
+                 cp "$dest" "$bak"; mv "$cand" "$dest"; echo "updated: $dest"
+               else
+                 echo "保留原文件: $dest"; rm -f "$cand"; return 2
+               fi ;;
+  esac
 }
 
 echo "== opencode 一键配置 =="
@@ -213,7 +227,9 @@ import { ClaudeMemPlugin } from "../lib/claude-mem.js";
 export default ClaudeMemPlugin;
 EOF
   if cmp -s "$w_tmp" "$PLUGINS/claude-mem-wrapper.js"; then rm -f "$w_tmp"
-  else mv "$w_tmp" "$PLUGINS/claude-mem-wrapper.js"; echo "wrote: plugins/claude-mem-wrapper.js"; fi
+  elif ask "更新 $PLUGINS/claude-mem-wrapper.js(claude-mem wrapper 修复)?" Y; then
+    mv "$w_tmp" "$PLUGINS/claude-mem-wrapper.js"; echo "wrote: plugins/claude-mem-wrapper.js"
+  else rm -f "$w_tmp"; echo "保留原文件: plugins/claude-mem-wrapper.js"; fi
 
   # ---- 2.1 清理两份 config 里官方安装器注册的失效插件条目 ----
   for name in opencode.jsonc opencode.json; do
@@ -251,8 +267,9 @@ fi
 
 # ---- 3. 部署 settings.json(字段级合并 dot_file 模板;下载失败用内嵌模板兜底)----
 mkdir -p "$HOME/.claude-mem"
-merge_cfg "$RAW/opencode/claude-mem.settings.json" "$SETTINGS" || true
-if [ ! -f "$SETTINGS" ]; then
+mc_rc=0; merge_cfg "$RAW/opencode/claude-mem.settings.json" "$SETTINGS" || mc_rc=$?
+if [ "$mc_rc" = 1 ] && [ ! -f "$SETTINGS" ]; then   # 只在模板下载失败时用内嵌兜底
+  if ask "写入 $SETTINGS(内嵌兜底模板,含占位符)?" Y; then
   cat > "$SETTINGS" <<'EOF'
 {
   "CLAUDE_MEM_RUNTIME": "worker",
@@ -264,12 +281,16 @@ if [ ! -f "$SETTINGS" ]; then
 }
 EOF
   echo "wrote: $SETTINGS(含占位符)"
+  else
+    echo "跳过: $SETTINGS 未创建"
+  fi
 fi
 
 # ---- 3.1 magic-context 配置文件(字段级合并 dot_file 模板;historian.model 必填,否则插件报错)----
 MC_CFG="$HOME/.config/cortexkit/magic-context.jsonc"
-merge_cfg "$RAW/opencode/magic-context.jsonc" "$MC_CFG" || true
-if [ ! -f "$MC_CFG" ]; then
+mcc_rc=0; merge_cfg "$RAW/opencode/magic-context.jsonc" "$MC_CFG" || mcc_rc=$?
+if [ "$mcc_rc" = 1 ] && [ ! -f "$MC_CFG" ]; then   # 只在模板下载失败时用内嵌兜底
+  if ask "写入 $MC_CFG(内嵌兜底模板,含占位符)?" Y; then
   mkdir -p "$HOME/.config/cortexkit"
   cat > "$MC_CFG" <<'EOF'
 {
@@ -293,16 +314,19 @@ if [ ! -f "$MC_CFG" ]; then
 }
 EOF
   echo "wrote: $MC_CFG(含占位符;historian/dreamer 的 model 用 <provider>/<model-id>)"
+  else
+    echo "跳过: $MC_CFG 未创建"
+  fi
 fi
 
 # ---- 4. opencode.json(来自 dot_file 仓库:providers/agents/mcp/插件条目/compaction)----
 # 已存在则只覆盖各 provider 的 models(新模型自动下发),options(apiKey/网关)等本地字段保留;
 # 老 opencode.jsonc 的值自动并入 opencode.json 后退役为 .migrated.bak
 cfg_full=0
-oc_tpl="$(mktemp)"
+oc_tpl="$(mktemp)"; oc_cand="$(mktemp)"
 if curl -fsSL --connect-timeout 8 -m 30 -o "$oc_tpl" "$RAW/opencode/opencode.json"; then
-  python3 - "$CFG/opencode.json" "$CFG/opencode.jsonc" "$oc_tpl" "$HOME" <<'PYEOF'
-import json, re, os, sys, shutil, datetime
+  oc_out="$(python3 - "$CFG/opencode.json" "$CFG/opencode.jsonc" "$oc_tpl" "$HOME" "$oc_cand" <<'PYEOF'
+import json, re, os, sys
 
 target_p, jsonc_p, tpl_p, home = sys.argv[1:5]
 
@@ -363,29 +387,41 @@ try:
     same = open(target_p, encoding='utf-8').read() == out
 except FileNotFoundError:
     same = False
-if same:
-    print('unchanged: %s' % target_p)
-else:
-    with open(target_p + '.tmp', 'w', encoding='utf-8') as f:
+msgs = []
+if not same:
+    with open(sys.argv[5], 'w', encoding='utf-8') as f:
         f.write(out)
-    os.replace(target_p + '.tmp', target_p)
-    print(('updated: %s(%d 个 provider 的 models 已按模板覆盖,本地字段保留)' % (target_p, len(tpl_prov))) if live
-          else ('wrote: %s(含占位符)' % target_p))
-
+    msgs.append(('%d 个 provider 的 models 按模板覆盖,本地字段保留' % len(tpl_prov)) if live else '首次写入(含占位符)')
 if os.path.exists(jsonc_p):
-    bak = jsonc_p + '.migrated-' + datetime.datetime.now().strftime('%Y%m%d%H%M%S') + '.bak'
-    shutil.move(jsonc_p, bak)
-    print('retired: %s -> %s(值已并入 opencode.json)' % (jsonc_p, bak))
+    msgs.append('退役 opencode.jsonc(值已并入)')
+print(';'.join(msgs) if msgs else 'unchanged')
 PYEOF
+)"
+  case "$oc_out" in
+    unchanged) echo "unchanged: $CFG/opencode.json" ;;
+    "")        echo "WARN: opencode.json 合并失败,现有配置未改动" >&2 ;;
+    *)         if ask "更新 $CFG/opencode.json($oc_out)?" Y; then
+                 [ -s "$oc_cand" ] && mv "$oc_cand" "$CFG/opencode.json"
+                 echo "updated: $CFG/opencode.json"
+                 if [ -f "$CFG/opencode.jsonc" ]; then
+                   mv "$CFG/opencode.jsonc" "$CFG/opencode.jsonc.migrated-$(date +%Y%m%d%H%M%S).bak"
+                   echo "retired: opencode.jsonc(值已并入 opencode.json)"
+                 fi
+               else
+                 echo "保留原文件: $CFG/opencode.json"
+               fi ;;
+  esac
   cfg_full=1
 else
   echo "跳过: opencode.json 模板下载失败(检查代理),现有配置未改动"
 fi
-rm -f "$oc_tpl"
+rm -f "$oc_tpl" "$oc_cand"
 
 # ---- 4.0 合并后补回 claude-mem wrapper 条目(旧 opencode.jsonc 自带 plugin 数组时,
 #      第 4 步的模板合并会丢掉它——2.1 只清理了失效条目,这里兜底确保 wrapper 在)----
 if [ -f "$BUNDLED" ]; then
+  if ! grep -qs 'claude-mem-wrapper.js' "$CFG/opencode.json" 2>/dev/null && \
+     ask "在 $CFG/opencode.json 补回 plugin 条目 ./plugins/claude-mem-wrapper.js?" Y; then
   python3 - "$CFG/opencode.json" <<'PYEOF'
 import json, os, sys
 path = sys.argv[1]
@@ -404,6 +440,7 @@ if ENTRY not in plugins:
         f.write("\n")
     print(f"added: plugin {ENTRY} -> {path}")
 PYEOF
+  fi
 fi
 
 # ---- 4.1 MCP 查询工具 → opencode.json ----
@@ -413,7 +450,7 @@ if [ -f "$BUNDLED" ] && [ -f "$MCP_CJS" ]; then
     f="$CFG/$name"
     if [ -f "$f" ] && grep -qs 'mcp-server.cjs' "$f"; then configured=1; break; fi
   done
-  if [ "$configured" -eq 0 ]; then
+  if [ "$configured" -eq 0 ] && ask "在 $CFG/opencode.json 添加 claude-mem MCP 条目?" Y; then
     python3 - "$CFG/opencode.json" "$BUN_BIN" "$MCP_CJS" <<'PYEOF'
 import json, sys
 path, bun, cjs = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -453,7 +490,8 @@ if ! command -v codegraph >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/codegraph"
 fi
 CG_BIN="$(command -v codegraph 2>/dev/null || echo "$HOME/.local/bin/codegraph")"
 if [ -x "$CG_BIN" ]; then
-  if ! grep -qs '"codegraph"' "$CFG/opencode.json" "$CFG/opencode.jsonc" 2>/dev/null; then
+  if ! grep -qs '"codegraph"' "$CFG/opencode.json" "$CFG/opencode.jsonc" 2>/dev/null && \
+     ask "在 $CFG/opencode.json 添加 codegraph MCP 条目?" Y; then
     python3 - "$CFG/opencode.json" "$CG_BIN" <<'PYEOF'
 import json, sys
 path, bin_ = sys.argv[1], sys.argv[2]
@@ -512,7 +550,8 @@ PYEOF
 fi
 
 # ---- 5.1 compaction 关闭(manual setup 要求:magic-context 接管压缩;完整 jsonc 已含则跳过)----
-if ! grep -qs '"compaction"' "$CFG/opencode.jsonc" "$CFG/opencode.json" 2>/dev/null; then
+if ! grep -qs '"compaction"' "$CFG/opencode.jsonc" "$CFG/opencode.json" 2>/dev/null && \
+   ask "在 $CFG/opencode.json 写入 compaction auto=false(让 magic-context 接管压缩)?" Y; then
 python3 - "$CFG/opencode.json" <<'PYEOF'
 import json, os, sys
 path = sys.argv[1]
@@ -540,6 +579,8 @@ TUI_ENTRY="@cortexkit/opencode-magic-context@latest"
 if [ -f "$CFG/tui.jsonc" ]; then TUI_CFG="$CFG/tui.jsonc"
 elif [ -f "$CFG/tui.json" ]; then TUI_CFG="$CFG/tui.json"
 else TUI_CFG="$CFG/tui.jsonc"; fi
+if ! grep -qs 'magic-context' "$CFG/tui.jsonc" "$CFG/tui.json" 2>/dev/null && \
+   ask "在 $TUI_CFG 添加 magic-context 侧边栏 TUI 插件条目?" Y; then
 python3 - "$TUI_CFG" "$TUI_ENTRY" <<'PYEOF'
 import json, re, sys
 path, entry = sys.argv[1], sys.argv[2]
@@ -582,6 +623,7 @@ else:
         f.write("\n")
     print(f"added: tui plugin {entry} -> {path}")
 PYEOF
+fi
 
 # ---- 6. notify 插件(brilliantrough/opencode-notify-hub,GitHub Release 预构建包)----
 NOTIFY_TARGET="$PLUGINS/session-notify.js"
@@ -612,7 +654,9 @@ fi
 
 # ---- 7. skills 本体 ----
 if [ -d "$HOME/.agents/skills/load-mem" ]; then
-  echo "skills 已存在,跳过安装(更新用 npx skills update -g)"
+  if command -v npx >/dev/null 2>&1 && ask "更新 skills 本体(npx skills update -g)?" Y; then
+    npx -y skills@latest update -g || true
+  fi
 elif ! command -v npx >/dev/null 2>&1; then
   echo "跳过 skills 安装(需要 npx:先装 Node 再重跑)"
 elif ask "安装 skills 本体(brilliantrough/agent-skills 全部 12 个)?" Y; then
