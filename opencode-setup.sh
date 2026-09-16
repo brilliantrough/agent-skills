@@ -39,10 +39,16 @@ SETTINGS="$HOME/.claude-mem/settings.json"
 ask() { # $1=提示 $2=默认(Y/N,缺省 N)
   local a="" def="${2:-N}" hint="y/N"
   [ "$def" = Y ] && hint="Y/n"
-  # 不能加 2>/dev/null:read -p 的提示符写往 stderr,吞掉后提示不可见,脚本像卡死
-  # 读 /dev/tty:curl|bash 时 stdin 是脚本管道,绝不能从 stdin 读,否则会吞掉脚本行
-  if { [ -t 0 ] || [ -e /dev/tty ]; } && read -r -p "$1 [$hint] " a < /dev/tty; then
-    if [ -z "$a" ]; then [ "$def" = Y ]; else [[ "$a" =~ ^[Yy]$ ]]; fi
+  # 先探测 tty 是否真能用(容器/无控制终端时 /dev/tty 打开会失败):不可用则直接取默认,
+  # 避免把 "No such device" 刷到 stderr
+  if [ -t 0 ] || { true < /dev/tty; } 2>/dev/null; then
+    # 不能把 2>/dev/null 加到下面这句:read -p 的提示符写往 stderr,吞掉后提示不可见,脚本像卡死
+    # 读 /dev/tty:curl|bash 时 stdin 是脚本管道,绝不能从 stdin 读,否则会吞掉脚本行
+    if read -r -p "$1 [$hint] " a < /dev/tty; then
+      if [ -z "$a" ]; then [ "$def" = Y ]; else [[ "$a" =~ ^[Yy]$ ]]; fi
+    else
+      [ "$def" = Y ]
+    fi
   else
     [ "$def" = Y ]  # 非交互环境:按该询问的默认值(Y 则执行,N 则跳过)
   fi
