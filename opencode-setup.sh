@@ -16,8 +16,8 @@
 #      compaction)。已存在则只覆盖各 provider 的 models,apiKey 等本地字段原样保留;
 #      老 opencode.jsonc 的值自动并入后退役为 .migrated.bak
 #   5. MCP 查询工具(claude-mem)+ codegraph 代码知识图谱(CLI 可选安装 + MCP 条目)+
-#      插件条目(magic-context、ponytail)+ compaction 关闭(manual setup 要求 magic-context 接管压缩)
-#      → 统一写入纯 JSON 的 opencode.json
+#      插件条目(magic-context、ponytail)+ compaction 关闭 + TUI 侧边栏条目(tui.jsonc)
+#      → 写入纯 JSON 的 opencode.json(及 TUI 的 tui.jsonc)
 #   6. notify 插件(brilliantrough/opencode-notify-hub,GitHub Release 预构建包)
 #   7. skills 本体:npx skills add brilliantrough/agent-skills --all -g -y
 #   8. strictdoc 检查(只提醒,不代装——env 管理器是用户的选择)
@@ -516,6 +516,58 @@ if "compaction" not in cfg:
     print(f"added: compaction auto=false prune=false -> {path}")
 PYEOF
 fi
+
+# ---- 5.2 TUI 插件条目(magic-context 右侧可视化侧边栏)----
+# 侧边栏(占比/historian/compartment 可视化)是独立于 opencode.json 的 TUI 插件,
+# magic-context 只在自身 setup 向导/doctor 时才写,这里补上。opencode 同时加载
+# tui.json 与 tui.jsonc(tui.jsonc 优先),故:有 jsonc 用 jsonc,否则用 json,都没有则建 tui.jsonc。
+# 只增不删——用户故意移除该条目即表示不要侧边栏。
+TUI_ENTRY="@cortexkit/opencode-magic-context@latest"
+if [ -f "$CFG/tui.jsonc" ]; then TUI_CFG="$CFG/tui.jsonc"
+elif [ -f "$CFG/tui.json" ]; then TUI_CFG="$CFG/tui.json"
+else TUI_CFG="$CFG/tui.jsonc"; fi
+python3 - "$TUI_CFG" "$TUI_ENTRY" <<'PYEOF'
+import json, re, sys
+path, entry = sys.argv[1], sys.argv[2]
+def load(p):  # JSONC 感知:去注释与尾逗号(字符串内的 // 不动)
+    try:
+        t = open(p, encoding='utf-8').read()
+    except FileNotFoundError:
+        return {}
+    out, i, n, instr = [], 0, len(t), False
+    while i < n:
+        c = t[i]
+        if instr:
+            out.append(c)
+            if c == '\\': out.append(t[i + 1]); i += 2; continue
+            if c == '"': instr = False
+            i += 1; continue
+        if c == '"': instr = True; out.append(c); i += 1; continue
+        if c == '/' and i + 1 < n and t[i + 1] == '/':
+            while i < n and t[i] != '\n': i += 1
+            continue
+        if c == '/' and i + 1 < n and t[i + 1] == '*':
+            i += 2
+            while i + 1 < n and not (t[i] == '*' and t[i + 1] == '/'): i += 1
+            i += 2; continue
+        out.append(c); i += 1
+    return json.loads(re.sub(r',(\s*[}\]])', r'\1', ''.join(out)))
+cfg = load(path)
+plugins = cfg.get("plugin")
+if not isinstance(plugins, list):
+    plugins = []
+def id_of(x):
+    return x if isinstance(x, str) else (x[0] if isinstance(x, list) and x else "")
+if any("magic-context" in id_of(x) for x in plugins):
+    print(f"unchanged: {path}(已有 magic-context TUI 条目)")
+else:
+    plugins.append(entry)
+    cfg["plugin"] = plugins
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    print(f"added: tui plugin {entry} -> {path}")
+PYEOF
 
 # ---- 6. notify 插件(brilliantrough/opencode-notify-hub,GitHub Release 预构建包)----
 NOTIFY_TARGET="$PLUGINS/session-notify.js"

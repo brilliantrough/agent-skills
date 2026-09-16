@@ -156,6 +156,14 @@ plugin 条目 + 关闭 opencode 内置 compaction(magic-context 接管压缩,man
 
 故障自检:`npx @cortexkit/magic-context@latest doctor`。
 
+**右侧可视化侧边栏**(占比 / historian / compartment 状态)是独立的 TUI 插件,注册在 `~/.config/opencode/tui.jsonc`(opencode 同时加载 `tui.json` 与 `tui.jsonc`,后者优先):
+
+```jsonc
+{ "plugin": ["@cortexkit/opencode-magic-context@latest"] }
+```
+
+magic-context 只在自身安装向导 / `doctor` 时才写这个文件(设计上侧边栏是显式 opt-in);`opencode-setup.sh` 会自动补齐,只增不删——想关掉侧边栏就手动删掉该条目。
+
 ### 3. ponytail
 
 ```jsonc
