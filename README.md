@@ -124,6 +124,7 @@ skills 是共享的，更新也会影响 OpenCode；claude-mem runtime 更新请
 |---|---|
 | Provider/模型 | 部署 `~/.pi/agent/models.json`:claude-newapi(anthropic)、codex-newapi(openai-responses)、anthropic-newapi;**anthropic 协议 `baseUrl` 填根域**(pi 自动补 `/v1/messages`,填 `/v1` 会 404),openai 协议带 `/v1`;`compat.supportsStore:false`、`thinkingLevelMap`(xhigh/max)对应 opencode 的 variants |
 | 设置 | `~/.pi/agent/settings.json`:默认 provider/model/thinking、`defaultTools` 补 `grep/find/ls`(pi 默认只开 read/bash/edit/write)、`packages` 由 `pi install` 维护;不设置 Pi 的 `compaction` 开关——magic-context Pi 扩展在 `session_before_compact` 事件里自行 cancel 原生压缩(与官方 `setup --harness pi` 行为一致,官方只注册包 + 写共享 jsonc) |
+| 凭据 | `~/.pi/agent/auth.json`(权限 600,coding plan 等 Pi 内置 provider 的 key):模板为 `zai-coding-cn`/`kimi-coding` 占位符;字段级合并,已填 key 不覆盖,仅初始化缺失文件。这类内置 provider(智谱 coding plan、Kimi For Coding、qwen/xiaomi token plan、opencode-go 等)不需要写 `models.json` |
 | MCP | `~/.agents/mcp.json`(共享技能目录):mcphub-web(远程 URL)、codegraph、claude-mem;本地命令路径部署时替换为本机 `bun`/`codegraph` 绝对路径(pi-mcp-adapter 读取) |
 | 插件 | `pi install npm:...`:pi-mcp-adapter、`@dietrichgebert/ponytail`(官方带 pi-extension)、`pi-subagents-j0k3r`、`@cortexkit/pi-magic-context` |
 | claude-mem | 官方无 Pi 适配;脚本部署自研桥扩展 `~/.pi/agent/extensions/claude-mem.ts`,镜像 opencode 插件契约(POST worker `/api/sessions/init|observations|summarize`,`platformSource:"pi"`),并提供 `claude_mem_search` 工具直连 worker(不依赖 MCP) |
@@ -131,7 +132,7 @@ skills 是共享的，更新也会影响 OpenCode；claude-mem runtime 更新请
 | magic-context 版本守卫 | opencode 插件缓存把版本钉死在下载时(重启不自动升级),与 Pi 扩展版本不一致时,共享的 `context.db` 会让新宿主 fail-closed 拒绝主回合;脚本检测到不一致时**默认不启用** Pi 版,并给出「清 `~/.cache/opencode/packages/@cortexkit/opencode-magic-context@latest` → 重启 opencode → 重跑本脚本」步骤 |
 | uv/strictdoc | 同 opencode-setup.sh |
 
-手工步骤(不用脚本时):`pi install npm:pi-mcp-adapter npm:@dietrichgebert/ponytail npm:pi-subagents-j0k3r npm:@cortexkit/pi-magic-context`;把 dot_file 的 `pi/{models,settings,mcp}.json` 与 `pi/agents/*.md`、`pi/extensions/claude-mem.ts` 放到对应位置,填好 `models.json` 的网关占位符即可。
+手工步骤(不用脚本时):`pi install npm:pi-mcp-adapter npm:@dietrichgebert/ponytail npm:pi-subagents-j0k3r npm:@cortexkit/pi-magic-context`;把 dot_file 的 `pi/{models,settings,mcp,auth}.json` 与 `pi/agents/*.md`、`pi/extensions/claude-mem.ts` 放到对应位置,填好 `models.json` 的网关占位符与 `auth.json` 的 coding plan key(`pi auth check --provider <p>` 可验证)即可。
 
 ## OpenCode 插件配置（手工步骤）
 

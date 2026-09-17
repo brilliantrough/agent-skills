@@ -31,6 +31,7 @@ SETTINGS="$AGENT_DIR/settings.json"
 SHARED_MCP="$HOME/.agents/mcp.json"
 MC_SETTINGS="$HOME/.claude-mem/settings.json"
 MC_CFG="$HOME/.config/cortexkit/magic-context.jsonc"
+AUTH="$AGENT_DIR/auth.json"
 MCP_CJS="$HOME/.claude/plugins/marketplaces/thedotmack/plugin/scripts/mcp-server.cjs"
 OC_MC_CACHE="$HOME/.cache/opencode/packages/@cortexkit/opencode-magic-context@latest"
 
@@ -51,7 +52,7 @@ ask() { # $1=提示 $2=默认(Y/N,缺省 N)
 RAW="https://raw.githubusercontent.com/brilliantrough/dot_file/master"
 # merge_cfg <url> <dest> [mcp] — 拉 dot_file 模板后做「字段级」合并,而非整文件覆盖:
 #   模板中的非敏感字段值优先 → 新默认值能下发到服务器;
-#   敏感键(api key / secret / token / password / credential / bearer / base_url / url / endpoint / host)保留本地值;
+#   敏感键(api key / secret / token / password / credential / bearer / base_url / url / endpoint / host / key)保留本地值;
 #   模板里含 <占位符> 的值不覆盖本地已填内容;本地独有的键保留。
 #   合并结果与本地一致时不写文件(幂等);有改动先存时间戳 .bak。
 #   mcp 模式额外替换 <HOME>/<BUN_BIN>/<CODEGRAPH_BIN>/<MCP_CJS> 为本机路径。
@@ -92,7 +93,7 @@ PYEOF
   out="$(python3 - "$dest" "$tmp" "$cand" <<'PYEOF'
 import json, re, sys
 dest, tpl = sys.argv[1], sys.argv[2]
-SENSITIVE = re.compile(r'(api[_-]?key|secret|token|password|passwd|credential|bearer|base[_-]?url|url|endpoint|host)', re.I)
+SENSITIVE = re.compile(r'(api[_-]?key|secret|token|password|passwd|credential|bearer|base[_-]?url|url|endpoint|host|^key$)', re.I)
 PLACEHOLDER = re.compile(r'<[A-Za-z][A-Za-z0-9 _-]*>')
 
 def load(p):  # JSONC 感知:去注释与尾逗号(字符串内的 // 不动)
@@ -334,6 +335,29 @@ if [ "$PI_OK" -eq 1 ]; then
   CG_BIN="$(command -v codegraph 2>/dev/null || echo "$HOME/.local/bin/codegraph")"
   merge_cfg "$RAW/pi/mcp.json" "$SHARED_MCP" mcp || true
 
+  # ---- 4.05 凭据(auth.json,coding plan 等内置 provider)----
+  # 只初始化缺失文件(占位符);已有条目的 key 是敏感值,合并时保留本地,不覆盖。
+  auth_rc=0; merge_cfg "$RAW/pi/auth.json" "$AUTH" || auth_rc=$?
+  if [ "$auth_rc" = 1 ] && [ ! -f "$AUTH" ]; then
+    if ask "写入 $AUTH(内嵌兜底模板,含占位符)?" Y; then
+      mkdir -p "$AGENT_DIR"
+      cat > "$AUTH" <<'EOF'
+{
+  "zai-coding-cn": {
+    "type": "api_key",
+    "key": "<YOUR_ZAI_CODING_CN_API_KEY>"
+  },
+  "kimi-coding": {
+    "type": "api_key",
+    "key": "<YOUR_KIMI_API_KEY>"
+  }
+}
+EOF
+      echo "wrote: $AUTH(含占位符)"
+    fi
+  fi
+  [ -f "$AUTH" ] && chmod 600 "$AUTH"
+
   # ---- 4.1 codegraph MCP 需要的 CLI(可选)----
   if [ ! -x "$CG_BIN" ]; then
     echo "未检测到 codegraph(代码知识图谱,MCP 需要 CLI 提供 graph)。"
@@ -491,6 +515,7 @@ echo "== done. 需要你手工完成的 =="
 n=1
 echo "$n. 填占位符(仅首次部署需填):"; n=$((n+1))
 [ "$PI_OK" -eq 1 ] && echo "   - $MODELS:https://<YOUR_GATEWAY_HOST>(anthropic 协议填根域,openai 协议带 /v1)、<YOUR_NEWAPI_API_KEY>"
+[ "$PI_OK" -eq 1 ] && echo "   - $AUTH:coding plan 等内置 provider 的 key(如 zai-coding-cn / kimi-coding)"
 echo "   - $SHARED_MCP:https://<YOUR_MCPHUB_HOST>/mcp/web"
 echo "   - $MC_SETTINGS:BASE_URL / MODEL / API_KEY(openrouter 走 OpenAI 协议)"
 echo "   - $MC_CFG:BASE_URL / API_KEY;historian/dreamer 的 model 用 <provider>/<model-id>"
