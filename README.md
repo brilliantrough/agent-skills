@@ -2,13 +2,21 @@
 
 个人 agent skills 集，含三层记忆系统、任务工作流与个人前端品味。
 
-**一键配置**（交互确认、幂等）——一条命令同时搞定「装 skills 本体」和「配 opencode 插件」（claude-mem / magic-context / ponytail / notify / codegraph）：
+**一键配置**（交互确认、幂等）——一条命令同时搞定「装 skills 本体」和「配插件」（claude-mem / magic-context / ponytail / notify / codegraph）：
+
+OpenCode（主目标）：
 
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/opencode-setup.sh)"
 ```
 
-只想要 skills、不配 opencode 插件时：
+Pi：
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/pi-setup.sh)"
+```
+
+只想要 skills、不配插件的场景：
 
 ```bash
 npx skills@latest add brilliantrough/agent-skills --all -g -y
@@ -22,7 +30,7 @@ skill 装在 `~/.agents/skills/`，重开 agent session 生效。
 bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.com/brilliantrough/agent-skills/main/codex-setup.sh)"
 ```
 
-本仓库仍以 **OpenCode 为主**；Codex 复用现有 skills 原文，不为其修改技能工作流。详见下面的 Codex 说明。
+本仓库仍以 **OpenCode 为主**；Pi 与 OpenCode 共享记忆配置（`~/.claude-mem/settings.json`、`~/.config/cortexkit/magic-context.jsonc`）；Codex 复用现有 skills 原文，不为其修改技能工作流。详见下面的 Pi 与 Codex 说明。
 
 ## Skills(12 个)
 
@@ -107,6 +115,23 @@ npx skills@latest update -g
 skills 是共享的，更新也会影响 OpenCode；claude-mem runtime 更新请按官方安装文档执行，先备份共享配置。
 
 官方参考：[Codex MCP](https://developers.openai.com/codex/mcp) · [Codex hooks](https://developers.openai.com/codex/hooks) · [claude-mem 安装器](https://github.com/thedotmack/claude-mem/blob/main/src/services/integrations/CodexCliInstaller.ts) · [Ponytail](https://github.com/DietrichGebert/ponytail#codex) · [CodeGraph](https://github.com/colbymchenry/codegraph#quick-start)
+
+## Pi 配置
+
+[Pi](https://pi.dev) 核心刻意不带 MCP/subagent,能力全靠 npm 包与扩展;skills 原生读 `~/.agents/skills/`(零迁移)。`pi-setup.sh` 与 `opencode-setup.sh` **共享** `~/.claude-mem/settings.json` 与 `~/.config/cortexkit/magic-context.jsonc`(同一套字段级合并,两边幂等,不破坏本地值)。配置模板在 [dot_file/pi](https://github.com/brilliantrough/dot_file/tree/master/pi)。
+
+| 项目 | `pi-setup.sh` 的行为 |
+|---|---|
+| Provider/模型 | 部署 `~/.pi/agent/models.json`:claude-newapi(anthropic)、codex-newapi(openai-responses)、anthropic-newapi;**anthropic 协议 `baseUrl` 填根域**(pi 自动补 `/v1/messages`,填 `/v1` 会 404),openai 协议带 `/v1`;`compat.supportsStore:false`、`thinkingLevelMap`(xhigh/max)对应 opencode 的 variants |
+| 设置 | `~/.pi/agent/settings.json`:默认 provider/model/thinking、`defaultTools` 补 `grep/find/ls`(pi 默认只开 read/bash/edit/write)、关闭内置压缩(magic-context 接管)、`packages` 由 `pi install` 维护 |
+| MCP | `~/.agents/mcp.json`(共享技能目录):mcphub-web(远程 URL)、codegraph、claude-mem;本地命令路径部署时替换为本机 `bun`/`codegraph` 绝对路径(pi-mcp-adapter 读取) |
+| 插件 | `pi install npm:...`:pi-mcp-adapter、`@dietrichgebert/ponytail`(官方带 pi-extension)、`pi-subagents-j0k3r`、`@cortexkit/pi-magic-context` |
+| claude-mem | 官方无 Pi 适配;脚本部署自研桥扩展 `~/.pi/agent/extensions/claude-mem.ts`,镜像 opencode 插件契约(POST worker `/api/sessions/init|observations|summarize`,`platformSource:"pi"`),并提供 `claude_mem_search` 工具直连 worker(不依赖 MCP) |
+| subagent | `~/.pi/agent/agents/{explore,general}.md`(对应 opencode 的 explore/general);frontmatter 的 `tools` **必须显式写**,默认值引用了不存在的工具 |
+| magic-context 版本守卫 | opencode 插件缓存把版本钉死在下载时(重启不自动升级),与 Pi 扩展版本不一致时,共享的 `context.db` 会让新宿主 fail-closed 拒绝主回合;脚本检测到不一致时**默认不启用** Pi 版,并给出「清 `~/.cache/opencode/packages/@cortexkit/opencode-magic-context@latest` → 重启 opencode → 重跑本脚本」步骤 |
+| uv/strictdoc | 同 opencode-setup.sh |
+
+手工步骤(不用脚本时):`pi install npm:pi-mcp-adapter npm:@dietrichgebert/ponytail npm:pi-subagents-j0k3r npm:@cortexkit/pi-magic-context`;把 dot_file 的 `pi/{models,settings,mcp}.json` 与 `pi/agents/*.md`、`pi/extensions/claude-mem.ts` 放到对应位置,填好 `models.json` 的网关占位符即可。
 
 ## OpenCode 插件配置（手工步骤）
 
@@ -285,13 +310,15 @@ npm 形式条目在 opencode 重启时自动安装;配置改动重启 opencode �
 npx skills update -g
 ```
 
-重跑 `opencode-setup.sh` 是幂等的,配置文件按「字段级合并」更新,不覆盖本地敏感值:
+重跑 `opencode-setup.sh` / `pi-setup.sh` 是幂等的,配置文件按「字段级合并」更新,不覆盖本地敏感值:
 
 | 文件 | 更新方式(non-destructive) |
 |---|---|
 | `~/.config/opencode/opencode.json` | 已存在的 provider 保留本地 `options`(apiKey/网关),只按模板覆盖 `models`;模板新增的 provider 整块加入;模板的非 provider 字段仅在本地缺该键时补入 |
 | `~/.claude-mem/settings.json` | 模板的非敏感字段值优先下发;`api key` / `base url` 等敏感键与含 `<占位符>` 的值保留本地内容;本地独有键保留 |
-| `~/.config/cortexkit/magic-context.jsonc` | 同 settings.json |
+| `~/.config/cortexkit/magic-context.jsonc` | 同 settings.json(含 `historian.pi` / `dreamer.pi` 块,与 opencode 共用) |
+| `~/.pi/agent/{settings,models}.json`、`~/.agents/mcp.json` | 同 settings.json(pi-setup.sh);mcp.json 的本地命令路径在合并前按本机替换 |
+| `~/.pi/agent/agents/*.md`、`extensions/claude-mem.ts` | 整文件部署:内容有差异才写,原文件存 `.bak-YYYYmmddHHMMSS` |
 
 有改动时先把原文件存为时间戳 `.bak-YYYYmmddHHMMSS`;合并结果与本地一致则不写文件。magic-context 的合并会把 JSONC 规整为 JSON(注释丢失,原样保留在 `.bak` 里)。
 

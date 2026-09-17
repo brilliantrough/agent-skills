@@ -39,9 +39,11 @@ SETTINGS="$HOME/.claude-mem/settings.json"
 ask() { # $1=提示 $2=默认(Y/N,缺省 N)
   local a="" def="${2:-N}" hint="y/N"
   [ "$def" = Y ] && hint="Y/n"
-  # 不能加 2>/dev/null:read -p 的提示符写往 stderr,吞掉后提示不可见,脚本像卡死
-  # 读 /dev/tty:curl|bash 时 stdin 是脚本管道,绝不能从 stdin 读,否则会吞掉脚本行
-  if { [ -t 0 ] || [ -e /dev/tty ]; } && read -r -p "$1 [$hint] " a < /dev/tty; then
+  # 不能把 read 的 stderr 丢掉:read -p 的提示符走 stderr,吞掉后提示不可见,脚本像卡死。
+  # 用 fd 9 显式打开 /dev/tty:无控制终端时(CI/cron/管道)打开失败保持安静,直接走默认值。
+  if { exec 9</dev/tty; } 2>/dev/null; then
+    read -r -u 9 -p "$1 [$hint] " a || a=""
+    exec 9<&-
     if [ -z "$a" ]; then [ "$def" = Y ]; else [[ "$a" =~ ^[Yy]$ ]]; fi
   else
     [ "$def" = Y ]  # 非交互(无 tty):按该询问的默认值
