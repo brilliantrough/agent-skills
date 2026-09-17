@@ -2,7 +2,7 @@
 
 个人 agent skills 集，含三层记忆系统、任务工作流与个人前端品味。
 
-**一键配置**（交互确认、幂等）——一条命令同时搞定「装 skills 本体」和「配插件」（claude-mem / magic-context / ponytail / notify / codegraph）：
+**一键配置**（交互确认、幂等）——一条命令同时搞定「装 skills 本体」和「配插件」（claude-mem / magic-context / ponytail / notify / codegraph / later）：
 
 OpenCode（主目标）：
 
@@ -279,6 +279,28 @@ curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install
 ```bash
 cd your-project && codegraph init
 ```
+
+### 6. later(延迟发送 prompt)
+
+挂机等实验结果用:在**输入框里直接打**(不是 slash 命令)
+
+```text
+later 5h 查看当前实验的运行结果
+```
+
+回车后这句话**不会发给模型**,而是被排程;到点插件用 `session.promptAsync` 把它作为用户消息注入会话,等同你本人敲进输入框回车。`later list`、`later cancel 2`、`later cancel all` 管理排程。
+
+- **零模型开销**:输入框拿到评测(`prompt ref`)后,TUI 层拦 Enter —— 命中关键字就自己排程、清空输入、`ctx.consume()`,不发任何请求
+- **agent 忙也没事**:到点时用 `session.promptAsync` 排进会话,本轮 step 结束后立刻处理(实测:bash `sleep 25` 进行中注入,工具返回后同一回合回复)
+- **边界**:计时器只活在当前 opencode 进程内,退出/重启即丢未触发的排程 —— 挂机请把 opencode 放 tmux 里
+- **为什么是 TUI 插件**:server 插件(`plugins/*.js` 的 `chat.message` / `command.execute.before`)拦不住那一轮(清空 `parts` 也照样建 session 走模型,官方 issue #30268 同结论);TUI 插件才有 `command.register` / `keymap` / prompt ref
+- **不能放 `plugins/`**:那目录只认 server 插件,签名不符会让 opencode 启动即崩;要放 `~/.config/opencode/tui-plugins/` 并在 `tui.jsonc` 里引用
+
+```jsonc
+{ "plugin": ["@cortexkit/opencode-magic-context@latest", "./tui-plugins/later"] }
+```
+
+`opencode-setup.sh` 第 5.3 步会部署插件并补上条目(只增不删)。
 
 ## opencode.jsonc 最小配置
 

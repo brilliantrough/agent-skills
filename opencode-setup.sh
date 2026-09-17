@@ -19,7 +19,8 @@
 #      compaction)。已存在则只覆盖各 provider 的 models,apiKey 等本地字段原样保留;
 #      老 opencode.jsonc 的值自动并入后退役为 .migrated.bak
 #   5. MCP 查询工具(claude-mem)+ codegraph 代码知识图谱(CLI 可选安装 + MCP 条目)+
-#      插件条目(magic-context、ponytail)+ compaction 关闭 + TUI 侧边栏条目(tui.jsonc)
+#      插件条目(magic-context、ponytail)+ compaction 关闭 + TUI 条目(tui.jsonc:magic-context
+#      侧边栏、later 延迟发送 prompt)
 #      → 写入纯 JSON 的 opencode.json(及 TUI 的 tui.jsonc)
 #   6. notify 插件(brilliantrough/opencode-notify-hub,GitHub Release 预构建包)
 #   7. skills 本体:npx skills add brilliantrough/agent-skills --all -g -y
@@ -773,18 +774,19 @@ if "compaction" not in cfg:
 PYEOF
 fi
 
-# ---- 5.2 TUI 插件条目(magic-context 右侧可视化侧边栏)----
-# 侧边栏(占比/historian/compartment 可视化)是独立于 opencode.json 的 TUI 插件,
-# magic-context 只在自身 setup 向导/doctor 时才写,这里补上。opencode 同时加载
-# tui.json 与 tui.jsonc(tui.jsonc 优先),故:有 jsonc 用 jsonc,否则用 json,都没有则建 tui.jsonc。
-# 只增不删——用户故意移除该条目即表示不要侧边栏。
-TUI_ENTRY="@cortexkit/opencode-magic-context@latest"
-if [ -f "$CFG/tui.jsonc" ]; then TUI_CFG="$CFG/tui.jsonc"
-elif [ -f "$CFG/tui.json" ]; then TUI_CFG="$CFG/tui.json"
-else TUI_CFG="$CFG/tui.jsonc"; fi
-if ! grep -qs 'magic-context' "$CFG/tui.jsonc" "$CFG/tui.json" 2>/dev/null && \
-   ask "在 $TUI_CFG 添加 magic-context 侧边栏 TUI 插件条目?" Y; then
-python3 - "$TUI_CFG" "$TUI_ENTRY" <<'PYEOF'
+# ensure_tui_plugin <entry> <识别串> — 往 TUI 配置的 plugin 数组补条目(幂等,只增不删;
+# 用户故意移除条目即表示不要该插件)。opencode 同时加载 tui.json 与 tui.jsonc(后者优先),
+# 故:有 jsonc 用 jsonc,否则用 json,都没有则建 tui.jsonc。
+ensure_tui_plugin() {
+  local entry="$1" match="$2"
+  if [ -f "$CFG/tui.jsonc" ]; then TUI_CFG="$CFG/tui.jsonc"
+  elif [ -f "$CFG/tui.json" ]; then TUI_CFG="$CFG/tui.json"
+  else TUI_CFG="$CFG/tui.jsonc"; fi
+  if grep -qs "$match" "$CFG/tui.jsonc" "$CFG/tui.json" 2>/dev/null; then
+    echo "unchanged: $TUI_CFG(已有 $match 条目)"
+    return 0
+  fi
+python3 - "$TUI_CFG" "$entry" <<'PYEOF'
 import json, re, sys
 path, entry = sys.argv[1], sys.argv[2]
 def load(p):  # JSONC 感知:去注释与尾逗号(字符串内的 // 不动)
@@ -814,18 +816,49 @@ cfg = load(path)
 plugins = cfg.get("plugin")
 if not isinstance(plugins, list):
     plugins = []
-def id_of(x):
-    return x if isinstance(x, str) else (x[0] if isinstance(x, list) and x else "")
-if any("magic-context" in id_of(x) for x in plugins):
-    print(f"unchanged: {path}(已有 magic-context TUI 条目)")
-else:
-    plugins.append(entry)
-    cfg["plugin"] = plugins
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(cfg, f, indent=2, ensure_ascii=False)
-        f.write("\n")
-    print(f"added: tui plugin {entry} -> {path}")
+plugins.append(entry)
+cfg["plugin"] = plugins
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(cfg, f, indent=2, ensure_ascii=False)
+    f.write("\n")
+print(f"added: tui plugin {entry} -> {path}")
 PYEOF
+}
+
+# ---- 5.2 TUI 插件条目(magic-context 右侧可视化侧边栏)----
+# 侧边栏(占比/historian/compartment 可视化)是独立于 opencode.json 的 TUI 插件,
+# magic-context 只在自身 setup 向导/doctor 时才写,这里补上。
+TUI_ENTRY="@cortexkit/opencode-magic-context@latest"
+if [ -f "$CFG/tui.jsonc" ]; then TUI_CFG="$CFG/tui.jsonc"
+elif [ -f "$CFG/tui.json" ]; then TUI_CFG="$CFG/tui.json"
+else TUI_CFG="$CFG/tui.jsonc"; fi
+if ! grep -qs 'magic-context' "$CFG/tui.jsonc" "$CFG/tui.json" 2>/dev/null && \
+   ask "在 $TUI_CFG 添加 magic-context 侧边栏 TUI 插件条目?" Y; then
+  ensure_tui_plugin "$TUI_ENTRY" 'magic-context'
+fi
+
+# ---- 5.3 later TUI 插件(输入框关键字延迟发送 prompt)----
+# 用法:输入框里打「later 5h 查看当前实验的运行结果」回车 —— 关键字在 TUI 层被拦截并排程,
+# 不产生任何模型请求;到点用 session.promptAsync 把这条 prompt 注入会话(agent 忙时排队等本轮结束)。
+# 另有「later list」「later cancel <id|all>」。计时器只活在当前 opencode 进程内,挂机请放 tmux。
+# 注意:TUI 插件不能放 plugins/(那目录只认 server 插件,签名不符会让 opencode 启动即崩),
+# 放 $CFG/tui-plugins/later/ 并在 tui.json(c) 里按目录条目引用。
+LATER_DIR="$CFG/tui-plugins/later"
+mkdir -p "$LATER_DIR"
+for f in package.json index.mjs; do
+  if curl -fsSL --connect-timeout 8 -m 60 -o "$LATER_DIR/$f.new" "$RAW/opencode/tui-plugins/later/$f"; then
+    if [ -f "$LATER_DIR/$f" ] && cmp -s "$LATER_DIR/$f.new" "$LATER_DIR/$f"; then
+      rm -f "$LATER_DIR/$f.new"
+    else
+      mv "$LATER_DIR/$f.new" "$LATER_DIR/$f"; echo "deployed: $LATER_DIR/$f"
+    fi
+  else
+    rm -f "$LATER_DIR/$f.new"; echo "WARN: later 插件 $f 下载失败(检查代理)" >&2
+  fi
+done
+if [ -f "$LATER_DIR/index.mjs" ] && \
+   ask "在 $TUI_CFG 添加 later(延迟发送 prompt)TUI 插件条目?" Y; then
+  ensure_tui_plugin "./tui-plugins/later" 'tui-plugins/later'
 fi
 
 # ---- 6. notify 插件(brilliantrough/opencode-notify-hub,GitHub Release 预构建包)----
