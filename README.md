@@ -153,6 +153,7 @@ npx claude-mem install --ide opencode
 - 只 re-export 插件函数,绕过导出 bug;
 - 补上游缺失的**用户 prompt 采集**:上游 `chat.message` 处理器只认 `assistant`,而 opencode 该钩子实际交付的是 `UserMessage`,所以用户输入从未被记录。wrapper 把每条用户输入经 `/api/sessions/init` 写入(与 Claude Code 同一通路:`user_prompts` + FTS + Chroma + observer 的 `<user_request>`),并统一 contentSessionId 使 init 与插件观测落进同一会话行;不产生额外模型请求。
 - 支持**前缀通配**:`CLAUDE_MEM_SKIP_TOOLS` 里以 `*` 结尾的条目(如 `mcphub-web_*`、`ctx_*`)在 POST 前按前缀过滤(worker 本身只做精确匹配,故该语法只在这两个自研 shim 里生效);Pi 桥同样实现。
+- 补上游缺失的**助手回复采集**:上游的 assistant 分支是死代码。wrapper 在 `experimental.text.complete` 暂存每回合最后一个文本,`session.idle` 时作为 1 条 `assistant_message` 观测发出——**每回合 1 次 observer 请求**,而不是每个模型 step 一次。
 
 plugin 条目使用 `./plugins/claude-mem-wrapper.js`。升级 claude-mem 后重跑 `opencode-setup.sh` 重新生成。
 

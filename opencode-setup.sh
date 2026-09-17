@@ -219,7 +219,7 @@ else
   mkdir -p "$PLUGINS"
   w_tmp="$(mktemp)"
   cat > "$w_tmp" <<'EOF'
-// Wrapper for claude-mem's OpenCode plugin. Two jobs:
+// Wrapper for claude-mem's OpenCode plugin. Three jobs:
 // 1) Upstream bug fix (thedotmack/claude-mem#2854/#3328): the bundle exports
 //    non-function constants and opencode's loader requires every export to be a
 //    plugin function, so we re-export only the plugin function.
@@ -233,6 +233,10 @@ else
 // 3) Prefix filtering: upstream's CLAUDE_MEM_SKIP_TOOLS only does exact
 //    matches, so entries ending in "*" (e.g. "mcphub-web_*") are honored here,
 //    before the observation is POSTed.
+// 4) Assistant capture: upstream's assistant branch is dead code, so we stash
+//    the last completed assistant text of a turn and post it as one
+//    observation when the session goes idle — one observer request per turn
+//    instead of one per model step.
 // Regenerate with opencode-setup.sh.
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -257,6 +261,7 @@ function loadSkipPrefixes() {
 }
 
 const SKIP_PREFIXES = loadSkipPrefixes();
+const MAX_ASSISTANT_CHARS = 1000;
 
 function resolveWorkerBaseUrl() {
   const host = process.env.CLAUDE_MEM_WORKER_HOST || "127.0.0.1";
@@ -303,6 +308,22 @@ export default async function (ctx) {
       method: "POST",
       headers: JSON_HEADERS,
       body: JSON.stringify({ contentSessionId: s.cid, project, prompt: text }),
+    }).catch(() => {});
+  }
+
+  function recordAssistant(sessionID, text) {
+    if (!sessionID || !text) return;
+    const s = sessionFor(sessionID);
+    fetch(`${WORKER_BASE_URL}/api/sessions/observations`, {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({
+        contentSessionId: s.cid,
+        tool_name: "assistant_message",
+        tool_input: {},
+        tool_response: text.length > MAX_ASSISTANT_CHARS ? text.slice(0, MAX_ASSISTANT_CHARS) : text,
+        cwd: ctx?.directory || "",
+      }),
     }).catch(() => {});
   }
 
@@ -359,6 +380,36 @@ export default async function (ctx) {
         }
       }
     } catch {}
+  };
+
+  // Assistant capture, part 1: stash every completed assistant text part.
+  // Kept out of the observer until the turn ends (see below) to avoid one
+  // request per model step.
+  hooks["experimental.text.complete"] = async (input, output) => {
+    try {
+      const s = sessionFor(input?.sessionID);
+      const text = String(output?.text ?? "").trim();
+      if (text && text !== s.lastPrompt) s.pendingAssistant = text;
+    } catch {}
+  };
+
+  // Assistant capture, part 2: on session idle, post the turn's final text as
+  // one observation.
+  const upstreamEvent = hooks.event;
+  hooks.event = async (input) => {
+    try {
+      const event = input?.event;
+      if (event?.type === "session.idle") {
+        const sessionID = event.properties?.sessionID || event.properties?.info?.id;
+        const s = sessionID ? sessions.get(sessionID) : undefined;
+        if (s?.pendingAssistant) {
+          const text = s.pendingAssistant;
+          s.pendingAssistant = "";
+          recordAssistant(sessionID, text);
+        }
+      }
+    } catch {}
+    if (upstreamEvent) return upstreamEvent(input);
   };
 
   const upstreamToolAfter = hooks["tool.execute.after"];
