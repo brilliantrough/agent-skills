@@ -123,7 +123,7 @@ skills 是共享的，更新也会影响 OpenCode；claude-mem runtime 更新请
 | 项目 | `pi-setup.sh` 的行为 |
 |---|---|
 | Provider/模型 | 部署 `~/.pi/agent/models.json`:claude-newapi(anthropic)、codex-newapi(openai-responses)、anthropic-newapi;**anthropic 协议 `baseUrl` 填根域**(pi 自动补 `/v1/messages`,填 `/v1` 会 404),openai 协议带 `/v1`;`compat.supportsStore:false`、`thinkingLevelMap`(xhigh/max)对应 opencode 的 variants |
-| 设置 | `~/.pi/agent/settings.json`:默认 provider/model/thinking、`defaultTools` 补 `grep/find/ls`(pi 默认只开 read/bash/edit/write)、关闭内置压缩(magic-context 接管)、`packages` 由 `pi install` 维护 |
+| 设置 | `~/.pi/agent/settings.json`:默认 provider/model/thinking、`defaultTools` 补 `grep/find/ls`(pi 默认只开 read/bash/edit/write)、`packages` 由 `pi install` 维护;不设置 Pi 的 `compaction` 开关——magic-context Pi 扩展在 `session_before_compact` 事件里自行 cancel 原生压缩(与官方 `setup --harness pi` 行为一致,官方只注册包 + 写共享 jsonc) |
 | MCP | `~/.agents/mcp.json`(共享技能目录):mcphub-web(远程 URL)、codegraph、claude-mem;本地命令路径部署时替换为本机 `bun`/`codegraph` 绝对路径(pi-mcp-adapter 读取) |
 | 插件 | `pi install npm:...`:pi-mcp-adapter、`@dietrichgebert/ponytail`(官方带 pi-extension)、`pi-subagents-j0k3r`、`@cortexkit/pi-magic-context` |
 | claude-mem | 官方无 Pi 适配;脚本部署自研桥扩展 `~/.pi/agent/extensions/claude-mem.ts`,镜像 opencode 插件契约(POST worker `/api/sessions/init|observations|summarize`,`platformSource:"pi"`),并提供 `claude_mem_search` 工具直连 worker(不依赖 MCP) |
