@@ -128,7 +128,7 @@ skills 是共享的，更新也会影响 OpenCode；claude-mem runtime 更新请
 | MCP | `~/.agents/mcp.json`(共享技能目录):mcphub-web(远程 URL)、codegraph、claude-mem;本地命令路径部署时替换为本机 `bun`/`codegraph` 绝对路径(pi-mcp-adapter 读取) |
 | 插件 | `pi install npm:...`:pi-mcp-adapter、`@dietrichgebert/ponytail`(官方带 pi-extension)、`pi-subagents-j0k3r`、`pi-lens`(实时诊断/符号检索,注册 `lens_diagnostics`/`symbol_search` 等工具)、`@juicesharp/rpiv-ask-user-question`(结构化提问工具 `ask_user_question`——pi 核心无提问工具,plan-brief/grilling 类流程需要它)、`@cortexkit/pi-magic-context`;**本仓库自身也是 Pi 包**(`pi install git:github.com/brilliantrough/agent-skills`,提供 statusline 扩展、claude-mem 桥扩展、one-dark 主题;旧版散装部署文件会被脚本清理) |
 | 主题 | 仓库 `pi/themes/onedark.json` 由上面的 **Pi 包**提供(One Dark,56 色 token;热重载),settings.json `theme: one-dark`。换主题:改 `theme` 或装主题包(如 `awesome-pi-themes` 65 款、`@inobit/pi-themes`);`/settings` 里可选所有已装主题 |
-| claude-mem | 官方无 Pi 适配;**本仓库 Pi 包**内置自研桥扩展(镜像 opencode 插件契约:POST worker `/api/sessions/init|observations|summarize`,`platformSource:"pi"`;采集工具调用 + 助手消息 + **用户 prompt**),并提供 `claude_mem_search` 工具直连 worker(不依赖 MCP) |
+| claude-mem | 官方无 Pi 适配;**本仓库 Pi 包**内置自研桥扩展(镜像 opencode 插件契约:POST worker `/api/sessions/init|observations|summarize`,`platformSource:"pi"`;采集工具调用 + 助手消息 + **用户 prompt**,支持 `前缀*` 跳过),并提供 `claude_mem_search` 工具直连 worker(不依赖 MCP) |
 | statusline | 本仓库 Pi 包的 `pi/extensions/statusline.ts`:状态行显示 git 分支(+`*` 脏标记);模型/thinking/上下文占比 Pi 原生 footer 已显示,不重复 |
 | subagent | `~/.pi/agent/agents/{explore,general}.md`(对应 opencode 的 explore/general);frontmatter 的 `tools` **必须显式写**,默认值引用了不存在的工具 |
 | magic-context 版本守卫 | opencode 插件缓存把版本钉死在下载时(重启不自动升级),与 Pi 扩展版本不一致时,共享的 `context.db` 会让新宿主 fail-closed 拒绝主回合;脚本检测到不一致时**默认不启用** Pi 版,并给出「清 `~/.cache/opencode/packages/@cortexkit/opencode-magic-context@latest` → 重启 opencode → 重跑本脚本」步骤 |
@@ -152,6 +152,7 @@ npx claude-mem install --ide opencode
 
 - 只 re-export 插件函数,绕过导出 bug;
 - 补上游缺失的**用户 prompt 采集**:上游 `chat.message` 处理器只认 `assistant`,而 opencode 该钩子实际交付的是 `UserMessage`,所以用户输入从未被记录。wrapper 把每条用户输入经 `/api/sessions/init` 写入(与 Claude Code 同一通路:`user_prompts` + FTS + Chroma + observer 的 `<user_request>`),并统一 contentSessionId 使 init 与插件观测落进同一会话行;不产生额外模型请求。
+- 支持**前缀通配**:`CLAUDE_MEM_SKIP_TOOLS` 里以 `*` 结尾的条目(如 `mcphub-web_*`、`ctx_*`)在 POST 前按前缀过滤(worker 本身只做精确匹配,故该语法只在这两个自研 shim 里生效);Pi 桥同样实现。
 
 plugin 条目使用 `./plugins/claude-mem-wrapper.js`。升级 claude-mem 后重跑 `opencode-setup.sh` 重新生成。
 

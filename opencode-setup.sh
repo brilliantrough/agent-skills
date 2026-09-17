@@ -230,10 +230,33 @@ else
 //    FTS + Chroma + the observer's <user_request>), and pin one
 //    contentSessionId per session so our init and the plugin's observations
 //    share one session row. No extra LLM requests are made.
+// 3) Prefix filtering: upstream's CLAUDE_MEM_SKIP_TOOLS only does exact
+//    matches, so entries ending in "*" (e.g. "mcphub-web_*") are honored here,
+//    before the observation is POSTed.
 // Regenerate with opencode-setup.sh.
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { ClaudeMemPlugin } from "../lib/claude-mem.js";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
+
+function loadSkipPrefixes() {
+  try {
+    const dataDir = process.env.CLAUDE_MEM_DATA_DIR || join(homedir(), ".claude-mem");
+    const value =
+      JSON.parse(readFileSync(join(dataDir, "settings.json"), "utf-8")).CLAUDE_MEM_SKIP_TOOLS || "";
+    return value
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.endsWith("*"))
+      .map((s) => s.slice(0, -1));
+  } catch {
+    return [];
+  }
+}
+
+const SKIP_PREFIXES = loadSkipPrefixes();
 
 function resolveWorkerBaseUrl() {
   const host = process.env.CLAUDE_MEM_WORKER_HOST || "127.0.0.1";
@@ -338,6 +361,14 @@ export default async function (ctx) {
     } catch {}
   };
 
+  const upstreamToolAfter = hooks["tool.execute.after"];
+  if (upstreamToolAfter) {
+    hooks["tool.execute.after"] = async (input, output) => {
+      if (input?.tool && SKIP_PREFIXES.some((p) => input.tool.startsWith(p))) return;
+      return upstreamToolAfter(input, output);
+    };
+  }
+
   hooks.dispose = async () => {
     globalThis.fetch = originalFetch;
     if (upstreamDispose) await upstreamDispose();
@@ -397,7 +428,7 @@ if [ "$mc_rc" = 1 ] && [ ! -f "$SETTINGS" ]; then   # 只在模板下载失败�
   "CLAUDE_MEM_OPENROUTER_BASE_URL": "<YOUR_NEWAPI_BASE_URL>",
   "CLAUDE_MEM_OPENROUTER_MODEL": "<YOUR_MODEL_NAME>",
   "CLAUDE_MEM_CONTEXT_OBSERVATIONS": "20",
-  "CLAUDE_MEM_SKIP_TOOLS": "ListMcpResourcesTool,SlashCommand,Skill,TodoWrite,AskUserQuestion,todowrite,skill,question,ask_user_question,list,ls,LS,list_mcp_resources,list_mcp_resource_templates,read,Read,bash,Bash,BashOutput,grep,Grep,glob,Glob,find,Find,ctx_memory,ctx_search,ctx_note,ctx_reduce,ctx_expand,claude_mem_search,claude-mem_search,claude-mem_timeline,claude-mem_get_observations,claude-mem_get_tool_uses,claude-mem_important_workflow,claude-mem_build_corpus,claude-mem_list_corpora,claude-mem_prime_corpus,claude-mem_query_corpus,claude-mem_rebuild_corpus,claude-mem_reprime_corpus,claude-mem_session_start_context,claude-mem_smart_outline,claude-mem_smart_search,claude-mem_smart_unfold,mcphub-web_firecrawl-mcp-firecrawl_agent,mcphub-web_firecrawl-mcp-firecrawl_agent_status,mcphub-web_firecrawl-mcp-firecrawl_crawl,mcphub-web_firecrawl-mcp-firecrawl_developer_search,mcphub-web_firecrawl-mcp-firecrawl_feedback,mcphub-web_firecrawl-mcp-firecrawl_interact,mcphub-web_firecrawl-mcp-firecrawl_interact_stop,mcphub-web_firecrawl-mcp-firecrawl_map,mcphub-web_firecrawl-mcp-firecrawl_parse,mcphub-web_firecrawl-mcp-firecrawl_research_inspect_paper,mcphub-web_firecrawl-mcp-firecrawl_research_read_paper,mcphub-web_firecrawl-mcp-firecrawl_research_related_papers,mcphub-web_firecrawl-mcp-firecrawl_research_search_github,mcphub-web_firecrawl-mcp-firecrawl_research_search_papers,mcphub-web_firecrawl-mcp-firecrawl_scrape,mcphub-web_firecrawl-mcp-firecrawl_search,mcphub-web_tavily-mcp-tavily_crawl,mcphub-web_tavily-mcp-tavily_extract,mcphub-web_tavily-mcp-tavily_map,mcphub-web_tavily-mcp-tavily_search,mcphub-web_context7-query-docs,mcphub-web_context7-resolve-library-id,codegraph_codegraph_explore",
+  "CLAUDE_MEM_SKIP_TOOLS": "ListMcpResourcesTool,SlashCommand,Skill,TodoWrite,AskUserQuestion,todowrite,skill,question,ask_user_question,list,ls,LS,list_mcp_resources,list_mcp_resource_templates,read,Read,bash,Bash,BashOutput,grep,Grep,glob,Glob,find,Find,ctx_*,mcphub-web_*,codegraph_*,claude-mem_*,claude_mem_*,mcp,mcp__*",
   "CLAUDE_MEM_OPENROUTER_API_KEY": "<YOUR_API_KEY>"
 }
 EOF

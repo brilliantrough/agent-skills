@@ -29,6 +29,24 @@ function resolveWorkerBaseUrl(): string {
 
 const WORKER_BASE_URL = resolveWorkerBaseUrl();
 
+// CLAUDE_MEM_SKIP_TOOLS 里以 "*" 结尾的条目按前缀匹配(worker 只做精确匹配,
+// 这里在 POST 之前提前过滤,省掉无谓的本地请求)。
+function loadSkipPrefixes(): string[] {
+  try {
+    const dataDir = process.env.CLAUDE_MEM_DATA_DIR?.trim() || join(homedir(), ".claude-mem");
+    const settings = JSON.parse(readFileSync(join(dataDir, "settings.json"), "utf-8"));
+    return String(settings.CLAUDE_MEM_SKIP_TOOLS || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.endsWith("*"))
+      .map((s) => s.slice(0, -1));
+  } catch {
+    return [];
+  }
+}
+
+const SKIP_PREFIXES = loadSkipPrefixes();
+
 function truncate(text: string): string {
   return text.length > MAX_TOOL_RESPONSE_LENGTH ? text.slice(0, MAX_TOOL_RESPONSE_LENGTH) : text;
 }
@@ -96,6 +114,8 @@ export default function (pi: any) {
   }
 
   pi.on("tool_execution_end", async (event: any, ctx: any) => {
+    const toolName = String(event.toolName ?? "");
+    if (SKIP_PREFIXES.some((p) => toolName.startsWith(p))) return;
     const id = ensure(ctx);
     const raw = event.result?.content !== undefined ? textOf(event.result.content) : String(event.result ?? "");
     post("/api/sessions/observations", {
