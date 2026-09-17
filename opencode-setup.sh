@@ -19,8 +19,8 @@
 #      compaction)。已存在则只覆盖各 provider 的 models,apiKey 等本地字段原样保留;
 #      老 opencode.jsonc 的值自动并入后退役为 .migrated.bak
 #   5. MCP 查询工具(claude-mem)+ codegraph 代码知识图谱(CLI 可选安装 + MCP 条目)+
-#      插件条目(magic-context、ponytail)+ compaction 关闭 + TUI 条目(tui.jsonc:magic-context
-#      侧边栏、later 延迟发送 prompt)
+#      插件条目(magic-context、ponytail)+ compaction 关闭 + TUI 侧(tui.jsonc:magic-context
+#      侧边栏、later 延迟发送 prompt、Enter 换行/Ctrl+Enter 发送的按键改绑)
 #      → 写入纯 JSON 的 opencode.json(及 TUI 的 tui.jsonc)
 #   6. notify 插件(brilliantrough/opencode-notify-hub,GitHub Release 预构建包)
 #   7. skills 本体:npx skills add brilliantrough/agent-skills --all -g -y
@@ -859,6 +859,56 @@ done
 if [ -f "$LATER_DIR/index.mjs" ] && \
    ask "在 $TUI_CFG 添加 later(延迟发送 prompt)TUI 插件条目?" Y; then
   ensure_tui_plugin "./tui-plugins/later" 'tui-plugins/later'
+fi
+
+# ---- 5.4 TUI 按键改绑(Enter 换行、Ctrl+Enter 发送:防手滑把没编辑完的消息发出去)----
+#   input_newline = enter / shift+enter    prompt_submit = ctrl+enter / alt+enter
+# alt+enter 是保底(终端送不出扩展键时也能用);ctrl+enter / shift+enter 需要终端键位表
+# 与 tmux 配合才能区分(见 dot_file 的 konsole/csi-u.keytab 与 tmux/.tmux.conf)。
+# 只补缺失的键:本地已自定义过的按键不动(想恢复默认就手动删掉该键)。
+if ask "把 Enter 改成换行、Ctrl+Enter 改成发送(写入 $TUI_CFG)?" Y; then
+python3 - "$TUI_CFG" <<'PYEOF'
+import json, re, sys
+path = sys.argv[1]
+def load(p):  # JSONC 感知:去注释与尾逗号(字符串内的 // 不动)
+    try:
+        t = open(p, encoding='utf-8').read()
+    except FileNotFoundError:
+        return {}
+    out, i, n, instr = [], 0, len(t), False
+    while i < n:
+        c = t[i]
+        if instr:
+            out.append(c)
+            if c == '\\': out.append(t[i + 1]); i += 2; continue
+            if c == '"': instr = False
+            i += 1; continue
+        if c == '"': instr = True; out.append(c); i += 1; continue
+        if c == '/' and i + 1 < n and t[i + 1] == '/':
+            while i < n and t[i] != '\n': i += 1
+            continue
+        if c == '/' and i + 1 < n and t[i + 1] == '*':
+            i += 2
+            while i + 1 < n and not (t[i] == '*' and t[i + 1] == '/'): i += 1
+            i += 2; continue
+        out.append(c); i += 1
+    return json.loads(re.sub(r',(\s*[}\]])', r'\1', ''.join(out)))
+want = {"input_newline": ["enter", "shift+enter"], "prompt_submit": ["ctrl+enter", "alt+enter"]}
+cfg = load(path)
+kb = cfg.get("keybinds")
+if not isinstance(kb, dict):
+    kb = {}
+added = {k: v for k, v in want.items() if k not in kb}
+if not added:
+    print(f"unchanged: {path}(keybinds 已存在)")
+else:
+    kb.update(added)
+    cfg["keybinds"] = kb
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    print(f"added: keybinds {', '.join(added)} -> {path}")
+PYEOF
 fi
 
 # ---- 6. notify 插件(brilliantrough/opencode-notify-hub,GitHub Release 预构建包)----

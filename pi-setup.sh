@@ -461,9 +461,10 @@ if [ "$PI_OK" -eq 1 ]; then
       fi
     done
   fi
-  # ---- 6. subagent 定义 ----
+  # ---- 6. subagent 定义 + 按键改绑 ----
   deploy_file "$RAW/pi/agents/explore.md" "$AGENT_DIR/agents/explore.md" "explore 子代理" || true
   deploy_file "$RAW/pi/agents/general.md" "$AGENT_DIR/agents/general.md" "general 子代理" || true
+  deploy_file "$RAW/pi/keybindings.json" "$AGENT_DIR/keybindings.json" "按键改绑(Enter 换行 / Ctrl+Enter 发送)" || true
 fi
 
 # ---- 7. skills 本体 ----
