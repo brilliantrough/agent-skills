@@ -1,0 +1,16 @@
+{
+  "name": "agent-skills",
+  "version": "0.1.0",
+  "description": "Pi package: statusline + claude-mem bridge extensions and the one-dark theme (brilliantrough's agent-skills)",
+  "type": "module",
+  "license": "MIT",
+  "pi": {
+    "extensions": [
+      "pi/extensions/statusline.ts",
+      "pi/extensions/claude-mem.ts"
+    ],
+    "themes": [
+      "pi/themes"
+    ]
+  }
+}

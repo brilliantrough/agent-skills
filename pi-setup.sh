@@ -10,17 +10,17 @@
 #      bun(缺 → 征得同意装,claude-mem MCP server 依赖 bun:sqlite)
 #   2. pi 本体:未装 → 官方 install.sh(下载到文件再执行);已装 → 征得同意 pi update --all
 #   3. pi 包(pi install,幂等):pi-mcp-adapter / @dietrichgebert/ponytail / pi-subagents-j0k3r /
-#      pi-lens / @juicesharp/rpiv-ask-user-question / @cortexkit/pi-magic-context;
+#      pi-lens / @juicesharp/rpiv-ask-user-question / @cortexkit/pi-magic-context /
+#      git:github.com/brilliantrough/agent-skills(本仓库自身;含 statusline 扩展、
+#      claude-mem 桥扩展、one-dark 主题——旧版散装部署文件会自动清理);
 #      启用 magic-context 前检查与 opencode 共享 context.db 的
 #      版本守卫(opencode 插件缓存版本 < Pi 扩展版本时先提示,不清理就不启用)
 #   4. 部署(字段级合并 dot_file 模板,api key/网关等本地敏感值保留;下载失败用内嵌兜底):
 #      ~/.pi/agent/settings.json、~/.pi/agent/models.json、~/.pi/agent/auth.json(占位符初始化,
 #      coding plan 等内置 provider 凭据)、~/.agents/mcp.json(三平台共享)
 #      以及共用配置 ~/.claude-mem/settings.json、~/.config/cortexkit/magic-context.jsonc(含 historian.pi/dreamer.pi)
-#   5. claude-mem 资产(缺失则官方安装器,只为拿 worker/MCP 资产)+ 部署 Pi 桥扩展
-#      ~/.pi/agent/extensions/claude-mem.ts(抓取 Pi 会话活动并提供 claude_mem_search 工具)
+#   5. claude-mem 资产(缺失则官方安装器,只为拿 worker/MCP 资产)
 #   6. subagent 定义 ~/.pi/agent/agents/{explore,general}.md(对应 opencode 的两个 agent)
-#      + 主题 ~/.pi/agent/themes/onedark.json(settings.json 的 theme=one-dark)
 #   7. skills 本体:npx skills update -g / add(pi 原生读 ~/.agents/skills)
 #   8. uv(缺则装;含自升级与清华 PyPI 镜像)+ strictdoc(用 uv tool 全局安装,.sdoc 校验依赖)
 #
@@ -293,6 +293,8 @@ PYEOF
   pi_install npm:pi-subagents-j0k3r
   pi_install npm:pi-lens
   pi_install npm:@juicesharp/rpiv-ask-user-question
+  # 本仓库自身作为 Pi 包:statusline + claude-mem 桥扩展 + one-dark 主题
+  pi_install git:github.com/brilliantrough/agent-skills
 
   # ---- 3.1 magic-context:共享 context.db 的版本守卫 ----
   # OpenCode 插件与 Pi 扩展共用 ~/.local/share/cortexkit/magic-context/context.db。
@@ -446,13 +448,21 @@ if [ ! -f "$MCP_CJS" ]; then
   fi
 fi
 
-# ---- 5.2 Pi 桥扩展(抓取 Pi 会话活动 → claude-mem worker;提供 claude_mem_search)----
+# ---- 5.2 Pi 桥扩展/主题已迁入 git:github.com/brilliantrough/agent-skills(见步骤 3);
+#      旧版由本脚本部署到 ~/.pi/agent/{extensions, themes} 的文件与包内扩展会双注册冲突,清理之 ----
 if [ "$PI_OK" -eq 1 ]; then
-  deploy_file "$RAW/pi/extensions/claude-mem.ts" "$AGENT_DIR/extensions/claude-mem.ts" "claude-mem Pi 桥扩展" || true
+  if pkg_installed "git:github.com/brilliantrough/agent-skills"; then
+    for legacy in "$AGENT_DIR/extensions/claude-mem.ts" "$AGENT_DIR/themes/onedark.json"; do
+      if [ -f "$legacy" ] && [ ! -L "$legacy" ]; then
+        if ask "删除旧版部署文件 $legacy(已由 Pi 包提供,重复注册会冲突)?" Y; then
+          rm -f "$legacy"; echo "removed: $legacy"
+        fi
+      fi
+    done
+  fi
   # ---- 6. subagent 定义 ----
   deploy_file "$RAW/pi/agents/explore.md" "$AGENT_DIR/agents/explore.md" "explore 子代理" || true
   deploy_file "$RAW/pi/agents/general.md" "$AGENT_DIR/agents/general.md" "general 子代理" || true
-  deploy_file "$RAW/pi/themes/onedark.json" "$AGENT_DIR/themes/onedark.json" "one-dark 主题" || true
 fi
 
 # ---- 7. skills 本体 ----
