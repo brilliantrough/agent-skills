@@ -315,7 +315,8 @@ later 5h 查看当前实验的运行结果
 
 - `Enter` / `Shift+Enter` → 换行,`Ctrl+Enter` / `Alt+Enter` → 发送
 - **Alt+Enter 是保底**:走 legacy 的 `ESC+\r`,任何终端都能送出来(**现在就能用**,不用改终端)
-- **Ctrl/Shift+Enter 要三件套**:终端键位表能区分修饰键 + tmux 透传 + 应用解析。Konsole 23.08 不自带 csi-u 键位表 → 用 dot_file 里的 `konsole/csi-u.keytab`(Settings → Edit Current Profile → Keyboard 选 `CSI-u …`);tmux 需要 `set -g extended-keys always`(pi 启动时会自己警告 `extended-keys` 为 off)。opencode 两种编码都认(`ESC[27;5;13~` xterm 格式 / `ESC[13;5u` kitty 格式,实测)
+- **Ctrl/Shift+Enter 要三件套**:终端键位表能区分修饰键 + tmux 透传 + 应用解析。Konsole 23.08 不自带 csi-u 键位表 → 用 dot_file 里的 `konsole/csi-u.keytab`(Settings → Edit Current Profile → Keyboard 选 `CSI-u …`);tmux 需要 `set -g extended-keys always` + `set -as terminal-features 'xterm*:extkeys'`(pi 启动时会自己警告 `extended-keys` 为 off)。opencode 两种编码都认(`ESC[27;5;13~` xterm 格式 / `ESC[13;5u` kitty 格式,实测)
+- 这套做法和上游一致:opencode 官方 [Keybinds 文档](https://opencode.ai/docs/keybinds) 的 Shift+Enter 段就是让终端改发 `\u001b[13;2u`(同一个 CSI-u 编码);issue [#11898](https://github.com/anomalyco/opencode/issues/11898)(Enter 换行 + Ctrl+Enter 发送)正是本改动,维护者在 [#11983](https://github.com/anomalyco/opencode/issues/11983) 回复「必须改终端设置让它送出修饰键」;[Claude Code 终端配置](https://code.claude.com/docs/en/terminal-config) 的 tmux 片段同样是 `extended-keys` + `terminal-features 'xterm:extkeys'`
 - `opencode-setup.sh` 第 5.4 步写入这两个键,**只补缺失的键**,本地已自定义的按键不动(想回默认就手动删掉该键)
 - Pi 同一套绑定:`~/.pi/agent/keybindings.json`(`tui.input.submit` / `tui.input.newLine`),由 `pi-setup.sh` 部署,改完 `/reload` 生效
 
