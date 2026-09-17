@@ -10,7 +10,8 @@
 #      bun(缺 → 征得同意装,MCP server 依赖 bun:sqlite)
 #   2. claude-mem:未装 → 征得同意跑官方安装器(只为拿 bundle 和 MCP 资产,--provider claude
 #      是唯一免浏览器 OAuth 的选项);然后修复 upstream bug(bundle 移出 plugins/ → lib/,
-#      写 wrapper;thedotmack/claude-mem#2854/#3328)。再清理 config 里失效的 claude-mem 插件条目
+#      写 wrapper;thedotmack/claude-mem#2854/#3328);wrapper 同时补上游缺失的用户 prompt
+#      采集(chat.message 钩子实际收到 UserMessage,上游只认 assistant)。再清理 config 里失效的 claude-mem 插件条目
 #      (官方安装器每次都会重新注册),并确保 wrapper 条目存在
 #   3. 部署(字段级合并)~/.claude-mem/settings.json 与 ~/.config/cortexkit/magic-context.jsonc:
 #      dot_file 模板的非敏感字段值优先下发,api key / base url 等本地敏感值保留;下载失败用内嵌兜底
@@ -218,15 +219,132 @@ else
   mkdir -p "$PLUGINS"
   w_tmp="$(mktemp)"
   cat > "$w_tmp" <<'EOF'
-// Wrapper for claude-mem's OpenCode plugin.
-// Works around upstream bug (thedotmack/claude-mem#2854/#3328): the bundled
-// claude-mem.js exports non-function constants (REAL_OPENCODE_EVENT_TYPES,
-// REGISTERED_OPENCODE_HOOKS), but opencode's plugin loader requires EVERY
-// module export to be a plugin function. This module re-exports only the
-// plugin function. Regenerate with opencode-setup.sh.
+// Wrapper for claude-mem's OpenCode plugin. Two jobs:
+// 1) Upstream bug fix (thedotmack/claude-mem#2854/#3328): the bundle exports
+//    non-function constants and opencode's loader requires every export to be a
+//    plugin function, so we re-export only the plugin function.
+// 2) User-prompt capture: upstream's chat.message handler returns early unless
+//    role === "assistant", but opencode delivers UserMessage objects to that
+//    hook, so upstream never records user input. We record every user prompt
+//    through the same /api/sessions/init route Claude Code uses (user_prompts +
+//    FTS + Chroma + the observer's <user_request>), and pin one
+//    contentSessionId per session so our init and the plugin's observations
+//    share one session row. No extra LLM requests are made.
+// Regenerate with opencode-setup.sh.
 import { ClaudeMemPlugin } from "../lib/claude-mem.js";
 
-export default ClaudeMemPlugin;
+const JSON_HEADERS = { "Content-Type": "application/json" };
+
+function resolveWorkerBaseUrl() {
+  const host = process.env.CLAUDE_MEM_WORKER_HOST || "127.0.0.1";
+  const port =
+    process.env.CLAUDE_MEM_WORKER_PORT ||
+    String(37700 + ((process.getuid?.() ?? 77) % 100));
+  return `http://${host}:${port}`;
+}
+
+const WORKER_BASE_URL = resolveWorkerBaseUrl();
+
+function sessionIdFromContentSessionId(contentSessionId) {
+  return String(contentSessionId).replace(/^opencode-/, "").replace(/-\d+$/, "");
+}
+
+function textOf(parts) {
+  return (parts || [])
+    .filter((p) => p && p.type === "text" && typeof p.text === "string")
+    .map((p) => p.text)
+    .join("\n")
+    .trim();
+}
+
+export default async function (ctx) {
+  const project = ctx?.project?.name || "opencode";
+  const sessions = new Map(); // opencode sessionID -> { cid, lastPrompt }
+  let chatMessageWorks = false;
+
+  function sessionFor(sessionID) {
+    let s = sessions.get(sessionID);
+    if (!s) {
+      s = { cid: `opencode-${sessionID}-${Date.now()}`, lastPrompt: "" };
+      sessions.set(sessionID, s);
+    }
+    return s;
+  }
+
+  function recordPrompt(sessionID, text) {
+    if (!sessionID || !text) return;
+    const s = sessionFor(sessionID);
+    if (text === s.lastPrompt) return;
+    s.lastPrompt = text;
+    fetch(`${WORKER_BASE_URL}/api/sessions/init`, {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ contentSessionId: s.cid, project, prompt: text }),
+    }).catch(() => {});
+  }
+
+  // Rewrite the plugin's worker-bound bodies: one contentSessionId per session
+  // (so init + observations land on the same row) and fill the plugin's empty
+  // init prompt with the latest user text (the route dedupes repeats).
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = function (input, init) {
+    try {
+      if (init && typeof init.body === "string" && String(input).includes("/api/sessions/")) {
+        const body = JSON.parse(init.body);
+        if (body && typeof body.contentSessionId === "string") {
+          const s = sessions.get(sessionIdFromContentSessionId(body.contentSessionId));
+          if (s) {
+            body.contentSessionId = s.cid;
+            if (!body.prompt && s.lastPrompt) body.prompt = s.lastPrompt;
+            init = { ...init, body: JSON.stringify(body) };
+          }
+        }
+      }
+    } catch {}
+    return originalFetch.call(this, input, init);
+  };
+
+  const hooks = await ClaudeMemPlugin(ctx);
+  const upstreamChatMessage = hooks["chat.message"];
+  const upstreamDispose = hooks.dispose;
+
+  hooks["chat.message"] = async (input, output) => {
+    try {
+      if (output?.message?.role === "user") {
+        const text = textOf(output.parts);
+        if (text) {
+          chatMessageWorks = true;
+          recordPrompt(input?.sessionID, text);
+        }
+      }
+    } catch {}
+    if (upstreamChatMessage) return upstreamChatMessage(input, output);
+  };
+
+  // Backup for opencode builds where chat.message no longer fires. Used only
+  // until the primary hook proves alive, so synthetic compaction/title user
+  // messages are never captured.
+  hooks["experimental.chat.messages.transform"] = async (_input, output) => {
+    if (chatMessageWorks) return;
+    try {
+      const messages = output?.messages || [];
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const entry = messages[i];
+        if (entry?.info?.role === "user") {
+          recordPrompt(entry.info.sessionID, textOf(entry.parts));
+          break;
+        }
+      }
+    } catch {}
+  };
+
+  hooks.dispose = async () => {
+    globalThis.fetch = originalFetch;
+    if (upstreamDispose) await upstreamDispose();
+  };
+
+  return hooks;
+}
 EOF
   if cmp -s "$w_tmp" "$PLUGINS/claude-mem-wrapper.js"; then rm -f "$w_tmp"
   elif ask "更新 $PLUGINS/claude-mem-wrapper.js(claude-mem wrapper 修复)?" Y; then

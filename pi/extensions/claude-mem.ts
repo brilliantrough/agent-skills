@@ -1,7 +1,9 @@
 // claude-mem bridge for Pi.
 // 与 OpenCode 插件共用同一套 claude-mem worker API 契约:
 //   POST /api/sessions/init | /api/sessions/observations | /api/sessions/summarize
-// 并提供与 skills 里同名的 claude_mem_search 工具(直连 worker,无需 MCP)。
+// 采集范围:工具调用、助手消息、以及用户 prompt(经 init 写入 user_prompts/FTS/Chroma,
+// 供 observer 的 <user_request> 和后续会话注入使用),并提供与 skills 里同名的
+// claude_mem_search 工具(直连 worker,无需 MCP)。
 // 作为 agent-skills Pi 包(pi.extensions)自动加载,随 `pi install` 分发。
 import { readFileSync } from "node:fs";
 import { basename, join } from "node:path";
@@ -84,11 +86,11 @@ export default function (pi: any) {
   let contentSessionId: string | undefined;
   let initialized = false;
 
-  function ensure(ctx: any): string {
+  function ensure(ctx: any, prompt = ""): string {
     if (!contentSessionId) contentSessionId = `pi-${ctx.sessionManager.getSessionId()}-${Date.now()}`;
     if (!initialized) {
       initialized = true;
-      post("/api/sessions/init", { contentSessionId, project: basename(ctx.cwd), prompt: "" });
+      post("/api/sessions/init", { contentSessionId, project: basename(ctx.cwd), prompt });
     }
     return contentSessionId;
   }
@@ -107,15 +109,26 @@ export default function (pi: any) {
   });
 
   pi.on("message_end", async (event: any, ctx: any) => {
-    if (event.message?.role !== "assistant") return;
-    const text = truncate(textOf(event.message.content));
+    const role = event.message?.role;
+    if (role !== "assistant" && role !== "user") return;
+    const text = textOf(event.message.content);
     if (!text) return;
+
+    if (role === "user") {
+      const hadSession = contentSessionId !== undefined;
+      const id = ensure(ctx, text); // 会话第一条:init 直接带上 prompt,避免 [media prompt] 占位
+      if (hadSession) {
+        post("/api/sessions/init", { contentSessionId: id, project: basename(ctx.cwd), prompt: text });
+      }
+      return;
+    }
+
     const id = ensure(ctx);
     post("/api/sessions/observations", {
       contentSessionId: id,
       tool_name: "assistant_message",
       tool_input: {},
-      tool_response: text,
+      tool_response: truncate(text),
       cwd: ctx.cwd,
     });
   });
