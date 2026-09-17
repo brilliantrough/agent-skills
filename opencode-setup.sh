@@ -261,7 +261,7 @@ function loadSkipPrefixes() {
 }
 
 const SKIP_PREFIXES = loadSkipPrefixes();
-const MAX_ASSISTANT_CHARS = 1000;
+const MAX_ASSISTANT_CHARS = 5000;
 
 function resolveWorkerBaseUrl() {
   const host = process.env.CLAUDE_MEM_WORKER_HOST || "127.0.0.1";

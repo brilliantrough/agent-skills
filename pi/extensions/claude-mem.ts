@@ -10,6 +10,7 @@ import { basename, join } from "node:path";
 import { homedir } from "node:os";
 
 const MAX_TOOL_RESPONSE_LENGTH = 1000;
+const MAX_ASSISTANT_LENGTH = 5000;
 
 function resolveWorkerBaseUrl(): string {
   const dataDir = process.env.CLAUDE_MEM_DATA_DIR?.trim() || join(homedir(), ".claude-mem");
@@ -47,8 +48,8 @@ function loadSkipPrefixes(): string[] {
 
 const SKIP_PREFIXES = loadSkipPrefixes();
 
-function truncate(text: string): string {
-  return text.length > MAX_TOOL_RESPONSE_LENGTH ? text.slice(0, MAX_TOOL_RESPONSE_LENGTH) : text;
+function truncate(text: string, limit = MAX_TOOL_RESPONSE_LENGTH): string {
+  return text.length > limit ? text.slice(0, limit) : text;
 }
 
 function textOf(content: unknown): string {
@@ -148,7 +149,7 @@ export default function (pi: any) {
       contentSessionId: id,
       tool_name: "assistant_message",
       tool_input: {},
-      tool_response: truncate(text),
+      tool_response: truncate(text, MAX_ASSISTANT_LENGTH),
       cwd: ctx.cwd,
     });
   });
