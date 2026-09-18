@@ -9,6 +9,7 @@
 - Context 面板同时保留 Pi 上下文占比及 MC 发布的原始压力/历史整理状态；MC 指标不从模型窗口猜算，也不依赖页脚剩余宽度。
 - 全屏侧栏使用独立、非 primary 的原生 `ScrollView`：普通鼠标拖选/复制限定在起始面板，跨过分界线不混入另一栏；键盘滚动与搜索仍以正文为主。Shift 强制终端选择和 regular 模式仍由终端控制。
 - `wheel.ts`：全屏模式的滚轮步长。Pi 构造渲染器时不传 pi-tui 的 `wheelScrollLines`，所以每个滚轮刻度只滚 1 行（上游 #7765/#8370/#8446/#8471/#8741 都还开着；0.84.0 之前是 3 行）。这里在编辑器和页脚工厂里把这个实例字段设为 `WHEEL_SCROLL_LINES`（默认 3，改这个常量即可调整）；regular 模式无此字段，自动跳过。Alt+滚轮仍是原生 5 倍。
+- `selection.ts`：松开鼠标（copy-on-select）后清掉高亮。Pi 上游是有意保留选中框的（点一下才消失），但框会一直盖在正文/输入框上；这里在 release 处理完成后（剪贴板文本已同步取到）清空选区并重绘。`fullscreenCopyOnSelect` 关掉时不介入——那种情况下 `hasActiveSelection()` 是 Pi 的 copy 命令唯一依据。
 - `tps.ts`：每秒最多更新一次的估算 TPS，结束后显示最后一次回复 usage 的平均速度。
 
 配置：共享 `~/.config/cortexkit/magic-context.jsonc` 的 `todowrite.overlay: false` 只关闭 MC 的重复任务 widget，保留工具和持久化（dot_file 模板已同步）。

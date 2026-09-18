@@ -18,6 +18,7 @@ import { loadConfig, saveUserConfigPatch } from "../src/config.js";
 
 import { createFooterComponent, type ThemeLike } from "../src/footer.js";
 import { installWheelScrollLines } from "../../wheel.js";
+import { installClearSelectionOnRelease } from "../../selection.js";
 import {
 	type DisplaySettingsRuntime,
 	type OverlayLifetime,
@@ -520,6 +521,7 @@ export default function atelierExtension(
 		if (ctx.mode !== "tui") return;
 		ctx.ui.setFooter((tui, theme, footerData) => {
 			installWheelScrollLines(tui);
+			installClearSelectionOnRelease(tui);
 			const getCurrentSession = (): ActiveSession | undefined => {
 				const current = activeSession;
 				return enabled && current?.token === token && current.footerGeneration === generation

@@ -3,6 +3,7 @@ import { WrappedPolishedEditor } from "./editor/ui.js";
 import { loadConfig } from "./editor/config.js";
 import { installUserMessageStyle } from "./editor/user-message.js";
 import { installWheelScrollLines } from "./wheel.js";
+import { installClearSelectionOnRelease } from "./selection.js";
 
 /** One editor owner: native Pi behavior, our LF fix, then the adopted frame. */
 export function installComposer(pi: ExtensionAPI) {
@@ -13,6 +14,7 @@ export function installComposer(pi: ExtensionAPI) {
     const config = loadConfig();
     ctx.ui.setEditorComponent((tui, theme, keys) => {
       installWheelScrollLines(tui);
+      installClearSelectionOnRelease(tui);
       const base = new CustomEditor(tui, theme, keys);
       const input = base.handleInput.bind(base);
       let pasting = false;
