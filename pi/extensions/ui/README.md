@@ -25,8 +25,8 @@ UI 配置：`~/.pi/agent/agent-skills-ui.json`（布局/侧栏），`agent-skill
 
 这些是维护在仓库内的修改版源码，不依赖安装对应 npm 包；保留内部上游命名与协议以便追踪修复。初次纳管保留必要依赖闭包，不把源码迁移与全面重写混在一起。Pi 0.85.1 上验证；分栏依赖宿主布局 API，更新宿主时检查主消息复制、窄窗、弹框、输入及 reload。
 
-## 迁移
+## 配置部署
 
-`python3 pi/migrate-ui.py --agent-dir ~/.pi/agent` 仅预览；加 `--apply` 才备份并迁移。先确保本仓库 UI 已部署到 Pi git 包。只移走本项目已知散装文件（哈希匹配），停用两个旧 UI 包及本机 atelier-bridge，不删除 npm 包或用户旧配置。未知文件变体中止迁移，不冒险覆盖。
+不再做一次性迁移：仓库模板就是当前已验证的配置，`pi-setup.sh` 用整文件覆盖写 `~/.pi/agent/{agent-skills-ui.json,agent-skills-editor.json,keybindings.json}`（内容一致则跳过，有差异先存 `.bak`，目标是符号链接则跳过）。`~/.pi/agent/agent-skills-ui.json` 承载布局/侧栏/`clearSelectionOnRelease`，`agent-skills-editor.json` 承载编辑器与页脚视觉。
 
-迁移会打印备份目录；回退前先停用包内 `pi/extensions/ui/index.ts`，再恢复备份的 settings 和散装文件，不能同时加载两套 UI。
+在本机用 `/ui` 或 `/settings` 改过的东西，**想长期保留就要同步回仓库模板**，否则下次 setup 会覆盖回去。覆盖旧配置后要回退：把 `.bak-<时间戳>` 改回原名，并确认只加载一套 UI（旧 `pi-zentui`/`pi-atelier`/`atelier-bridge` 会被 setup 从 `packages` 里摘掉）。

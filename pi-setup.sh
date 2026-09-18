@@ -167,6 +167,25 @@ PYEOF
   esac
 }
 
+# 旧 UI 包(已被本仓库 UI 取代)留在 packages 里会双份加载,直接摘掉。
+prune_legacy_ui_packages() {
+  python3 - "$SETTINGS" <<'PY'
+import json,sys,shutil,time
+p=sys.argv[1]
+legacy=("pi-zentui","pi-atelier","atelier-bridge")
+try: d=json.load(open(p,encoding='utf-8'))
+except Exception as e:
+    print(f"WARN: 读取 {p} 失败({e}),跳过旧 UI 包清理",file=sys.stderr); sys.exit(0)
+pkgs=d.get("packages") or []
+kept=[x for x in pkgs if not any(s in x for s in legacy)]
+if kept==pkgs: sys.exit(0)
+shutil.copy2(p,f"{p}.bak-ui-prune-{time.strftime('%Y%m%d%H%M%S')}")
+d["packages"]=kept
+json.dump(d,open(p,'w',encoding='utf-8'),indent=2,ensure_ascii=False); open(p,'a').write("\n")
+print("removed legacy UI packages: "+", ".join(sorted(set(pkgs)-set(kept))))
+PY
+}
+
 # 记忆后端必须走 OpenAI 兼容的 openrouter provider;安装器或旧配置写成 claude 时纠正。
 # 只改这一个键,模型/接口/凭据原样保留。
 ensure_mem_provider() {
@@ -533,20 +552,13 @@ if [ "$PI_OK" -eq 1 ]; then
       fi
     done
   fi
-  # ---- 6. subagent 定义 + 个性化 UI 安全迁移 ----
-  # 迁移程序随本仓库 Pi 包分发；先预览再确认，只处理已知旧 UI 和缺失按键。
-  ui_migration="$AGENT_DIR/git/github.com/brilliantrough/agent-skills/pi/migrate-ui.py"
-  if [ -f "$ui_migration" ]; then
-    if python3 "$ui_migration" --agent-dir "$AGENT_DIR"; then
-      if ask "应用个性化 UI 迁移(备份并停用旧 UI，保留凭据/其他包/已有按键)?" Y; then
-        python3 "$ui_migration" --agent-dir "$AGENT_DIR" --apply || echo "WARN: UI 迁移未完成，请按上方提示处理，暂勿 reload" >&2
-      fi
-    else
-      echo "WARN: UI 迁移预检失败；保留旧配置，请先处理冲突" >&2
-    fi
-  else
-    echo "WARN: 本仓库 Pi 包尚无 UI 迁移入口，请先更新本仓库包；不覆盖按键" >&2
-  fi
+  # ---- 6. subagent 定义 + 个性化 UI 配置(仓库模板整文件覆盖;有差异先存 .bak)----
+  # 不做一次性迁移:仓库模板就是当前已验证的配置,直接覆盖。
+  # 想保留本机在 /ui 里的改动,就把它同步回模板,否则下次 setup 会覆盖回去。
+  prune_legacy_ui_packages
+  deploy_file "$RAW/pi/agent-skills-ui.json" "$AGENT_DIR/agent-skills-ui.json" "个性化 UI 布局/侧栏" || true
+  deploy_file "$RAW/pi/agent-skills-editor.json" "$AGENT_DIR/agent-skills-editor.json" "个性化 UI 编辑器/页脚" || true
+  deploy_file "$RAW/pi/keybindings.json" "$AGENT_DIR/keybindings.json" "按键(Enter 换行、Ctrl+Enter 提交等)" || true
   deploy_file "$RAW/pi/agents/explore.md" "$AGENT_DIR/agents/explore.md" "explore 子代理" || true
   deploy_file "$RAW/pi/agents/general.md" "$AGENT_DIR/agents/general.md" "general 子代理" || true
 fi
