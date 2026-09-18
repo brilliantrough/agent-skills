@@ -214,7 +214,7 @@ cd ~/.claude/plugins/marketplaces/thedotmack && npm run worker:restart
 curl 127.0.0.1:37700/api/health     # 端口见 $SETTINGS 的 CLAUDE_MEM_WORKER_PORT
 ```
 
-**worker 地址**：脚本会把本机默认值**显式写进** `~/.claude-mem/settings.json`——`CLAUDE_MEM_WORKER_HOST=127.0.0.1` + `CLAUDE_MEM_WORKER_PORT=37700 + uid%100`（claude-mem 自己的默认就是按 uid 偏移，目的正是**同一台服务器上不同用户不冲突**；显式写出来是为了可见、可查，取值不变）。**已存在的自定义 host/port 一律保留**（合并不覆盖）。解析优先级三处一致：环境变量 > `settings.json` > 默认公式（Pi 桥 `pi/extensions/claude-mem.ts`、OpenCode wrapper 生成的 `claude-mem-wrapper.js` 都按此）。脚本配完会打印一行 `claude-mem worker: http://127.0.0.1:37700(...)`，清单里的健康检查也用它取实际端口。
+**worker 地址**：脚本会把本机默认值**显式写进** `~/.claude-mem/settings.json`——`CLAUDE_MEM_WORKER_HOST=127.0.0.1` + `CLAUDE_MEM_WORKER_PORT=37700 + uid%100`（claude-mem 自己的默认就是按 uid 偏移，目的正是**同一台服务器上不同用户不冲突**；显式写出来是为了可见、可查，取值不变）。**已存在的自定义 host/port 一律保留**（合并不覆盖）。解析优先级三处一致：环境变量 > `settings.json` > 默认公式（Pi 桥 `pi/extensions/claude-mem.ts`、OpenCode wrapper 生成的 `claude-mem-wrapper.js` 都按此）。脚本配完会打印一行 `claude-mem worker: http://127.0.0.1:37700(...)`，清单里的健康检查也用它取实际端口。 换端口时：改 `settings.json` 的 `CLAUDE_MEM_WORKER_PORT` → **重启 worker**（否则仍听旧端口）+ 重启宿主。各消费者都跟随这个键：MCP server（`~/.agents/mcp.json` 里 spawn 的 `mcp-server.cjs`，即 MCP 工具调用）与 Pi 桥直接读 `settings.json`；上游 OpenCode 插件只认 env + 内置默认公式（不读 `settings.json`），所以 wrapper 会在 import 它之前把 settings 的 host/port 写进 `process.env`，env 在每一处都优先于 settings。副作用：redis 队列前缀 `claude_mem_<port>` 会跟着变。
 
 ### 2. magic-context
 

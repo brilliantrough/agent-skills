@@ -414,7 +414,8 @@ else
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { ClaudeMemPlugin } from "../lib/claude-mem.js";
+// 上游 lib/claude-mem.js 在 import 时就把 worker 地址算成 env ?? 内置默认公式(不读 settings.json),
+// 所以必须在 import 之前把 settings 里的 host/port 喂给 env,否则只改 settings 的端口会让上游请求打到旧端口。
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
@@ -445,6 +446,15 @@ function workerSetting(key) {
     return "";
   }
 }
+
+for (const key of ["CLAUDE_MEM_WORKER_HOST", "CLAUDE_MEM_WORKER_PORT"]) {
+  if (!process.env[key]) {
+    const fromSettings = workerSetting(key);
+    if (fromSettings) process.env[key] = fromSettings;
+  }
+}
+
+const { ClaudeMemPlugin } = await import("../lib/claude-mem.js");
 
 function resolveWorkerBaseUrl() {
   const host =
