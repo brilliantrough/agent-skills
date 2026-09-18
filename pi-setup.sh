@@ -6,8 +6,8 @@
 #   询问默认:装缺的软件/包、写入条目 → [Y/n](回车即装);覆盖已有配置、无代理下继续 → [y/N];
 #            非交互环境按各自默认执行
 #   0. 代理环境提醒(大小写都查;未设则探测直连,透明代理不拦;都不通才要求确认)
-#   1. 依赖检查:python3(配置写入用,缺失则退出)、npx(缺 → 征得同意装 fnm + Node LTS)、
-#      bun(缺 → 征得同意装,claude-mem MCP server 依赖 bun:sqlite)
+#   1. 依赖检查(全部前置):curl/git/python3(缺失即退出)、npx(缺 → 征得同意装 fnm + Node LTS)、
+#      bun(缺 → 征得同意装,claude-mem MCP server 依赖 bun:sqlite)、uv(可选,.sdoc 校验用)
 #   2. pi 本体:未装 → 官方 install.sh(下载到文件再执行);已装 → 征得同意 pi update --all
 #   3. pi 包(pi install,幂等):pi-mcp-adapter / @dietrichgebert/ponytail / pi-subagents-j0k3r /
 #      pi-lens / @juicesharp/rpiv-ask-user-question / pi-autoname@0.6.8 / @cortexkit/pi-magic-context /
@@ -20,7 +20,8 @@
 #      ~/.pi/agent/models.json、~/.pi/agent/auth.json(占位符初始化,
 #      coding plan 等内置 provider 凭据)、~/.agents/mcp.json(三平台共享)
 #      以及共用配置 ~/.claude-mem/settings.json、~/.config/cortexkit/magic-context.jsonc(含 historian.pi/dreamer.pi)
-#   5. claude-mem 资产(缺失则官方安装器,只为拿 worker/MCP 资产)
+#   5. claude-mem 资产(缺失则官方安装器,只为拿 worker/MCP 资产)——先装 runtime,再合并它的配置,
+#      这样安装器写的 settings 会被我们的模板覆盖(api key/网关等本地敏感值保留)
 #   6. subagent 定义 ~/.pi/agent/agents/{explore,general}.md(对应 opencode 的两个 agent)
 #   7. skills 本体:npx skills update -g / add(pi 原生读 ~/.agents/skills)
 #   8. uv(缺则装;含自升级与清华 PyPI 镜像)+ strictdoc(用 uv tool 全局安装,.sdoc 校验依赖)
@@ -288,7 +289,7 @@ PYEOF
   rm -f "$tmp"
   local bak="$dest.bak-$(date +%Y%m%d%H%M%S)"
   case "$out" in
-    unchanged) echo "unchanged: $dest"; rm -f "$cand" ;;
+    unchanged) echo "unchanged: $dest(已与模板一致,无需改动)"; rm -f "$cand" ;;
     "")        echo "WARN: $dest 合并失败,保留原文件" >&2; rm -f "$cand"; return 1 ;;
     *)         if ask "更新 $dest($out;api key 等敏感值保留,原文件存 $bak)?" Y; then
                  cp "$dest" "$bak"; mv "$cand" "$dest"; echo "updated: $dest"
@@ -380,8 +381,13 @@ else
   ask "仍要继续吗？" || exit 1
 fi
 
-# ---- 1. 依赖: python3(必需) ----
-command -v python3 >/dev/null 2>&1 || { echo "ERROR: 未检测到 python3(配置写入依赖它)。请先安装(如 apt install python3)后重跑。" >&2; exit 1; }
+# ---- 1. 依赖(必需): curl / git / python3 ----
+for tool in curl git python3; do
+  command -v "$tool" >/dev/null 2>&1 || {
+    echo "ERROR: 未检测到 $tool(下载模板/装依赖/写配置都要用它)。请先安装(如 apt install $tool)后重跑。" >&2
+    exit 1
+  }
+done
 
 # ---- 1.1 依赖: npx(fnm + Node)----
 if ! command -v npx >/dev/null 2>&1; then
@@ -411,6 +417,49 @@ if ! command -v bun >/dev/null 2>&1; then
   fi
 fi
 BUN_BIN="$(command -v bun 2>/dev/null || echo "$HOME/.bun/bin/bun")"
+
+# ---- 1.3 依赖: uv(可选;strictdoc / .sdoc 校验用)----
+UVP="$HOME/.local/bin/uv"
+if ! command -v uv >/dev/null 2>&1 && [ ! -x "$UVP" ]; then
+  if ask "未检测到 uv,安装 uv(astral.sh 官方脚本,装到 ~/.local/bin)?" Y; then
+    uv_sh="$(mktemp)"
+    if curl -fsSL --connect-timeout 8 -m 60 -o "$uv_sh" https://astral.sh/uv/install.sh; then
+      UV_INSTALL_DIR="$HOME/.local/bin" UV_NO_MODIFY_PATH=1 sh "$uv_sh" \
+        || echo "WARN: uv 安装脚本退出码非 0,请看上方输出" >&2
+    else
+      echo "WARN: uv 安装脚本下载失败(检查代理)" >&2
+    fi
+    rm -f "$uv_sh"
+  fi
+fi
+UV_BIN="$(command -v uv 2>/dev/null || echo "$UVP")"
+if [ -x "$UV_BIN" ]; then
+  export PATH="$HOME/.local/bin:$PATH"
+  uv_cur="$("$UV_BIN" --version 2>/dev/null | awk '{print $2}' || true)"
+  uv_latest="$(curl -fsSL --connect-timeout 5 -m 8 https://api.github.com/repos/astral-sh/uv/releases/latest 2>/dev/null \
+    | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4 || true)"
+  if [ -z "$uv_latest" ]; then
+    echo "跳过 uv 自升级:查不到最新版本(检查网络/代理)"
+  elif [ "$uv_latest" != "$uv_cur" ]; then
+    if ask "uv ${uv_cur:-未知} → $uv_latest,升级(uv self update)?" Y; then
+      "$UV_BIN" self update || echo "WARN: uv 自升级失败(系统包管理器装的请用系统方式升级)" >&2
+    fi
+  else
+    echo "uv 已是最新(${uv_cur:-未知})"
+  fi
+  UVCFG="$HOME/.config/uv/uv.toml"
+  if grep -q 'pypi.tuna' "$UVCFG" 2>/dev/null; then
+    echo "uv PyPI 镜像已配置(清华),跳过"
+  elif [ -f "$UVCFG" ]; then
+    echo "跳过 uv 镜像:$UVCFG 已存在(非本脚本写入),不覆盖"
+  elif ask "配置 uv 用清华 PyPI 镜像($UVCFG)?" Y; then
+    mkdir -p "$(dirname "$UVCFG")"
+    printf '%s\n' 'index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"' > "$UVCFG"
+    echo "wrote: $UVCFG"
+  fi
+else
+  echo "提示: 未检测到 uv,跳过 strictdoc 安装(.sdoc 校验依赖);装好 uv 后重跑本脚本即可"
+fi
 
 # ---- 2. pi 本体 ----
 PI_BIN="$(command -v pi 2>/dev/null || true)"
@@ -585,7 +634,35 @@ EOF
   fi
 fi
 
-# ---- 5. 共用配置:claude-mem settings + magic-context.jsonc(与 opencode-setup.sh 同一套;下载失败用内嵌兜底)----
+# ---- 5. claude-mem 资产(缺失则官方安装器,只为拿 worker/MCP 资产)
+#      先装 runtime 再写配置:安装器会自己写一份 settings,之后我们的模板合并覆盖它(凭据保留)
+mkdir -p "$HOME/.claude-mem"
+if [ ! -f "$MCP_CJS" ]; then
+  if command -v npx >/dev/null 2>&1 && ask "未找到 claude-mem 资产,运行官方安装器 npx claude-mem install --ide opencode?" Y; then
+    # 安装器会写 provider；只拿资产，退出时原样恢复共享 settings，不启动错误后端。
+    (
+      [ ! -L "$MC_SETTINGS" ] || { echo "ERROR: settings 是符号链接，跳过安装" >&2; exit 1; }
+      saved="$(mktemp)"; chmod 600 "$saved"
+      had_settings=0
+      if [ -f "$MC_SETTINGS" ]; then cp -p "$MC_SETTINGS" "$saved" || exit 1; had_settings=1; fi
+      restore_mem_settings() {
+        if [ "$had_settings" = 1 ]; then
+          cp -p "$saved" "$MC_SETTINGS" || { echo "ERROR: 请从 $saved 恢复 $MC_SETTINGS" >&2; exit 1; }
+        else
+          rm -f "$MC_SETTINGS"
+        fi
+        rm -f "$saved"
+      }
+      trap restore_mem_settings EXIT
+      trap 'exit 130' INT
+      trap 'exit 143' TERM
+      npx -y claude-mem install --ide opencode --provider claude --no-auto-start < /dev/null
+    ) || echo "WARN: claude-mem 安装失败；请检查上方恢复提示" >&2
+    ensure_mem_provider "$MC_SETTINGS"
+  fi
+fi
+
+# ---- 6. 共用配置:claude-mem settings + magic-context.jsonc(与 opencode-setup.sh 同一套;下载失败用内嵌兜底)----
 mkdir -p "$HOME/.claude-mem"
 mc_rc=0; merge_cfg "$RAW/opencode/claude-mem.settings.json" "$MC_SETTINGS" || mc_rc=$?
 [ -n "$GW_KEY" ] && chmod 600 "$MODELS" "$MC_SETTINGS" 2>/dev/null
@@ -649,33 +726,7 @@ EOF
   fi
 fi
 
-# ---- 5.1 claude-mem 资产(缺失则官方安装器,只为拿 worker/MCP 资产)----
-if [ ! -f "$MCP_CJS" ]; then
-  if command -v npx >/dev/null 2>&1 && ask "未找到 claude-mem 资产,运行官方安装器 npx claude-mem install --ide opencode?" Y; then
-    # 安装器会写 provider；只拿资产，退出时原样恢复共享 settings，不启动错误后端。
-    (
-      [ ! -L "$MC_SETTINGS" ] || { echo "ERROR: settings 是符号链接，跳过安装" >&2; exit 1; }
-      saved="$(mktemp)"; chmod 600 "$saved"
-      had_settings=0
-      if [ -f "$MC_SETTINGS" ]; then cp -p "$MC_SETTINGS" "$saved" || exit 1; had_settings=1; fi
-      restore_mem_settings() {
-        if [ "$had_settings" = 1 ]; then
-          cp -p "$saved" "$MC_SETTINGS" || { echo "ERROR: 请从 $saved 恢复 $MC_SETTINGS" >&2; exit 1; }
-        else
-          rm -f "$MC_SETTINGS"
-        fi
-        rm -f "$saved"
-      }
-      trap restore_mem_settings EXIT
-      trap 'exit 130' INT
-      trap 'exit 143' TERM
-      npx -y claude-mem install --ide opencode --provider claude --no-auto-start < /dev/null
-    ) || echo "WARN: claude-mem 安装失败；请检查上方恢复提示" >&2
-    ensure_mem_provider "$MC_SETTINGS"
-  fi
-fi
-
-# ---- 5.2 Pi 桥扩展/主题已迁入 git:github.com/brilliantrough/agent-skills(见步骤 3);
+# ---- 6.1 Pi 桥扩展/主题已迁入 git:github.com/brilliantrough/agent-skills(见步骤 3);
 #      旧版由本脚本部署到 ~/.pi/agent/{extensions, themes} 的文件与包内扩展会双注册冲突,清理之 ----
 if [ "$PI_OK" -eq 1 ]; then
   if pkg_installed "git:github.com/brilliantrough/agent-skills"; then
@@ -710,45 +761,9 @@ elif ask "安装 skills 本体(brilliantrough/agent-skills 全部 12 个;pi 原�
   npx -y skills@latest add brilliantrough/agent-skills --all -g -y || true
 fi
 
-# ---- 8. uv(可选)+ strictdoc(.sdoc 校验依赖)----
-UVP="$HOME/.local/bin/uv"
-if ! command -v uv >/dev/null 2>&1 && [ ! -x "$UVP" ]; then
-  if ask "未检测到 uv,安装 uv(astral.sh 官方脚本,装到 ~/.local/bin)?" Y; then
-    uv_sh="$(mktemp)"
-    if curl -fsSL --connect-timeout 8 -m 60 -o "$uv_sh" https://astral.sh/uv/install.sh; then
-      UV_INSTALL_DIR="$HOME/.local/bin" UV_NO_MODIFY_PATH=1 sh "$uv_sh" \
-        || echo "WARN: uv 安装脚本退出码非 0,请看上方输出" >&2
-    else
-      echo "WARN: uv 安装脚本下载失败(检查代理)" >&2
-    fi
-    rm -f "$uv_sh"
-  fi
-fi
-UV_BIN="$(command -v uv 2>/dev/null || echo "$UVP")"
+# ---- 8. strictdoc(.sdoc 校验依赖;uv 已在 1.3 检查/安装)----
+UV_BIN="$(command -v uv 2>/dev/null || echo "$HOME/.local/bin/uv")"
 if [ -x "$UV_BIN" ]; then
-  export PATH="$HOME/.local/bin:$PATH"
-  uv_cur="$("$UV_BIN" --version 2>/dev/null | awk '{print $2}' || true)"
-  uv_latest="$(curl -fsSL --connect-timeout 5 -m 8 https://api.github.com/repos/astral-sh/uv/releases/latest 2>/dev/null \
-    | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4 || true)"
-  if [ -z "$uv_latest" ]; then
-    echo "跳过 uv 自升级:查不到最新版本(检查网络/代理)"
-  elif [ "$uv_latest" != "$uv_cur" ]; then
-    if ask "uv ${uv_cur:-未知} → $uv_latest,升级(uv self update)?" Y; then
-      "$UV_BIN" self update || echo "WARN: uv 自升级失败(系统包管理器装的请用系统方式升级)" >&2
-    fi
-  else
-    echo "uv 已是最新(${uv_cur:-未知})"
-  fi
-  UVCFG="$HOME/.config/uv/uv.toml"
-  if grep -q 'pypi.tuna' "$UVCFG" 2>/dev/null; then
-    echo "uv PyPI 镜像已配置(清华),跳过"
-  elif [ -f "$UVCFG" ]; then
-    echo "跳过 uv 镜像:$UVCFG 已存在(非本脚本写入),不覆盖"
-  elif ask "配置 uv 用清华 PyPI 镜像($UVCFG)?" Y; then
-    mkdir -p "$(dirname "$UVCFG")"
-    printf '%s\n' 'index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"' > "$UVCFG"
-    echo "wrote: $UVCFG"
-  fi
   if command -v strictdoc >/dev/null 2>&1; then
     echo "strictdoc 已存在,跳过(升级: uv tool upgrade strictdoc)"
   elif ask "用 uv 全局安装 strictdoc==0.28.1(.sdoc 校验依赖)?" Y; then
@@ -757,6 +772,35 @@ if [ -x "$UV_BIN" ]; then
 else
   echo "提示: 未检测到 uv,跳过 strictdoc 安装(.sdoc 校验依赖);装好 uv 后重跑本脚本即可"
 fi
+
+
+# ---- 自检:UI 到底会不会生效(这几个是"没生效"的常见原因)----
+echo ""
+echo "本机自检:"
+PI_PKG_DIR="$AGENT_DIR/git/github.com/brilliantrough/agent-skills"
+if [ -d "$PI_PKG_DIR/.git" ]; then
+  echo "  UI 包(git): $(git -C "$PI_PKG_DIR" rev-parse --short HEAD 2>/dev/null) $(git -C "$PI_PKG_DIR" log -1 --pretty=%s 2>/dev/null | cut -c1-50)"
+else
+  echo "  UI 包(git): 未安装 -> 检查步骤 3 的 git:github.com/brilliantrough/agent-skills"
+fi
+if pkg_installed "git:github.com/brilliantrough/agent-skills"; then
+  echo "  packages[]: 已登记 git:github.com/brilliantrough/agent-skills"
+else
+  echo "  packages[]: 未登记(扩展不会被加载;`pi install git:github.com/brilliantrough/agent-skills`)"
+fi
+ui_mode="$(python3 - "$SETTINGS" <<'PYEOF'
+import json, sys
+try:
+    print(json.load(open(sys.argv[1], encoding="utf-8")).get("tuiMode") or "(未设置=regular)")
+except Exception:
+    print("(无法读取)")
+PYEOF
+)"
+echo "  tuiMode: $ui_mode  (侧栏/分栏需要 fullscreen)"
+for f in "$AGENT_DIR/agent-skills-ui.json" "$AGENT_DIR/agent-skills-editor.json" "$AGENT_DIR/keybindings.json"; do
+  [ -f "$f" ] && echo "  配置: $f" || echo "  配置缺失: $f"
+done
+echo "  扩展/配置改动后要重启 pi(或 /reload)才生效"
 
 # ---- 完成:占位符清单 + 收尾动作 ----
 echo ""
