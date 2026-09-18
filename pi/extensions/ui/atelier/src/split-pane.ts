@@ -1,5 +1,5 @@
-import type { Component, OverlayHandle, OverlayOptions, TUI } from "@earendil-works/pi-tui";
-import { HStack, isViewportTUI, matchesKey } from "@earendil-works/pi-tui";
+import type { Component, OverlayOptions, TUI } from "@earendil-works/pi-tui";
+import { HStack, ScrollView, isViewportTUI, matchesKey } from "@earendil-works/pi-tui";
 
 const ENABLE_MOUSE = "\u001b[?1002h\u001b[?1006h";
 const DISABLE_MOUSE = "\u001b[?1006l\u001b[?1002l";
@@ -170,7 +170,7 @@ export function createSplitPaneController(options: SplitPaneControllerOptions = 
 		adaptedTui[PI_084_REGULAR_RENDER_ADAPTER] = { owner: adapterOwner, baseRender };
 		adaptedTui.render = (width: number) => {
 			const sidebar = effectiveSidebarWidth(width);
-			return Reflect.apply(baseRender, tui, [sidebar > 0 ? width - sidebar : width]);
+			return baseRender.call(tui, sidebar > 0 ? width - sidebar : width);
 		};
 	};
 
@@ -187,7 +187,11 @@ export function createSplitPaneController(options: SplitPaneControllerOptions = 
 		new HStack([
 			{ component: originalRoot, basis: 0, grow: 1, shrink: 1, minSize: minimumMain },
 			{
-				component: fullscreenSidebarComponent ?? EMPTY_SIDEBAR_COMPONENT,
+				// A non-primary viewport gives native Pi selection its own coordinate/text bounds.
+				// Keep the transcript primary: keyboard scrolling/search continue to target the chat.
+				component: new ScrollView(fullscreenSidebarComponent ?? EMPTY_SIDEBAR_COMPONENT, {
+					primary: false, follow: "none", overscroll: "contain", scrollbar: "hidden",
+				}),
 				basis: sidebarWidth,
 				grow: 0,
 				shrink: 1,
@@ -270,10 +274,7 @@ export function createSplitPaneController(options: SplitPaneControllerOptions = 
 				// actual Sidebar is rendered by the fullscreen HStack. Pi therefore
 				// sees no visible overlay and can scope selection to the transcript
 				// ScrollView instead of the composed terminal screen.
-				const handle = Reflect.apply(base, tui, [
-					component,
-					{ ...overlayOptions, visible: () => false },
-				]) as OverlayHandle;
+				const handle = base.call(tui, component, { ...overlayOptions, visible: () => false });
 				return {
 					hide() {
 						try {
@@ -300,13 +301,13 @@ export function createSplitPaneController(options: SplitPaneControllerOptions = 
 					isFocused: () => handle.isFocused(),
 				};
 			}
-			return Reflect.apply(base, tui, [component, overlayOptions]);
+			return base.call(tui, component, overlayOptions);
 		};
 		adaptedTui.hideOverlay = () => {
 			const state = adaptedTui[PI_084_FULLSCREEN_OVERLAY_ADAPTER];
 			const base = state?.owner === adapterOwner ? state.baseHideOverlay : baseHideOverlay;
 			const hadVisibleOverlay = tui?.hasOverlay() ?? false;
-			Reflect.apply(base, tui, []);
+			base.call(tui);
 			if (!hadVisibleOverlay && fullscreenSidebarComponent) {
 				enabled = false;
 				fullscreenSidebarComponent = undefined;
@@ -331,6 +332,7 @@ export function createSplitPaneController(options: SplitPaneControllerOptions = 
 		handler: (data: string) => { consume?: boolean; data?: string } | undefined,
 	) => {
 		if (!isPiFullscreenRenderer()) return;
+		// SAFETY: optional private Pi listener set is shape-checked before mutation below.
 		const listeners = (tui as unknown as { inputListeners?: Set<typeof handler> }).inputListeners;
 		if (!(listeners instanceof Set) || !listeners.delete(handler)) return;
 		// Pi 0.84's viewport listener consumes every mouse event for text selection.

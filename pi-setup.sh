@@ -132,6 +132,8 @@ def merge(cur, new):
         return new
     out = dict(cur)
     for k, v in new.items():
+        if k in cur and k.startswith('CLAUDE_MEM_') and (k.endswith('_MODEL') or k.endswith('_BASE_URL') or k.endswith('_API_KEY')):
+            continue  # 已有模型/接口/凭据保留，包括占位值
         if k in cur and SENSITIVE.search(k):                       # 敏感键:本地值优先
             continue
         if k in cur and isinstance(v, str) and PLACEHOLDER.search(v):  # 占位值不覆盖已填内容
@@ -453,9 +455,25 @@ fi
 # ---- 5.1 claude-mem 资产(缺失则官方安装器,只为拿 worker/MCP 资产)----
 if [ ! -f "$MCP_CJS" ]; then
   if command -v npx >/dev/null 2>&1 && ask "未找到 claude-mem 资产,运行官方安装器 npx claude-mem install --ide opencode?" Y; then
-    # --provider claude 是唯一免浏览器 OAuth 的选项;运行时 provider 由 settings.json 决定。
-    # || true:安装器退出码不可靠(资源已装好也会非 0)
-    npx -y claude-mem install --ide opencode --provider claude < /dev/null || true
+    # 安装器会写 provider；只拿资产，退出时原样恢复共享 settings，不启动错误后端。
+    (
+      [ ! -L "$MC_SETTINGS" ] || { echo "ERROR: settings 是符号链接，跳过安装" >&2; exit 1; }
+      saved="$(mktemp)"; chmod 600 "$saved"
+      had_settings=0
+      if [ -f "$MC_SETTINGS" ]; then cp -p "$MC_SETTINGS" "$saved" || exit 1; had_settings=1; fi
+      restore_mem_settings() {
+        if [ "$had_settings" = 1 ]; then
+          cp -p "$saved" "$MC_SETTINGS" || { echo "ERROR: 请从 $saved 恢复 $MC_SETTINGS" >&2; exit 1; }
+        else
+          rm -f "$MC_SETTINGS"
+        fi
+        rm -f "$saved"
+      }
+      trap restore_mem_settings EXIT
+      trap 'exit 130' INT
+      trap 'exit 143' TERM
+      npx -y claude-mem install --ide opencode --provider claude --no-auto-start < /dev/null
+    ) || echo "WARN: claude-mem 安装失败；请检查上方恢复提示" >&2
   fi
 fi
 

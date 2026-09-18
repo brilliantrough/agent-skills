@@ -7,6 +7,7 @@
 - `composer.ts`：统一编辑器入口，原生 CustomEditor + LF 提交修复 + WrappedPolishedEditor。
 - `panels.ts`：缓存详情及 Magic Context `todowrite` 的当前分支成功快照（无第二套 TODO 存储）；优先进行中/待办，全部结束只显示摘要，完整列表用 `/todos`。
 - Context 面板同时保留 Pi 上下文占比及 MC 发布的原始压力/历史整理状态；MC 指标不从模型窗口猜算，也不依赖页脚剩余宽度。
+- 全屏侧栏使用独立、非 primary 的原生 `ScrollView`：普通鼠标拖选/复制限定在起始面板，跨过分界线不混入另一栏；键盘滚动与搜索仍以正文为主。Shift 强制终端选择和 regular 模式仍由终端控制。
 - `tps.ts`：每秒最多更新一次的估算 TPS，结束后显示最后一次回复 usage 的平均速度。
 
 配置：共享 `~/.config/cortexkit/magic-context.jsonc` 的 `todowrite.overlay: false` 只关闭 MC 的重复任务 widget，保留工具和持久化（dot_file 模板已同步）。

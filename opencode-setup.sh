@@ -120,6 +120,8 @@ def merge(cur, new):
         return new
     out = dict(cur)
     for k, v in new.items():
+        if k in cur and k.startswith('CLAUDE_MEM_') and (k.endswith('_MODEL') or k.endswith('_BASE_URL') or k.endswith('_API_KEY')):
+            continue  # 已有模型/接口/凭据保留，包括占位值
         if k in cur and SENSITIVE.search(k):                       # 敏感键:本地值优先
             continue
         if k in cur and isinstance(v, str) and PLACEHOLDER.search(v):  # 占位值不覆盖已填内容
@@ -202,9 +204,25 @@ BUN_BIN="$(command -v bun 2>/dev/null || echo "$HOME/.bun/bin/bun")"
 # ---- 2. claude-mem:安装(只为拿 bundle / MCP 资产)+ 修复 ----
 if [ ! -f "$BUNDLED" ] && [ ! -f "$PLUGINS/claude-mem.js" ]; then
   if command -v npx >/dev/null 2>&1 && ask "未找到 claude-mem,运行官方安装器 npx claude-mem install --ide opencode?" Y; then
-    # --provider claude 是唯一免浏览器 OAuth 的选项(openrouter/gemini 非交互下强制 cmem.ai 登录并 exit 1);
-    # 运行时 provider 由下面部署的 settings.json 决定,与安装期选项无关。|| true:安装器退出码不可靠
-    npx -y claude-mem install --ide opencode --provider claude < /dev/null || true
+    # 安装阶段仅拿资产；原样恢复已有共享配置，避免 provider 被安装器改成 claude。
+    (
+      [ ! -L "$SETTINGS" ] || { echo "ERROR: settings 是符号链接，跳过安装" >&2; exit 1; }
+      saved="$(mktemp)"; chmod 600 "$saved"
+      had_settings=0
+      if [ -f "$SETTINGS" ]; then cp -p "$SETTINGS" "$saved" || exit 1; had_settings=1; fi
+      restore_mem_settings() {
+        if [ "$had_settings" = 1 ]; then
+          cp -p "$saved" "$SETTINGS" || { echo "ERROR: 请从 $saved 恢复 $SETTINGS" >&2; exit 1; }
+        else
+          rm -f "$SETTINGS"
+        fi
+        rm -f "$saved"
+      }
+      trap restore_mem_settings EXIT
+      trap 'exit 130' INT
+      trap 'exit 143' TERM
+      npx -y claude-mem install --ide opencode --provider claude --no-auto-start < /dev/null
+    ) || echo "WARN: claude-mem 安装失败；请检查上方恢复提示" >&2
   fi
 fi
 
