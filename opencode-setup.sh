@@ -1048,7 +1048,7 @@ n=1
 echo "$n. 填占位符:"; n=$((n+1))
 echo "   - $SETTINGS:BASE_URL / MODEL / API_KEY(openrouter 走 OpenAI 协议,填 OpenAI 协议的 key,不是 Anthropic 的)"
 echo "   - $MC_CFG:BASE_URL / API_KEY;historian/dreamer 的 model 用 <provider>/<model-id>"
-[ "$cfg_full" -eq 1 ] && echo "   - $CFG/opencode.json:网关地址 / API key 占位符(仅首次部署需填;之后脚本更新只覆盖 models)"
+[ "$cfg_full" -eq 1 ] && echo "   - $CFG/opencode.json:网关地址 / API key / mcphub-web 的 <YOUR_MCPHUB_HOST>(仅首次部署需填;之后脚本更新只覆盖 models)"
 echo "$n. 重启 claude-mem worker 并验证:"; n=$((n+1))
 echo "      cd ~/.claude/plugins/marketplaces/thedotmack && npm run worker:restart"
 echo "      curl -s 127.0.0.1:37700/api/health"
