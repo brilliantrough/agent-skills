@@ -135,6 +135,8 @@ skills 是共享的，更新也会影响 OpenCode；claude-mem runtime 更新请
 
 [Pi](https://pi.dev) 核心刻意不带 MCP/subagent,能力全靠 npm 包与扩展;skills 原生读 `~/.agents/skills/`(零迁移)。`pi-setup.sh` 与 `opencode-setup.sh` **共享** `~/.claude-mem/settings.json` 与 `~/.config/cortexkit/magic-context.jsonc`(同一套字段级合并,两边幂等,不破坏本地值)。配置模板在 [dot_file/pi](https://github.com/brilliantrough/dot_file/tree/master/pi)。
 
+> 开发本仓库时:脚本最后一步会把本机已装的 Pi 包软链进仓库 `node_modules/`(`.gitignore` 已排除),让编辑器/pi-lens 能解析 `@earendil-works/pi-*` 与 `node:*` 类型——否则这些模块会被报成 “Cannot find module”(运行时由 Pi 自己提供,不影响使用)。
+
 | 项目 | `pi-setup.sh` 的行为 |
 |---|---|
 | Provider/模型 | 部署 `~/.pi/agent/models.json`:claude-newapi(anthropic)、codex-newapi(openai-responses)、anthropic-newapi;**anthropic 协议 `baseUrl` 填根域**(pi 自动补 `/v1/messages`,填 `/v1` 会 404),openai 协议带 `/v1`;`compat.supportsStore:false`、`thinkingLevelMap`(xhigh/max)对应 opencode 的 variants |

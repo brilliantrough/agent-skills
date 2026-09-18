@@ -776,6 +776,32 @@ fi
 
 # ---- 自检:UI 到底会不会生效(这几个是"没生效"的常见原因)----
 echo ""
+# ---- 9. 开发本仓库时的类型诊断软链(仅本地;不影响运行)----
+# 仓库不装 node_modules,Pi 运行时自己提供这些模块;但编辑器/pi-lens 的 TS 诊断会报
+# “Cannot find module '@earendil-works/pi-*' / 'node:*'” 这类假报错。把已装 Pi 包软链进
+# 仓库 node_modules 即可消失(node_modules 已在 .gitignore 中排除,不会被提交)。
+link_dev_types() {
+  [ -f "$PWD/pi/extensions/ui/index.ts" ] || return 0   # 只在仓库源码目录里跑
+  local pkg=""
+  if [ -n "${PI_BIN:-}" ]; then
+    pkg="$(readlink -f "$PI_BIN" 2>/dev/null || true)"
+    case "$pkg" in */dist/bundle/cli.js) pkg="${pkg%/dist/bundle/cli.js}" ;; *) pkg="" ;; esac
+  fi
+  [ -d "$pkg/node_modules" ] || pkg="$HOME/.local/share/pi-node/current/lib/node_modules/@earendil-works/pi-coding-agent"
+  if [ ! -d "$pkg/node_modules" ]; then
+    echo "类型诊断软链: 跳过(未找到 Pi 包目录)"; return 0
+  fi
+  mkdir -p "$PWD/node_modules/@earendil-works" "$PWD/node_modules/@types"
+  [ -e "$PWD/node_modules/@earendil-works/pi-coding-agent" ] || \
+    ln -sfn "$pkg" "$PWD/node_modules/@earendil-works/pi-coding-agent"
+  [ -e "$PWD/node_modules/@earendil-works/pi-tui" ] || \
+    ln -sfn "$pkg/node_modules/@earendil-works/pi-tui" "$PWD/node_modules/@earendil-works/pi-tui"
+  [ -e "$PWD/node_modules/@types/node" ] || \
+    ln -sfn "$pkg/node_modules/@types/node" "$PWD/node_modules/@types/node"
+  echo "类型诊断软链: node_modules/@earendil-works/* + @types/node 就绪(仅本机,已被 .gitignore 排除)"
+}
+link_dev_types
+
 echo "本机自检:"
 PI_PKG_DIR="$AGENT_DIR/git/github.com/brilliantrough/agent-skills"
 if [ -d "$PI_PKG_DIR/.git" ]; then
