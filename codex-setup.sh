@@ -144,6 +144,28 @@ mem_ready() {
   [ -f "$MEM_ROOT/plugin/scripts/worker-service.cjs" ] &&
   [ -f "$MEM_ROOT/plugin/scripts/mcp-server.cjs" ]
 }
+# 记忆后端必须走 OpenAI 兼容的 openrouter provider;安装器或旧配置写成 claude 时纠正。
+# 只改这一个键,模型/接口/凭据原样保留。
+ensure_mem_provider() {
+  local f="$1" tmp
+  [ -f "$f" ] && [ ! -L "$f" ] || return 0
+  grep -qE '"CLAUDE_MEM_PROVIDER"[[:space:]]*:[[:space:]]*"openrouter"' "$f" && return 0
+  tmp="$(mktemp)"
+  if python3 - "$f" "$tmp" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1],encoding='utf-8'))
+d['CLAUDE_MEM_PROVIDER']='openrouter'
+json.dump(d,open(sys.argv[2],'w',encoding='utf-8'),indent=2,ensure_ascii=False)
+open(sys.argv[2],'a').write('\n')
+PY
+  then
+    cp -p "$f" "$f.bak-provider-$(date +%Y%m%d%H%M%S)"
+    mv "$tmp" "$f"; echo "updated: $f (CLAUDE_MEM_PROVIDER=openrouter)"
+  else
+    rm -f "$tmp"; warn "$f 解析失败,未改 provider;请手工设为 openrouter"
+  fi
+}
+
 install_mem_runtime() (
   # upstream CodexCliInstaller 写死 ~/.codex;不让它误写自定义 CODEX_HOME 外的配置。
   if [ "$CFG" != "$HOME/.codex" ]; then
@@ -205,7 +227,8 @@ else
   "CLAUDE_MEM_OPENROUTER_BASE_URL": "<YOUR_NEWAPI_BASE_URL>",
   "CLAUDE_MEM_OPENROUTER_MODEL": "<YOUR_MODEL_NAME>",
   "CLAUDE_MEM_OPENROUTER_API_KEY": "<YOUR_API_KEY>",
-  "CLAUDE_MEM_CONTEXT_OBSERVATIONS": "20"
+  "CLAUDE_MEM_CONTEXT_OBSERVATIONS": "20",
+  "CLAUDE_MEM_LLM_TIMEOUT_MS": "120000"
 }
 JSON
       )
@@ -226,6 +249,7 @@ JSON
       install_plugin 'claude-mem@claude-mem-local' "$MEM_ROOT" || warn 'claude-mem 插件注册失败'
     else warn 'claude-mem 资产不完整,请检查官方安装器输出'; fi
   fi
+  ensure_mem_provider "$SETTINGS"
 fi
 
 # ---- 3. Ponytail + hooks ----

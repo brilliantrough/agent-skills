@@ -165,6 +165,28 @@ PYEOF
   esac
 }
 
+# 记忆后端必须走 OpenAI 兼容的 openrouter provider;安装器或旧配置写成 claude 时纠正。
+# 只改这一个键,模型/接口/凭据原样保留。
+ensure_mem_provider() {
+  local f="$1" tmp
+  [ -f "$f" ] && [ ! -L "$f" ] || return 0
+  grep -qE '"CLAUDE_MEM_PROVIDER"[[:space:]]*:[[:space:]]*"openrouter"' "$f" && return 0
+  tmp="$(mktemp)"
+  if python3 - "$f" "$tmp" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1],encoding='utf-8'))
+d['CLAUDE_MEM_PROVIDER']='openrouter'
+json.dump(d,open(sys.argv[2],'w',encoding='utf-8'),indent=2,ensure_ascii=False)
+open(sys.argv[2],'a').write('\n')
+PY
+  then
+    cp -p "$f" "$f.bak-provider-$(date +%Y%m%d%H%M%S)"
+    mv "$tmp" "$f"; echo "updated: $f (CLAUDE_MEM_PROVIDER=openrouter)"
+  else
+    rm -f "$tmp"; echo "WARN: $f 解析失败,未改 provider;请手工设为 openrouter" >&2
+  fi
+}
+
 # deploy_file <url> <dest> <label> — 整文件部署(用于 agents/*.md、extensions/*.ts):
 #   内容一致则不写;有差异存 .bak 后覆盖
 deploy_file() {
@@ -404,6 +426,7 @@ if [ "$mc_rc" = 1 ] && [ ! -f "$MC_SETTINGS" ]; then
   "CLAUDE_MEM_OPENROUTER_BASE_URL": "<YOUR_NEWAPI_BASE_URL>",
   "CLAUDE_MEM_OPENROUTER_MODEL": "<YOUR_MODEL_NAME>",
   "CLAUDE_MEM_CONTEXT_OBSERVATIONS": "20",
+  "CLAUDE_MEM_LLM_TIMEOUT_MS": "120000",
   "CLAUDE_MEM_SKIP_TOOLS": "ListMcpResourcesTool,SlashCommand,Skill,TodoWrite,AskUserQuestion,todowrite,skill,question,ask_user_question,list,ls,LS,list_mcp_resources,list_mcp_resource_templates,read,Read,bash,Bash,BashOutput,grep,Grep,glob,Glob,find,Find,ctx_*,mcphub-web_*,codegraph_*,claude-mem_*,claude_mem_*,mcp,mcp__*",
   "CLAUDE_MEM_OPENROUTER_API_KEY": "<YOUR_API_KEY>"
 }
@@ -474,6 +497,7 @@ if [ ! -f "$MCP_CJS" ]; then
       trap 'exit 143' TERM
       npx -y claude-mem install --ide opencode --provider claude --no-auto-start < /dev/null
     ) || echo "WARN: claude-mem 安装失败；请检查上方恢复提示" >&2
+    ensure_mem_provider "$MC_SETTINGS"
   fi
 fi
 

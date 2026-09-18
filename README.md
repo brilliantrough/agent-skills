@@ -185,6 +185,7 @@ bun 安装:`curl -fsSL https://bun.sh/install | bash`。
   "CLAUDE_MEM_OPENROUTER_BASE_URL": "<YOUR_NEWAPI_BASE_URL>",
   "CLAUDE_MEM_OPENROUTER_MODEL": "<YOUR_MODEL_NAME>",
   "CLAUDE_MEM_CONTEXT_OBSERVATIONS": "20",
+  "CLAUDE_MEM_LLM_TIMEOUT_MS": "120000",
   "CLAUDE_MEM_OPENROUTER_API_KEY": "<YOUR_API_KEY>"
 }
 ```
@@ -362,7 +363,7 @@ npx skills update -g
 | 文件 | 更新方式(non-destructive) |
 |---|---|
 | `~/.config/opencode/opencode.json` | 已存在的 provider 保留本地 `options`(apiKey/网关),只按模板覆盖 `models`;模板新增的 provider 整块加入;模板的非 provider 字段仅在本地缺该键时补入 |
-| `~/.claude-mem/settings.json` | 模板的非敏感字段值优先下发;`api key` / `base url` 等敏感键与含 `<占位符>` 的值保留本地内容;本地独有键保留 |
+| `~/.claude-mem/settings.json` | 模板的非敏感字段值优先下发;`CLAUDE_MEM_PROVIDER` 强制为 `openrouter`;`api key` / `base url` / `*_MODEL` 等敏感键与含 `<占位符>` 的值保留本地内容;本地独有键保留 |
 | `~/.config/cortexkit/magic-context.jsonc` | 同 settings.json(含 `historian.pi` / `dreamer.pi` 块,与 opencode 共用) |
 | `~/.pi/agent/{settings,models}.json`、`~/.agents/mcp.json` | 同 settings.json(pi-setup.sh);mcp.json 的本地命令路径在合并前按本机替换 |
 | `~/.pi/agent/agents/*.md`、`extensions/claude-mem.ts` | 整文件部署:内容有差异才写,原文件存 `.bak-YYYYmmddHHMMSS` |
