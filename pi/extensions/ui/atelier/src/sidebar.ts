@@ -878,6 +878,7 @@ export function renderSidebarLines(
 	colorEnabled = true,
 	now = Date.now(),
 	resizing = false,
+	dockHeight = height,
 ): string[] {
 	const palette = createPalette(theme, colorEnabled);
 	const safeWidth = Math.max(0, Math.trunc(width));
@@ -1071,18 +1072,15 @@ export function renderSidebarLines(
 			dropRank: Number.POSITIVE_INFINITY,
 		});
 	}
-	return renderDock(
-		renderGroups(
-			composeGroups(ordered, safeHeight, contentWidth, palette, theme),
-			contentWidth,
-			palette,
-			theme,
-		),
-		safeWidth,
-		safeHeight,
+	const composed = renderGroups(
+		composeGroups(ordered, safeHeight, contentWidth, palette, theme),
+		contentWidth,
 		palette,
-		resizing,
+		theme,
 	);
+	// 可滚动侧栏：内容可以高于面板高度，交给外层 ScrollView 剪裁/滚动，不再为放不下而丢面板。
+	const dockTo = Math.max(Math.max(0, Math.trunc(dockHeight)), composed.length);
+	return renderDock(composed, safeWidth, dockTo, palette, resizing);
 }
 
 export interface SidebarComponentOptions {
@@ -1092,7 +1090,13 @@ export interface SidebarComponentOptions {
 	isResizing?(): boolean;
 	theme: ThemeLike;
 	colorEnabled?: boolean;
+	/** 全屏分栏（外层是 ScrollView）时不禁内容高度，让面板完整渲染并靠滚动查看。 */
+	isScrollable?: boolean;
+	onToggleToolNames?(): void;
 }
+
+/** 可滚动侧栏的组装预算：足够容纳所有已启用面板，由 ScrollView 负责剪裁。 */
+const SCROLL_COMPOSE_HEIGHT = 400;
 
 function renderSidebarError(error: unknown, width: number, height: number, resizing = false): string[] {
 	let detail = "Unknown error";
@@ -1116,6 +1120,7 @@ export function createSidebarComponent(options: SidebarComponentOptions): Compon
 	return {
 		render(width) {
 			const height = options.getHeight();
+			const composeHeight = options.isScrollable ? Math.max(height, SCROLL_COMPOSE_HEIGHT) : height;
 			let resizing = false;
 			try {
 				resizing = options.isResizing?.() ?? false;
@@ -1124,10 +1129,11 @@ export function createSidebarComponent(options: SidebarComponentOptions): Compon
 					options.getConfig(),
 					options.theme,
 					width,
-					height,
+					composeHeight,
 					options.colorEnabled ?? true,
 					Date.now(),
 					resizing,
+					height,
 				);
 			} catch (error) {
 				return renderSidebarError(error, width, height, resizing);
@@ -1158,6 +1164,8 @@ export interface SidebarControllerOptions {
 	animationIntervalMs?: number;
 	onWarning?(message: string): void;
 	onError?(error: unknown): void;
+	/** 点 TOOLS 的 `n / m active ▸` 行时调用（上游 /ui sidebar tools 的同一动作）。 */
+	onToggleToolNames?(): void;
 }
 
 interface RetirableSidebarBinding {
@@ -1360,6 +1368,9 @@ export function createSidebarController(options: SidebarControllerOptions): Side
 							getConfig: binding.getConfig,
 							getHeight: () => tui.terminal.rows,
 							isResizing: binding.isResizing,
+							// 全屏分栏时外层是 ScrollView：内容可高于面板，靠滚动查看。
+							isScrollable: tui.mode === "fullscreen",
+							onToggleToolNames: options.onToggleToolNames,
 							// SAFETY: the Pi-supplied Theme implements the fg/bg/bold subset used here.
 							theme: theme as unknown as ThemeLike,
 							...(options.colorEnabled === undefined ? {} : { colorEnabled: options.colorEnabled }),

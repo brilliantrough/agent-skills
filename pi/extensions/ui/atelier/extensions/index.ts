@@ -730,6 +730,12 @@ export default function atelierExtension(
 				colorEnabled: !("NO_COLOR" in process.env),
 				shouldAnimate: () => activeSession?.token === initializationToken && localRunActivity.isRunning(),
 				onWarning: (message) => initializationContext.ui.notify(message, "warning"),
+				// 点侧栏 TOOLS 的 `n / m active ▸` 行 = 上游 /ui sidebar tools 的同一动作。
+				onToggleToolNames: () => {
+					const current = activeSession;
+					if (current && current.token === initializationToken)
+						void setSidebarToolNames(initializationContext, undefined, current);
+				},
 				onError: (error) =>
 					initializationContext.ui.notify(
 						`Agent Skills UI sidebar failed: ${error instanceof Error ? error.message : String(error)}`,

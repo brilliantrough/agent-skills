@@ -77,8 +77,7 @@ check("折叠块不再是表头行", collapsed.panelRows.get(0) === "TASKS");
 
 const inner = { render: () => lines, invalidate() {} };
 const component = withCollapsiblePanels(inner);
-const first = component.render(80);
-check("包装后渲染一致(未折叠)", first.length === lines.length);
+const first = component.render(80);check("包装后渲染一致(未折叠)", first.length === lines.length);
 
 check("点击表头 → 折叠", component.handleMouse({ type: "click", y: 0 })?.render === true);
 check("配置已写入", readCollapsedPanels().has("TASKS"));
@@ -91,6 +90,19 @@ check("配置已清空", !readCollapsedPanels().has("TASKS") && component.render
 check("press 被吞掉(不启动选择)", component.handleMouse({ type: "press", y: 0 })?.consume === true);
 check("非表头点击忽略", component.handleMouse({ type: "click", y: 1 }) === undefined);
 check("其他事件忽略", component.handleMouse({ type: "wheel", y: 0 }) === undefined);
+
+// TOOLS 的 `n / m active ▸` 行：点它应触发上游的 tool list 开关，而不是整块折叠。
+const toolLines = [...panel("✦ TOOLS", ["39 / 45 active  ▸"]), ...panel("✦ PLUGINS · 8", ["pi-lens 4.2.1"])];
+let toggled = 0;
+const toolComponent = withCollapsiblePanels({ render: () => toolLines, invalidate() {} }, {
+  onToggleToolNames: () => { toggled += 1; },
+});
+toolComponent.render(80);
+check("识别 disclosure 行", shapeLines(toolLines, new Set()).disclosureRows.has(1));
+check("click 触发 tool list 开关", toolComponent.handleMouse({ type: "click", y: 1 })?.render === true && toggled === 1);
+check("press 被吞掉", toolComponent.handleMouse({ type: "press", y: 1 })?.consume === true);
+check("disclosure 不写成折叠状态", !readCollapsedPanels().has("TOOLS"));
+check("普通正文行不是 disclosure", !shapeLines(toolLines, new Set()).disclosureRows.has(2));
 
 // 真实环境:插件列表能不能读出来(用真实 agent 目录)
 const { installedPackages } = await load("pi/extensions/ui/panels.ts");

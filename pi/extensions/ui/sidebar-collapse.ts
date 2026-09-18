@@ -34,6 +34,9 @@ export interface MouseEventLike {
 	clickCount?: number;
 }
 
+/** TOOLS 面板的展开/收起行,如 `│ 39 / 45 active   ▸ │`(面板行带边框)。 */
+const DISCLOSURE = /^[│|\s]*\d+\s*\/\s*\d+\s*active\s*[▸▾][│|\s]*$/;
+
 export interface CollapsibleComponent {
 	render(width: number): string[];
 	invalidate?(): void;
@@ -101,11 +104,12 @@ function collapsedHeader(line: string, title: string): string {
 export function shapeLines(
 	lines: readonly string[],
 	collapsed: ReadonlySet<string>,
-): { lines: string[]; panelRows: Map<number, string> } {
+): { lines: string[]; panelRows: Map<number, string>; disclosureRows: Set<number> } {
 	const blocks = panelBlocks(lines);
 	const skip = new Set<number>();
 	const output: string[] = [];
 	const panelRows = new Map<number, string>();
+	const disclosureRows = new Set<number>();
 	for (const [row, line] of lines.entries()) {
 		if (skip.has(row)) continue;
 		const block = blocks.find((candidate) => candidate.headerRow === row);
@@ -119,29 +123,48 @@ export function shapeLines(
 				for (let drop = row + 1; drop < stop; drop += 1) skip.add(drop);
 				continue;
 			}
+		} else if (DISCLOSURE.test(line.replace(ANSI, ""))) {
+			disclosureRows.add(output.length);
 		}
 		output.push(line);
 	}
-	return { lines: output, panelRows };
+	return { lines: output, panelRows, disclosureRows };
 }
 
-export function withCollapsiblePanels(inner: CollapsibleComponent): CollapsibleComponent {
+export interface CollapsibleOptions {
+	/** 点 TOOLS 的 `n / m active ▸` 行时调用（上游 /ui sidebar tools 的同一动作）。 */
+	onToggleToolNames?(): void;
+}
+
+export function withCollapsiblePanels(
+	inner: CollapsibleComponent,
+	options: CollapsibleOptions = {},
+): CollapsibleComponent {
 	let panelRows = new Map<number, string>();
+	let disclosureRows = new Set<number>();
 	return {
 		render(width: number): string[] {
 			const shaped = shapeLines(inner.render(width), readCollapsedPanels());
 			panelRows = shaped.panelRows;
+			disclosureRows = shaped.disclosureRows;
 			return shaped.lines;
 		},
 		invalidate(): void {
 			inner.invalidate?.();
 		},
 		handleMouse(event: MouseEventLike): { consume?: boolean; render?: boolean } | undefined {
-			if (event.type !== "press" && event.type !== "click") return undefined;
+			const onDisclosure = disclosureRows.has(event.y);
+			if (event.type === "press" && (panelRows.has(event.y) || onDisclosure)) {
+				// Swallow the press so it cannot start a text selection over the panel.
+				return { consume: true };
+			}
+			if (event.type !== "click") return undefined;
+			if (onDisclosure) {
+				options.onToggleToolNames?.();
+				return { consume: true, render: true };
+			}
 			const key = panelRows.get(event.y);
 			if (!key) return undefined;
-			// Swallow the press so it cannot start a text selection over the panel.
-			if (event.type === "press") return { consume: true };
 			const collapsed = readCollapsedPanels();
 			if (collapsed.has(key)) collapsed.delete(key);
 			else collapsed.add(key);

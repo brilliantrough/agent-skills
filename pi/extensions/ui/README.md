@@ -9,7 +9,8 @@
 - Context 面板同时保留 Pi 上下文占比及 MC 发布的原始压力/历史整理状态；MC 指标不从模型窗口猜算，也不依赖页脚剩余宽度。
 - 全屏侧栏使用独立、非 primary 的原生 `ScrollView`：普通鼠标拖选/复制限定在起始面板，跨过分界线不混入另一栏；键盘滚动与搜索仍以正文为主。Shift 强制终端选择和 regular 模式仍由终端控制。
 - `wheel.ts`：全屏模式的滚轮步长。Pi 构造渲染器时不传 pi-tui 的 `wheelScrollLines`，所以每个滚轮刻度只滚 1 行（上游 #7765/#8370/#8446/#8471/#8741 都还开着；0.84.0 之前是 3 行）。这里在编辑器和页脚工厂里把这个实例字段设为 `WHEEL_SCROLL_LINES`（默认 3，改这个常量即可调整）；regular 模式无此字段，自动跳过。Alt+滚轮仍是原生 5 倍。
-- `sidebar-collapse.ts`：点击侧栏面板标题行折叠/展开。Pi 全屏渲染器会把鼠标事件派发给光标下的组件（`dispatchMouseToLayout` → `handleMouse(event)`，坐标为组件局部坐标，返回 `{ render: true }` 即重绘），侧栏本身就是布局里的普通组件，所以只包一层即可，不动上游布局。面板块从渲染结果里的 `╭─ ✦ TITLE ──╮` 边框识别，键取标题首词（`TASKS · 3/3` 这种计数器变化不影响）；折叠后只留一行并加 `▸`。`press` 被吞掉以免拖出文本选择，真正的切换在 `click` 上做。状态存在 `agent-skills-ui.json` 的 `collapsedPanels` 数组。
+- `sidebar-collapse.ts`：侧栏面板的可交互层。Pi 全屏渲染器会把鼠标事件派发给光标下的组件（`dispatchMouseToLayout` → `handleMouse(event)`，坐标为组件局部坐标，返回 `{ render: true }` 即重绘），侧栏本身就是布局里的普通组件，所以只包一层即可，不动上游布局。两种点击：① 点面板**标题行**折叠/展开整块（状态存 `agent-skills-ui.json` 的 `collapsedPanels` 数组）；② 点 TOOLS 的 `│ 39 / 45 active ▸ │` 行则转发给上游 `/ui sidebar tools` 的同一动作（展开工具名列表）。面板块从渲染结果里的 `╭─ ✦ TITLE ──╮` 边框识别，键取标题首词（`TASKS · 3/3` 这种计数器变化不影响）。`press` 被吞掉以免拖出文本选择，真正的切换在 `click` 上做。
+- 侧栏**可滚动**：全屏分栏时侧栏内容不再按面板高度裁剪（`isScrollable` → 用大预算排版，再让外层 `ScrollView` 剪裁），`scrollbar: "auto"` 只在溢出时显示；滚轮由 pi-tui 的 `routeWheel` 按光标位置路由到侧栏自己的 ScrollView。
 - `selection.ts`：松开鼠标（copy-on-select）后清掉高亮。Pi 上游是有意保留选中框的（点一下才消失），但框会一直盖在正文/输入框上；这里在 release 处理完成后（剪贴板文本已同步取到）清空选区并重绘。开关：`agent-skills-ui.json` 的 `clearSelectionOnRelease`，**默认 true**；设 false 时不动选区（那种情况下 `hasActiveSelection()` 是 Pi 的 copy 命令唯一依据）。
 - `tps.ts`：每秒最多更新一次的估算 TPS，结束后显示最后一次回复 usage 的平均速度。
 

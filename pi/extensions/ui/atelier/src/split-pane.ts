@@ -190,7 +190,7 @@ export function createSplitPaneController(options: SplitPaneControllerOptions = 
 				// A non-primary viewport gives native Pi selection its own coordinate/text bounds.
 				// Keep the transcript primary: keyboard scrolling/search continue to target the chat.
 				component: new ScrollView(fullscreenSidebarComponent ?? EMPTY_SIDEBAR_COMPONENT, {
-					primary: false, follow: "none", overscroll: "contain", scrollbar: "hidden",
+					primary: false, follow: "none", overscroll: "contain", scrollbar: "auto",
 				}),
 				basis: sidebarWidth,
 				grow: 0,
