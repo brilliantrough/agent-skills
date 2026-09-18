@@ -55,6 +55,20 @@ ask() { # $1=提示 $2=默认(Y/N,缺省 N)
   fi
 }
 
+# claude-mem worker 的 host:port(与 claude-mem/桥接同一优先级:环境变量 > settings.json > 默认公式)
+mem_worker_url() {
+  python3 - "$SETTINGS" <<'PYEOF'
+import json, os, sys
+try:
+    s = json.load(open(sys.argv[1], encoding='utf-8'))
+except Exception:
+    s = {}
+host = os.environ.get('CLAUDE_MEM_WORKER_HOST') or s.get('CLAUDE_MEM_WORKER_HOST') or '127.0.0.1'
+port = os.environ.get('CLAUDE_MEM_WORKER_PORT') or s.get('CLAUDE_MEM_WORKER_PORT') or str(37700 + os.getuid() % 100)
+print(f'{host}:{port}')
+PYEOF
+}
+
 # ---- 网关占位符预填：新机器只需填 base url + api key ----
 # 环境变量优先(便于无人值守):PI_GATEWAY_BASE_URL / PI_GATEWAY_API_KEY / MCPHUB_HOST
 GW_BASE="${PI_GATEWAY_BASE_URL:-}"; GW_KEY="${PI_GATEWAY_API_KEY:-}"; MCPHUB_HOST="${MCPHUB_HOST:-}"
@@ -209,7 +223,8 @@ def merge(cur, new):
         return new
     out = dict(cur)
     for k, v in new.items():
-        if k in cur and k.startswith('CLAUDE_MEM_') and (k.endswith('_MODEL') or k.endswith('_BASE_URL') or k.endswith('_API_KEY')):
+        if k in cur and k.startswith('CLAUDE_MEM_') and (k.endswith('_MODEL') or k.endswith('_BASE_URL') or k.endswith('_API_KEY')\
+                or k.endswith('_PORT') or k.endswith('_HOST')):
             continue  # 已有模型/接口/凭据保留，包括占位值
         if k in cur and SENSITIVE.search(k):                       # 敏感键:本地值优先
             continue
@@ -533,11 +548,14 @@ fi
 mkdir -p "$HOME/.claude-mem"
 mc_rc=0; merge_cfg "$RAW/opencode/claude-mem.settings.json" "$MC_SETTINGS" || mc_rc=$?
 [ -n "$GW_KEY" ] && chmod 600 "$MODELS" "$MC_SETTINGS" 2>/dev/null
+echo "claude-mem worker: http://$(mem_worker_url)(健康检查: curl -s http://$(mem_worker_url)/api/health)"
 if [ "$mc_rc" = 1 ] && [ ! -f "$MC_SETTINGS" ]; then
   if ask "写入 $MC_SETTINGS(内嵌兜底模板,含占位符)?" Y; then
   cat > "$MC_SETTINGS" <<'EOF'
 {
   "CLAUDE_MEM_RUNTIME": "worker",
+  "CLAUDE_MEM_WORKER_HOST": "127.0.0.1",
+  "CLAUDE_MEM_WORKER_PORT": "37700",
   "CLAUDE_MEM_PROVIDER": "openrouter",
   "CLAUDE_MEM_OPENROUTER_BASE_URL": "<YOUR_NEWAPI_BASE_URL>",
   "CLAUDE_MEM_OPENROUTER_MODEL": "<YOUR_MODEL_NAME>",
@@ -714,7 +732,7 @@ echo "   - $MC_CFG:BASE_URL / API_KEY;historian/dreamer 的 model 用 <provider>
 echo "   - ~/.func(linux-setup.sh 部署):<YOUR_GATEWAY_HOST> / <YOUR_ANTHROPIC_AUTH_TOKEN>"
 echo "$n. 重启 claude-mem worker 并验证:"; n=$((n+1))
 echo "      cd ~/.claude/plugins/marketplaces/thedotmack && npm run worker:restart"
-echo "      curl -s 127.0.0.1:37700/api/health"
+echo "      curl -s http://$(mem_worker_url)/api/health   # 端口取自 $SETTINGS(见下方提示)"
 echo "$n. 项目接入记忆系统: 把本仓库 AGENTS.md 中 memory-system:start/end 之间的块,粘进项目 AGENTS.md"; n=$((n+1))
 if [ -x "${CG_BIN:-}" ]; then
   echo "$n. 代码知识图谱(按项目):cd <项目> && codegraph init(建 .codegraph/ 索引;不 init 则 MCP 无内容可查)"; n=$((n+1))

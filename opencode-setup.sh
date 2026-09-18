@@ -61,6 +61,20 @@ RAW="https://raw.githubusercontent.com/brilliantrough/dot_file/master"
 #   模板里含 <占位符> 的值不覆盖本地已填内容;本地独有的键保留。
 #   合并结果与本地一致时不写文件(幂等);有改动先存时间戳 .bak。
 #   dest 不存在则直接落模板。符号链接跳过(不穿透)。
+# claude-mem worker 的 host:port(与 claude-mem/桥接同一优先级:环境变量 > settings.json > 默认公式)
+mem_worker_url() {
+  python3 - "$SETTINGS" <<'PYEOF'
+import json, os, sys
+try:
+    s = json.load(open(sys.argv[1], encoding='utf-8'))
+except Exception:
+    s = {}
+host = os.environ.get('CLAUDE_MEM_WORKER_HOST') or s.get('CLAUDE_MEM_WORKER_HOST') or '127.0.0.1'
+port = os.environ.get('CLAUDE_MEM_WORKER_PORT') or s.get('CLAUDE_MEM_WORKER_PORT') or str(37700 + os.getuid() % 100)
+print(f'{host}:{port}')
+PYEOF
+}
+
 # ---- 网关占位符预填：新机器只需填 base url + api key ----
 # 环境变量优先(便于无人值守):PI_GATEWAY_BASE_URL / PI_GATEWAY_API_KEY / MCPHUB_HOST
 GW_BASE="${PI_GATEWAY_BASE_URL:-}"; GW_KEY="${PI_GATEWAY_API_KEY:-}"; MCPHUB_HOST="${MCPHUB_HOST:-}"
@@ -195,7 +209,8 @@ def merge(cur, new):
         return new
     out = dict(cur)
     for k, v in new.items():
-        if k in cur and k.startswith('CLAUDE_MEM_') and (k.endswith('_MODEL') or k.endswith('_BASE_URL') or k.endswith('_API_KEY')):
+        if k in cur and k.startswith('CLAUDE_MEM_') and (k.endswith('_MODEL') or k.endswith('_BASE_URL') or k.endswith('_API_KEY')\
+                or k.endswith('_PORT') or k.endswith('_HOST')):
             continue  # 已有模型/接口/凭据保留，包括占位值
         if k in cur and SENSITIVE.search(k):                       # 敏感键:本地值优先
             continue
@@ -380,10 +395,24 @@ function loadSkipPrefixes() {
 const SKIP_PREFIXES = loadSkipPrefixes();
 const MAX_ASSISTANT_CHARS = 5000;
 
+// 与 claude-mem 本身的优先级一致:环境变量 > ~/.claude-mem/settings.json > 默认公式
+function workerSetting(key) {
+  try {
+    const p = join(process.env.CLAUDE_MEM_DATA_DIR || join(homedir(), ".claude-mem"), "settings.json");
+    return JSON.parse(readFileSync(p, "utf8"))[key] || "";
+  } catch {
+    return "";
+  }
+}
+
 function resolveWorkerBaseUrl() {
-  const host = process.env.CLAUDE_MEM_WORKER_HOST || "127.0.0.1";
+  const host =
+    process.env.CLAUDE_MEM_WORKER_HOST ||
+    workerSetting("CLAUDE_MEM_WORKER_HOST") ||
+    "127.0.0.1";
   const port =
     process.env.CLAUDE_MEM_WORKER_PORT ||
+    workerSetting("CLAUDE_MEM_WORKER_PORT") ||
     String(37700 + ((process.getuid?.() ?? 77) % 100));
   return `http://${host}:${port}`;
 }
@@ -592,6 +621,8 @@ if [ "$mc_rc" = 1 ] && [ ! -f "$SETTINGS" ]; then   # 只在模板下载失败�
   cat > "$SETTINGS" <<'EOF'
 {
   "CLAUDE_MEM_RUNTIME": "worker",
+  "CLAUDE_MEM_WORKER_HOST": "127.0.0.1",
+  "CLAUDE_MEM_WORKER_PORT": "37700",
   "CLAUDE_MEM_PROVIDER": "openrouter",
   "CLAUDE_MEM_OPENROUTER_BASE_URL": "<YOUR_NEWAPI_BASE_URL>",
   "CLAUDE_MEM_OPENROUTER_MODEL": "<YOUR_MODEL_NAME>",
@@ -606,6 +637,7 @@ EOF
     echo "跳过: $SETTINGS 未创建"
   fi
 fi
+echo "claude-mem worker: http://$(mem_worker_url)(健康检查: curl -s http://$(mem_worker_url)/api/health)"
 
 # ---- 3.1 magic-context 配置文件(字段级合并 dot_file 模板;historian.model 必填,否则插件报错)----
 MC_CFG="$HOME/.config/cortexkit/magic-context.jsonc"
@@ -1129,7 +1161,7 @@ echo "   - $MC_CFG:BASE_URL / API_KEY;historian/dreamer 的 model 用 <provider>
 [ "$cfg_full" -eq 1 ] && echo "   - $CFG/opencode.json:网关地址 / API key / mcphub-web 的 <YOUR_MCPHUB_HOST>(仅首次部署需填;之后脚本更新只覆盖 models)"
 echo "$n. 重启 claude-mem worker 并验证:"; n=$((n+1))
 echo "      cd ~/.claude/plugins/marketplaces/thedotmack && npm run worker:restart"
-echo "      curl -s 127.0.0.1:37700/api/health"
+echo "      curl -s http://$(mem_worker_url)/api/health   # 端口取自 $SETTINGS(见下方提示)"
 echo "$n. 项目接入记忆系统: 把本仓库 AGENTS.md 中 memory-system:start/end 之间的块,粘进项目 AGENTS.md"; n=$((n+1))
 if [ -x "$CG_BIN" ]; then
   echo "$n. 代码知识图谱(按项目):cd <项目> && codegraph init(建 .codegraph/ 索引,之后自动增量同步;不 init 则 MCP 无内容可查)"; n=$((n+1))

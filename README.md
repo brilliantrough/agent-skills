@@ -211,8 +211,10 @@ bun 安装:`curl -fsSL https://bun.sh/install | bash`。
 
 ```bash
 cd ~/.claude/plugins/marketplaces/thedotmack && npm run worker:restart
-curl 127.0.0.1:37700/api/health
+curl 127.0.0.1:37700/api/health     # 端口见 $SETTINGS 的 CLAUDE_MEM_WORKER_PORT
 ```
+
+**worker 地址**:模板里写死了 `CLAUDE_MEM_WORKER_HOST=127.0.0.1` + `CLAUDE_MEM_WORKER_PORT=37700`（claude-mem 自己的默认是 `37700 + uid%100`，按 uid 变化；写死就不随机器漂，Pi 桥接/OpenCode wrapper 都与它对齐）。优先级与 claude-mem 一致：环境变量 > `~/.claude-mem/settings.json` > 默认公式；**已存在的自定义 host/port 不会被合并覆盖**。脚本会在配完后打印一行 `claude-mem worker: http://127.0.0.1:37700(...)`；换端口改这个键并重启 worker 即可。
 
 ### 2. magic-context
 

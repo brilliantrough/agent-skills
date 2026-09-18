@@ -287,6 +287,8 @@ else
       (umask 077; cat > "$SETTINGS" <<'JSON'
 {
   "CLAUDE_MEM_RUNTIME": "worker",
+  "CLAUDE_MEM_WORKER_HOST": "127.0.0.1",
+  "CLAUDE_MEM_WORKER_PORT": "37700",
   "CLAUDE_MEM_PROVIDER": "openrouter",
   "CLAUDE_MEM_OPENROUTER_BASE_URL": "<YOUR_NEWAPI_BASE_URL>",
   "CLAUDE_MEM_OPENROUTER_MODEL": "<YOUR_MODEL_NAME>",
@@ -363,7 +365,7 @@ else warn '缺少 npx,跳过 skills'; fi
 echo '== 配置步骤结束 =='
 echo '1. 在 Codex /hooks 审阅并信任插件 hooks,然后重开会话;更新 hooks 后可能需要重新信任。'
 echo '2. 用 /mcp 检查连接,实际调用 claude-mem 查询和 CodeGraph 工具。'
-echo "3. claude-mem 后端配置: $SETTINGS（本脚本启动时已问过网关地址 + API key 并填入;若当时跳过,手工填 <YOUR_*> 占位符;环境变量预填方式:PI_GATEWAY_BASE_URL / PI_GATEWAY_API_KEY)。如刚运行安装器,填好配置后执行 npx claude-mem@latest start。"
+echo "3. claude-mem worker 地址 http://$(mem_worker_url)(端口取自 $SETTINGS,默认 37700)。后端配置: $SETTINGS（本脚本启动时已问过网关地址 + API key 并填入;若当时跳过,手工填 <YOUR_*> 占位符;环境变量预填方式:PI_GATEWAY_BASE_URL / PI_GATEWAY_API_KEY)。如刚运行安装器,填好配置后执行 npx claude-mem@latest start。"
 echo '4. 新项目执行 codegraph init;已有项目索引可复用。'
 echo '5. skills 原样复用;缺少 Magic Context 的 ctx_* 工具时仅 best effort,以 OpenCode 为主。'
 echo '6. 本脚本不升级已有插件/skills;更新方法见 README 的 Codex 一节。'
