@@ -1,4 +1,5 @@
 import { homedir } from "node:os";
+import { withCollapsiblePanels } from "../../../sidebar-collapse.js";
 import { basename } from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type Component, type OverlayHandle, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
@@ -1353,15 +1354,17 @@ export function createSidebarController(options: SidebarControllerOptions): Side
 							close();
 						}
 					}
-					return createSidebarComponent({
-						getSnapshot: binding.getSnapshot,
-						getConfig: binding.getConfig,
-						getHeight: () => tui.terminal.rows,
-						isResizing: binding.isResizing,
-						// SAFETY: the Pi-supplied Theme implements the fg/bg/bold subset used here.
-						theme: theme as unknown as ThemeLike,
-						...(options.colorEnabled === undefined ? {} : { colorEnabled: options.colorEnabled }),
-					});
+					return withCollapsiblePanels(
+						createSidebarComponent({
+							getSnapshot: binding.getSnapshot,
+							getConfig: binding.getConfig,
+							getHeight: () => tui.terminal.rows,
+							isResizing: binding.isResizing,
+							// SAFETY: the Pi-supplied Theme implements the fg/bg/bold subset used here.
+							theme: theme as unknown as ThemeLike,
+							...(options.colorEnabled === undefined ? {} : { colorEnabled: options.colorEnabled }),
+						}),
+					);
 				},
 				{
 					overlay: true,

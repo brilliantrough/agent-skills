@@ -1,4 +1,8 @@
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { registerSidebarPanel } from "./atelier/src/sidebar-panels.js";
 import { aggregateMetrics, formatTokens } from "./atelier/src/metrics.js";
 
@@ -29,9 +33,52 @@ export function sessionTodos(entries: readonly any[]): Todo[] {
   return todos;
 }
 
+/** Pi 装的包(settings.json 的 packages[])及各包版本;git 附短 SHA。 */
+export function installedPackages(): { name: string; version: string }[] {
+  const agentDir = getAgentDir();
+  let sources: unknown;
+  try {
+    sources = JSON.parse(readFileSync(join(agentDir, "settings.json"), "utf8"))?.packages;
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(sources)) return [];
+  const rows: { name: string; version: string }[] = [];
+  for (const source of sources) {
+    if (typeof source !== "string") continue;
+    const spec = source.startsWith("npm:") ? source.slice(4) : source;
+    const at = spec.lastIndexOf("@");
+    const name = at > 0 ? spec.slice(0, at) : spec;
+    let dir: string;
+    if (source.startsWith("npm:")) dir = join(agentDir, "npm/node_modules", name);
+    else if (source.startsWith("git:")) dir = join(agentDir, "git", source.slice(4));
+    else dir = source.replace(/^~/, process.env.HOME ?? "");
+    let version = "?";
+    try {
+      version = JSON.parse(readFileSync(join(dir, "package.json"), "utf8")).version ?? "?";
+    } catch {
+      continue; // 目录不在(还没装/已删):列表不显示幽灵包
+    }
+    if (dir.includes("/git/")) {
+      try {
+        const sha = execFileSync("git", ["-C", dir, "rev-parse", "--short", "HEAD"], {
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "ignore"],
+        }).trim();
+        if (sha) version = `${version}·${sha}`;
+      } catch {
+        // 不是 git 仓库就用 package.json 的版本
+      }
+    }
+    rows.push({ name: name.replace(/^.*\//, ""), version });
+  }
+  return rows;
+}
+
 export default function (pi: ExtensionAPI) {
   let cache: ReturnType<typeof registerSidebarPanel> | undefined;
   let tasks: ReturnType<typeof registerSidebarPanel> | undefined;
+  let packages: ReturnType<typeof registerSidebarPanel> | undefined;
   function update(ctx: ExtensionContext) {
     if (ctx.mode !== "tui") return;
     // Same assistant-only accounting as Atelier's footer, including validity checks.
@@ -61,11 +108,19 @@ export default function (pi: ExtensionAPI) {
       ],
     });
   }
+  function updatePackages() {
+    const installed = installedPackages();
+    packages?.update({ id: "agent-skills:packages", title: `Plugins · ${installed.length}`, rows:
+      installed.length ? installed.map(pkg => `${pkg.name} ${pkg.version}`) : ["No Pi packages installed"],
+    });
+  }
   pi.on("session_start", (_event, ctx) => {
-    cache?.dispose(); tasks?.dispose();
+    cache?.dispose(); tasks?.dispose(); packages?.dispose();
     if (ctx.mode !== "tui") return;
     cache = registerSidebarPanel(pi, { id: "agent-skills:cache", title: "Cache", rows: [] });
     tasks = registerSidebarPanel(pi, { id: "agent-skills:todos", title: "Tasks", rows: [] });
+    packages = registerSidebarPanel(pi, { id: "agent-skills:packages", title: "Plugins", rows: [] });
+    updatePackages();
     update(ctx);
   });
   pi.on("message_end", (_event, ctx) => update(ctx));
@@ -73,7 +128,8 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_tree", (_event, ctx) => update(ctx));
   pi.on("session_compact", (_event, ctx) => update(ctx));
   pi.on("session_shutdown", (_event, ctx) => {
-    cache?.dispose(); tasks?.dispose(); cache = tasks = undefined;
+    cache?.dispose(); tasks?.dispose(); packages?.dispose();
+    cache = tasks = packages = undefined;
     if (ctx.mode === "tui") ctx.ui.setWidget("agent-skills:usage", undefined);
   });
 }
