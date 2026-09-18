@@ -34,6 +34,8 @@ MODELS="$AGENT_DIR/models.json"
 SETTINGS="$AGENT_DIR/settings.json"
 SHARED_MCP="$HOME/.agents/mcp.json"
 MC_SETTINGS="$HOME/.claude-mem/settings.json"
+# 本仓库自己作为 Pi 包时的 git checkout(pi install git:... 的落地位置)
+REPO_PI_PKG="$AGENT_DIR/git/github.com/brilliantrough/agent-skills"
 MC_CFG="$HOME/.config/cortexkit/magic-context.jsonc"
 AUTH="$AGENT_DIR/auth.json"
 MCP_CJS="$HOME/.claude/plugins/marketplaces/thedotmack/plugin/scripts/mcp-server.cjs"
@@ -282,11 +284,28 @@ if [ -z "$PI_BIN" ]; then
   fi
 fi
 PI_OK=0
+# 记录本仓库 Pi 插件的版本,便于本次运行结束时明确报出"是否更新了"
+repo_head_before="$(git -C "$REPO_PI_PKG" rev-parse --short HEAD 2>/dev/null || true)"
+report_repo_pi_pkg() {
+  local now subject
+  now="$(git -C "$REPO_PI_PKG" rev-parse --short HEAD 2>/dev/null || true)"
+  [ -n "$now" ] || return 0
+  subject="$(git -C "$REPO_PI_PKG" log -1 --format=%s 2>/dev/null || true)"
+  if [ -z "$repo_head_before" ]; then
+    echo "本仓库 Pi 插件: $now(本次安装);最新提交: $subject"
+  elif [ "$repo_head_before" = "$now" ]; then
+    echo "本仓库 Pi 插件: $now(本次无更新)"
+  else
+    echo "本仓库 Pi 插件已更新: $repo_head_before -> $now($(git -C "$REPO_PI_PKG" rev-list --count "$repo_head_before..$now" 2>/dev/null || echo '?') 个提交)"
+    echo "  最新提交: $subject"
+  fi
+}
 if [ -x "$PI_BIN" ]; then
   echo "pi 就绪: $("$PI_BIN" --version 2>/dev/null || echo 未知版本) ($PI_BIN)"
   PI_OK=1
   if ask "更新 pi 本体与已装包(pi update --all --no-approve)?" Y; then
     "$PI_BIN" update --all --no-approve < /dev/null || echo "WARN: pi update 失败(可稍后手动重试)" >&2
+    report_repo_pi_pkg
   fi
 else
   echo "WARN: 未找到 pi,跳过所有 Pi 相关配置(装好后重跑本脚本即可)" >&2
@@ -326,6 +345,7 @@ PYEOF
   fi
   # 本仓库自身作为 Pi 包:UI + claude-mem + later + message-timing + one-dark
   pi_install git:github.com/brilliantrough/agent-skills
+  report_repo_pi_pkg
 
   # ---- 3.1 magic-context:共享 context.db 的版本守卫 ----
   # OpenCode 插件与 Pi 扩展共用 ~/.local/share/cortexkit/magic-context/context.db。

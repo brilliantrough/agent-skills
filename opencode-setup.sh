@@ -890,7 +890,7 @@ mkdir -p "$LATER_DIR"
 for f in package.json index.mjs; do
   if curl -fsSL --connect-timeout 8 -m 60 -o "$LATER_DIR/$f.new" "$RAW/opencode/tui-plugins/later/$f"; then
     if [ -f "$LATER_DIR/$f" ] && cmp -s "$LATER_DIR/$f.new" "$LATER_DIR/$f"; then
-      rm -f "$LATER_DIR/$f.new"
+      rm -f "$LATER_DIR/$f.new"; echo "unchanged: $LATER_DIR/$f"
     else
       mv "$LATER_DIR/$f.new" "$LATER_DIR/$f"; echo "deployed: $LATER_DIR/$f"
     fi
@@ -983,6 +983,7 @@ fi
 # ---- 7. skills 本体 ----
 if [ -d "$HOME/.agents/skills/load-mem" ]; then
   if command -v npx >/dev/null 2>&1 && ask "更新 skills 本体(npx skills update -g)?" Y; then
+    echo "== 更新 skills 本体(brilliantrough/agent-skills;有无变化看下面 npx skills 的输出)=="
     npx -y skills@latest update -g || true
   fi
 elif ! command -v npx >/dev/null 2>&1; then
