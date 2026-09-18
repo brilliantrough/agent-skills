@@ -34,6 +34,14 @@ export interface MouseEventLike {
 	clickCount?: number;
 }
 
+/** pi-tui 的 `TuiMouseEventResult`：必须给 handled/capture/focus 之一，否则派发会被丢弃。 */
+export interface MouseResult {
+	handled?: boolean;
+	capture?: boolean;
+	focus?: boolean;
+	render?: boolean;
+}
+
 /** TOOLS 面板的展开/收起行,如 `│ 39 / 45 active   ▸ │`(面板行带边框)。 */
 const DISCLOSURE = /^[│|\s]*\d+\s*\/\s*\d+\s*active\s*[▸▾][│|\s]*$/;
 
@@ -152,16 +160,17 @@ export function withCollapsiblePanels(
 		invalidate(): void {
 			inner.invalidate?.();
 		},
-		handleMouse(event: MouseEventLike): { consume?: boolean; render?: boolean } | undefined {
+		handleMouse(event: MouseEventLike): MouseResult | undefined {
 			const onDisclosure = disclosureRows.has(event.y);
 			if (event.type === "press" && (panelRows.has(event.y) || onDisclosure)) {
-				// Swallow the press so it cannot start a text selection over the panel.
-				return { consume: true };
+				// 吃掉 press：不要再开始文本选区；同时让 pi-tui 记住按下的目标，
+				// 这样松手时的 click 会回到这里。
+				return { handled: true };
 			}
 			if (event.type !== "click") return undefined;
 			if (onDisclosure) {
 				options.onToggleToolNames?.();
-				return { consume: true, render: true };
+				return { handled: true, render: true };
 			}
 			const key = panelRows.get(event.y);
 			if (!key) return undefined;
@@ -169,7 +178,7 @@ export function withCollapsiblePanels(
 			if (collapsed.has(key)) collapsed.delete(key);
 			else collapsed.add(key);
 			writeCollapsedPanels(collapsed);
-			return { consume: true, render: true };
+			return { handled: true, render: true };
 		},
 	};
 }

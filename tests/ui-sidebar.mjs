@@ -36,6 +36,22 @@ const config = join(dir, "agent-skills-ui.json");
 writeFileSync(config, JSON.stringify({ clearSelectionOnRelease: true }, null, 2));
 
 const { shapeLines, panelBlocks, withCollapsiblePanels, readCollapsedPanels } = await load("pi/extensions/ui/sidebar-collapse.ts");
+
+// pi-tui 只接受 handled/capture/focus 之一，否则整条派发结果会被丢弃(曾因此完全点不动)。
+let dispatchMouseEvent = null;
+try {
+  const mod = await import("@earendil-works/pi-tui");
+  dispatchMouseEvent = mod.dispatchMouseEvent ?? null;
+  if (!dispatchMouseEvent) {
+    // 包入口没再导出它，按包目录直接取 dist/tui.js
+    const { createRequire } = await import("node:module");
+    const { pathToFileURL } = await import("node:url");
+    const { dirname, join: j } = await import("node:path");
+    const pkg = createRequire(import.meta.url).resolve("@earendil-works/pi-tui/package.json");
+    dispatchMouseEvent = (await import(pathToFileURL(j(dirname(pkg), "dist/tui.js")).href)).dispatchMouseEvent;
+  }
+} catch { /* 仓库无 node_modules 软链时跳过(pi-setup.sh 第 9 步会补) */ }
+const evt = (type, y) => ({ type, y, x: 0, screenX: 0, screenY: y, width: 40, height: 12, button: 0, shift: false });
 let failures = 0;
 const check = (name, ok, detail = "") => {
   console.log(`${ok ? "  ok  " : "  FAIL"} ${name}${detail ? ` — ${detail}` : ""}`);
@@ -87,7 +103,7 @@ check("其他键保留", JSON.parse(readFileSync(config, "utf8")).clearSelection
 check("再次点击 → 展开", component.handleMouse({ type: "click", y: 0 })?.render === true);
 check("配置已清空", !readCollapsedPanels().has("TASKS") && component.render(80).length === lines.length);
 
-check("press 被吞掉(不启动选择)", component.handleMouse({ type: "press", y: 0 })?.consume === true);
+check("press 被吞掉(不启动选择)", component.handleMouse({ type: "press", y: 0 })?.handled === true);
 check("非表头点击忽略", component.handleMouse({ type: "click", y: 1 }) === undefined);
 check("其他事件忽略", component.handleMouse({ type: "wheel", y: 0 }) === undefined);
 
@@ -100,9 +116,22 @@ const toolComponent = withCollapsiblePanels({ render: () => toolLines, invalidat
 toolComponent.render(80);
 check("识别 disclosure 行", shapeLines(toolLines, new Set()).disclosureRows.has(1));
 check("click 触发 tool list 开关", toolComponent.handleMouse({ type: "click", y: 1 })?.render === true && toggled === 1);
-check("press 被吞掉", toolComponent.handleMouse({ type: "press", y: 1 })?.consume === true);
+check("press 被吞掉", toolComponent.handleMouse({ type: "press", y: 1 })?.handled === true);
 check("disclosure 不写成折叠状态", !readCollapsedPanels().has("TOOLS"));
 check("普通正文行不是 disclosure", !shapeLines(toolLines, new Set()).disclosureRows.has(2));
+
+if (dispatchMouseEvent) {
+  const fresh = withCollapsiblePanels({ render: () => lines, invalidate() {} });
+  fresh.render(80);
+  const press = dispatchMouseEvent(fresh, evt("press", 0));
+  check("真实派发:press 被接受(handled)", press?.handled === true);
+  check("真实派发:press 记住目标", press?.target?.component === fresh);
+  check("单击表头 → 折叠状态写入", dispatchMouseEvent(fresh, evt("click", 0))?.handled === true && readCollapsedPanels().has("TASKS"));
+  const body = dispatchMouseEvent(fresh, evt("click", 2));
+  check("真实派发:正文行不拦截(仍可选中文本)", body === undefined);
+} else {
+  console.log("(跳过 pi-tui 真实派发检查:未解析到 @earendil-works/pi-tui;跑 pi-setup.sh 第 9 步可补齐软链)");
+}
 
 // 真实环境:插件列表能不能读出来(用真实 agent 目录)
 const { installedPackages } = await load("pi/extensions/ui/panels.ts");
