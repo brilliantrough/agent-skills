@@ -3,7 +3,7 @@
 // 需要 --experimental-strip-types(Node 22.23 自带类型剥离)。
 // 模块是 TS 且 import 了 Pi 运行时包(仓库里没有 node_modules),所以这里做最小改写后再加载:
 // 把 getAgentDir() 换成 $AGENT_DIR,既不改源文件,也不装依赖。
-import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, readdirSync, existsSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -44,6 +44,26 @@ const check = (name, ok, detail = "") => {
 
 const blocks = panelBlocks(lines);
 check("识别 2 个面板块", blocks.length === 2, JSON.stringify(blocks.map((b) => b.key)));
+
+// 回归:相对 import 必须能解析到真实文件(否则 Pi 加载扩展即崩,如 ../../../sidebar-collapse.js)
+{
+  const bad = [];
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) walk(path);
+      else if (entry.name.endsWith(".ts")) {
+        for (const [, rel] of readFileSync(path, "utf8").matchAll(/from "(\.[^"]+)"/g)) {
+          const target = join(dir, rel);
+          if (![target, target.replace(/\.js$/, ".ts"), `${target}.ts`].some((c) => existsSync(c)))
+            bad.push(`${path.slice(root.length + 1)} -> ${rel}`);
+        }
+      }
+    }
+  };
+  walk(join(root, "pi/extensions/ui"));
+  check("ui 树相对 import 全部可解析", bad.length === 0, bad.join("; "));
+}
 check("键取标题首词", blocks[0]?.key === "TASKS" && blocks[1]?.key === "TOOLS");
 
 const expanded = shapeLines(lines, new Set());

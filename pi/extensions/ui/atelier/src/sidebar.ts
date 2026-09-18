@@ -1,5 +1,5 @@
 import { homedir } from "node:os";
-import { withCollapsiblePanels } from "../../../sidebar-collapse.js";
+import { withCollapsiblePanels } from "../../sidebar-collapse.js";
 import { basename } from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { type Component, type OverlayHandle, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
