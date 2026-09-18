@@ -124,18 +124,22 @@ skills 是共享的，更新也会影响 OpenCode；claude-mem runtime 更新请
 |---|---|
 | Provider/模型 | 部署 `~/.pi/agent/models.json`:claude-newapi(anthropic)、codex-newapi(openai-responses)、anthropic-newapi;**anthropic 协议 `baseUrl` 填根域**(pi 自动补 `/v1/messages`,填 `/v1` 会 404),openai 协议带 `/v1`;`compat.supportsStore:false`、`thinkingLevelMap`(xhigh/max)对应 opencode 的 variants |
 | 设置 | `~/.pi/agent/settings.json`:默认 provider/model/thinking、`defaultTools` 补 `grep/find/ls`(pi 默认只开 read/bash/edit/write)、`packages` 由 `pi install` 维护;不设置 Pi 的 `compaction` 开关——magic-context Pi 扩展在 `session_before_compact` 事件里自行 cancel 原生压缩(与官方 `setup --harness pi` 行为一致,官方只注册包 + 写共享 jsonc) |
+| 运行默认值 | `modelThinkingLevels` 为 `codex-newapi/gpt-6-astra`、`codex-newapi/gpt-5.6-sol` 保存 `xhigh`,其余沿用全局 `high`;agent 级 `retry` 设置 `maxRetries:3`、`baseDelayMs:4000`,等待 4/8/16 秒(加上首发最多 4 次请求),不额外开启 provider 内层重试 |
+| 自动命名 | `pi-autoname@0.6.8` + `~/.pi/agent/pi-autoname.json`:用 `codex-newapi/gpt-5.6-sol` 在任务结束后生成会话名;周期重命名冷却 1440 分钟、尊重手工名称,可 `/autoname` 手动触发。会额外发送最近对话片段给命名模型;失败可尝试当前会话模型或回退文本提取,冷却不是请求配额。该版本配置路径固定为 `~/.pi/agent`,自定义 `PI_CODING_AGENT_DIR` 时脚本跳过此插件 |
+| 任务耗时 | 本仓库包的 `pi/extensions/message-timing.ts`:从首个 `agent_start` 到 `agent_settled` 记录结束时间与秒数,包含工具/重试/排队后续消息;custom entry 持久保存、不进模型上下文、不高频刷新,仅 TUI 记录 |
 | 凭据 | `~/.pi/agent/auth.json`(权限 600,coding plan 等 Pi 内置 provider 的 key):模板为 `zai-coding-cn`/`kimi-coding` 占位符;字段级合并,已填 key 不覆盖,仅初始化缺失文件。这类内置 provider(智谱 coding plan、Kimi For Coding、qwen/xiaomi token plan、opencode-go 等)不需要写 `models.json` |
 | MCP | `~/.agents/mcp.json`(共享技能目录):mcphub-web(远程 URL)、codegraph、claude-mem;本地命令路径部署时替换为本机 `bun`/`codegraph` 绝对路径(pi-mcp-adapter 读取)。mcphub-web 配了 `directTools` 挂 5 个常用直连工具(tavily search/extract、firecrawl scrape/search/research_search_github,首次调用自动 lazyConnect),其余工具走 `mcp` 网关(`mcp({search/describe/connect})`,网关内调用名需带 `mcphub-web_` 前缀) |
-| 插件 | `pi install npm:...`:pi-mcp-adapter、`@dietrichgebert/ponytail`(官方带 pi-extension)、`pi-subagents-j0k3r`、`pi-lens`(实时诊断/符号检索,注册 `lens_diagnostics`/`symbol_search` 等工具)、`@juicesharp/rpiv-ask-user-question`(结构化提问工具 `ask_user_question`——pi 核心无提问工具,plan-brief/grilling 类流程需要它)、`@cortexkit/pi-magic-context`;**本仓库自身也是 Pi 包**(`pi install git:github.com/brilliantrough/agent-skills`,提供 statusline 扩展、claude-mem 桥扩展、延迟 prompt 扩展(`/later`)、one-dark 主题;旧版散装部署文件会被脚本清理) |
+| 插件 | `pi install npm:...`:pi-mcp-adapter、`@dietrichgebert/ponytail`(官方带 pi-extension)、`pi-subagents-j0k3r`、`pi-lens`(实时诊断/符号检索,注册 `lens_diagnostics`/`symbol_search` 等工具)、`@juicesharp/rpiv-ask-user-question`(结构化提问工具 `ask_user_question`——pi 核心无提问工具,plan-brief/grilling 类流程需要它)、`@cortexkit/pi-magic-context`、`pi-autoname@0.6.8`;**本仓库自身也是 Pi 包**(`pi install git:github.com/brilliantrough/agent-skills`,提供个性化 UI(`/ui`)、claude-mem 桥扩展、延迟 prompt 扩展(`/later`)、任务耗时扩展、one-dark 主题;旧版散装部署文件会被脚本清理) |
 | 主题 | 仓库 `pi/themes/onedark.json` 由上面的 **Pi 包**提供(One Dark,56 色 token;热重载),settings.json `theme: one-dark`。换主题:改 `theme` 或装主题包(如 `awesome-pi-themes` 65 款、`@inobit/pi-themes`);`/settings` 里可选所有已装主题 |
 | claude-mem | 官方无 Pi 适配;**本仓库 Pi 包**内置自研桥扩展(镜像 opencode 插件契约:POST worker `/api/sessions/init|observations|summarize`,`platformSource:"pi"`;采集工具调用 + 助手消息 + **用户 prompt**,支持 `前缀*` 跳过),并提供 `claude_mem_search` 工具直连 worker(不依赖 MCP) |
-| statusline | 本仓库 Pi 包的 `pi/extensions/statusline.ts`:状态行显示 git 分支(+`*` 脏标记);模型/thinking/上下文占比 Pi 原生 footer 已显示,不重复 |
+| 个性化 UI | `pi/extensions/ui/index.ts`:基于纳管的 Atelier 0.10.1 布局/侧栏与 Zentui 0.24.0 编辑器/消息视觉，统一入口，不再安装两套 UI 包；含 LF 提交修复、TPS、HΣ/H₁、R/W 及现有 Magic Context `todowrite` 侧栏。配置 `agent-skills-ui.json` / `agent-skills-editor.json`，命令 `/ui`、`/ui sidebar`；[源码与许可证说明](pi/extensions/ui/README.md) |
+| UI 迁移 | `pi/migrate-ui.py` 默认只预览，加 `--apply` 才备份、停用旧 UI 包和已知散装扩展；哈希不匹配/符号链接/包资源过滤需人工确认，不覆盖已有按键、凭据或无关包。setup 在安装本仓库包后调用，首次仅补缺失 Enter 换行与 Ctrl+Enter/Ctrl+J 提交配置 |
 | later | 本仓库 Pi 包的 `pi/extensions/later.ts`:`/later 5h <prompt>` 到点把该 prompt 作为用户消息注入 agent(`sendUserMessage` + `deliverAs:followUp`,空闲立即发、忙时排队等本轮结束),另有 `/later list`、`/later cancel <id/all>`;排程只活在当前 pi 进程内,退出/重启/切换会话即丢(挂机请用 tmux 保持 pi 常驻) |
 | subagent | `~/.pi/agent/agents/{explore,general}.md`(对应 opencode 的 explore/general);frontmatter 的 `tools` **必须显式写**,默认值引用了不存在的工具 |
 | magic-context 版本守卫 | opencode 插件缓存把版本钉死在下载时(重启不自动升级),与 Pi 扩展版本不一致时,共享的 `context.db` 会让新宿主 fail-closed 拒绝主回合;脚本检测到不一致时**默认不启用** Pi 版,并给出「清 `~/.cache/opencode/packages/@cortexkit/opencode-magic-context@latest` → 重启 opencode → 重跑本脚本」步骤 |
 | uv/strictdoc | 同 opencode-setup.sh |
 
-手工步骤(不用脚本时):`pi install npm:pi-mcp-adapter`、`npm:@dietrichgebert/ponytail`、`npm:pi-subagents-j0k3r`、`npm:pi-lens`、`npm:@juicesharp/rpiv-ask-user-question`、`npm:@cortexkit/pi-magic-context`、`git:github.com/brilliantrough/agent-skills`(逐个装;`pi remove <source>` 卸载、`pi list` 查看);把 dot_file 的 `pi/{models,settings,mcp,auth}.json`、`pi/agents/*.md` 放到对应位置,填好 `models.json` 的网关占位符与 `auth.json` 的 coding plan key(`pi auth check --provider <p>` 可验证)即可。
+手工步骤(不用脚本时):`pi install npm:pi-mcp-adapter`、`npm:@dietrichgebert/ponytail`、`npm:pi-subagents-j0k3r`、`npm:pi-lens`、`npm:@juicesharp/rpiv-ask-user-question`、`npm:@cortexkit/pi-magic-context`、`npm:pi-autoname@0.6.8`、`git:github.com/brilliantrough/agent-skills`(逐个装;`pi remove <source>` 卸载、`pi list` 查看);把 dot_file 的 `pi/{models,settings,mcp,auth,pi-autoname}.json`、`pi/agents/*.md` 放到对应位置,填好 `models.json` 的网关占位符与 `auth.json` 的 coding plan key(`pi auth check --provider <p>` 可验证)即可。
 
 ## OpenCode 插件配置（手工步骤）
 
@@ -318,7 +322,7 @@ later 5h 查看当前实验的运行结果
 - **Ctrl/Shift+Enter 要三件套**:终端键位表能区分修饰键 + tmux 透传 + 应用解析。Konsole 23.08 不自带 csi-u 键位表 → 用 dot_file 里的 `konsole/csi-u.keytab`(Settings → Edit Current Profile → Keyboard 选 `CSI-u …`);tmux 需要 `set -g extended-keys always` + `set -as terminal-features 'xterm*:extkeys'`(pi 启动时会自己警告 `extended-keys` 为 off)。opencode 两种编码都认(`ESC[27;5;13~` xterm 格式 / `ESC[13;5u` kitty 格式,实测)
 - 这套做法和上游一致:opencode 官方 [Keybinds 文档](https://opencode.ai/docs/keybinds) 的 Shift+Enter 段就是让终端改发 `\u001b[13;2u`(同一个 CSI-u 编码);issue [#11898](https://github.com/anomalyco/opencode/issues/11898)(Enter 换行 + Ctrl+Enter 发送)正是本改动,维护者在 [#11983](https://github.com/anomalyco/opencode/issues/11983) 回复「必须改终端设置让它送出修饰键」;[Claude Code 终端配置](https://code.claude.com/docs/en/terminal-config) 的 tmux 片段同样是 `extended-keys` + `terminal-features 'xterm:extkeys'`
 - `opencode-setup.sh` 第 5.4 步写入这两个键,**只补缺失的键**,本地已自定义的按键不动(想回默认就手动删掉该键)
-- Pi 同一套绑定:`~/.pi/agent/keybindings.json`(`tui.input.submit` / `tui.input.newLine`),由 `pi-setup.sh` 部署,改完 `/reload` 生效
+- Pi 的个性化 UI 包内置 LF 提交修复；`pi/migrate-ui.py` 为 `~/.pi/agent/keybindings.json` 补缺失的 `tui.input.submit: [ctrl+enter, ctrl+j]` / `tui.input.newLine: [enter, shift+enter]`，保留已有按键；改完 `/reload`，实体按键效果仍以当前终端为准。
 
 ## opencode.jsonc 最小配置
 

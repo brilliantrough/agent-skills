@@ -10,13 +10,14 @@
 #      bun(缺 → 征得同意装,claude-mem MCP server 依赖 bun:sqlite)
 #   2. pi 本体:未装 → 官方 install.sh(下载到文件再执行);已装 → 征得同意 pi update --all
 #   3. pi 包(pi install,幂等):pi-mcp-adapter / @dietrichgebert/ponytail / pi-subagents-j0k3r /
-#      pi-lens / @juicesharp/rpiv-ask-user-question / @cortexkit/pi-magic-context /
-#      git:github.com/brilliantrough/agent-skills(本仓库自身;含 statusline 扩展、
+#      pi-lens / @juicesharp/rpiv-ask-user-question / pi-autoname@0.6.8 / @cortexkit/pi-magic-context /
+#      git:github.com/brilliantrough/agent-skills(本仓库自身;含个性化 UI、later、任务耗时扩展、
 #      claude-mem 桥扩展、one-dark 主题——旧版散装部署文件会自动清理);
 #      启用 magic-context 前检查与 opencode 共享 context.db 的
 #      版本守卫(opencode 插件缓存版本 < Pi 扩展版本时先提示,不清理就不启用)
 #   4. 部署(字段级合并 dot_file 模板,api key/网关等本地敏感值保留;下载失败用内嵌兜底):
-#      ~/.pi/agent/settings.json、~/.pi/agent/models.json、~/.pi/agent/auth.json(占位符初始化,
+#      ~/.pi/agent/settings.json(含按模型 thinking、4/8/16 秒重试)、pi-autoname.json(低频命名)、
+#      ~/.pi/agent/models.json、~/.pi/agent/auth.json(占位符初始化,
 #      coding plan 等内置 provider 凭据)、~/.agents/mcp.json(三平台共享)
 #      以及共用配置 ~/.claude-mem/settings.json、~/.config/cortexkit/magic-context.jsonc(含 historian.pi/dreamer.pi)
 #   5. claude-mem 资产(缺失则官方安装器,只为拿 worker/MCP 资产)
@@ -293,7 +294,13 @@ PYEOF
   pi_install npm:pi-subagents-j0k3r
   pi_install npm:pi-lens
   pi_install npm:@juicesharp/rpiv-ask-user-question
-  # 本仓库自身作为 Pi 包:statusline + claude-mem 桥扩展 + one-dark 主题
+  # 0.6.8 上游将配置路径硬编码到 ~/.pi/agent,自定义 agent dir 暂不部署此插件。
+  if [ "$AGENT_DIR" = "$HOME/.pi/agent" ]; then
+    pi_install npm:pi-autoname@0.6.8
+  else
+    echo "WARN: pi-autoname 0.6.8 不遵循 PI_CODING_AGENT_DIR,跳过自动命名"
+  fi
+  # 本仓库自身作为 Pi 包:UI + claude-mem + later + message-timing + one-dark
   pi_install git:github.com/brilliantrough/agent-skills
 
   # ---- 3.1 magic-context:共享 context.db 的版本守卫 ----
@@ -338,6 +345,9 @@ fi
 # ---- 4. 部署 Pi 配置(字段级合并 dot_file 模板)----
 if [ "$PI_OK" -eq 1 ]; then
   merge_cfg "$RAW/pi/settings.json" "$SETTINGS" || true
+  if [ "$AGENT_DIR" = "$HOME/.pi/agent" ]; then
+    merge_cfg "$RAW/pi/pi-autoname.json" "$AGENT_DIR/pi-autoname.json" || true
+  fi
   merge_cfg "$RAW/pi/models.json" "$MODELS" || true
   CG_BIN="$(command -v codegraph 2>/dev/null || echo "$HOME/.local/bin/codegraph")"
   merge_cfg "$RAW/pi/mcp.json" "$SHARED_MCP" mcp || true
@@ -461,10 +471,22 @@ if [ "$PI_OK" -eq 1 ]; then
       fi
     done
   fi
-  # ---- 6. subagent 定义 + 按键改绑 ----
+  # ---- 6. subagent 定义 + 个性化 UI 安全迁移 ----
+  # 迁移程序随本仓库 Pi 包分发；先预览再确认，只处理已知旧 UI 和缺失按键。
+  ui_migration="$AGENT_DIR/git/github.com/brilliantrough/agent-skills/pi/migrate-ui.py"
+  if [ -f "$ui_migration" ]; then
+    if python3 "$ui_migration" --agent-dir "$AGENT_DIR"; then
+      if ask "应用个性化 UI 迁移(备份并停用旧 UI，保留凭据/其他包/已有按键)?" Y; then
+        python3 "$ui_migration" --agent-dir "$AGENT_DIR" --apply || echo "WARN: UI 迁移未完成，请按上方提示处理，暂勿 reload" >&2
+      fi
+    else
+      echo "WARN: UI 迁移预检失败；保留旧配置，请先处理冲突" >&2
+    fi
+  else
+    echo "WARN: 本仓库 Pi 包尚无 UI 迁移入口，请先更新本仓库包；不覆盖按键" >&2
+  fi
   deploy_file "$RAW/pi/agents/explore.md" "$AGENT_DIR/agents/explore.md" "explore 子代理" || true
   deploy_file "$RAW/pi/agents/general.md" "$AGENT_DIR/agents/general.md" "general 子代理" || true
-  deploy_file "$RAW/pi/keybindings.json" "$AGENT_DIR/keybindings.json" "按键改绑(Enter 换行 / Ctrl+Enter 发送)" || true
 fi
 
 # ---- 7. skills 本体 ----
