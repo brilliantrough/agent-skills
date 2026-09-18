@@ -29,6 +29,61 @@ ask() {
 }
 warn() { echo "WARN: $*" >&2; errors=$((errors + 1)); }
 
+# 把 worker 地址显式写进 settings(claude-mem 自身的默认是 37700 + uid%100,
+# 目的就是同一台服务器上不同用户互不冲突;写出来是为了可见、可查,不改变取值)。
+# 已存在的键一律保留(自定义端口/主机不被覆盖)。改前存 .bak。
+ensure_mem_worker_keys() {
+  local f="${1:-$SETTINGS}"
+  [ -f "$f" ] || return 0
+  local out
+  out="$(python3 - "$f" <<'PYEOF'
+import json, os, sys
+p = sys.argv[1]
+try:
+    s = json.load(open(p, encoding='utf-8'))
+except Exception as e:
+    print(f"WARN: 解析失败: {e}", file=sys.stderr)
+    sys.exit(1)
+if not isinstance(s, dict):
+    sys.exit(1)
+want = {'CLAUDE_MEM_WORKER_HOST': '127.0.0.1', 'CLAUDE_MEM_WORKER_PORT': str(37700 + os.getuid() % 100)}
+missing = [k for k in want if not s.get(k)]
+if not missing:
+    print('unchanged'); sys.exit(0)
+out = {}
+for k, v in s.items():
+    out[k] = v
+    if k == 'CLAUDE_MEM_RUNTIME':
+        for mk in missing:
+            out[mk] = want[mk]
+for mk in missing:
+    out.setdefault(mk, want[mk])
+json.dump(out, open(p, 'w', encoding='utf-8'), indent=2, ensure_ascii=False)
+open(p, 'a', encoding='utf-8').write('\n')
+print('added: ' + ', '.join(f'{k}={want[k]}' for k in missing))
+PYEOF
+)" || { echo "WARN: $f 的 worker 键写入失败,保持原样" >&2; return 1; }
+  case "$out" in
+    unchanged) return 0 ;;
+    added:*)   cp -p "$f" "$f.bak-$(date +%Y%m%d%H%M%S)"; printf '%s\n' "$out" ;;
+    *)         return 0 ;;
+  esac
+}
+
+# claude-mem worker 的 host:port(与 claude-mem/桥接同一优先级:环境变量 > settings.json > 默认公式)
+mem_worker_url() {
+  python3 - "$SETTINGS" <<'PYEOF'
+import json, os, sys
+try:
+    s = json.load(open(sys.argv[1], encoding='utf-8'))
+except Exception:
+    s = {}
+host = os.environ.get('CLAUDE_MEM_WORKER_HOST') or s.get('CLAUDE_MEM_WORKER_HOST') or '127.0.0.1'
+port = os.environ.get('CLAUDE_MEM_WORKER_PORT') or s.get('CLAUDE_MEM_WORKER_PORT') or str(37700 + os.getuid() % 100)
+print(f'{host}:{port}')
+PYEOF
+}
+
 # ---- 网关占位符预填：新机器只需填 base url + api key ----
 # 环境变量优先(便于无人值守):PI_GATEWAY_BASE_URL / PI_GATEWAY_API_KEY
 GW_BASE="${PI_GATEWAY_BASE_URL:-}"; GW_KEY="${PI_GATEWAY_API_KEY:-}"
@@ -281,14 +336,13 @@ else
     fill_template_placeholders "$SETTINGS"
     echo "filled placeholders: $SETTINGS"
   fi
+  [ -f "$SETTINGS" ] && ensure_mem_worker_keys "$SETTINGS" 2>/dev/null || true
   if [ ! -e "$SETTINGS" ] && [ ! -L "$SETTINGS" ]; then
     if ask "新建 $SETTINGS(记忆后端占位符,不涉及 Codex 模型)?" Y; then
       mkdir -p "$(dirname "$SETTINGS")"
       (umask 077; cat > "$SETTINGS" <<'JSON'
 {
   "CLAUDE_MEM_RUNTIME": "worker",
-  "CLAUDE_MEM_WORKER_HOST": "127.0.0.1",
-  "CLAUDE_MEM_WORKER_PORT": "37700",
   "CLAUDE_MEM_PROVIDER": "openrouter",
   "CLAUDE_MEM_OPENROUTER_BASE_URL": "<YOUR_NEWAPI_BASE_URL>",
   "CLAUDE_MEM_OPENROUTER_MODEL": "<YOUR_MODEL_NAME>",
