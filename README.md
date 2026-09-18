@@ -73,6 +73,21 @@ bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.co
 - 2 个工作流 + 1 品味 skill:无硬依赖,品味内联
 - `.sdoc` 校验需要 `strictdoc`:脚本末尾会检查 `uv`(缺则装,并处理 uv 自升级与清华 PyPI 镜像),并可选择用 `uv tool install strictdoc==0.28.1` 全局安装(升级:`uv tool upgrade strictdoc`)
 
+## 一键脚本的首次部署(只需要网关地址 + API key)
+
+`pi-setup.sh` / `opencode-setup.sh` / `codex-setup.sh` 启动后会**问一次**并自动填好各配置(只在“首次部署”时问：目标文件都不再含 `<YOUR_*>` 占位符就跳过)：
+
+| 问什么 | 填到哪里 |
+| --- | --- |
+| OpenAI 兼容网关完整地址(如 `https://gw.example.com/v1`) | `pi/models.json`（`anthropic-messages` 的 provider 填根域、`openai-responses` 带 `/v1`）、`opencode.json` 各 provider 的 `baseURL`、`~/.claude-mem/settings.json`、`~/.config/cortexkit/magic-context.jsonc` 的 embedding `endpoint` |
+| 该网关 API key(输入不回显) | 同上四处的 key 字段；写完后 `models.json` 与 claude-mem settings 会被 `chmod 600` |
+| mcphub MCP host(可选，回车跳过) | `~/.agents/mcp.json`、`opencode.json` 的 `mcp.mcphub-web.url` |
+
+- 非交互/无人值守不必手输：设 `PI_GATEWAY_BASE_URL` / `PI_GATEWAY_API_KEY` / `MCPHUB_HOST` 环境变量即可。
+- 回车跳过则模板里的 `<YOUR_*>` 占位符保留，按脚本末尾清单手工填(先跳过、后补也行：再跑一次脚本，目标文件里还有占位符时会重新问)。
+- 已有值永不被覆盖(见「更新」一节的隐私规则)；非 `/v1` 风格的网关(带自定义路径)建议填完后核对 `pi/models.json` 里 anthropic 渠道的根域与 claude-mem 的 BASE_URL。
+- 仍需手工的只剩：`pi/auth.json` 的 coding-plan key(仅用 zai/kimi 这类内置 provider 时)、`~/.func`(由 dot_file 的 `linux-setup.sh` 部署)、notify 插件的 `NOTIFY_*` 环境变量(可选)。
+
 ## Codex 插件配置(best effort)
 
 | 项目 | `codex-setup.sh` 的行为 |

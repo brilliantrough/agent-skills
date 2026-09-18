@@ -61,17 +61,90 @@ RAW="https://raw.githubusercontent.com/brilliantrough/dot_file/master"
 #   模板里含 <占位符> 的值不覆盖本地已填内容;本地独有的键保留。
 #   合并结果与本地一致时不写文件(幂等);有改动先存时间戳 .bak。
 #   dest 不存在则直接落模板。符号链接跳过(不穿透)。
+# ---- 网关占位符预填：新机器只需填 base url + api key ----
+# 环境变量优先(便于无人值守):PI_GATEWAY_BASE_URL / PI_GATEWAY_API_KEY / MCPHUB_HOST
+GW_BASE="${PI_GATEWAY_BASE_URL:-}"; GW_KEY="${PI_GATEWAY_API_KEY:-}"; MCPHUB_HOST="${MCPHUB_HOST:-}"
+
+ask_value() { # $1=提示 $2=输出变量 $3=非空则不回显(用于 key)
+  local a=""
+  if { exec 9</dev/tty; } 2>/dev/null; then
+    if [ -n "${3:-}" ]; then read -r -s -u 9 -p "$1: " a || a=""; echo
+    else read -r -u 9 -p "$1: " a || a=""; fi
+    exec 9<&-
+    printf -v "$2" '%s' "$a"
+  fi
+}
+
+# 只在「首次部署」(目标文件缺失或仍是 <YOUR_*> 占位符)时问,重跑不打扰
+needs_gateway_fill() {
+  local f
+  for f in "$CFG/opencode.json" "$SETTINGS" "$MC_CFG"; do
+    [ -f "$f" ] || return 0
+    grep -q '<YOUR_' "$f" 2>/dev/null && return 0
+  done
+  return 1
+}
+
+collect_gateway_values() {
+  [ -n "$GW_BASE" ] && [ -n "$GW_KEY" ] && return 0
+  needs_gateway_fill || return 0
+  [ -z "$GW_BASE" ] && ask_value "OpenAI 兼容网关完整地址(如 https://gw.example.com/v1;回车跳过)" GW_BASE
+  if [ -z "$GW_BASE" ]; then
+    echo "未提供网关地址:模板里的 <YOUR_*> 占位符保留,装完手工填(见文末清单)"
+    return 0
+  fi
+  [ -z "$GW_KEY" ] && ask_value "该网关 API key(回车跳过)" GW_KEY 1
+  [ -z "$MCPHUB_HOST" ] && ask_value "mcphub MCP host(如 mcp.example.com;回车跳过)" MCPHUB_HOST
+  return 0
+}
+
+# 把已提供的值填进模板(python 负责 JSON 转义);未提供则原样保留占位符。
+# <YOUR_GATEWAY_HOST> 填到主机名:pi 的 anthropic-messages provider 要根域(/v1 会 404),
+# 而模板里的 <YOUR_GATEWAY_HOST>/v1 正好给 opencode/embedding/claude-mem 这类要 /v1 的。
+fill_template_placeholders() {
+  [ -z "$GW_BASE$GW_KEY$MCPHUB_HOST" ] && return 0
+  python3 - "$1" "$GW_BASE" "$GW_KEY" "$MCPHUB_HOST" <<'PYEOF'
+import json, re, sys
+p, base, key, mcphub = sys.argv[1], sys.argv[2].rstrip('/'), sys.argv[3], sys.argv[4]
+def esc(v): return json.dumps(v)[1:-1]
+t = open(p, encoding='utf-8').read()
+if base:
+    # <YOUR_GATEWAY_HOST>/v1 这类槽位填完整 base(含路径);单独的 <YOUR_GATEWAY_HOST> 填主机名,
+    # 因为 pi 的 anthropic-messages provider 要根域(/v1 会 404),模板自己在后面接 /v1。
+    host = re.match(r'^(https?://[^/]+)', base)
+    host = host.group(1) if host else base
+    t = t.replace('https://<YOUR_GATEWAY_HOST>/v1', esc(base))
+    t = t.replace('<YOUR_GATEWAY_HOST>/v1', esc(base))
+    t = t.replace('<YOUR_GATEWAY_HOST>', esc(re.sub(r'^https?://', '', host)))
+    t = t.replace('<YOUR_NEWAPI_BASE_URL>', esc(base))
+if key:
+    t = t.replace('<YOUR_NEWAPI_API_KEY>', esc(key)).replace('<YOUR_API_KEY>', esc(key))
+if mcphub:
+    t = t.replace('<YOUR_MCPHUB_HOST>', esc(mcphub))
+open(p, 'w', encoding='utf-8').write(t)
+PYEOF
+  return 0
+}
+
 merge_cfg() {
   local url="$1" dest="$2" tmp cand out
   if [ -L "$dest" ]; then
     echo "跳过: $dest 是符号链接(指向 $(readlink "$dest")),不覆盖以免破坏链接目标"
     return 1
   fi
+  # 操作员在提示里给了网关/密钥:先把本地文件里的占位符补上(改前存 .bak),再走正常合并
+  # (补进去的是敏感键,合并会原样保留)。目标文件不存在时由模板侧的 fill_template_placeholders 负责。
+  if [ -f "$dest" ] && [ -n "$GW_BASE$GW_KEY$MCPHUB_HOST" ] && grep -q '<YOUR_' "$dest" 2>/dev/null; then
+    cp -p "$dest" "$dest.bak-$(date +%Y%m%d%H%M%S)"
+    fill_template_placeholders "$dest"
+    echo "filled placeholders: $dest"
+  fi
   tmp="$(mktemp)"
   echo "fetching: $url"
   if ! curl -fsSL --connect-timeout 8 -m 30 -o "$tmp" "$url"; then
     rm -f "$tmp"; echo "WARN: $url 下载失败,保留现有 $dest" >&2; return 1
   fi
+  fill_template_placeholders "$tmp"
   if [ ! -f "$dest" ]; then
     if ask "写入 $dest(来自 dot_file 模板,含占位符)?" Y; then
       mkdir -p "$(dirname "$dest")"; cp "$tmp" "$dest"; echo "wrote: $dest(含占位符)"
@@ -571,8 +644,10 @@ fi
 # 已存在则只覆盖各 provider 的 models(新模型自动下发),options(apiKey/网关)等本地字段保留;
 # 老 opencode.jsonc 的值自动并入 opencode.json 后退役为 .migrated.bak
 cfg_full=0
+collect_gateway_values
 oc_tpl="$(mktemp)"; oc_cand="$(mktemp)"
 if curl -fsSL --connect-timeout 8 -m 30 -o "$oc_tpl" "$RAW/opencode/opencode.json"; then
+  fill_template_placeholders "$oc_tpl"
   oc_out="$(python3 - "$CFG/opencode.json" "$CFG/opencode.jsonc" "$oc_tpl" "$HOME" "$oc_cand" <<'PYEOF'
 import json, re, os, sys
 
@@ -1047,7 +1122,8 @@ fi
 echo ""
 echo "== done. 需要你手工完成的 =="
 n=1
-echo "$n. 填占位符:"; n=$((n+1))
+echo "$n. 网关/凭据:脚本启动时已问过「网关地址 + API key」并填进各配置(可用环境变量预填、非交互跑:PI_GATEWAY_BASE_URL / PI_GATEWAY_API_KEY / MCPHUB_HOST)"; n=$((n+1))
+echo "   当时跳过了才需要手工填下面这些占位符:"
 echo "   - $SETTINGS:BASE_URL / MODEL / API_KEY(openrouter 走 OpenAI 协议,填 OpenAI 协议的 key,不是 Anthropic 的)"
 echo "   - $MC_CFG:BASE_URL / API_KEY;historian/dreamer 的 model 用 <provider>/<model-id>"
 [ "$cfg_full" -eq 1 ] && echo "   - $CFG/opencode.json:网关地址 / API key / mcphub-web 的 <YOUR_MCPHUB_HOST>(仅首次部署需填;之后脚本更新只覆盖 models)"

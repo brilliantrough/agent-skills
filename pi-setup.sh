@@ -55,6 +55,71 @@ ask() { # $1=提示 $2=默认(Y/N,缺省 N)
   fi
 }
 
+# ---- 网关占位符预填：新机器只需填 base url + api key ----
+# 环境变量优先(便于无人值守):PI_GATEWAY_BASE_URL / PI_GATEWAY_API_KEY / MCPHUB_HOST
+GW_BASE="${PI_GATEWAY_BASE_URL:-}"; GW_KEY="${PI_GATEWAY_API_KEY:-}"; MCPHUB_HOST="${MCPHUB_HOST:-}"
+
+ask_value() { # $1=提示 $2=输出变量 $3=非空则不回显(用于 key)
+  local a=""
+  if { exec 9</dev/tty; } 2>/dev/null; then
+    if [ -n "${3:-}" ]; then read -r -s -u 9 -p "$1: " a || a=""; echo
+    else read -r -u 9 -p "$1: " a || a=""; fi
+    exec 9<&-
+    printf -v "$2" '%s' "$a"
+  fi
+}
+
+# 只在「首次部署」(目标文件缺失或仍是 <YOUR_*> 占位符)时问,重跑不打扰
+needs_gateway_fill() {
+  local f
+  for f in "$MODELS" "$SETTINGS" "$MC_SETTINGS" "$SHARED_MCP"; do
+    [ -f "$f" ] || return 0
+    grep -q '<YOUR_' "$f" 2>/dev/null && return 0
+  done
+  return 1
+}
+
+collect_gateway_values() {
+  [ -n "$GW_BASE" ] && [ -n "$GW_KEY" ] && return 0
+  needs_gateway_fill || return 0
+  [ -z "$GW_BASE" ] && ask_value "OpenAI 兼容网关完整地址(如 https://gw.example.com/v1;回车跳过)" GW_BASE
+  if [ -z "$GW_BASE" ]; then
+    echo "未提供网关地址:模板里的 <YOUR_*> 占位符保留,装完手工填(见文末清单)"
+    return 0
+  fi
+  [ -z "$GW_KEY" ] && ask_value "该网关 API key(回车跳过)" GW_KEY 1
+  [ -z "$MCPHUB_HOST" ] && ask_value "mcphub MCP host(如 mcp.example.com;回车跳过)" MCPHUB_HOST
+  return 0
+}
+
+# 把已提供的值填进模板(python 负责 JSON 转义);未提供则原样保留占位符。
+# <YOUR_GATEWAY_HOST> 填到主机名:pi 的 anthropic-messages provider 要根域(/v1 会 404),
+# 而模板里的 <YOUR_GATEWAY_HOST>/v1 正好给 opencode/embedding/claude-mem 这类要 /v1 的。
+fill_template_placeholders() {
+  [ -z "$GW_BASE$GW_KEY$MCPHUB_HOST" ] && return 0
+  python3 - "$1" "$GW_BASE" "$GW_KEY" "$MCPHUB_HOST" <<'PYEOF'
+import json, re, sys
+p, base, key, mcphub = sys.argv[1], sys.argv[2].rstrip('/'), sys.argv[3], sys.argv[4]
+def esc(v): return json.dumps(v)[1:-1]
+t = open(p, encoding='utf-8').read()
+if base:
+    # <YOUR_GATEWAY_HOST>/v1 这类槽位填完整 base(含路径);单独的 <YOUR_GATEWAY_HOST> 填主机名,
+    # 因为 pi 的 anthropic-messages provider 要根域(/v1 会 404),模板自己在后面接 /v1。
+    host = re.match(r'^(https?://[^/]+)', base)
+    host = host.group(1) if host else base
+    t = t.replace('https://<YOUR_GATEWAY_HOST>/v1', esc(base))
+    t = t.replace('<YOUR_GATEWAY_HOST>/v1', esc(base))
+    t = t.replace('<YOUR_GATEWAY_HOST>', esc(re.sub(r'^https?://', '', host)))
+    t = t.replace('<YOUR_NEWAPI_BASE_URL>', esc(base))
+if key:
+    t = t.replace('<YOUR_NEWAPI_API_KEY>', esc(key)).replace('<YOUR_API_KEY>', esc(key))
+if mcphub:
+    t = t.replace('<YOUR_MCPHUB_HOST>', esc(mcphub))
+open(p, 'w', encoding='utf-8').write(t)
+PYEOF
+  return 0
+}
+
 RAW="https://raw.githubusercontent.com/brilliantrough/dot_file/master"
 # merge_cfg <url> <dest> [mcp] — 拉 dot_file 模板后做「字段级」合并,而非整文件覆盖:
 #   模板中的非敏感字段值优先 → 新默认值能下发到服务器;
@@ -71,11 +136,19 @@ merge_cfg() {
     echo "跳过: $dest 是符号链接(指向 $(readlink "$dest")),不覆盖以免破坏链接目标"
     return 1
   fi
+  # 操作员在提示里给了网关/密钥:先把本地文件里的占位符补上(改前存 .bak),再走正常合并
+  # (补进去的是敏感键,合并会原样保留)。目标文件不存在时由模板侧的 fill_template_placeholders 负责。
+  if [ -f "$dest" ] && [ -n "$GW_BASE$GW_KEY$MCPHUB_HOST" ] && grep -q '<YOUR_' "$dest" 2>/dev/null; then
+    cp -p "$dest" "$dest.bak-$(date +%Y%m%d%H%M%S)"
+    fill_template_placeholders "$dest"
+    echo "filled placeholders: $dest"
+  fi
   tmp="$(mktemp)"
   echo "fetching: $url"
   if ! curl -fsSL --connect-timeout 8 -m 30 -o "$tmp" "$url"; then
     rm -f "$tmp"; echo "WARN: $url 下载失败,保留现有 $dest" >&2; return 1
   fi
+  fill_template_placeholders "$tmp"
   if [ "$mode" = mcp ]; then
     python3 - "$tmp" "$HOME" "$BUN_BIN" "$CG_BIN" "$MCP_CJS" <<'PYEOF'
 import sys
@@ -409,6 +482,7 @@ fi
 
 # ---- 4. 部署 Pi 配置(字段级合并 dot_file 模板)----
 if [ "$PI_OK" -eq 1 ]; then
+  collect_gateway_values
   merge_cfg "$RAW/pi/settings.json" "$SETTINGS" || true
   if [ "$AGENT_DIR" = "$HOME/.pi/agent" ]; then
     merge_cfg "$RAW/pi/pi-autoname.json" "$AGENT_DIR/pi-autoname.json" || true
@@ -458,6 +532,7 @@ fi
 # ---- 5. 共用配置:claude-mem settings + magic-context.jsonc(与 opencode-setup.sh 同一套;下载失败用内嵌兜底)----
 mkdir -p "$HOME/.claude-mem"
 mc_rc=0; merge_cfg "$RAW/opencode/claude-mem.settings.json" "$MC_SETTINGS" || mc_rc=$?
+[ -n "$GW_KEY" ] && chmod 600 "$MODELS" "$MC_SETTINGS" 2>/dev/null
 if [ "$mc_rc" = 1 ] && [ ! -f "$MC_SETTINGS" ]; then
   if ask "写入 $MC_SETTINGS(内嵌兜底模板,含占位符)?" Y; then
   cat > "$MC_SETTINGS" <<'EOF'
@@ -629,12 +704,14 @@ fi
 echo ""
 echo "== done. 需要你手工完成的 =="
 n=1
-echo "$n. 填占位符(仅首次部署需填):"; n=$((n+1))
+echo "$n. 网关/凭据:脚本启动时已问过「网关地址 + API key」并填进各配置(可用环境变量预填、非交互跑:PI_GATEWAY_BASE_URL / PI_GATEWAY_API_KEY / MCPHUB_HOST)"; n=$((n+1))
+echo "   当时跳过了才需要手工填下面这些占位符:"
 [ "$PI_OK" -eq 1 ] && echo "   - $MODELS:https://<YOUR_GATEWAY_HOST>(anthropic 协议填根域,openai 协议带 /v1)、<YOUR_NEWAPI_API_KEY>"
 [ "$PI_OK" -eq 1 ] && echo "   - $AUTH:coding plan 等内置 provider 的 key(如 zai-coding-cn / kimi-coding)"
 echo "   - $SHARED_MCP:https://<YOUR_MCPHUB_HOST>/mcp/web"
 echo "   - $MC_SETTINGS:BASE_URL / MODEL / API_KEY(openrouter 走 OpenAI 协议)"
 echo "   - $MC_CFG:BASE_URL / API_KEY;historian/dreamer 的 model 用 <provider>/<model-id>"
+echo "   - ~/.func(linux-setup.sh 部署):<YOUR_GATEWAY_HOST> / <YOUR_ANTHROPIC_AUTH_TOKEN>"
 echo "$n. 重启 claude-mem worker 并验证:"; n=$((n+1))
 echo "      cd ~/.claude/plugins/marketplaces/thedotmack && npm run worker:restart"
 echo "      curl -s 127.0.0.1:37700/api/health"

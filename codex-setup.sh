@@ -28,6 +28,63 @@ ask() {
   fi
 }
 warn() { echo "WARN: $*" >&2; errors=$((errors + 1)); }
+
+# ---- 网关占位符预填：新机器只需填 base url + api key ----
+# 环境变量优先(便于无人值守):PI_GATEWAY_BASE_URL / PI_GATEWAY_API_KEY
+GW_BASE="${PI_GATEWAY_BASE_URL:-}"; GW_KEY="${PI_GATEWAY_API_KEY:-}"
+
+ask_value() { # $1=提示 $2=输出变量 $3=非空则不回显(用于 key)
+  local a=""
+  if { exec 9</dev/tty; } 2>/dev/null; then
+    if [ -n "${3:-}" ]; then read -r -s -u 9 -p "$1: " a || a=""; echo
+    else read -r -u 9 -p "$1: " a || a=""; fi
+    exec 9<&-
+    printf -v "$2" '%s' "$a"
+  fi
+}
+
+needs_gateway_fill() {
+  [ -f "$SETTINGS" ] || return 0
+  grep -q '<YOUR_' "$SETTINGS" 2>/dev/null && return 0
+  return 1
+}
+
+collect_gateway_values() {
+  [ -n "$GW_BASE" ] && [ -n "$GW_KEY" ] && return 0
+  needs_gateway_fill || return 0
+  [ -z "$GW_BASE" ] && ask_value "OpenAI 兼容网关完整地址(如 https://gw.example.com/v1;回车跳过)" GW_BASE
+  if [ -z "$GW_BASE" ]; then
+    echo "未提供网关地址:占位符保留,装完手工填"
+    return 0
+  fi
+  [ -z "$GW_KEY" ] && ask_value "该网关 API key(回车跳过)" GW_KEY 1
+  return 0
+}
+
+# 把已提供的值填进文件(python 负责 JSON 转义);未提供则原样保留占位符。
+fill_template_placeholders() {
+  [ -z "$GW_BASE$GW_KEY" ] && return 0
+  [ -f "$1" ] || return 0
+  python3 - "$1" "$GW_BASE" "$GW_KEY" <<'PYEOF'
+import json, re, sys
+p, base, key = sys.argv[1], sys.argv[2].rstrip('/'), sys.argv[3]
+def esc(v): return json.dumps(v)[1:-1]
+t = open(p, encoding='utf-8').read()
+if base:
+    # <YOUR_GATEWAY_HOST>/v1 这类槽位填完整 base(含路径);单独的 <YOUR_GATEWAY_HOST> 填主机名,
+    # 因为 pi 的 anthropic-messages provider 要根域(/v1 会 404),模板自己在后面接 /v1。
+    host = re.match(r'^(https?://[^/]+)', base)
+    host = host.group(1) if host else base
+    t = t.replace('https://<YOUR_GATEWAY_HOST>/v1', esc(base))
+    t = t.replace('<YOUR_GATEWAY_HOST>/v1', esc(base))
+    t = t.replace('<YOUR_GATEWAY_HOST>', esc(re.sub(r'^https?://', '', host)))
+    t = t.replace('<YOUR_NEWAPI_BASE_URL>', esc(base))
+if key:
+    t = t.replace('<YOUR_NEWAPI_API_KEY>', esc(key)).replace('<YOUR_API_KEY>', esc(key))
+open(p, 'w', encoding='utf-8').write(t)
+PYEOF
+  return 0
+}
 backup() {
   if [ -f "$1" ]; then
     local bak
@@ -217,6 +274,13 @@ elif [ -L "$SETTINGS" ] || [ -L "$(dirname "$SETTINGS")" ]; then
   warn 'claude-mem settings 路径是符号链接,跳过自动配置'
 else
   mem_ok=1
+  collect_gateway_values
+  # 已存在但仍含占位符时按提示补上(改前存 .bak);不存在则由下面的内嵌模板写入后再补
+  if [ -f "$SETTINGS" ] && [ -n "$GW_BASE$GW_KEY" ] && grep -q '<YOUR_' "$SETTINGS" 2>/dev/null; then
+    backup "$SETTINGS" >/dev/null || true
+    fill_template_placeholders "$SETTINGS"
+    echo "filled placeholders: $SETTINGS"
+  fi
   if [ ! -e "$SETTINGS" ] && [ ! -L "$SETTINGS" ]; then
     if ask "新建 $SETTINGS(记忆后端占位符,不涉及 Codex 模型)?" Y; then
       mkdir -p "$(dirname "$SETTINGS")"
@@ -233,6 +297,7 @@ else
 JSON
       )
       echo "wrote: $SETTINGS;使用前请填写占位符"
+      fill_template_placeholders "$SETTINGS"
     else mem_ok=0; fi
   fi
   if [ "$mem_ok" = 1 ] && ! mem_ready; then
@@ -298,7 +363,7 @@ else warn '缺少 npx,跳过 skills'; fi
 echo '== 配置步骤结束 =='
 echo '1. 在 Codex /hooks 审阅并信任插件 hooks,然后重开会话;更新 hooks 后可能需要重新信任。'
 echo '2. 用 /mcp 检查连接,实际调用 claude-mem 查询和 CodeGraph 工具。'
-echo "3. claude-mem 后端配置: $SETTINGS;如刚运行安装器,填好配置后执行 npx claude-mem@latest start。"
+echo "3. claude-mem 后端配置: $SETTINGS（本脚本启动时已问过网关地址 + API key 并填入;若当时跳过,手工填 <YOUR_*> 占位符;环境变量预填方式:PI_GATEWAY_BASE_URL / PI_GATEWAY_API_KEY)。如刚运行安装器,填好配置后执行 npx claude-mem@latest start。"
 echo '4. 新项目执行 codegraph init;已有项目索引可复用。'
 echo '5. skills 原样复用;缺少 Magic Context 的 ctx_* 工具时仅 best effort,以 OpenCode 为主。'
 echo '6. 本脚本不升级已有插件/skills;更新方法见 README 的 Codex 一节。'
