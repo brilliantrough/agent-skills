@@ -55,7 +55,9 @@ ask() { # $1=提示 $2=默认(Y/N,缺省 N)
 RAW="https://raw.githubusercontent.com/brilliantrough/dot_file/master"
 # merge_cfg <url> <dest> — 拉 dot_file 模板后做「字段级」合并,而非整文件覆盖:
 #   模板中的非敏感字段值优先 → 新默认值能下发到服务器;
-#   敏感键(api key / secret / token / password / credential / bearer / url / endpoint / host)保留本地值;
+#   隐私内容永不覆盖:敏感键(api key / secret / token / password / credential / bearer / auth /
+#     cookie / ingest / webhook / base_url / url / endpoint / host / 以 key 结尾)保留机器上已有值。
+#     回归检查:tests/merge-private-preservation.py
 #   模板里含 <占位符> 的值不覆盖本地已填内容;本地独有的键保留。
 #   合并结果与本地一致时不写文件(幂等);有改动先存时间戳 .bak。
 #   dest 不存在则直接落模板。符号链接跳过(不穿透)。
@@ -85,7 +87,7 @@ merge_cfg() {
   out="$(python3 - "$dest" "$tmp" "$cand" <<'PYEOF'
 import json, re, sys
 dest, tpl = sys.argv[1], sys.argv[2]
-SENSITIVE = re.compile(r'(api[_-]?key|secret|token|password|passwd|credential|bearer|base[_-]?url|endpoint|host)', re.I)
+SENSITIVE = re.compile(r'(api[_-]?key|secret|token|password|passwd|credential|bearer|auth|cookie|ingest|webhook|base[_-]?url|url|endpoint|host|(^|[._-])key$)', re.I)
 PLACEHOLDER = re.compile(r'<[A-Za-z][A-Za-z0-9 _-]*>')
 
 def load(p):  # JSONC 感知:去注释与尾逗号(字符串内的 // 不动)

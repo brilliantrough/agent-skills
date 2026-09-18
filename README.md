@@ -370,6 +370,8 @@ npx skills update -g
 
 有改动时先把原文件存为时间戳 `.bak-YYYYmmddHHMMSS`;合并结果与本地一致则不写文件。magic-context 的合并会把 JSONC 规整为 JSON(注释丢失,原样保留在 `.bak` 里)。
 
+**隐私内容永不覆盖**:键名命中 `SENSITIVE`(`api[_-]?key`/`secret`/`token`/`password`/`credential`/`bearer`/`auth`/`cookie`/`ingest`/`webhook`/`base[_-]?url`/`url`/`endpoint`/`host`/ 以 `key` 结尾)或模板值是 `<占位符>` 时,一律保留机器上已有的值;`opencode.json` 更是整块本地优先。三个整文件覆盖的模板(`agent-skills-ui.json`/`agent-skills-editor.json`/`keybindings.json`)不含隐私内容。回归检查:`python3 tests/merge-private-preservation.py`(selfcheck 会一并跑)。
+
 ## 单装某一个
 
 ```bash
