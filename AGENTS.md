@@ -15,8 +15,15 @@ This project uses a three-layer memory system (Magic Context + StrictDoc + claud
 
 ### Context window (always applies)
 
-- Big output never enters context: bulk commands / multi-file analysis -> `ctxm_batch_execute`, one-off computation -> `ctxm_execute`, reading a file -> `ctxm_execute_file`. Web -> the configured MCP tools first (`tavily_search` for facts/news, `firecrawl_search` for ranked results, `firecrawl_scrape` for a known page); `ctxm_fetch_and_index` only for a page you will re-query (how-to lives in the `context-mode` skill).
+- Big output never enters context: bulk commands / multi-file analysis -> `ctxm_batch_execute`, one-off computation -> `ctxm_execute`, reading a file -> `ctxm_execute_file`. Web -> the configured MCP tools first (`tavily_search` for facts/news, `firecrawl_search` for ranked results, `firecrawl_scrape` for a known page), over any host built-in like WebFetch; `ctxm_fetch_and_index` only for a page you will re-query (how-to lives in the `context-mode` skill).
 - Recall and durable knowledge go through Magic Context: `ctx_search` before asking the user, `ctx_memory` for facts future sessions need, `ctx_note` for "later".
+- Native `Read`/`Grep`/`Glob` stay right when you need the exact bytes or will edit the file — never route those through `ctxm_*`.
+
+### Steering the agent (always applies)
+
+- Steer with prompts, skills and tool descriptions — never with hard blocks. Guidance keeps judgement and variety; deny rules are a last resort for damage, not for preference.
+- Adding an MCP server: keep tool names short (pi-mcp-adapter `toolPrefix: "none"`) and descriptions rich — the description is all the model reads before choosing.
+- When a behaviour goes wrong, fix the system that produced it (a line here, a skill, or a fork patch), not just the config of the machine you noticed it on.
 
 ### Code taste (always applies when writing or changing code)
 
