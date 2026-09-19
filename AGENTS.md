@@ -13,6 +13,11 @@ This project uses a three-layer memory system (Magic Context + StrictDoc + claud
 3. After editing any `.sdoc` file, validate immediately: run `strictdoc export .` inside `docs/`. Prefer the `strictdoc` on PATH (the activated conda/uv/venv env is inherited by the agent shell); if absent, detect the project env (e.g. `.venv/bin/strictdoc`, `uv run strictdoc`) — do not assume a specific env manager. Never leave the tree broken.
 4. On conflict between memory sources, `ctx_memory` (the injected `<project-memory>` block) wins.
 
+### Context window (always applies)
+
+- Big output never enters context: bulk commands / multi-file analysis -> `ctxm_batch_execute`, one-off computation -> `ctxm_execute`, reading a file -> `ctxm_execute_file`, web -> `ctxm_fetch_and_index` then `ctxm_search` (how-to lives in the `context-mode` skill).
+- Recall and durable knowledge go through Magic Context: `ctx_search` before asking the user, `ctx_memory` for facts future sessions need, `ctx_note` for "later".
+
 ### Code taste (always applies when writing or changing code)
 
 - Running code without errors IS the verification — no tests, no TDD, no verification scripts unless explicitly asked.
