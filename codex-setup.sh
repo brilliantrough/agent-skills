@@ -3,10 +3,12 @@
 # 0. 检查 Codex >=0.128.0 及插件命令、Python 3.11+、网络;不安装/升级 Codex 本体
 # 1. 缺失时询问安装 Node LTS、Bun、uv;可选安装 strictdoc==0.28.1
 # 2. claude-mem:优先复用本机 runtime;缺失时运行官方 codex-cli 安装器
-#    安装器会修改共享配置并停止 worker;恢复 settings.json/原 Codex 配置,再原生注册
+#    安装器会修改共享配置并停止 worker;恢复 settings.json/原 Codex 配置,再原生注册;
+#    settings.json 用 dot_file 模板做字段级合并(与 pi/opencode 两侧同一份,敏感值保留)
 # 3. 原生安装 Ponytail;注册 CodeGraph MCP;安装缺失的本仓库 skills(不修改内容)
 # 4. 提示 /hooks 信任和 /mcp 检查;Magic Context、notify 不安装,原生压缩不变
 # 已配置项不重写、不自动升级;冲突/显式禁用项保留;修改前备份,不碰模型/认证配置
+# (例外:~/.claude-mem/settings.json 走 dot_file 模板字段级合并,api key/base url 等敏感值仍保留)
 # 用法:bash codex-setup.sh;支持 CODEX_HOME(首次 claude-mem 官方安装仅支持默认路径)
 set -euo pipefail
 
@@ -14,6 +16,7 @@ CFG="${CODEX_HOME:-$HOME/.codex}"
 CONFIG="$CFG/config.toml"
 MEM_ROOT="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/marketplaces/thedotmack"
 SETTINGS="${CLAUDE_MEM_DATA_DIR:-$HOME/.claude-mem}/settings.json"
+RAW="https://raw.githubusercontent.com/brilliantrough/dot_file/master"
 export PATH="$HOME/.local/bin:$HOME/.bun/bin:$PATH"
 errors=0
 
@@ -87,6 +90,8 @@ PYEOF
 # ---- 网关占位符预填：新机器只需填 base url + api key ----
 # 环境变量优先(便于无人值守):PI_GATEWAY_BASE_URL / PI_GATEWAY_API_KEY
 GW_BASE="${PI_GATEWAY_BASE_URL:-}"; GW_KEY="${PI_GATEWAY_API_KEY:-}"
+# codex 侧不配 mcphub;此变量仅为与 pi/opencode 的 merge_cfg 保持逐字节一致
+MCPHUB_HOST="${MCPHUB_HOST:-}"
 
 ask_value() { # $1=提示 $2=输出变量 $3=非空则不回显(用于 key)
   local a=""
@@ -140,6 +145,114 @@ open(p, 'w', encoding='utf-8').write(t)
 PYEOF
   return 0
 }
+merge_cfg() {
+  local url="$1" dest="$2" tmp cand out
+  if [ -L "$dest" ]; then
+    echo "跳过: $dest 是符号链接(指向 $(readlink "$dest")),不覆盖以免破坏链接目标"
+    return 1
+  fi
+  # 操作员在提示里给了网关/密钥:先把本地文件里的占位符补上(改前存 .bak),再走正常合并
+  # (补进去的是敏感键,合并会原样保留)。目标文件不存在时由模板侧的 fill_template_placeholders 负责。
+  if [ -f "$dest" ] && [ -n "$GW_BASE$GW_KEY$MCPHUB_HOST" ] && grep -q '<YOUR_' "$dest" 2>/dev/null; then
+    cp -p "$dest" "$dest.bak-$(date +%Y%m%d%H%M%S)"
+    fill_template_placeholders "$dest"
+    echo "filled placeholders: $dest"
+  fi
+  tmp="$(mktemp)"
+  echo "fetching: $url"
+  if ! curl -fsSL --connect-timeout 8 -m 30 -o "$tmp" "$url"; then
+    rm -f "$tmp"; echo "WARN: $url 下载失败,保留现有 $dest" >&2; return 1
+  fi
+  fill_template_placeholders "$tmp"
+  if [ ! -f "$dest" ]; then
+    if ask "写入 $dest(来自 dot_file 模板,含占位符)?" Y; then
+      mkdir -p "$(dirname "$dest")"; cp "$tmp" "$dest"; echo "wrote: $dest(含占位符)"
+    else
+      echo "跳过: $dest 未创建"
+      rm -f "$tmp"
+      return 2
+    fi
+    rm -f "$tmp"
+    return 0
+  fi
+  cand="$(mktemp)"
+  out="$(python3 - "$dest" "$tmp" "$cand" <<'PYEOF'
+import json, re, sys
+dest, tpl = sys.argv[1], sys.argv[2]
+SENSITIVE = re.compile(r'(api[_-]?key|secret|token|password|passwd|credential|bearer|auth|cookie|ingest|webhook|base[_-]?url|url|endpoint|host|(^|[._-])key$)', re.I)
+PLACEHOLDER = re.compile(r'<[A-Za-z][A-Za-z0-9 _-]*>')
+
+def load(p):  # JSONC 感知:去注释与尾逗号(字符串内的 // 不动)
+    t = open(p, encoding='utf-8').read()
+    out, i, n, instr = [], 0, len(t), False
+    while i < n:
+        c = t[i]
+        if instr:
+            out.append(c)
+            if c == '\\': out.append(t[i + 1]); i += 2; continue
+            if c == '"': instr = False
+            i += 1; continue
+        if c == '"': instr = True; out.append(c); i += 1; continue
+        if c == '/' and i + 1 < n and t[i + 1] == '/':
+            while i < n and t[i] != '\n': i += 1
+            continue
+        if c == '/' and i + 1 < n and t[i + 1] == '*':
+            i += 2
+            while i + 1 < n and not (t[i] == '*' and t[i + 1] == '/'): i += 1
+            i += 2; continue
+        out.append(c); i += 1
+    return json.loads(re.sub(r',(\s*[}\]])', r'\1', ''.join(out)))
+
+try:
+    cur, new = load(dest), load(tpl)
+except Exception as e:
+    print(f"WARN: {dest} 解析失败({e}),保留原文件不合并", file=sys.stderr)
+    sys.exit(1)
+
+UNION_KEYS = ('packages', 'enabledModels')   # 列表型:并集而非整表替换,别把本机改动冲掉
+
+def merge(cur, new):
+    if not isinstance(new, dict) or not isinstance(cur, dict):
+        return new
+    out = dict(cur)
+    for k, v in new.items():
+        if k in cur and k.startswith('CLAUDE_MEM_') and (k.endswith('_MODEL') or k.endswith('_BASE_URL') or k.endswith('_API_KEY')\
+                or k.endswith('_PORT') or k.endswith('_HOST')):
+            continue  # 已有模型/接口/凭据保留，包括占位值
+        if k in cur and SENSITIVE.search(k):                       # 敏感键:本地值优先
+            continue
+        if k in cur and isinstance(v, str) and PLACEHOLDER.search(v):  # 占位值不覆盖已填内容
+            continue
+        if k in UNION_KEYS and isinstance(v, list) and isinstance(cur.get(k), list):
+            out[k] = cur[k] + [x for x in v if x not in cur[k]]        # 并集:本地顺序 + 模板新增
+            continue
+        out[k] = merge(cur.get(k), v) if isinstance(v, dict) else v
+    return out
+
+merged = merge(cur, new)
+if merged == cur:
+    print("unchanged")
+else:
+    with open(sys.argv[3], 'w', encoding='utf-8') as f:
+        json.dump(merged, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    top = [k for k in merged if cur.get(k) != merged.get(k)]
+    print("变更: " + (", ".join(top) or "嵌套字段"))
+PYEOF
+)"
+  rm -f "$tmp"
+  local bak="$dest.bak-$(date +%Y%m%d%H%M%S)"
+  case "$out" in
+    unchanged) echo "unchanged: $dest(已与模板一致,无需改动)"; rm -f "$cand" ;;
+    "")        echo "WARN: $dest 合并失败,保留原文件" >&2; rm -f "$cand"; return 1 ;;
+    *)         if ask "更新 $dest($out;api key 等敏感值保留,原文件存 $bak)?" Y; then
+                 cp "$dest" "$bak"; mv "$cand" "$dest"; echo "updated: $dest"
+               else
+                 echo "保留原文件: $dest"; rm -f "$cand"; return 2
+               fi ;;
+  esac
+}
+
 backup() {
   if [ -f "$1" ]; then
     local bak
@@ -355,6 +468,10 @@ JSON
       echo "wrote: $SETTINGS;使用前请填写占位符"
       fill_template_placeholders "$SETTINGS"
     else mem_ok=0; fi
+  fi
+  if [ "$mem_ok" = 1 ]; then
+    # 与 pi/opencode-setup.sh 用同一份 dot_file 模板做字段级合并,避免三脚本的 claude-mem 配置漂移
+    merge_cfg "$RAW/opencode/claude-mem.settings.json" "$SETTINGS" || true
   fi
   if [ "$mem_ok" = 1 ] && ! mem_ready; then
     echo 'claude-mem runtime 缺失或过旧;官方安装器会更新共享资产、Claude 插件注册并停止 worker。'

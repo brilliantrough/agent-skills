@@ -59,6 +59,7 @@ RAW="https://raw.githubusercontent.com/brilliantrough/dot_file/master"
 #     cookie / ingest / webhook / base_url / url / endpoint / host / 以 key 结尾)保留机器上已有值。
 #     回归检查:tests/merge-private-preservation.py
 #   模板里含 <占位符> 的值不覆盖本地已填内容;本地独有的键保留。
+#   列表键 packages/enabledModels 走并集(本地顺序 + 模板新增);其余键模板优先,数组整体替换。
 #   合并结果与本地一致时不写文件(幂等);有改动先存时间戳 .bak。
 #   dest 不存在则直接落模板。符号链接跳过(不穿透)。
 # 把 worker 地址显式写进 settings(claude-mem 自身的默认是 37700 + uid%100,
@@ -245,6 +246,8 @@ except Exception as e:
     print(f"WARN: {dest} 解析失败({e}),保留原文件不合并", file=sys.stderr)
     sys.exit(1)
 
+UNION_KEYS = ('packages', 'enabledModels')   # 列表型:并集而非整表替换,别把本机改动冲掉
+
 def merge(cur, new):
     if not isinstance(new, dict) or not isinstance(cur, dict):
         return new
@@ -256,6 +259,9 @@ def merge(cur, new):
         if k in cur and SENSITIVE.search(k):                       # 敏感键:本地值优先
             continue
         if k in cur and isinstance(v, str) and PLACEHOLDER.search(v):  # 占位值不覆盖已填内容
+            continue
+        if k in UNION_KEYS and isinstance(v, list) and isinstance(cur.get(k), list):
+            out[k] = cur[k] + [x for x in v if x not in cur[k]]        # 并集:本地顺序 + 模板新增
             continue
         out[k] = merge(cur.get(k), v) if isinstance(v, dict) else v
     return out
@@ -352,7 +358,9 @@ if ! command -v bun >/dev/null 2>&1; then
     echo "跳过 bun(claude-mem MCP 工具将无法运行)"
   fi
 fi
-BUN_BIN="$(command -v bun 2>/dev/null || echo "$HOME/.bun/bin/bun")"
+# 只写真实存在的绝对路径;都没有时退化为裸命令名(交给运行时 PATH),别把猜测路径写进 MCP 配置
+BUN_BIN="$(command -v bun 2>/dev/null || true)"; [ -n "$BUN_BIN" ] || BUN_BIN="$HOME/.bun/bin/bun"
+[ -x "$BUN_BIN" ] || BUN_BIN=bun
 
 # ---- 2. claude-mem:安装(只为拿 bundle / MCP 资产)+ 修复 ----
 if [ ! -f "$BUNDLED" ] && [ ! -f "$PLUGINS/claude-mem.js" ]; then
@@ -730,10 +738,10 @@ collect_gateway_values
 oc_tpl="$(mktemp)"; oc_cand="$(mktemp)"
 if curl -fsSL --connect-timeout 8 -m 30 -o "$oc_tpl" "$RAW/opencode/opencode.json"; then
   fill_template_placeholders "$oc_tpl"
-  oc_out="$(python3 - "$CFG/opencode.json" "$CFG/opencode.jsonc" "$oc_tpl" "$HOME" "$oc_cand" <<'PYEOF'
+  oc_out="$(python3 - "$CFG/opencode.json" "$CFG/opencode.jsonc" "$oc_tpl" "$oc_cand" <<'PYEOF'
 import json, re, os, sys
 
-target_p, jsonc_p, tpl_p, home = sys.argv[1:5]
+target_p, jsonc_p, tpl_p = sys.argv[1:4]
 
 def strip_jsonc(t):  # 注释感知的 JSONC 剥离(字符串内的 // 不动),顺带去掉尾逗号
     out, i, n, instr = [], 0, len(t), False
@@ -770,8 +778,6 @@ def deep_merge(base, over):  # over 优先(本地值优先),dict 递归
     return over
 
 tpl = json.load(open(tpl_p, encoding='utf-8'))
-if home != '/home/pzy000':
-    tpl = json.loads(json.dumps(tpl).replace('/home/pzy000', home))
 
 live_json, live_jsonc = load(target_p), load(jsonc_p)
 live = live_json if live_json.get('provider') else (live_jsonc or live_json)
@@ -788,10 +794,7 @@ for name, p in tpl_prov.items():
         mp[name] = p  # 模板新增的 provider:整块加入(含占位符 options,待首次填写)
 
 out = json.dumps(merged, indent=2, ensure_ascii=False) + '\n'
-try:
-    same = open(target_p, encoding='utf-8').read() == out
-except FileNotFoundError:
-    same = False
+same = load(target_p) == merged   # 按 JSON 语义比较:只有格式化/键序不同不算变更(避免每轮重写)
 msgs = []
 if not same:
     with open(sys.argv[5], 'w', encoding='utf-8') as f:
@@ -806,7 +809,12 @@ PYEOF
     unchanged) echo "unchanged: $CFG/opencode.json" ;;
     "")        echo "WARN: opencode.json 合并失败,现有配置未改动" >&2 ;;
     *)         if ask "更新 $CFG/opencode.json($oc_out)?" Y; then
-                 [ -s "$oc_cand" ] && mv "$oc_cand" "$CFG/opencode.json"
+                 if [ -s "$oc_cand" ]; then
+                   if [ -f "$CFG/opencode.json" ]; then
+                     cp -p "$CFG/opencode.json" "$CFG/opencode.json.bak-$(date +%Y%m%d%H%M%S)"
+                   fi
+                   mv "$oc_cand" "$CFG/opencode.json"
+                 fi
                  echo "updated: $CFG/opencode.json"
                  if [ -f "$CFG/opencode.jsonc" ]; then
                    mv "$CFG/opencode.jsonc" "$CFG/opencode.jsonc.migrated-$(date +%Y%m%d%H%M%S).bak"
@@ -893,7 +901,8 @@ if ! command -v codegraph >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/codegraph"
     export PATH="$HOME/.local/bin:$PATH"
   fi
 fi
-CG_BIN="$(command -v codegraph 2>/dev/null || echo "$HOME/.local/bin/codegraph")"
+CG_BIN="$(command -v codegraph 2>/dev/null || true)"; [ -n "$CG_BIN" ] || CG_BIN="$HOME/.local/bin/codegraph"
+[ -x "$CG_BIN" ] || CG_BIN=codegraph
 if [ -x "$CG_BIN" ]; then
   if ! grep -qs '"codegraph"' "$CFG/opencode.json" "$CFG/opencode.jsonc" 2>/dev/null && \
      ask "在 $CFG/opencode.json 添加 codegraph MCP 条目?" Y; then
@@ -1051,6 +1060,9 @@ for f in package.json index.mjs; do
     if [ -f "$LATER_DIR/$f" ] && cmp -s "$LATER_DIR/$f.new" "$LATER_DIR/$f"; then
       rm -f "$LATER_DIR/$f.new"; echo "unchanged: $LATER_DIR/$f"
     else
+      if [ -f "$LATER_DIR/$f" ]; then
+        cp -p "$LATER_DIR/$f" "$LATER_DIR/$f.bak-$(date +%Y%m%d%H%M%S)"
+      fi
       mv "$LATER_DIR/$f.new" "$LATER_DIR/$f"; echo "deployed: $LATER_DIR/$f"
     fi
   else
@@ -1111,6 +1123,9 @@ else:
     print(f"added: keybinds {', '.join(added)} -> {path}")
 PYEOF
 fi
+
+# 含密钥的配置统一 600(与 pi/codex 两侧一致;含本机路径的脚本文件不下调)
+chmod 600 "$SETTINGS" "$MC_CFG" "$CFG/opencode.json" 2>/dev/null || true
 
 # ---- 6. notify 插件(brilliantrough/opencode-notify-hub,GitHub Release 预构建包)----
 NOTIFY_TARGET="$PLUGINS/session-notify.js"

@@ -15,7 +15,7 @@
 #      claude-mem 桥扩展、one-dark 主题——旧版散装部署文件会自动清理);
 #      启用 magic-context 前检查与 opencode 共享 context.db 的
 #      版本守卫(opencode 插件缓存版本 < Pi 扩展版本时先提示,不清理就不启用)
-#   4. 部署(字段级合并 dot_file 模板,api key/网关等本地敏感值保留;下载失败用内嵌兜底):
+#   4. 部署(字段级合并 dot_file 模板,api key/网关等本地敏感值保留;settings/auth/claude-mem/magic-context 下载失败用内嵌兜底,models.json/mcp.json 必须联网或手工维护):
 #      ~/.pi/agent/settings.json(含按模型 thinking、4/8/16 秒重试)、pi-autoname.json(低频命名)、
 #      ~/.pi/agent/models.json、~/.pi/agent/auth.json(占位符初始化,
 #      coding plan 等内置 provider 凭据)、~/.agents/mcp.json(三平台共享)
@@ -99,7 +99,7 @@ PYEOF
 
 # claude-mem worker 的 host:port(与 claude-mem/桥接同一优先级:环境变量 > settings.json > 默认公式)
 mem_worker_url() {
-  python3 - "$SETTINGS" <<'PYEOF'
+  python3 - "$MC_SETTINGS" <<'PYEOF'
 import json, os, sys
 try:
     s = json.load(open(sys.argv[1], encoding='utf-8'))
@@ -183,6 +183,7 @@ RAW="https://raw.githubusercontent.com/brilliantrough/dot_file/master"
 #     cookie / ingest / webhook / base_url / url / endpoint / host / 以 key 结尾)保留机器上已有值。
 #     回归检查:tests/merge-private-preservation.py
 #   模板里含 <占位符> 的值不覆盖本地已填内容;本地独有的键保留。
+#   列表键 packages/enabledModels 走并集(本地顺序 + 模板新增);其余键模板优先,数组整体替换。
 #   合并结果与本地一致时不写文件(幂等);有改动先存时间戳 .bak。
 #   mcp 模式额外替换 <HOME>/<BUN_BIN>/<CODEGRAPH_BIN>/<MCP_CJS> 为本机路径。
 #   dest 不存在则直接落模板。符号链接跳过(不穿透)。
@@ -260,6 +261,8 @@ except Exception as e:
     print(f"WARN: {dest} 解析失败({e}),保留原文件不合并", file=sys.stderr)
     sys.exit(1)
 
+UNION_KEYS = ('packages', 'enabledModels')   # 列表型:并集而非整表替换,别把本机改动冲掉
+
 def merge(cur, new):
     if not isinstance(new, dict) or not isinstance(cur, dict):
         return new
@@ -271,6 +274,9 @@ def merge(cur, new):
         if k in cur and SENSITIVE.search(k):                       # 敏感键:本地值优先
             continue
         if k in cur and isinstance(v, str) and PLACEHOLDER.search(v):  # 占位值不覆盖已填内容
+            continue
+        if k in UNION_KEYS and isinstance(v, list) and isinstance(cur.get(k), list):
+            out[k] = cur[k] + [x for x in v if x not in cur[k]]        # 并集:本地顺序 + 模板新增
             continue
         out[k] = merge(cur.get(k), v) if isinstance(v, dict) else v
     return out
@@ -416,7 +422,9 @@ if ! command -v bun >/dev/null 2>&1; then
     echo "跳过 bun(claude-mem MCP 工具将无法运行)"
   fi
 fi
-BUN_BIN="$(command -v bun 2>/dev/null || echo "$HOME/.bun/bin/bun")"
+# 只写真实存在的绝对路径;都没有时退化为裸命令名(交给运行时 PATH),别把猜测路径写进 MCP 配置
+BUN_BIN="$(command -v bun 2>/dev/null || true)"; [ -n "$BUN_BIN" ] || BUN_BIN="$HOME/.bun/bin/bun"
+[ -x "$BUN_BIN" ] || BUN_BIN=bun
 
 # ---- 1.3 依赖: uv(可选;strictdoc / .sdoc 校验用)----
 UVP="$HOME/.local/bin/uv"
@@ -593,7 +601,8 @@ if [ "$PI_OK" -eq 1 ]; then
     merge_cfg "$RAW/pi/pi-autoname.json" "$AGENT_DIR/pi-autoname.json" || true
   fi
   merge_cfg "$RAW/pi/models.json" "$MODELS" || true
-  CG_BIN="$(command -v codegraph 2>/dev/null || echo "$HOME/.local/bin/codegraph")"
+  CG_BIN="$(command -v codegraph 2>/dev/null || true)"; [ -n "$CG_BIN" ] || CG_BIN="$HOME/.local/bin/codegraph"
+  [ -x "$CG_BIN" ] || CG_BIN=codegraph
   merge_cfg "$RAW/pi/mcp.json" "$SHARED_MCP" mcp || true
 
   # ---- 4.05 凭据(auth.json,coding plan 等内置 provider)----
@@ -665,8 +674,9 @@ fi
 # ---- 6. 共用配置:claude-mem settings + magic-context.jsonc(与 opencode-setup.sh 同一套;下载失败用内嵌兜底)----
 mkdir -p "$HOME/.claude-mem"
 mc_rc=0; merge_cfg "$RAW/opencode/claude-mem.settings.json" "$MC_SETTINGS" || mc_rc=$?
-[ -n "$GW_KEY" ] && chmod 600 "$MODELS" "$MC_SETTINGS" 2>/dev/null
-ensure_mem_worker_keys "$SETTINGS" 2>/dev/null || true
+# 含密钥/本机路径的配置统一 600(对齐 codex-setup.sh 的 umask 077);文件可能还不存在
+chmod 600 "$MODELS" "$AUTH" "$MC_SETTINGS" "$MC_CFG" 2>/dev/null || true
+ensure_mem_worker_keys "$MC_SETTINGS" 2>/dev/null || true
 echo "claude-mem worker: http://$(mem_worker_url)(健康检查: curl -s http://$(mem_worker_url)/api/health)"
 if [ "$mc_rc" = 1 ] && [ ! -f "$MC_SETTINGS" ]; then
   if ask "写入 $MC_SETTINGS(内嵌兜底模板,含占位符)?" Y; then
@@ -842,7 +852,7 @@ echo "   - $MC_CFG:BASE_URL / API_KEY;historian/dreamer 的 model 用 <provider>
 echo "   - ~/.func(linux-setup.sh 部署):<YOUR_GATEWAY_HOST> / <YOUR_ANTHROPIC_AUTH_TOKEN>"
 echo "$n. 重启 claude-mem worker 并验证:"; n=$((n+1))
 echo "      cd ~/.claude/plugins/marketplaces/thedotmack && npm run worker:restart"
-echo "      curl -s http://$(mem_worker_url)/api/health   # 端口取自 $SETTINGS(见下方提示)"
+echo "      curl -s http://$(mem_worker_url)/api/health   # 端口取自 $MC_SETTINGS(见下方提示)"
 echo "$n. 项目接入记忆系统: 把本仓库 AGENTS.md 中 memory-system:start/end 之间的块,粘进项目 AGENTS.md"; n=$((n+1))
 if [ -x "${CG_BIN:-}" ]; then
   echo "$n. 代码知识图谱(按项目):cd <项目> && codegraph init(建 .codegraph/ 索引;不 init 则 MCP 无内容可查)"; n=$((n+1))

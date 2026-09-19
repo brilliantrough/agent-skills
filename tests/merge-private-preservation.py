@@ -24,6 +24,8 @@ LOCAL = {
     "defaultModel": "old-model",
     "localOnly": {"keep": True},
     "nested": {"retry": {"baseDelayMs": 1000, "enabled": False}},
+    "packages": ["npm:a", "npm:local-only"],
+    "enabledModels": ["m1"],
 }
 TEMPLATE = {
     "apiKey": "TEMPLATE-KEY",
@@ -33,6 +35,8 @@ TEMPLATE = {
     "defaultModel": "deepseek-flash",
     "nested": {"retry": {"baseDelayMs": 4000, "enabled": True}},
     "newKey": "from-template",
+    "packages": ["npm:a", "npm:b"],
+    "enabledModels": ["m1", "m2"],
 }
 # (路径, 期望值, 期待来自哪一侧)
 EXPECT = [
@@ -45,6 +49,9 @@ EXPECT = [
     ("defaultModel", "deepseek-flash", "template"),
     ("nested.retry.baseDelayMs", 4000, "template"),
     ("newKey", "from-template", "template"),
+    # 列表键走并集:本地顺序保留,模板新增追加上去(不能整表替换掉本机装过的包)
+    ("packages", ["npm:a", "npm:local-only", "npm:b"], "template(并集)"),
+    ("enabledModels", ["m1", "m2"], "template(并集)"),
 ]
 
 
@@ -57,7 +64,7 @@ def dig(node, path):
 
 
 def engines():
-    for script in ("pi-setup.sh", "opencode-setup.sh"):
+    for script in ("pi-setup.sh", "opencode-setup.sh", "codex-setup.sh"):
         text = (ROOT / script).read_text(encoding="utf-8")
         match = SCRIPT.search(text)
         if not match:
@@ -91,7 +98,7 @@ def main():
     if failures:
         print("\n".join(f"FAIL {f}" for f in failures))
         return 1
-    print("PASS: 私密键(api key/url/host/*_KEY)保留本机值,非私密键随模板更新,本地独有键不丢")
+    print("PASS: 私密键(api key/url/host/*_KEY)保留本机值,非私密键随模板更新,本地独有键不丢,列表键走并集")
     return 0
 
 
