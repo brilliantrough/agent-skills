@@ -61,6 +61,11 @@ for p in "$PATCHDIR"/*.patch; do
 done
 shopt -u nullglob
 
+# 2b. 剪掉对本机有害的上游 skill：ctx-upgrade 教模型「从 GitHub 拉最新版重装」，那会抹掉改名补丁
+#     （ctx_search 立刻和 magic-context 撞名）。整目录丢弃用 rm 比用 patch 更稳——patch 的删文件
+#     hunk 要带整份旧文件内容，上游一改就冲突。
+rm -rf "$REPO/skills/ctx-upgrade"
+
 # 3. 构建（产物 gitignore，必须本地构建）
 #    用 bun 而不是 npm：仓库带的是 bun.lock，且 npm 10 解析 vitest 的 peer 图会崩
 #    （arborist "Cannot read properties of null (reading 'edgesOut')"）。
