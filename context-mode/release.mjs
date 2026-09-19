@@ -1,18 +1,14 @@
 #!/usr/bin/env node
-// release.mjs — 把 Pi 真正需要的那份产物打成发布包（路线 D：产物走 GitHub release，不进 git 历史）
+// release.mjs — 把 Pi 需要的那份产物打成发布包（context-mode/dist/pi-context-mode-vendor.tar.gz）
 //
-//   node release.mjs <clone 目录>              打包到 context-mode/dist/pi-context-mode-vendor.tar.gz + MANIFEST.json
-//   node release.mjs <clone 目录> --check      只比对：本地构建是不是比上次打包更新（verify.mjs 用）
+//   node release.mjs <clone 目录>              打包 + 更新 MANIFEST.json
+//   node release.mjs <clone 目录> --check      只比对本地构建是否比上次打包更新（verify.mjs 用）
 //   node release.mjs <clone 目录> --publish    确保包是新的，然后 gh release create
 //
-// 包里有什么（其余一律不装）：
-//   - 扩展的 import 闭包（从 build/adapters/pi/extension.js 顺着相对 import 走）
-//   - server.bundle.mjs（扩展 spawn 的 MCP 子进程，按 pluginRoot 相对定位）
-//   - hooks/auto-injection.mjs（扩展唯一会 import 的 hook；其它 hook 是别的宿主的）
-//   - skills/（7 个 skill，改名与剪枝已生效的版本）
-//   - LICENSE（Elastic-2.0，必须随产物分发）+ 生成的 package.json + VENDORED.json
-// 为什么可行：扩展用 `pluginRoot = resolve(dirname(import.meta.url), "../../..")` 定位
-// server.bundle.mjs 与 hooks/，所以保持包内相对布局就能整体搬走。
+// 包内容：扩展的 import 闭包 + server.bundle.mjs + hooks/auto-injection.mjs + skills/ + LICENSE
+//         + 生成的 package.json（pi.extensions / pi.skills）+ VENDORED.json（上游版本与文件哈希）。
+// 包内保持相对布局：扩展用 resolve(dirname(import.meta.url), "../../..") 定位 server.bundle.mjs 与 hooks/。
+// 资产名固定 pi-context-mode-vendor.tar.gz，目标机用 releases/latest/download/ 稳定 URL 取最新。
 //
 // 资产名固定为 pi-context-mode-vendor.tar.gz，这样目标机可以用稳定 URL 取最新版：
 //   https://github.com/brilliantrough/agent-skills/releases/latest/download/pi-context-mode-vendor.tar.gz

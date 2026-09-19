@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-// verify.mjs <上游 clone 目录> —— fork 体检：三层改动 + 发布包到底有没有落在树上（构建产物 + 运行期）。
-// 任何一项失败就 exit 1 并打出 checklist，所以人和 agent 都能一眼知道该修哪一层。
-// 本仓库根由脚本自身位置推出（本文件在 <repo>/context-mode/），不用多传参数。
+// verify.mjs <上游 clone 目录> —— fork 体检：三层改动 + 发布包是否都落在树上（静态 + 运行期）。
+// 任一项失败 exit 1 并打出 checklist。本仓库根由脚本自身位置推出（本文件在 <repo>/context-mode/）。
 
 import { readFileSync, existsSync, readdirSync, statSync, mkdtempSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";

@@ -7,7 +7,7 @@
 #            非交互环境按各自默认执行
 #   0. 代理环境提醒(大小写都查;未设则探测直连,透明代理不拦;都不通才要求确认)
 #   1. 依赖检查(全部前置):curl/git/python3(缺失即退出)、npx(缺 → 征得同意装 fnm + Node LTS)、
-#      bun(缺 → 征得同意装,claude-mem MCP server 依赖 bun:sqlite、context-mode fork 构建也用 bun)、uv(可选,.sdoc 校验用)
+#      bun(缺 → 征得同意装,claude-mem MCP server 与 context-mode 构建都需要)、uv(可选,.sdoc 校验用)
 #   2. pi 本体:未装 → 官方 install.sh(下载到文件再执行);已装 → 征得同意 pi update --all
 #   3. pi 包(pi install,幂等):pi-mcp-adapter / @dietrichgebert/ponytail / pi-subagents-j0k3r /
 #      pi-lens / @juicesharp/rpiv-ask-user-question / pi-autoname@0.6.8 / @cortexkit/pi-magic-context /
@@ -557,10 +557,7 @@ PYEOF
   pi_install git:github.com/brilliantrough/agent-skills
   report_repo_pi_pkg
 
-  # ---- 3.1 magic-context:共享 context.db 的版本守卫 ----
-  # OpenCode 插件与 Pi 扩展共用 ~/.local/share/cortexkit/magic-context/context.db。
-  # 版本不一致时,新宿主(fail-closed)会拒绝主回合,直到另一个宿主以新版重启并完成 DB 迁移。
-  # opencode 的插件缓存把版本钉死在下载时(不随重启自动升级),所以这里先比版本再决定是否启用。
+  # ---- 3.1 magic-context:共享 context.db 的版本守卫(不一致时 Pi 主回合会被拒绝) ----
   mc_blocked=0
   oc_pinned=""
   if [ -f "$OC_MC_CACHE/package.json" ]; then
@@ -595,12 +592,7 @@ PYEOF
     pi_install npm:@cortexkit/pi-magic-context
   fi
 
-  # ---- 3.2 context-mode fork(产物走 GitHub release;上游 npm 包会与 magic-context 抢 ctx_search)----
-  # 为什么必须是我们这份:上游 context-mode 注册 ctx_search,与 magic-context 同名 —— Pi 的扩展同名工具
-  # 检测会把启动变成 process.exit(1);fork 的改名层把 11 个工具改成 ctxm_* 才能共存。
-  # 为什么从 release 装而不是装 clone:发布包里是编译产物(扩展闭包 + server.bundle.mjs + 7 个 skill +
-  # LICENSE),目标机只要 curl+tar,不需要 bun、不需要 clone、也不需要知道上游存在。
-  # 开发机改完 fork 要 `bash context-mode/setup.sh --release --publish`,目标机跑本脚本即可拿到新版。
+  # ---- 3.2 context-mode fork(从 GitHub release 装;上游 npm 包会与 magic-context 抢 ctx_search)----
   if pkg_installed npm:context-mode; then
     echo ""
     echo "WARN: 检测到上游 npm 包 context-mode —— 它注册 ctx_search,与 magic-context 同名会让 Pi 启动失败"
@@ -620,7 +612,7 @@ except Exception:
 sys.exit(0 if any("vendor/context-mode" in str(p) for p in pkgs) else 1)
 PYEOF
   }
-  # 旧的 clone 路径条目必须摘掉:两份同时登记 → 两个扩展注册同名 ctxm_* 工具 → Pi 启动 exit 1
+  # 旧的 clone 路径条目必须摘掉(与 release 副本同时登记会让 Pi 启动失败)
   cm_stale="$(python3 - "$SETTINGS" "$AGENT_DIR" <<'PYEOF'
 import json, os, sys
 try:

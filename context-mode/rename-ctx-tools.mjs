@@ -1,15 +1,8 @@
 #!/usr/bin/env node
 /**
- * rename-ctx-tools.mjs — 给 context-mode 的工具改名，避开与 pi-magic-context 的 `ctx_search` 撞名
- *
- * 背景：Pi 会检测跨扩展同名工具（dist/core/resource-loader.js detectExtensionConflicts），
- * 一旦两个扩展注册同名工具，Pi 直接 `process.exit(1)` 拒绝启动（不是后者覆盖）。
- * context-mode 在 Pi 上注册裸名（build/adapters/pi/mcp-bridge.js: `name: tool.name`），
- * magic-context 注册 `ctx_search`，于是撞上。
- *
- * 做法：给 11 个工具名统一加前缀，并且把**所有引用这些名字的文案一起改**
- * （工具 description、路由块、block 提示、skill 正文）。只改注册名会让模型拿到
- * 不存在的工具名 —— 正是上游 issue #426 的故障形态。
+ * rename-ctx-tools.mjs — 给 context-mode 的 11 个工具名加前缀（默认 ctxm_），避免与
+ * pi-magic-context 的同名工具撞车（Pi 检测到跨扩展同名工具会拒绝启动）。
+ * 注册名与所有引用它的文案（description、路由块、skill 正文）一起改，否则模型会拿到不存在的工具名。
  *
  * 用法: node rename-ctx-tools.mjs <context-mode 包根目录> [前缀]
  * 退出码: 0 成功 / 1 有旧名残留或双重前缀 / 2 出现未登记的新 ctx_* 令牌（需人工确认）

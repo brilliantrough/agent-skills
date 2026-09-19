@@ -1,15 +1,7 @@
 #!/usr/bin/env node
-// fork-patches.mjs <上游 clone 目录> [--check]
-//
-// 第三层改动：**锚定改写**。锚点是我们自己关心的东西（工具名 / 函数名 / skill 标题），
-// 不是 diff 上下文 —— 上游往上往下挪几十行都不影响；上游真把锚点改名了，这里会大声失败
-// （exit 1）并说清哪个锚没了，绝不静默跳过。每一步都幂等，重复跑 = 什么都不做。
-//
-// 为什么不用补丁：这三类改动（升级口径、描述压缩、skill 补充）落在上游最爱改的文件上
-// （server.ts / extension.ts / SKILL.md），做成 diff 每次 pull 都要手工 rebase。真正
-// 需要行级锚点的只有行为补丁 patches/0001（那是真代码改动，补丁形态才对）。
-//
-// 顺序：必须在 `bun run build` **之前**（改的是 src/ 与 skills/ 源文件），改名层在构建之后。
+// fork-patches.mjs <上游 clone 目录> [--check] —— 第三层改动：锚定改写。
+// 锚点用工具名 / 函数名 / skill 标题，不依赖行号：上游挪行不影响，锚点消失就 exit 1 并点名。
+// 每步幂等；--check 只报不改。必须在 `bun run build` 之前跑（改的是 src/ 与 skills/ 源文件）。
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
