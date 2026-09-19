@@ -32,5 +32,7 @@ This project uses a three-layer memory system (Magic Context + StrictDoc + claud
 - Report results in one line; no summary essays.
 - Script/repo comments carry usage and necessary function notes only. The reasoning behind a change — alternatives weighed, measurements, upstream drift, failure modes — is development process and belongs in the local memory system (the gitignored StrictDoc tree and session memory), never in the repository files.
 
+**Placement**: paste this whole block at the *tail* of a project's own `AGENTS.md` — the project's own content stays on top, this block is the accelerator we append. `bash sync-agents-block.sh <项目目录…>` refreshes it (block missing → appended, present → replaced in place).
+
 (Procedures for reading/writing memory live in the `load-mem`/`save-mem` skills — keep this file short.)
 <!-- memory-system:end -->

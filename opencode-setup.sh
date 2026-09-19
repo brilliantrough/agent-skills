@@ -1294,7 +1294,7 @@ echo "   - $MC_CFG:BASE_URL / API_KEY;historian/dreamer 的 model 用 <provider>
 echo "$n. 重启 claude-mem worker 并验证:"; n=$((n+1))
 echo "      cd ~/.claude/plugins/marketplaces/thedotmack && npm run worker:restart"
 echo "      curl -s http://$(mem_worker_url)/api/health   # 端口取自 $SETTINGS(见下方提示)"
-echo "$n. 项目接入记忆系统: 把本仓库 AGENTS.md 中 memory-system:start/end 之间的块,粘进项目 AGENTS.md"; n=$((n+1))
+echo "$n. 项目接入记忆系统: 把本仓库 AGENTS.md 中 memory-system:start/end 之间的块,粘到项目 AGENTS.md 的最尾部(项目自身内容在前);批量刷新用 bash sync-agents-block.sh <项目目录>"; n=$((n+1))
 if [ -x "$CG_BIN" ]; then
   echo "$n. 代码知识图谱(按项目):cd <项目> && codegraph init(建 .codegraph/ 索引,之后自动增量同步;不 init 则 MCP 无内容可查)"; n=$((n+1))
 fi
