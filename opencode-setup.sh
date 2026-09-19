@@ -22,6 +22,8 @@
 #      插件条目(magic-context、ponytail)+ compaction 关闭 + TUI 侧(tui.jsonc:magic-context
 #      侧边栏、later 延迟发送 prompt、Enter 换行/Ctrl+Enter 发送的按键改绑)
 #      → 写入纯 JSON 的 opencode.json(及 TUI 的 tui.jsonc)
+#   5.5 context-mode 插件(GitHub Release 预构建包解到 plugins/context-mode/,入口 entry.js;
+#      skills 装到 skill/;不写 opencode.json 的 plugin 字段)
 #   6. notify 插件(brilliantrough/opencode-notify-hub,GitHub Release 预构建包)
 #   7. skills 本体:npx skills add brilliantrough/agent-skills --all -g -y
 #   8. uv(缺则装;含自升级与清华 PyPI 镜像)+ strictdoc(用 uv tool 全局安装,.sdoc 校验依赖)
@@ -1126,6 +1128,71 @@ fi
 
 # 含密钥的配置统一 600(与 pi/codex 两侧一致;含本机路径的脚本文件不下调)
 chmod 600 "$SETTINGS" "$MC_CFG" "$CFG/opencode.json" 2>/dev/null || true
+
+# ---- 5.5 context-mode 插件(从 GitHub Release 装到插件目录;不写 opencode.json 的 plugin 字段)----
+#   OpenCode 只扫描 plugins/*.js 这一层(子目录不会被自动加载),所以包放 plugins/context-mode/,
+#   入口用包里的 entry.js 复制成 plugins/context-mode.js。skills 装到 $CFG/skill/<name>/。
+CM_ASSET="opencode-context-mode-vendor.tar.gz"
+CM_URL="https://github.com/brilliantrough/agent-skills/releases/latest/download/$CM_ASSET"
+CM_DIR="$PLUGINS/context-mode"
+CM_ENTRY="$PLUGINS/context-mode.js"
+cm_tmp="$(mktemp -d)"; cm_ok=0
+if mkdir -p "$cm_tmp/pkg" && curl -fsSL --connect-timeout 8 -m 120 -o "$cm_tmp/a.tgz" "$CM_URL" 2>/dev/null \
+   && tar -xzf "$cm_tmp/a.tgz" -C "$cm_tmp/pkg"; then
+  cm_ver="$(python3 -c "import json;print(json.load(open('$cm_tmp/pkg/VENDORED.json'))['upstream']['version'])" 2>/dev/null || echo '?')"
+  mkdir -p "$PLUGINS"
+  if [ -f "$CM_DIR/VENDORED.json" ] && cmp -s "$cm_tmp/pkg/VENDORED.json" "$CM_DIR/VENDORED.json"; then
+    echo "unchanged: plugins/context-mode($cm_ver)"
+  else
+    rm -rf "$CM_DIR"; mv "$cm_tmp/pkg" "$CM_DIR"; echo "deployed: plugins/context-mode($cm_ver)"
+  fi
+  cp -f "$CM_DIR/entry.js" "$CM_ENTRY"
+  cm_n=0
+  for d in "$CM_DIR"/skills/*/; do
+    [ -f "$d/SKILL.md" ] || continue
+    n="$(basename "$d")"; dest="$CFG/skill/$n"
+    if [ -d "$dest" ] && diff -rq "$d" "$dest" >/dev/null 2>&1; then continue; fi
+    mkdir -p "$CFG/skill"; rm -rf "$dest"; cp -r "$d" "$dest"
+    echo "deployed: skill/$n"; cm_n=$((cm_n+1))
+  done
+  echo "       context-mode: skill 更新 $cm_n 个(重启 opencode 生效)"
+  cm_ok=1
+else
+  echo "WARN: context-mode 插件下载/解包失败($CM_URL,检查代理)" >&2
+fi
+rm -rf "$cm_tmp"
+
+# 官方装法(plugin 字段里写 context-mode 包)会与我们这份重复注册工具,发现就提示摘掉
+if [ "$cm_ok" = 1 ] && [ -f "$CFG/opencode.json" ]; then
+  cm_dup="$(python3 - "$CFG/opencode.json" <<'PYEOF'
+import json, sys
+try:
+    plugins = json.load(open(sys.argv[1], encoding="utf-8")).get("plugin") or []
+except Exception:
+    plugins = []
+print(1 if any("context-mode" in str(p) and "plugins/context-mode.js" not in str(p) for p in plugins) else 0)
+PYEOF
+)"
+  if [ "$cm_dup" = 1 ]; then
+    echo "WARN: opencode.json 的 plugin 数组里还有官方的 context-mode 条目(与本安装重复注册工具)"
+    if ask "现在摘掉它?" Y; then
+      python3 - "$CFG/opencode.json" <<'PYEOF'
+import json, sys
+path = sys.argv[1]
+cfg = json.load(open(path, encoding="utf-8"))
+kept = [p for p in (cfg.get("plugin") or []) if not ("context-mode" in str(p) and "plugins/context-mode.js" not in str(p))]
+if kept:
+    cfg["plugin"] = kept
+else:
+    cfg.pop("plugin", None)
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(cfg, f, indent=2, ensure_ascii=False)
+    f.write("\n")
+print("removed: plugin 条目里的官方 context-mode -> " + path)
+PYEOF
+    fi
+  fi
+fi
 
 # ---- 6. notify 插件(brilliantrough/opencode-notify-hub,GitHub Release 预构建包)----
 NOTIFY_TARGET="$PLUGINS/session-notify.js"

@@ -70,10 +70,11 @@ const main = existsSync(join(REPO, "skills/context-mode/SKILL.md")) ? read("skil
 check("主 skill 有 When NOT to Use 表", main.includes("## When NOT to Use"));
 check(`主 skill 教了 ${PREFIX}batch_execute`, main.includes(`${PREFIX}batch_execute`), "它是注入锚点的第一优先级工具");
 
-// ── 静态：发布包层（路线 D：目标机装的就是这个 tar 包，不是 clone） ──────────
+// ── 静态：发布包层（产物走 release：目标机装的就是这两个 tar 包，不是 clone） ──
 const DIST = join(SELF_REPO, "context-mode", "dist");
 const TARBALL = join(DIST, "pi-context-mode-vendor.tar.gz");
-check("发布包存在（context-mode/dist/pi-context-mode-vendor.tar.gz）", existsSync(TARBALL), "还没打包？跑 bash context-mode/setup.sh --release");
+const OC_TARBALL = join(DIST, "opencode-context-mode-vendor.tar.gz");
+check("发布包存在（pi + opencode 两个资产）", existsSync(TARBALL) && existsSync(OC_TARBALL), "还没打包？跑 bash context-mode/setup.sh");
 try {
   execFileSync(process.execPath, [join(SELF_REPO, "context-mode/release.mjs"), REPO, "--check"], { stdio: "pipe" });
   check("发布包与本次构建一致（没过期）", true);
@@ -160,11 +161,51 @@ if (!unpackOk || !existsSync(bundlePath)) {
   }
 }
 
+// ── 运行期：OpenCode 包（解开 tar，在 bun 下加载插件并看它注册了什么工具） ──────
+const ocUnpacked = mkdtempSync(join(tmpdir(), "cm-oc-"));
+let ocOk = false;
+try {
+  execFileSync("tar", ["-xzf", OC_TARBALL, "-C", ocUnpacked], { stdio: "pipe" });
+  ocOk = true;
+} catch (e) {
+  check("OpenCode 包能解开", false, String(e.message ?? e));
+}
+if (ocOk) {
+  const ocSkills = existsSync(join(ocUnpacked, "skills"))
+    ? readdirSync(join(ocUnpacked, "skills"), { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith(".")).length
+    : 0;
+  check("OpenCode 包内有 7 个 skill", ocSkills === 7, `现在 ${ocSkills} 个`);
+  check("OpenCode 包内有 LICENSE", existsSync(join(ocUnpacked, "LICENSE")));
+  check("OpenCode 包内有入口 shim（plugins/ 那一层靠它加载）", existsSync(join(ocUnpacked, "entry.js")));
+  const ocHooks = [
+    "hooks/core/routing.mjs", "hooks/core/tool-naming.mjs", "hooks/core/mcp-ready.mjs",
+    "hooks/routing-block.mjs", "hooks/auto-injection.mjs", "hooks/security.bundle.mjs",
+  ];
+  const missHooks = ocHooks.filter((h) => !existsSync(join(ocUnpacked, h)));
+  check("OpenCode 包的 hooks 闭包齐全（6 个）", missHooks.length === 0, `缺：${missHooks.join(" ")}`);
+  // 真加载一次：这是目标机（OpenCode 跑在 Bun 上）会做的事
+  const probe = [
+    `const m = await import(${JSON.stringify(join(ocUnpacked, "build/adapters/opencode/plugin.js"))});`,
+    `const hooks = await m.ContextModePlugin({ directory: ${JSON.stringify(ocUnpacked)}, client: { app: { log: async () => {} } } });`,
+    `console.log(JSON.stringify({ hooks: Object.keys(hooks).sort(), tools: Object.keys(hooks.tool ?? {}).sort() }));`,
+  ].join("\n");
+  try {
+    const out = execFileSync("bun", ["-e", probe], { cwd: ocUnpacked, stdio: ["pipe", "pipe", "pipe"], timeout: 120000 }).toString();
+    const info = JSON.parse(out.trim().split("\n").pop());
+    const want = TOOLS.map((t) => PREFIX + t).sort();
+    check(`OpenCode 插件注册 11 个 ${PREFIX}* 工具`, JSON.stringify(info.tools) === JSON.stringify(want), `实际：${info.tools.join(" ")}`);
+    check("OpenCode 插件返回了路由 hook", ["tool", "tool.execute.before", "chat.message"].every((k) => info.hooks.includes(k)), `实际：${info.hooks.join(" ")}`);
+  } catch (e) {
+    const tail = String(e.stdout ?? "").trim().split("\n").slice(-3).join(" / ") || String(e.message ?? e);
+    check("OpenCode 插件能在 bun 下加载", false, tail);
+  }
+}
+
 // ── 结论 ────────────────────────────────────────────────────────────────────
 const bad = checks.filter((c) => !c.ok);
 for (const c of checks) console.log(`${c.ok ? "✓" : "✗"} ${c.name}${c.ok || !c.detail ? "" : ` — ${c.detail}`}`);
 if (bad.length) {
-  console.error(`\n[fork-verify] ${bad.length}/${checks.length} 项不合格。按顺序检查：源码补丁 → fork-patches.mjs → 构建 → 改名 → 重启 Pi。`);
+  console.error(`\n[fork-verify] ${bad.length}/${checks.length} 项不合格。按顺序检查：源码补丁 → fork-patches.mjs → 构建 → 改名 → 打包 → 重启 Pi。`);
   process.exit(1);
 }
 console.log(`\n[fork-verify] ${checks.length} 项全过。`);

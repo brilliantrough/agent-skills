@@ -34,6 +34,6 @@ curl -fsSL https://github.com/brilliantrough/agent-skills/releases/latest/downlo
 
 The fork renames the eleven upstream tools to `ctxm_*`; the upstream names would
 collide with `pi-magic-context`'s `ctx_search`, which makes Pi exit on startup.
-Reproduce or update the artifact with `bash context-mode/setup.sh --release --publish`.
+Reproduce or update the artifacts with `bash context-mode/setup.sh --publish`.
 
 All other files are original works of brilliantrough.

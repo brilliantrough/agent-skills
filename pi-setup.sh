@@ -14,7 +14,7 @@
 #      git:github.com/brilliantrough/agent-skills(本仓库自身;含个性化 UI、later、任务耗时扩展、
 #      claude-mem 桥扩展、one-dark 主题——旧版散装部署文件会自动清理);
 #      另外装 context-mode fork(产物走 GitHub release:下载 launch 包到 ~/.pi/agent/vendor/context-mode
-#      再 pi install;开发机用 bash context-mode/setup.sh --release --publish 发新版。
+#      再 pi install;开发机用 bash context-mode/setup.sh --publish 发新版。
 #      检测到上游 npm:context-mode 或旧的 clone 路径条目会提示卸载——它们与 magic-context 抢 ctx_search/重复注册)
 #      启用 magic-context 前检查与 opencode 共享 context.db 的
 #      版本守卫(opencode 插件缓存版本 < Pi 扩展版本时先提示,不清理就不启用)
@@ -891,7 +891,7 @@ try:
     pkgs = json.load(open(sys.argv[1], encoding="utf-8")).get("packages") or []
 except Exception:
     pkgs = []
-print("  packages[]: context-mode fork " + ("已登记" if any("vendor/context-mode" in str(p) for p in pkgs) else "未登记(bash context-mode/setup.sh --release --publish 后重跑本脚本)"))
+print("  packages[]: context-mode fork " + ("已登记" if any("vendor/context-mode" in str(p) for p in pkgs) else "未登记(bash context-mode/setup.sh --publish 后重跑本脚本)"))
 PYEOF
 ui_mode="$(python3 - "$SETTINGS" <<'PYEOF'
 import json, sys
