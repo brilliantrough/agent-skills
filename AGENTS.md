@@ -18,6 +18,7 @@ This project uses a three-layer memory system (Magic Context + StrictDoc + claud
 - Running code without errors IS the verification — no tests, no TDD, no verification scripts unless explicitly asked.
 - No over-encapsulation, no defensive programming, no speculative abstraction. Minimum code that works.
 - Report results in one line; no summary essays.
+- Script/repo comments carry usage and necessary function notes only. The reasoning behind a change — alternatives weighed, measurements, upstream drift, failure modes — is development process and belongs in the local memory system (the gitignored StrictDoc tree and session memory), never in the repository files.
 
 (Procedures for reading/writing memory live in the `load-mem`/`save-mem` skills — keep this file short.)
 <!-- memory-system:end -->
