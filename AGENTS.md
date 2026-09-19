@@ -15,7 +15,7 @@ This project uses a three-layer memory system (Magic Context + StrictDoc + claud
 
 ### Context window (always applies)
 
-- Big output never enters context: bulk commands / multi-file analysis -> `ctxm_batch_execute`, one-off computation -> `ctxm_execute`, reading a file -> `ctxm_execute_file`, web -> `ctxm_fetch_and_index` then `ctxm_search` (how-to lives in the `context-mode` skill).
+- Big output never enters context: bulk commands / multi-file analysis -> `ctxm_batch_execute`, one-off computation -> `ctxm_execute`, reading a file -> `ctxm_execute_file`. Web -> the configured MCP tools first (`tavily_search` for facts/news, `firecrawl_search` for ranked results, `firecrawl_scrape` for a known page); `ctxm_fetch_and_index` only for a page you will re-query (how-to lives in the `context-mode` skill).
 - Recall and durable knowledge go through Magic Context: `ctx_search` before asking the user, `ctx_memory` for facts future sessions need, `ctx_note` for "later".
 
 ### Code taste (always applies when writing or changing code)

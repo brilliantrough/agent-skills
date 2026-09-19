@@ -60,7 +60,7 @@ const ANCHOR = [
   "      parts.push(",
   '        "context-mode active. Hierarchy: ctx_batch_execute > ctx_execute > ctx_execute_file > ctx_search. " +',
   '        "Read files / bulk processing → ctx_execute_file. Multi-command research → ctx_batch_execute. " +',
-  '        "Web pages → ctx_fetch_and_index then ctx_search. Index docs → ctx_index. " +',
+  '        "Web pages → your configured MCP web tools first (firecrawl/tavily); ctx_fetch_and_index only when you will re-query the page. Index docs → ctx_index. " +',
   '        "Stats → ctx_stats. Doctor → ctx_doctor. Purge → ctx_purge (destructive, needs confirm:true). " +',
   '        "Native Read stays right when you will edit that file or need exact bytes; Bash stays right for short fixed output and state mutations."',
   "      );",
@@ -188,6 +188,7 @@ Each tool's description only carries the short contract; these are the negative 
 | \`ctx_execute_file\` | You intend to EDIT the file | the host's Read + exact-match Edit |
 | \`ctx_execute_file\` | You need one known line, or the file is small and you'll consume all of it | the host's Read (offset/limit) |
 | \`ctx_execute_file\` | The file is outside the workspace | refused by design (#852); use the host's Read |
+| \`ctx_fetch_and_index\` | A one-off lookup, and the host has its own web tools (a search/scrape MCP) | those tools — this one is for pages you will query again |
 | \`ctx_batch_execute\` | Single command with no follow-up query | plain \`ctx_execute\` |
 | \`ctx_batch_execute\` | CPU-bound or stateful commands — keep \`concurrency: 1\` (npm test, build, lint, port-binding servers, lock holders) | serial, in one batch |
 | \`ctx_index\` | Log files, test output, CSV or build output | \`ctx_execute_file\` — processes in-sandbox, persists nothing |
