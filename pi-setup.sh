@@ -633,7 +633,7 @@ PYEOF
   cm_tmp="$(mktemp -d)"; cm_ok=0
   if curl -fsSL -o "$cm_tmp/vendor.tar.gz" "$CM_URL" 2>/dev/null && mkdir -p "$cm_tmp/pkg" && tar -xzf "$cm_tmp/vendor.tar.gz" -C "$cm_tmp/pkg"; then
     cm_ver="$(python3 -c "import json;print(json.load(open('$cm_tmp/pkg/VENDORED.json'))['upstream']['version'])" 2>/dev/null || echo '?')"
-    if [ -f "$CM_DIR/VENDORED.json" ] && cmp -s "$cm_tmp/pkg/VENDORED.json" "$CM_DIR/VENDORED.json"; then
+    if [ -d "$CM_DIR" ] && diff -rq "$cm_tmp/pkg" "$CM_DIR" >/dev/null 2>&1; then
       echo "已有: context-mode fork $cm_ver"
     else
       rm -rf "$CM_DIR"; mkdir -p "$(dirname "$CM_DIR")"; mv "$cm_tmp/pkg" "$CM_DIR"

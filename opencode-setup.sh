@@ -1141,7 +1141,7 @@ if mkdir -p "$cm_tmp/pkg" && curl -fsSL --connect-timeout 8 -m 120 -o "$cm_tmp/a
    && tar -xzf "$cm_tmp/a.tgz" -C "$cm_tmp/pkg"; then
   cm_ver="$(python3 -c "import json;print(json.load(open('$cm_tmp/pkg/VENDORED.json'))['upstream']['version'])" 2>/dev/null || echo '?')"
   mkdir -p "$PLUGINS"
-  if [ -f "$CM_DIR/VENDORED.json" ] && cmp -s "$cm_tmp/pkg/VENDORED.json" "$CM_DIR/VENDORED.json"; then
+  if [ -d "$CM_DIR" ] && diff -rq "$cm_tmp/pkg" "$CM_DIR" >/dev/null 2>&1; then
     echo "unchanged: plugins/context-mode($cm_ver)"
   else
     rm -rf "$CM_DIR"; mv "$cm_tmp/pkg" "$CM_DIR"; echo "deployed: plugins/context-mode($cm_ver)"
