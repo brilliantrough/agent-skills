@@ -21,6 +21,7 @@ import { fileURLToPath } from "node:url";
 const SELF_REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DIST = path.join(SELF_REPO, "context-mode", "dist");
 const REPO_URL = "https://github.com/brilliantrough/agent-skills";
+const REPO_SLUG = "brilliantrough/agent-skills"; // 显式指定：gh 默认按 cwd 的 remote 解析，而 setup.sh 会在 clone 里跑
 const UPSTREAM_URL = "https://github.com/mksglu/context-mode";
 
 const [cloneArg, ...flags] = process.argv.slice(2);
@@ -277,7 +278,7 @@ const baseTag = `ctxm-${upstream.version}`;
 let tag = baseTag;
 for (let i = 2; i <= 9; i++) {
   try {
-    execFileSync("gh", ["release", "view", tag], { stdio: "pipe" });
+    execFileSync("gh", ["release", "view", tag, "--repo", REPO_SLUG], { stdio: "pipe" });
     tag = `${baseTag}-${i}`; // 已存在，换下一个后缀
   } catch {
     break; // 该 tag 不存在，可以用
@@ -305,7 +306,7 @@ const notes = [
   `重建方式：\`bash context-mode/setup.sh --publish\`。许可：${upstream.license}，见包内 LICENSE。`,
 ].join("\n");
 try {
-  execFileSync("gh", ["release", "create", tag, ...Object.values(targets).map((t) => path.join(DIST, t.asset)), "--title", `${upstream.name} fork ${upstream.version} (${upstream.commit})`, "--notes", notes], { stdio: "inherit" });
+  execFileSync("gh", ["release", "create", tag, "--repo", REPO_SLUG, ...Object.values(targets).map((t) => path.join(DIST, t.asset)), "--title", `${upstream.name} fork ${upstream.version} (${upstream.commit})`, "--notes", notes], { stdio: "inherit" });
 } catch (e) {
   console.error(`[release] gh release create 失败：${e.message}`);
   process.exit(1);
