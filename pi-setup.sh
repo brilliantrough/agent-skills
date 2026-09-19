@@ -7,12 +7,14 @@
 #            非交互环境按各自默认执行
 #   0. 代理环境提醒(大小写都查;未设则探测直连,透明代理不拦;都不通才要求确认)
 #   1. 依赖检查(全部前置):curl/git/python3(缺失即退出)、npx(缺 → 征得同意装 fnm + Node LTS)、
-#      bun(缺 → 征得同意装,claude-mem MCP server 依赖 bun:sqlite)、uv(可选,.sdoc 校验用)
+#      bun(缺 → 征得同意装,claude-mem MCP server 依赖 bun:sqlite、context-mode fork 构建也用 bun)、uv(可选,.sdoc 校验用)
 #   2. pi 本体:未装 → 官方 install.sh(下载到文件再执行);已装 → 征得同意 pi update --all
 #   3. pi 包(pi install,幂等):pi-mcp-adapter / @dietrichgebert/ponytail / pi-subagents-j0k3r /
 #      pi-lens / @juicesharp/rpiv-ask-user-question / pi-autoname@0.6.8 / @cortexkit/pi-magic-context /
 #      git:github.com/brilliantrough/agent-skills(本仓库自身;含个性化 UI、later、任务耗时扩展、
 #      claude-mem 桥扩展、one-dark 主题——旧版散装部署文件会自动清理);
+#      另外登记 context-mode fork(本地 clone:先跑 context-mode/setup.sh 同步+构建+体检,再 pi install
+#      本地路径;检测到上游 npm:context-mode 会提示卸载——它与 magic-context 抢 ctx_search)
 #      启用 magic-context 前检查与 opencode 共享 context.db 的
 #      版本守卫(opencode 插件缓存版本 < Pi 扩展版本时先提示,不清理就不启用)
 #   4. 部署(字段级合并 dot_file 模板,api key/网关等本地敏感值保留;settings/auth/claude-mem/magic-context 下载失败用内嵌兜底,models.json/mcp.json 必须联网或手工维护):
@@ -591,6 +593,61 @@ PYEOF
   else
     pi_install npm:@cortexkit/pi-magic-context
   fi
+
+  # ---- 3.2 context-mode fork(本机 clone + 三层改动;上游 npm 包会与 magic-context 抢 ctx_search)----
+  # 为什么用本地 clone 而不是上游 npm 包:上游注册 ctx_search,与 magic-context 同名 —— Pi 的
+  # 扩展同名工具检测会直接把启动变成 process.exit(1)。fork 的改名层把 11 个工具改成 ctxm_* 才能共存。
+  # 构建产物不入库,所以必须先跑 context-mode/setup.sh(clone/pull + 三层改动 + 构建 + 体检)再登记;
+  # 本地路径安装,后续改动只需重启 pi。用 CONTEXT_MODE_DIR 可改 clone 位置。
+  if pkg_installed npm:context-mode; then
+    echo ""
+    echo "WARN: 检测到上游 npm 包 context-mode —— 它注册 ctx_search,与 magic-context 同名会让 Pi 启动失败"
+    if ask "现在卸载 npm:context-mode(改用本机 fork)?" Y; then
+      "$PI_BIN" remove npm:context-mode < /dev/null || echo "WARN: 卸载失败,请手动 pi remove npm:context-mode" >&2
+    fi
+  fi
+  CM_REPO="${CONTEXT_MODE_DIR:-$HOME/Linewrite/forks/context-mode}"
+  SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || echo "")"
+  CM_SETUP=""
+  for cand in "$SELF_DIR/context-mode/setup.sh" "$REPO_PI_PKG/context-mode/setup.sh"; do
+    [ -f "$cand" ] && { CM_SETUP="$cand"; break; }
+  done
+  if [ -z "$CM_SETUP" ]; then
+    echo "跳过: 仓库 checkout 里没有 context-mode/setup.sh(先 pi update 本仓库包)"
+  else
+    cm_registered() { # pi 会把本地路径存成相对形式,按尾部匹配而不是全等
+      python3 - "$SETTINGS" <<'PYEOF'
+import json, sys
+try:
+    pkgs = json.load(open(sys.argv[1], encoding="utf-8")).get("packages") or []
+except Exception:
+    sys.exit(1)
+sys.exit(0 if any("forks/context-mode" in str(p) for p in pkgs) else 1)
+PYEOF
+    }
+    if [ ! -d "$CM_REPO/.git" ]; then
+      if ask "同步并构建 context-mode fork(首次 clone+bun install+build,约 1-2 分钟)?" Y; then
+        bash "$CM_SETUP" || echo "WARN: context-mode fork 同步失败(见上文;修好后重跑本脚本)" >&2
+      else
+        echo "跳过: context-mode fork 未构建"
+      fi
+    elif cm_out="$(bash "$CM_SETUP" --verify 2>&1)"; then
+      echo "已有: context-mode fork(体检通过)"
+    else
+      printf '%s\n' "$cm_out" | grep -E "^✗|不合格" >&2 || true
+      if ask "context-mode fork 体检不合格(上游可能更新过),现在重新同步?" Y; then
+        bash "$CM_SETUP" || echo "WARN: context-mode fork 同步失败" >&2
+      fi
+    fi
+    if [ -d "$CM_REPO/.git" ]; then
+      if cm_registered; then
+        echo "已登记: $CM_REPO"
+      elif ask "把 $CM_REPO 登记进 Pi 包列表?" Y; then
+        "$PI_BIN" install "$CM_REPO" < /dev/null || echo "WARN: pi install $CM_REPO 失败" >&2
+      fi
+      echo "  上游发新版后跑一次 $CM_SETUP 同步(内部已带体检;绝不要调 ctxm_upgrade)"
+    fi
+  fi
 fi
 
 # ---- 4. 部署 Pi 配置(字段级合并 dot_file 模板)----
@@ -824,6 +881,15 @@ if pkg_installed "git:github.com/brilliantrough/agent-skills"; then
 else
   echo "  packages[]: 未登记(扩展不会被加载;`pi install git:github.com/brilliantrough/agent-skills`)"
 fi
+# context-mode fork:本地路径包,登记了才会加载(改完只需重启 pi)
+python3 - "$SETTINGS" <<'PYEOF'
+import json, sys
+try:
+    pkgs = json.load(open(sys.argv[1], encoding="utf-8")).get("packages") or []
+except Exception:
+    pkgs = []
+print("  packages[]: context-mode fork " + ("已登记" if any("forks/context-mode" in str(p) for p in pkgs) else "未登记(工具不会加载; bash ~/Linewrite/skills/agent-skills/context-mode/setup.sh --install)"))
+PYEOF
 ui_mode="$(python3 - "$SETTINGS" <<'PYEOF'
 import json, sys
 try:
