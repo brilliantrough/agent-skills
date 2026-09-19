@@ -928,8 +928,11 @@ AGENTS_SRC="$(cd "$(dirname "$0")" 2>/dev/null && pwd)/AGENTS.md"
 AGENTS_URL="https://raw.githubusercontent.com/brilliantrough/agent-skills/main/AGENTS.md"
 if ask "把记忆系统规范块写进 $PROJ_AGENTS 的最尾部(项目自身内容在前)?" N; then
   _tmp="$(mktemp)"; _ok=0
-  if [ -f "$AGENTS_SRC" ]; then cp "$AGENTS_SRC" "$_tmp" && _ok=1
-  elif curl -fsSL --connect-timeout 8 -m 60 -o "$_tmp" "$AGENTS_URL" 2>/dev/null; then _ok=1
+  # 本地 AGENTS.md 只有在确实含规范块、且不是目标文件本身时才算源;否则一律下载
+  if [ -f "$AGENTS_SRC" ] && [ "$AGENTS_SRC" != "$PROJ_AGENTS" ] && grep -q '<!-- memory-system:start -->' "$AGENTS_SRC"; then
+    cp "$AGENTS_SRC" "$_tmp" && _ok=1
+  elif curl -fsSL --connect-timeout 8 -m 60 -o "$_tmp" "$AGENTS_URL" 2>/dev/null \
+    && grep -q '<!-- memory-system:start -->' "$_tmp"; then _ok=1
   fi
   if [ "$_ok" = 1 ]; then
     python3 - "$_tmp" "$PROJ_AGENTS" <<'PYEOF'
@@ -937,7 +940,7 @@ import re, sys, pathlib
 src = pathlib.Path(sys.argv[1]).read_text(encoding="utf8")
 m = re.search(r"<!-- memory-system:start -->.*?<!-- memory-system:end -->", src, re.S)
 if not m:
-    sys.exit("源文件里找不到 memory-system 块")
+    sys.exit("取到的源文件里找不到 memory-system 块")
 block = m.group(0)
 p = pathlib.Path(sys.argv[2])
 old = p.read_text(encoding="utf8") if p.exists() else ""
