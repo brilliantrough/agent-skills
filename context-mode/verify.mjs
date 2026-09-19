@@ -68,6 +68,7 @@ check("skills/ctx-upgrade 已剪掉", !skills.includes("ctx-upgrade"), "它会�
 check("skill 数量为 7", skills.length === 7, `现在是 ${skills.length} 个：${skills.join(" ")}`);
 const main = existsSync(join(REPO, "skills/context-mode/SKILL.md")) ? read("skills/context-mode/SKILL.md") : "";
 check("主 skill 有 When NOT to Use 表", main.includes("## When NOT to Use"));
+check("主 skill 有沙箱坑位一节（cwd/临时目录/env/回显/超时/边界）", main.includes("## Sandbox mechanics (pitfalls)") && main.includes("Bash vs ctxm_*"));
 check(`主 skill 教了 ${PREFIX}batch_execute`, main.includes(`${PREFIX}batch_execute`), "它是注入锚点的第一优先级工具");
 
 // ── 静态：发布包层（产物走 release：目标机装的就是这两个 tar 包，不是 clone） ──

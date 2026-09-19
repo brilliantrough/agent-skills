@@ -61,13 +61,14 @@ const ANCHOR = [
   '        "context-mode active. Hierarchy: ctx_batch_execute > ctx_execute > ctx_execute_file > ctx_search. " +',
   '        "Read files / bulk processing → ctx_execute_file. Multi-command research → ctx_batch_execute. " +',
   '        "Web pages → ctx_fetch_and_index then ctx_search. Index docs → ctx_index. " +',
-  '        "Stats → ctx_stats. Doctor → ctx_doctor. Purge → ctx_purge (destructive, needs confirm:true)."',
+  '        "Stats → ctx_stats. Doctor → ctx_doctor. Purge → ctx_purge (destructive, needs confirm:true). " +',
+  '        "Native Read stays right when you will edit that file or need exact bytes; Bash stays right for short fixed output and state mutations."',
   "      );",
 ].join("\n");
 
 edit("src/adapters/pi/extension.ts", "upgrade-anchor", (s) => {
   const NEEDLE = '"context-mode active. Hierarchy:';
-  if (s.includes("Purge → ctx_purge (destructive, needs confirm:true)")) return { status: "skip", why: "锚点已是我们的版本" };
+  if (s.includes("Native Read stays right when you will edit")) return { status: "skip", why: "锚点已是我们的版本" };
   const at = s.indexOf(NEEDLE);
   if (at < 0) {
     return { status: "fail", why: `扩展里找不到 ${NEEDLE} 这段路由提示，上游可能改了注入逻辑，需要人工看一眼 src/adapters/pi/extension.ts` };
@@ -233,6 +234,32 @@ edit(SKILL, "skill-coverage", (s) => {
   if (missing.length) return { status: "fail", why: missing.join("；") };
   if (out === s) return { status: "skip", why: "已是我们的版本" };
   return { status: "write", text: out, why: did.join("、") };
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. 沙箱机制的坑（cwd / 临时目录 / 环境变量 / 回显 / 超时 / 边界）与
+//    Bash-vs-ctxm_* 取舍：主 skill 原本 0 处提及，第一次调用最容易踩
+// ─────────────────────────────────────────────────────────────────────────────
+const PITFALLS = `## Sandbox mechanics (pitfalls)
+
+\`ctx_batch_execute\` / \`ctx_execute\` / \`ctx_execute_file\` run code in a fresh subprocess sandbox — not in the project shell.
+
+- **cwd**: every language except \`shell\` runs in a fresh temp dir, so project-relative paths do NOT resolve. Use absolute paths, or \`language: "shell"\` (shell honors \`cwd\`, default: project root).
+- **Nothing is written**: the sandbox filesystem is discarded — file changes go through the host's Write/Edit tools.
+- **env**: cross-language injection variables are stripped (\`BASH_ENV\`, \`ENV\`, \`PROMPT_COMMAND\`, \`NODE_OPTIONS\`, \`PYTHONSTARTUP\`, \`RUBYOPT\`, \`PERL5OPT\`, \`ERL_FLAGS\`, \`GOFLAGS\`, \`RUSTC\`, …), \`TMPDIR\` points at the sandbox, \`LANG\` / \`NO_COLOR\` / \`PYTHON*\` are forced. Secrets (API keys) are inherited as usual.
+- **echo**: the code you pass comes back (≤2000 chars) ahead of stdout — for tiny outputs plain Bash is cheaper.
+- **timeout**: none by default (the host's RPC limit is the only bound) — pass \`timeout\` (ms) or \`background: true\` for long jobs.
+- **boundary**: \`ctx_execute_file\` refuses paths outside the workspace (#852); \`ctx_execute\` has no such guard.
+
+**Bash vs ctxm_\***: Bash — or the host's Read — is right when the output is short and fixed and you will use it verbatim, when you need the exact bytes (editing, error text, config values), or when you mutate state (git, mkdir, rm, mv, install). ctxm_* is right when the alternative is pulling bulk data into the conversation: repo-wide grep/glob, log or dependency or build output, multi-file scans, data aggregation. Native Grep/Glob/Read put every hit into the conversation — that is the cost this toolset exists to remove.
+
+`;
+
+edit(SKILL, "skill-pitfalls", (s) => {
+  const anchor = "## Automatic Triggers";
+  if (s.includes("## Sandbox mechanics (pitfalls)")) return { status: "skip", why: "已有 Sandbox mechanics 一节" };
+  if (!s.includes(anchor)) return { status: "fail", why: `找不到 ${anchor} 锚点，无法插入沙箱坑位一节` };
+  return { status: "write", text: s.replace(anchor, PITFALLS + anchor), why: "补沙箱机制与 Bash-vs-ctxm_* 取舍（cwd/临时目录/env/回显/超时/边界）" };
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
