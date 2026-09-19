@@ -1076,14 +1076,11 @@ if [ -f "$LATER_DIR/index.mjs" ] && \
   ensure_tui_plugin "./tui-plugins/later" 'tui-plugins/later'
 fi
 
-# ---- 5.4 TUI 按键改绑(Enter 换行、Ctrl+Enter 发送:防手滑把没编辑完的消息发出去)----
-#   input_newline = enter / shift+enter    prompt_submit = ctrl+enter / alt+enter
-# alt+enter 是保底(终端送不出扩展键时也能用);ctrl+enter / shift+enter 需要终端键位表
-# 与 tmux 配合才能区分(见 dot_file 的 konsole/csi-u.keytab 与 tmux/.tmux.conf)。
-# 只补缺失的键:本地已自定义过的按键不动(想恢复默认就手动删掉该键)。
-if ask "把 Enter 改成换行、Ctrl+Enter 改成发送(写入 $TUI_CFG)?" Y; then
+# ---- 5.4 TUI 按键(Enter 发送、Shift+Enter 换行;不绑定 Ctrl+Enter)----
+# 用户确认后仅更新三个相关 action,其它按键和插件保留;变化时先展示差异并备份。
+if ask "统一为 Enter 发送、Shift+Enter 换行,取消旧 Ctrl+Enter/Ctrl+J 发送绑定(仅更新 $TUI_CFG 的三个相关按键)?" Y; then
 python3 - "$TUI_CFG" <<'PYEOF'
-import json, re, sys
+import json, os, re, shutil, sys
 path = sys.argv[1]
 def load(p):  # JSONC 感知:去注释与尾逗号(字符串内的 // 不动)
     try:
@@ -1108,21 +1105,25 @@ def load(p):  # JSONC 感知:去注释与尾逗号(字符串内的 // 不动)
             i += 2; continue
         out.append(c); i += 1
     return json.loads(re.sub(r',(\s*[}\]])', r'\1', ''.join(out)))
-want = {"input_newline": ["enter", "shift+enter"], "prompt_submit": ["ctrl+enter", "alt+enter"]}
+want = {"input_submit": "return", "input_newline": "shift+return", "prompt_submit": "none"}
 cfg = load(path)
-kb = cfg.get("keybinds")
+kb = cfg.get("keybinds", {})
 if not isinstance(kb, dict):
-    kb = {}
-added = {k: v for k, v in want.items() if k not in kb}
-if not added:
-    print(f"unchanged: {path}(keybinds 已存在)")
+    sys.exit(f"ERROR: {path} 的 keybinds 不是对象,未修改")
+changed = {k: v for k, v in want.items() if kb.get(k) != v}
+if not changed:
+    print(f"unchanged: {path}(按键已一致)")
 else:
-    kb.update(added)
+    for k, v in changed.items():
+        print(f"keybinds.{k}: {kb.get(k)!r} -> {v!r}")
+    if os.path.exists(path):
+        shutil.copy2(path, path + ".bak")
+    kb.update(changed)
     cfg["keybinds"] = kb
     with open(path, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2, ensure_ascii=False)
         f.write("\n")
-    print(f"added: keybinds {', '.join(added)} -> {path}")
+    print(f"updated: keybinds {', '.join(changed)} -> {path}")
 PYEOF
 fi
 
