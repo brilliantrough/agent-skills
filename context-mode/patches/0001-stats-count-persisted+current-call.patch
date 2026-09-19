@@ -1,0 +1,80 @@
+diff --git a/src/server.ts b/src/server.ts
+index 5a884c2..489116a 100644
+--- a/src/server.ts
++++ b/src/server.ts
+@@ -3933,6 +3933,48 @@ function createMinimalDb(): import("./session/analytics.js").DatabaseAdapter {
+   };
+ }
+ 
++/**
++ * ctx_stats 的会话级计数：以 SessionDB 的 tool_calls 为准，并把「本次调用」算进去。
++ *
++ * 修两个已知偏差：
++ *   1. `sessionStats` 是进程内内存计数器 —— MCP 子进程一重启就归零。启动时的
++ *      restoreSessionStats() 只按 session_meta 最新一行还原，而渲染路径完全不读 DB，
++ *      所以同一会话换了 PID 就显示 0。
++ *   2. trackResponse() 是在响应文本拼好之后才自增的，ctx_stats 自己这一次调用
++ *      永远不会被算进去 —— 会话里第一次跑 ctx_stats 必然显示 "0 calls"，
++ *      看起来像统计快照坏了。
++ * 取 DB 与内存的逐工具较大值（DB 多 = 上一个 PID 记的；内存多 = DB 写失败），
++ * 再给 ctx_stats 自己补 1。sdb 为 null 时（无会话 DB 的分支）只补那 1。
++ */
++type StatsDb = { prepare: (sql: string) => any };
++
++function statsIncludingCurrentCall(sdb: StatsDb | null): typeof sessionStats {
++  const calls: Record<string, number> = { ...sessionStats.calls };
++  const bytesReturned: Record<string, number> = { ...sessionStats.bytesReturned };
++  try {
++    if (sdb) {
++      const sid = (
++        sdb.prepare("SELECT session_id FROM session_meta ORDER BY started_at DESC LIMIT 1").get() as
++          | { session_id?: string }
++          | undefined
++      )?.session_id;
++      if (sid) {
++        const rows = sdb
++          .prepare("SELECT tool, calls, bytes_returned FROM tool_calls WHERE session_id = ?")
++          .all(sid) as Array<{ tool: string; calls: number; bytes_returned: number }>;
++        for (const r of rows) {
++          calls[r.tool] = Math.max(calls[r.tool] ?? 0, r.calls);
++          bytesReturned[r.tool] = Math.max(bytesReturned[r.tool] ?? 0, r.bytes_returned);
++        }
++      }
++    }
++  } catch {
++    // best-effort — 统计读取失败绝不能让 ctx_stats 挂掉
++  }
++  calls["ctx_stats"] = (calls["ctx_stats"] ?? 0) + 1;
++  return { ...sessionStats, calls, bytesReturned };
++}
++
+ server.registerTool(
+   "ctx_stats",
+   {
+@@ -3970,7 +4012,7 @@ server.registerTool(
+         const sdb = new Database(sessionDbPath, { readonly: true });
+         try {
+           const engine = new AnalyticsEngine(sdb);
+-          const report = engine.queryAll(sessionStats);
++          const report = engine.queryAll(statsIncludingCurrentCall(sdb));
+           // MCP usage is read-only and cheap; only available when DB exists.
+           const mcpUsage = engine.getMcpToolUsage();
+           // Lifetime stats span every project's SessionDB + auto-memory dir
+@@ -4104,7 +4146,7 @@ server.registerTool(
+         // No session DB — build a minimal report from runtime stats only.
+         // Lifetime still meaningful (other projects, auto-memory) so include it.
+         const engine = new AnalyticsEngine(createMinimalDb());
+-        const report = engine.queryAll(sessionStats);
++        const report = engine.queryAll(statsIncludingCurrentCall(null));
+         const lifetime = getLifetimeStats({ sessionsDir: getSessionDir() });
+         if (_detectedAdapter?.name === "Pi") {
+           patchPiLifetimeFromStatsFiles(lifetime, getSessionDir());
+@@ -4118,7 +4160,7 @@ server.registerTool(
+     } catch {
+       // Session DB not available or incompatible — build minimal report from runtime stats
+       const engine = new AnalyticsEngine(createMinimalDb());
+-      const report = engine.queryAll(sessionStats);
++      const report = engine.queryAll(statsIncludingCurrentCall(null));
+       let lifetime;
+       try { lifetime = getLifetimeStats({ sessionsDir: getSessionDir() }); } catch { /* never block ctx_stats */ }
+       if (_detectedAdapter?.name === "Pi" && lifetime) {
