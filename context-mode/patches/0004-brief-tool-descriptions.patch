@@ -1,0 +1,288 @@
+diff --git a/src/server.ts b/src/server.ts
+index adc058c..b9fd78a 100644
+--- a/src/server.ts
++++ b/src/server.ts
+@@ -1660,38 +1660,8 @@ server.registerTool(
+       idempotentHint: false,
+       openWorldHint: true,
+     },
+-    description: `Run code in a sandboxed subprocess.${bunNote} Languages: ${langList}.
+-
+-Think-in-Code — the core philosophy: the bytes your code processes never enter your conversation memory; only what you console.log() does. Reading a 700 KB log directly means 700 KB of your remaining reasoning capacity gets spent on raw bytes. Running code over that same log in this sandbox and printing a 3 KB summary leaves you with 697 KB of capacity for the actual work.
+-
+-Concrete shape — analyze 47 source files without reading any of them:
+-  ctx_execute(language: "javascript", code: \`
+-    const fs = require('fs');
+-    const files = fs.readdirSync('src').filter(f => f.endsWith('.ts'));
+-    files.forEach(f => {
+-      const lines = fs.readFileSync('src/'+f,'utf8').split('\\\\n').length;
+-      console.log(f + ': ' + lines + ' lines');
+-    });
+-  \`)
+-  // 47 files analyzed, 15,314 LoC summarized — output ~3.6 KB instead of 47 Read() calls = ~700 KB.
+-
+-WHEN:
+-  - You intend to derive an answer FROM data (filter, count, aggregate, parse, compare, transform) — do the derivation in code and print only the answer
+-  - Output shape or size cannot be predicted before execution (recursive finds, repo-wide greps, list endpoints, query results, log scans)
+-  - You would otherwise read raw output and then mentally compute — that compute belongs here, in code, where its inputs stay out of your conversation
+-  - You need to keep a long-running process alive (dev server, watcher, daemon) — pass \`background: true\` to detach on timeout instead of killing the process
+-  - The output may legitimately be large but you only want recall-by-topic later — pass an \`intent\` string; outputs over ~5KB are auto-indexed into the knowledge base and only the section titles + previews come back, retrievable via ctx_search
+-
+-WHEN NOT:
+-  - Single observational command whose entire short output you intend to consume verbatim (whoami, pwd, git status on a clean tree) — Bash is simpler
+-  - File mutations (Edit/Write) or navigation (cd/ls) — Bash is the right surface
+-  - You already know the output is one short fixed line and you want to read it as-is
+-
+-RETURNS:
+-  Only what your code prints. Wrap risky calls in try/catch — uncaught errors go to stderr and may leak more than intended. When \`intent\` is set and output exceeds the auto-index threshold, the response carries searchable section titles + previews instead of the raw stdout; use ctx_search(queries: [...]) to drill into specific sections.
+-
+-EXAMPLE: ctx_execute(language: "javascript", code: "const out = require('child_process').execSync('npm test', {encoding:'utf8', stdio:['ignore','pipe','pipe']}); console.log(out.split('\\\\n').filter(l => /(FAIL|✗|×|Error:|Tests +.*(failed|passed))/i.test(l)).slice(0, 60).join('\\\\n'))")
+-EXAMPLE: ctx_execute(language: "javascript", code: "const out = require('child_process').execSync('gh issue list --json number,title --limit 100', {encoding:'utf8'}); const hooks = JSON.parse(out).filter(i => /hook|routing/i.test(i.title)); console.log(\`\${hooks.length} hook-related issues\`)")`,
++    description:
++      `Run code in a sandboxed subprocess ${bunNote} Languages: ${langList}. Only what you console.log() enters context; the raw bytes never do. Reach for it to derive an answer FROM data (filter/count/aggregate/parse) rather than reading the bytes, and to keep long-running processes alive (background:true). Full guidance: skill context-mode.`,
+     inputSchema: z.object({
+       language: z
+         .enum([
+@@ -2056,26 +2026,8 @@ server.registerTool(
+       idempotentHint: false,
+       openWorldHint: true,
+     },
+-    description: `Read a file into a sandboxed FILE_CONTENT variable and run code over it. Only what you console.log() enters your conversation — the file bytes stay in the sandbox.
+-
+-Think-in-Code applied to file-level analysis: Reading the whole file means every byte enters your conversation memory and costs reasoning capacity for the rest of the session. Running code over it here lets you keep the raw bytes out and only the derived answer in. Same principle as ctx_execute, scoped to one named file via the FILE_CONTENT variable.
+-
+-WHEN:
+-  - You want to KNOW SOMETHING ABOUT a file (line count, matches of a pattern, parsed structure, statistical aggregate) without needing to SEE all of it
+-  - The file is structured (CSV, JSON, log, code) and a code-level derivation is cheaper than reading verbatim
+-  - The file is large enough that reading the full content would burn meaningful conversation memory you need for the actual work
+-  - The derivation may itself produce a large output you want recall-by-topic on later — pass an \`intent\` string; outputs over ~5KB are auto-indexed and only matching sections come back, retrievable via ctx_search
+-
+-WHEN NOT:
+-  - You intend to EDIT the file — use Read so the subsequent Edit can match the exact text
+-  - You only need one specific line and you know its offset — Read with offset/limit is the simplest path
+-  - The file is small AND you will consume all of it for understanding/editing — Read directly
+-
+-RETURNS:
+-  Only what your code prints. The FILE_CONTENT variable holds the raw bytes inside the sandbox; nothing else leaves. When \`intent\` is set and output exceeds the auto-index threshold, the response carries searchable section titles + previews instead of the raw stdout.
+-
+-EXAMPLE: ctx_execute_file(path: "huge.log", language: "javascript", code: "const errs = FILE_CONTENT.split('\\\\n').filter(l => /ERROR|FATAL/.test(l)); console.log(\`\${errs.length} error lines\`); console.log(errs.slice(-5).join('\\\\n'))")
+-EXAMPLE: ctx_execute_file(path: "data.csv", language: "javascript", code: "const rows = FILE_CONTENT.split('\\\\n'); console.log(\`rows: \${rows.length - 1}, header: \${rows[0]}\`)")`,
++    description:
++      "Read one file into a sandboxed FILE_CONTENT variable and print only the derived answer — the file bytes never enter context. The path must be inside the workspace (outside paths are refused by design, issue #852). Use it to KNOW something about a file without seeing all of it. Full guidance: skill `context-mode`.",
+     inputSchema: z.object({
+       path: z
+         .string()
+@@ -2248,25 +2200,8 @@ server.registerTool(
+       idempotentHint: false,
+       openWorldHint: false,
+     },
+-    description: `Store content in a searchable knowledge base (BM25 over FTS5). Splits markdown by headings, keeps code blocks intact, and persists the raw chunks. The full content stays in storage — retrieve any section on-demand via ctx_search; nothing is summarized or truncated.
+-
+-WHEN:
+-  - Documentation from Context7, Skills, or MCP tools (API docs, framework guides, code examples)
+-  - API references (endpoint details, parameter specs, response schemas)
+-  - MCP tools/list output (exact tool signatures and descriptions)
+-  - Skill prompts and instructions that are too large to keep verbatim in conversation
+-  - README files, migration guides, changelog entries
+-  - Any content with code examples you may need to reference precisely later
+-
+-WHEN NOT:
+-  - Log files, test output, CSV, or build output — use ctx_execute_file, which processes in-sandbox without persisting bytes
+-  - Single-use ephemeral content you will not query later — keep it inline if it fits, or ctx_execute_file it
+-
+-RETURNS:
+-  Indexing metadata: chunk counts (total, code-bearing), source label, and the exact ctx_search call shape to query the indexed content. Raw content is NOT echoed back — it lives in storage, retrievable via ctx_search(source: "<label>"). When \`path\` is provided, a content hash is stored so ctx_search results auto-flag staleness on future calls.
+-
+-EXAMPLE: ctx_index(content: "# React useEffect\\n\\nThe Effect Hook lets you ...", source: "react-useeffect-docs")
+-EXAMPLE: ctx_index(path: "/path/to/large-spec.md", source: "openapi-v2-spec")`,
++    description:
++      "Store content — inline text, or a file/directory via `path` — in the persistent FTS5 knowledge base: split by headings, code blocks kept intact, raw chunks persisted for later retrieval. Retrieve with ctx_search. Full guidance: skill `ctx-index`.",
+     inputSchema: z.object({
+       content: z
+         .string()
+@@ -2564,32 +2499,8 @@ server.registerTool(
+       idempotentHint: true,
+       openWorldHint: false,
+     },
+-    description: `Search a unified knowledge base with a multi-strategy ranking pipeline. Two parallel matchers run on every query: a Porter-stemming matcher ("caching" finds "cached", "caches", "cach") and a trigram-substring matcher ("useEff" finds "useEffect"). Their ranked lists are merged via Reciprocal Rank Fusion, so a document that ranks well in both surfaces above one that wins only on a single strategy. Multi-term queries get an additional proximity-rerank pass that boosts passages where the query terms appear close together. Typos are corrected via Levenshtein distance and re-searched. Result snippets are window-extracted around the matched terms, not blindly truncated.
+-
+-The knowledge base is unified: queries reach indexed content you stored (ctx_index, ctx_fetch_and_index, ctx_batch_execute output) AND auto-captured session memory written by hooks (decisions, errors, blockers, plans, user prompts, rejected approaches, tool failures, compaction guides — 26 event categories). File-backed sources carry a content hash and auto-flag staleness when the source file changes.
+-
+-WHEN:
+-  - You want to recall something that exists in storage (recently indexed content, prior session events, auto-memory) instead of re-reading raw sources
+-  - You have multiple related questions about the same body of knowledge — batch every question into one call (the ranking pipeline runs per-query but the round-trip cost is paid once)
+-  - You want to scope the query to one labelled source (pass \`source\` — partial match is fine)
+-  - You want a chronological view across current session + prior sessions + persistent auto-memory (pass \`sort: "timeline"\` — the default \`relevance\` mode only ranks within the current session)
+-  - You want to filter ranked results by content shape (pass \`contentType: "code"\` to surface implementation snippets or \`contentType: "prose"\` to surface explanations)
+-
+-WHEN NOT:
+-  - The data you want to query has never been stored in the knowledge base AND no session memory has accumulated around it — capture first (run a gather-and-index call), then come back here to query
+-  - You have one ad-hoc question against data that is not in the knowledge base — answer it inline by running code in the sandbox tool; one round-trip instead of capture-then-query
+-
+-RETURNS:
+-  Per-query ranked sections with window-extracted snippets. Use 2-4 specific technical terms per query. Common session-memory source labels: \`decision\` (user corrections / preferences), \`error\` and \`error-resolution\` (past failures + their fixes), \`blocker\`, \`plan\`, \`user-prompt\`, \`rejected-approach\`, \`compaction\` (post-compact session guide). See ctx_stats for live category counts. Each response carries a throttle counter (call #N/M in the rolling time window); results taper toward the soft cap and calls block after the hard cap. Tune via CONTEXT_MODE_SEARCH_WINDOW_MS, CONTEXT_MODE_SEARCH_MAX_RESULTS_AFTER, CONTEXT_MODE_SEARCH_BLOCK_AFTER.
+-
+-EXAMPLE: ctx_search(queries: ["root cause", "proposed fix", "test coverage"], source: "issue-#683")
+-EXAMPLE: ctx_search(queries: ["what did we decide about caching"], source: "decision", sort: "timeline")
+-EXAMPLE: ctx_search(queries: ["useEffect cleanup pattern"], source: "react-docs", contentType: "code", limit: 5)
+-EXAMPLE: ctx_search(queries: ["last user prompt", "active skills", "open blockers"], sort: "timeline")`,
+-    // Schema construction is centralised in `src/search/ctx-search-schema.ts`
+-    // so the conditional `project` field (only registered when the host runs
+-    // in shared-DB mode, `CONTEXT_MODE_PROJECT_DIR` set at module load) is a
+-    // hard property of the tool surface — not a runtime hint. Fixes #737.
++    description:
++      "Search the unified knowledge base (content you indexed + auto-captured session memory) with a multi-strategy pipeline: Porter-stemming matcher and trigram-substring matcher fused by RRF, Levenshtein typo correction, proximity rerank, window-extracted snippets. Returns section titles and previews, never full bytes — drill in with more queries. Full guidance: skill `ctx-search`.",
+     inputSchema: buildCtxSearchInputSchema(CTX_SEARCH_SHARED_MODE),
+   },
+   async (params) => {
+@@ -3423,27 +3334,8 @@ server.registerTool(
+       idempotentHint: false,
+       openWorldHint: true,
+     },
+-    description: `Fetches URL content, converts HTML to markdown (JSON is chunked by key paths, plain text indexed directly), persists it in a searchable knowledge base, and returns a small preview window per source. The raw page bytes never enter your conversation — they live in storage and you retrieve any section on-demand via ctx_search.
+-
+-Caching: every fetch is cached on disk and reused for repeat calls within the TTL window. The default TTL is 24 hours; override per-call with the \`ttl\` parameter (milliseconds, \`ttl: 0\` bypasses cache like \`force: true\`). Stored content older than 14 days is cleaned up on startup.
+-
+-WHEN:
+-  - You need web content (docs, changelogs, API references, spec pages) and the raw page bytes should NOT enter your conversation
+-  - Multi-URL research (library evaluation, migration scans, doc comparisons): pass the \`requests\` array and a \`concurrency\` value 2-8 for parallel I/O
+-  - You want repeat lookups against the same URL to be cheap (TTL cache hits return only a hint, no re-fetch)
+-  - You want a long-lived cache window (override \`ttl\` upward for stable specs) or a guaranteed-fresh fetch (\`ttl: 0\` or \`force: true\`)
+-
+-WHEN NOT:
+-  - You already have the content locally — store it via the inline index tool
+-  - The page is SPA-rendered (JavaScript-required to materialize content) — this is a plain HTTP fetch, no headless browser
+-
+-RETURNS:
+-  Per-source preview windows extracted around indexable headings plus indexing metadata (chunk counts, source labels, cache state). Raw content is NOT echoed back — retrieve any section on-demand via ctx_search(source: "<label>"). Concurrency parallelizes the fetch phase up to your chosen value (capped by the host's logical CPU count); the FTS5 write phase always runs serially because SQLite is a single-writer store. Net latency = max(fetch latency across the pool) + sum(per-source index write time). Cache hits skip both phases and return a small freshness hint instead of re-fetching. Use 4-8 for stable I/O-bound batches; lower the value when the target host enforces a per-IP rate limit you cannot raise.
+-
+-EXAMPLE: ctx_fetch_and_index(
+-  requests: [{url: "https://react.dev/...", source: "react"}, {url: "https://vuejs.org/...", source: "vue"}],
+-  concurrency: 5
+-)`,
++    description:
++      "Fetch a URL, convert HTML to markdown (JSON chunked by key paths), index it, and return only a small preview window per source — the page bytes never enter context. Cached on disk (24h TTL; override with `ttl`, bypass with `ttl: 0` or `force`). Plain HTTP fetch, no headless browser. Full guidance: skill `context-mode`.",
+     inputSchema: z.object({
+       url: z.string().optional().describe("Single URL to fetch and index (legacy single-shape)"),
+       source: z
+@@ -3689,32 +3581,8 @@ server.registerTool(
+       idempotentHint: false,
+       openWorldHint: true,
+     },
+-    description: `Run multiple commands in ONE call. Every command's output is auto-indexed into the knowledge base; if you also pass \`queries\`, the matching sections come back in the same round trip so a follow-up search call is not needed.
+-
+-Concurrency parallelizes the FETCH phase (run-the-commands). The DERIVATION phase — turning raw output into an answer — still belongs in code: add a processing command that consumes the indexed output and prints only the answer, so the raw bytes never enter your conversation (Think-in-Code, same principle as the sandbox tool).
+-
+-WHEN:
+-  - You have 3+ related commands you would otherwise run sequentially (multi-issue lookups, git log + git diff + git blame, multi-file reads, multi-region cloud queries)
+-  - You want to gather AND query in one round trip — pass \`queries\` so the matching sections come back inline
+-  - You want to parallelize I/O-bound work — pass \`concurrency\` 2-8 (network calls, gh CLI, cloud APIs, multi-repo git reads)
+-  - The combined output is large enough that piping it through ctx_search later would itself be expensive — let auto-index + inline queries do both in one shot
+-
+-WHEN NOT:
+-  - Single command with no follow-up query — run it in the sandbox tool directly
+-  - CPU-bound or stateful commands — keep concurrency at 1 (npm test, build, lint, port-binding servers, lock-file holders, anything that races on the same resource)
+-
+-RETURNS:
+-  Auto-indexed section list per command label, plus top matches per query (when \`queries\` is passed). Raw output is NOT echoed in full — only the matched windows. Concurrency>1 switches each command to its own per-command timeout (no shared budget); concurrency=1 preserves the legacy shared-budget cascading-skip-on-timeout path. Use 4-8 for I/O-bound batches; keep at 1 for CPU work or shared-state commands; lower the value when target hosts enforce per-IP rate limits.
+-
+-EXAMPLE: ctx_batch_execute(
+-  commands: [
+-    {label: "issue 1", command: "gh issue view 1"},
+-    {label: "issue 2", command: "gh issue view 2"},
+-    {label: "summarize", command: "echo done"}
+-  ],
+-  queries: ["root cause", "proposed fix"],
+-  concurrency: 2
+-)`,
++    description:
++      "Run several commands in ONE call. Every command's output is auto-indexed into the knowledge base; pass `queries` and the matching sections come back in the same round trip (gather + answer together). `concurrency` parallelizes the fetch phase — keep it at 1 for CPU-bound or stateful commands. Full guidance: skill `context-mode`.",
+     inputSchema: z.object({
+       commands: z.preprocess(coerceCommandsArray, z
+         .array(
+@@ -3990,9 +3858,7 @@ server.registerTool(
+       openWorldHint: false,
+     },
+     description:
+-      "Returns context consumption statistics for the current session. " +
+-      "Shows total bytes returned to context, breakdown by tool, call counts, " +
+-      "estimated token usage, and context savings ratio.",
++      "Return this session's context-consumption statistics: total bytes returned, per-tool breakdown, call counts, estimated token usage, context-savings ratio. Read-only. Full guidance: skill `ctx-stats`.",
+     inputSchema: z.object({}),
+   },
+   async () => {
+@@ -4194,9 +4060,7 @@ server.registerTool(
+       openWorldHint: false,
+     },
+     description:
+-      "Diagnose context-mode installation. Runs all checks server-side and " +
+-      "returns a plain-text status report with [OK]/[FAIL]/[WARN] prefixes " +
+-      "(renderer-safe across MCP clients). No CLI execution needed.",
++      "Diagnose the context-mode installation server-side and return a plain-text [OK]/[FAIL]/[WARN] report. Full guidance: skill `ctx-doctor`.",
+     inputSchema: z.object({}),
+   },
+   async () => {
+@@ -4325,12 +4189,7 @@ server.registerTool(
+       openWorldHint: false,
+     },
+     description:
+-      "FORK: do not call（本地 fork，勿调用）. This install is a fork of upstream whose tool names " +
+-      "are renamed to ctxm_* after the build so they cannot collide with pi-magic-context's " +
+-      "ctx_search; the upstream upgrade would reinstall upstream and wipe that rename. " +
+-      "The upgrade path on this machine is `bash ~/Linewrite/skills/agent-skills/context-mode/setup.sh`. " +
+-      "Legacy behavior of this tool: returns a shell command that upgrades context-mode to the " +
+-      "latest version.",
++      "FORK: do not call（本地 fork，勿调用）. This install renames its tools to ctxm_* in a post-build step so they cannot collide with pi-magic-context; the upstream upgrade reinstalls upstream and wipes that rename. Upgrade path here: `bash ~/Linewrite/skills/agent-skills/context-mode/setup.sh`. Full guidance: skill `context-mode`.",
+     inputSchema: z.object({}),
+   },
+   async () => {
+@@ -4501,34 +4360,8 @@ server.registerTool(
+       idempotentHint: true,
+       openWorldHint: false,
+     },
+-    description: `DESTRUCTIVE: permanently delete indexed content. Cannot be undone. Requires confirm:true and exactly one scope.
+-
+-WHEN:
+-  - User explicitly asks to clear a specific session ('purge this session', 'wipe this conversation')
+-  - User explicitly asks to reset the whole project ('reset everything', 'wipe the knowledge base')
+-
+-WHEN NOT:
+-  - User says 'reset', 'clear', or 'wipe' without naming a scope -> ask which scope before calling
+-  - User wants to free memory or improve performance -> recommend ctx_stats first, do not purge
+-
+-SCOPES (pass exactly one):
+-  - Per-session: ctx_purge(confirm: true, sessionId: "<uuid>") deletes that session's events (auto-captured decisions, errors, plans, user prompts, rejected approaches, etc.) and per-session FTS5 chunks; sibling sessions and stats file are preserved.
+-  - Per-project: ctx_purge(confirm: true, scope: "project") wipes FTS5 knowledge base, every session DB row, events markdown, and resets the stats file. Use ctx_stats first to preview category counts before purging.
+-
+-CONTRACT:
+-  - confirm:true is required; confirm:false returns 'purge cancelled'.
+-  - sessionId and scope:'project' together return 'ambiguous - pick one'.
+-  - scope:'session' without sessionId throws (sessionId required).
+-  - Bare {confirm:true} is deprecated: maps to scope:'project' with a stderr warning; will hard-error in a future major.
+-
+-RETURNS:
+-  A summary of removed rows + the resolved scope.
+-
+-EXAMPLE: ctx_purge(confirm: true, sessionId: "7c8a-1234-5678-9abc-def012345678")
+-EXAMPLE: ctx_purge(confirm: true, scope: "project")`,
+-    // NOTE: schema MUST be a plain z.object — no .refine()/.transform()/
+-    // .superRefine() wrapper. See block comment above & issue #563. The
+-    // cross-field ambiguity check lives in the handler body below.
++    description:
++      "DESTRUCTIVE: permanently delete indexed content, cannot be undone. Requires `confirm: true` and exactly one scope — a `sessionId`, or scope project. It is not a way to free memory or improve performance; if the user says reset/clear/wipe without naming a scope, ask which one first. Full guidance: skill `ctx-purge`.",
+     inputSchema: z.object({
+       // confirm: wrapped in coerceBoolean preprocessor — OpenCode's native
+       // plugin bridge can deliver `confirm:"true"` / `confirm:"false"` as
+@@ -4873,11 +4706,7 @@ server.registerTool(
+       openWorldHint: true,
+     },
+     description:
+-      "Opens the context-mode Insight dashboard (https://context-mode.com/insight) in your " +
+-      "default browser — a dashboard launcher for the hosted analytics layer, not a Q&A engine. " +
+-      "Insight surfaces per-engineer productive rate, retry waste, blocker detection, and " +
+-      "role-narrowed views for CTO, EM, IC, CISO, FinOps, and DevOps. " +
+-      "For natural-language queries over your indexed content, use ctx_search.",
++      "Open the hosted context-mode Insight dashboard in the default browser — a dashboard launcher, not a Q&A engine. Full guidance: skill `ctx-insight`.",
+     inputSchema: z.object({}),
+   },
+   async () => {
