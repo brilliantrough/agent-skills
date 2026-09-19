@@ -19,7 +19,7 @@
 #      启用 magic-context 前检查与 opencode 共享 context.db 的
 #      版本守卫(opencode 插件缓存版本 < Pi 扩展版本时先提示,不清理就不启用)
 #   4. 部署(字段级合并 dot_file 模板,api key/网关等本地敏感值保留;settings/auth/claude-mem/magic-context 下载失败用内嵌兜底,models.json/mcp.json 必须联网或手工维护):
-#      ~/.pi/agent/settings.json(含按模型 thinking、4/8/16 秒重试)、pi-autoname.json(低频命名)、
+#      ~/.pi/agent/settings.json(含按模型 thinking、4 秒起步指数退避重试 8 次)、pi-autoname.json(低频命名)、
 #      ~/.pi/agent/models.json、~/.pi/agent/auth.json(占位符初始化,
 #      coding plan 等内置 provider 凭据)、~/.agents/mcp.json(三平台共享)
 #      以及共用配置 ~/.claude-mem/settings.json、~/.config/cortexkit/magic-context.jsonc(含 historian.pi/dreamer.pi)

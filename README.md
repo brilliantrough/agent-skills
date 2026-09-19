@@ -141,7 +141,7 @@ skills 是共享的，更新也会影响 OpenCode；claude-mem runtime 更新请
 |---|---|
 | Provider/模型 | 部署 `~/.pi/agent/models.json`:claude-newapi(anthropic)、codex-newapi(openai-responses)、anthropic-newapi;**anthropic 协议 `baseUrl` 填根域**(pi 自动补 `/v1/messages`,填 `/v1` 会 404),openai 协议带 `/v1`;`compat.supportsStore:false`、`thinkingLevelMap`(xhigh/max)对应 opencode 的 variants |
 | 设置 | `~/.pi/agent/settings.json`:默认 provider/model/thinking、`defaultTools` 补 `grep/find/ls`(pi 默认只开 read/bash/edit/write)、`packages` 由 `pi install` 维护;不设置 Pi 的 `compaction` 开关——magic-context Pi 扩展在 `session_before_compact` 事件里自行 cancel 原生压缩(与官方 `setup --harness pi` 行为一致,官方只注册包 + 写共享 jsonc) |
-| 运行默认值 | `modelThinkingLevels` 为 `codex-newapi/gpt-6-astra`、`codex-newapi/gpt-5.6-sol` 保存 `xhigh`,其余沿用全局 `high`;agent 级 `retry` 设置 `maxRetries:3`、`baseDelayMs:4000`,等待 4/8/16 秒(加上首发最多 4 次请求),不额外开启 provider 内层重试 |
+| 运行默认值 | `modelThinkingLevels` 为 `codex-newapi/gpt-6-astra`、`codex-newapi/gpt-5.6-sol` 保存 `xhigh`,其余沿用全局 `high`;agent 级 `retry` 设置 `maxRetries:8`、`baseDelayMs:4000`,等待 4/8/16/32/64/128/256/512 秒(累计 17 分钟,加上首发最多 9 次请求),沿用原生指数退避、不额外开启 provider 内层重试 |
 | 自动命名 | `pi-autoname@0.6.8` + `~/.pi/agent/pi-autoname.json`:用 `codex-newapi/gpt-5.6-sol` 在任务结束后生成会话名;周期重命名冷却 1440 分钟、尊重手工名称,可 `/autoname` 手动触发。会额外发送最近对话片段给命名模型;失败可尝试当前会话模型或回退文本提取,冷却不是请求配额。该版本配置路径固定为 `~/.pi/agent`,自定义 `PI_CODING_AGENT_DIR` 时脚本跳过此插件 |
 | 任务耗时 | 本仓库包的 `pi/extensions/message-timing.ts`:从首个 `agent_start` 到 `agent_settled` 记录结束时间与秒数,包含工具/重试/排队后续消息;custom entry 持久保存、不进模型上下文、不高频刷新,仅 TUI 记录 |
 | 凭据 | `~/.pi/agent/auth.json`(权限 600,coding plan 等 Pi 内置 provider 的 key):模板为 `zai-coding-cn`/`kimi-coding` 占位符;字段级合并,已填 key 不覆盖,仅初始化缺失文件。这类内置 provider(智谱 coding plan、Kimi For Coding、qwen/xiaomi token plan、opencode-go 等)不需要写 `models.json` |
