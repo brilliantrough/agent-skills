@@ -2,3 +2,5 @@ node_modules/
 __pycache__/
 *.pyc
 docs/
+
+context-mode/dist/

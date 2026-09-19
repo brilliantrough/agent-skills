@@ -1,11 +1,13 @@
 #!/usr/bin/env node
-// verify.mjs <上游 clone 目录> —— fork 体检：三层改动到底有没有落在树上（构建产物 + 运行期）。
+// verify.mjs <上游 clone 目录> —— fork 体检：三层改动 + 发布包到底有没有落在树上（构建产物 + 运行期）。
 // 任何一项失败就 exit 1 并打出 checklist，所以人和 agent 都能一眼知道该修哪一层。
+// 本仓库根由脚本自身位置推出（本文件在 <repo>/context-mode/），不用多传参数。
 
 import { readFileSync, existsSync, readdirSync, statSync, mkdtempSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 
 const REPO = process.argv[2];
 if (!REPO) {
@@ -18,6 +20,7 @@ const TOOLS = [
   "insight", "purge", "search", "stats", "doctor", "upgrade",
 ];
 const PREFIX = process.env.CONTEXT_MODE_PREFIX ?? "ctxm_";
+const SELF_REPO = resolve(dirname(fileURLToPath(import.meta.url)), ".."); // 本仓库根
 const checks = [];
 const read = (p) => readFileSync(join(REPO, p), "utf8");
 const check = (name, ok, detail = "") => checks.push({ name, ok, detail });
@@ -68,13 +71,53 @@ const main = existsSync(join(REPO, "skills/context-mode/SKILL.md")) ? read("skil
 check("主 skill 有 When NOT to Use 表", main.includes("## When NOT to Use"));
 check(`主 skill 教了 ${PREFIX}batch_execute`, main.includes(`${PREFIX}batch_execute`), "它是注入锚点的第一优先级工具");
 
-// ── 运行期：真的拉起 MCP 子进程问一遍工具表 ────────────────────────────────
-const bundlePath = join(REPO, "server.bundle.mjs");
-if (!existsSync(bundlePath)) {
-  check("server.bundle.mjs 存在", false, "还没构建？");
+// ── 静态：发布包层（路线 D：目标机装的就是这个 tar 包，不是 clone） ──────────
+const DIST = join(SELF_REPO, "context-mode", "dist");
+const TARBALL = join(DIST, "pi-context-mode-vendor.tar.gz");
+check("发布包存在（context-mode/dist/pi-context-mode-vendor.tar.gz）", existsSync(TARBALL), "还没打包？跑 bash context-mode/setup.sh --release");
+try {
+  execFileSync(process.execPath, [join(SELF_REPO, "context-mode/release.mjs"), REPO, "--check"], { stdio: "pipe" });
+  check("发布包与本次构建一致（没过期）", true);
+} catch (e) {
+  const out = String(e.stdout ?? e.message ?? e).split("\n").filter(Boolean).slice(0, 4).join(" / ");
+  check("发布包与本次构建一致（没过期）", false, out);
+}
+
+// 把 tar 包解到临时目录：验包内布局（这是目标机拿到的东西）
+const unpacked = mkdtempSync(join(tmpdir(), "cm-release-"));
+let unpackOk = false;
+try {
+  execFileSync("tar", ["-xzf", TARBALL, "-C", unpacked], { stdio: "pipe" });
+  unpackOk = true;
+} catch (e) {
+  check("发布包能解开", false, String(e.message ?? e));
+}
+if (unpackOk) {
+  let inner = null;
+  try {
+    inner = JSON.parse(readFileSync(join(unpacked, "package.json"), "utf8"));
+  } catch {
+    inner = null;
+  }
+  check(
+    "包内 package.json 声明了 Pi 入口与 skills（Pi 靠它加载）",
+    !!inner?.pi?.extensions?.length && !!inner?.pi?.skills?.length && existsSync(join(unpacked, inner.pi.extensions[0])),
+    "入口路径不存在或没写 pi 字段",
+  );
+  const innerSkills = existsSync(join(unpacked, "skills"))
+    ? readdirSync(join(unpacked, "skills"), { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith(".")).length
+    : 0;
+  check("包内有 7 个 skill", innerSkills === 7, `现在 ${innerSkills} 个`);
+  check("包内有 LICENSE（Elastic-2.0 必须随产物分发）", existsSync(join(unpacked, "LICENSE")));
+}
+
+// ── 运行期：拉起包内那份 server.bundle.mjs（即 Pi 会在目标机上 spawn 的东西） ──
+const bundlePath = join(unpacked, "server.bundle.mjs");
+if (!unpackOk || !existsSync(bundlePath)) {
+  check("包内 server.bundle.mjs 存在", false, "tar 包不完整？");
 } else {
   const child = spawn(process.execPath, [bundlePath], {
-    cwd: REPO,
+    cwd: unpacked,
     env: { ...process.env, CONTEXT_MODE_DIR: mkdtempSync(join(tmpdir(), "cm-verify-")) },
     stdio: ["pipe", "pipe", "pipe"],
   });

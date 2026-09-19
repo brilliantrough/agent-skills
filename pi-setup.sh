@@ -13,8 +13,9 @@
 #      pi-lens / @juicesharp/rpiv-ask-user-question / pi-autoname@0.6.8 / @cortexkit/pi-magic-context /
 #      git:github.com/brilliantrough/agent-skills(本仓库自身;含个性化 UI、later、任务耗时扩展、
 #      claude-mem 桥扩展、one-dark 主题——旧版散装部署文件会自动清理);
-#      另外登记 context-mode fork(本地 clone:先跑 context-mode/setup.sh 同步+构建+体检,再 pi install
-#      本地路径;检测到上游 npm:context-mode 会提示卸载——它与 magic-context 抢 ctx_search)
+#      另外装 context-mode fork(产物走 GitHub release:下载 launch 包到 ~/.pi/agent/vendor/context-mode
+#      再 pi install;开发机用 bash context-mode/setup.sh --release --publish 发新版。
+#      检测到上游 npm:context-mode 或旧的 clone 路径条目会提示卸载——它们与 magic-context 抢 ctx_search/重复注册)
 #      启用 magic-context 前检查与 opencode 共享 context.db 的
 #      版本守卫(opencode 插件缓存版本 < Pi 扩展版本时先提示,不清理就不启用)
 #   4. 部署(字段级合并 dot_file 模板,api key/网关等本地敏感值保留;settings/auth/claude-mem/magic-context 下载失败用内嵌兜底,models.json/mcp.json 必须联网或手工维护):
@@ -594,58 +595,68 @@ PYEOF
     pi_install npm:@cortexkit/pi-magic-context
   fi
 
-  # ---- 3.2 context-mode fork(本机 clone + 三层改动;上游 npm 包会与 magic-context 抢 ctx_search)----
-  # 为什么用本地 clone 而不是上游 npm 包:上游注册 ctx_search,与 magic-context 同名 —— Pi 的
-  # 扩展同名工具检测会直接把启动变成 process.exit(1)。fork 的改名层把 11 个工具改成 ctxm_* 才能共存。
-  # 构建产物不入库,所以必须先跑 context-mode/setup.sh(clone/pull + 三层改动 + 构建 + 体检)再登记;
-  # 本地路径安装,后续改动只需重启 pi。用 CONTEXT_MODE_DIR 可改 clone 位置。
+  # ---- 3.2 context-mode fork(产物走 GitHub release;上游 npm 包会与 magic-context 抢 ctx_search)----
+  # 为什么必须是我们这份:上游 context-mode 注册 ctx_search,与 magic-context 同名 —— Pi 的扩展同名工具
+  # 检测会把启动变成 process.exit(1);fork 的改名层把 11 个工具改成 ctxm_* 才能共存。
+  # 为什么从 release 装而不是装 clone:发布包里是编译产物(扩展闭包 + server.bundle.mjs + 7 个 skill +
+  # LICENSE),目标机只要 curl+tar,不需要 bun、不需要 clone、也不需要知道上游存在。
+  # 开发机改完 fork 要 `bash context-mode/setup.sh --release --publish`,目标机跑本脚本即可拿到新版。
   if pkg_installed npm:context-mode; then
     echo ""
     echo "WARN: 检测到上游 npm 包 context-mode —— 它注册 ctx_search,与 magic-context 同名会让 Pi 启动失败"
-    if ask "现在卸载 npm:context-mode(改用本机 fork)?" Y; then
+    if ask "现在卸载 npm:context-mode(改用我们发布的 fork)?" Y; then
       "$PI_BIN" remove npm:context-mode < /dev/null || echo "WARN: 卸载失败,请手动 pi remove npm:context-mode" >&2
     fi
   fi
-  CM_REPO="${CONTEXT_MODE_DIR:-$HOME/Linewrite/forks/context-mode}"
-  SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || echo "")"
-  CM_SETUP=""
-  for cand in "$SELF_DIR/context-mode/setup.sh" "$REPO_PI_PKG/context-mode/setup.sh"; do
-    [ -f "$cand" ] && { CM_SETUP="$cand"; break; }
-  done
-  if [ -z "$CM_SETUP" ]; then
-    echo "跳过: 仓库 checkout 里没有 context-mode/setup.sh(先 pi update 本仓库包)"
-  else
-    cm_registered() { # pi 会把本地路径存成相对形式,按尾部匹配而不是全等
-      python3 - "$SETTINGS" <<'PYEOF'
+  CM_DIR="$AGENT_DIR/vendor/context-mode"
+  CM_URL="https://github.com/brilliantrough/agent-skills/releases/latest/download/pi-context-mode-vendor.tar.gz"
+  cm_registered() { # pi 把本地路径存成相对形式,按尾部匹配而不是全等
+    python3 - "$SETTINGS" <<'PYEOF'
 import json, sys
 try:
     pkgs = json.load(open(sys.argv[1], encoding="utf-8")).get("packages") or []
 except Exception:
     sys.exit(1)
-sys.exit(0 if any("forks/context-mode" in str(p) for p in pkgs) else 1)
+sys.exit(0 if any("vendor/context-mode" in str(p) for p in pkgs) else 1)
 PYEOF
-    }
-    if [ ! -d "$CM_REPO/.git" ]; then
-      if ask "同步并构建 context-mode fork(首次 clone+bun install+build,约 1-2 分钟)?" Y; then
-        bash "$CM_SETUP" || echo "WARN: context-mode fork 同步失败(见上文;修好后重跑本脚本)" >&2
-      else
-        echo "跳过: context-mode fork 未构建"
-      fi
-    elif cm_out="$(bash "$CM_SETUP" --verify 2>&1)"; then
-      echo "已有: context-mode fork(体检通过)"
-    else
-      printf '%s\n' "$cm_out" | grep -E "^✗|不合格" >&2 || true
-      if ask "context-mode fork 体检不合格(上游可能更新过),现在重新同步?" Y; then
-        bash "$CM_SETUP" || echo "WARN: context-mode fork 同步失败" >&2
-      fi
+  }
+  # 旧的 clone 路径条目必须摘掉:两份同时登记 → 两个扩展注册同名 ctxm_* 工具 → Pi 启动 exit 1
+  cm_stale="$(python3 - "$SETTINGS" "$AGENT_DIR" <<'PYEOF'
+import json, os, sys
+try:
+    pkgs = json.load(open(sys.argv[1], encoding="utf-8")).get("packages") or []
+except Exception:
+    pkgs = []
+print(" ".join(os.path.normpath(p if os.path.isabs(p) else os.path.join(sys.argv[2], p))
+               for p in pkgs if "context-mode" in str(p) and "vendor" not in str(p)))
+PYEOF
+)"
+  for s in $cm_stale; do
+    echo "WARN: 包列表里还登记着旧路径 $s —— 它和发布包副本会同时注册 ctxm_* 工具,Pi 启动会失败"
+    if ask "现在摘掉它(pi remove $s)?" Y; then
+      "$PI_BIN" remove "$s" < /dev/null || echo "WARN: 卸载失败,请手动 pi remove $s" >&2
     fi
-    if [ -d "$CM_REPO/.git" ]; then
-      if cm_registered; then
-        echo "已登记: $CM_REPO"
-      elif ask "把 $CM_REPO 登记进 Pi 包列表?" Y; then
-        "$PI_BIN" install "$CM_REPO" < /dev/null || echo "WARN: pi install $CM_REPO 失败" >&2
-      fi
-      echo "  上游发新版后跑一次 $CM_SETUP 同步(内部已带体检;绝不要调 ctxm_upgrade)"
+  done
+  # 拉最新发布包:内容与已装的一致就不动(幂等),变了才替换
+  cm_tmp="$(mktemp -d)"; cm_ok=0
+  if curl -fsSL -o "$cm_tmp/vendor.tar.gz" "$CM_URL" 2>/dev/null && mkdir -p "$cm_tmp/pkg" && tar -xzf "$cm_tmp/vendor.tar.gz" -C "$cm_tmp/pkg"; then
+    cm_ver="$(python3 -c "import json;print(json.load(open('$cm_tmp/pkg/VENDORED.json'))['upstream']['version'])" 2>/dev/null || echo '?')"
+    if [ -f "$CM_DIR/VENDORED.json" ] && cmp -s "$cm_tmp/pkg/VENDORED.json" "$CM_DIR/VENDORED.json"; then
+      echo "已有: context-mode fork $cm_ver"
+    else
+      rm -rf "$CM_DIR"; mkdir -p "$(dirname "$CM_DIR")"; mv "$cm_tmp/pkg" "$CM_DIR"
+      echo "已更新: context-mode fork → $cm_ver"
+    fi
+    cm_ok=1
+  else
+    echo "WARN: 下载/解包发布包失败（$CM_URL）——网络问题?还是开发机还没 --publish?" >&2
+  fi
+  rm -rf "$cm_tmp"
+  if [ "$cm_ok" = 1 ] && [ -d "$CM_DIR" ]; then
+    if cm_registered; then
+      echo "已登记: $CM_DIR（改动重启 Pi 生效）"
+    elif ask "把 $CM_DIR 登记进 Pi 包列表?" Y; then
+      "$PI_BIN" install "$CM_DIR" < /dev/null || echo "WARN: pi install $CM_DIR 失败" >&2
     fi
   fi
 fi
@@ -888,7 +899,7 @@ try:
     pkgs = json.load(open(sys.argv[1], encoding="utf-8")).get("packages") or []
 except Exception:
     pkgs = []
-print("  packages[]: context-mode fork " + ("已登记" if any("forks/context-mode" in str(p) for p in pkgs) else "未登记(工具不会加载; bash ~/Linewrite/skills/agent-skills/context-mode/setup.sh --install)"))
+print("  packages[]: context-mode fork " + ("已登记" if any("vendor/context-mode" in str(p) for p in pkgs) else "未登记(bash context-mode/setup.sh --release --publish 后重跑本脚本)"))
 PYEOF
 ui_mode="$(python3 - "$SETTINGS" <<'PYEOF'
 import json, sys

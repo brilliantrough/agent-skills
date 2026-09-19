@@ -10,15 +10,18 @@
 #      工具名与标题，所以上游往上往下挪几十行都不失效；上游真改了锚点就大声失败。
 #   C. 改名     rename-ctx-tools.mjs         —— 构建后，给 11 个工具加前缀，避开 magic-context 的 ctx_search。
 #      面很宽（900+ 处，散落在描述/路由块/skill 正文），做成补丁必与上游文案冲突，所以锚在产物上做。
+#   D. 发布     release.mjs                  —— 构建后，把 Pi 需要的那份产物打成 tar.gz 发到 GitHub release。
+#      为什么不进 git：这是编译产物（~1.4M），diff 无人 review；目标是「目标机一键拿到我们维护的插件」。
+#      包里带生成的 package.json（Pi 靠它的 pi.extensions/pi.skills 加载）+ LICENSE(Elastic-2.0) + VENDORED.json。
 #   另外：剪掉上游的 skills/ctx-upgrade（它教模型去跑会抹掉改名的升级）。
 #
-# 顺序不能变：A → B →（bun install + build）→ C → verify.mjs
+# 顺序不能变：A → B →（bun install + build）→ C → D 打包 → verify.mjs
 #   B 改的是 src/ 与 skills/ 源文件，必须在构建前；C 打的是构建产物，必须在构建后。
 #
 # 用法:
-#   bash context-mode/setup.sh              # 同步 + 构建 + 三层改动 + 体检
-#   bash context-mode/setup.sh --install    # 顺带幂等 pi install
-#   bash context-mode/setup.sh --verify     # 只体检当前这棵树（不动上游、不构建）
+#   bash context-mode/setup.sh              # 同步 + 构建 + 三层改动 + 打包 + 体检
+#   bash context-mode/setup.sh --publish    # 顺带 gh release create（目标机靠它拿新版）
+#   bash context-mode/setup.sh --verify     # 只体检（不动上游、不构建、不打包）
 #
 # 注意：永远不要调 ctxm_upgrade（原 ctx_upgrade）——它会从 GitHub 覆盖成纯上游。升级只走本脚本。
 
@@ -29,12 +32,13 @@ REPO="${CONTEXT_MODE_DIR:-$HOME/Linewrite/forks/context-mode}"
 PREFIX="${CONTEXT_MODE_PREFIX:-ctxm_}"
 PATCHDIR="$HERE/patches"
 AGENT_DIR="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
-DO_INSTALL=0
+DO_PUBLISH=0
 VERIFY_ONLY=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --install) DO_INSTALL=1; shift ;;
+    --publish) DO_PUBLISH=1; shift ;;
+    --install) DO_PUBLISH=1; shift ;; # 旧名，行为已变成「发布」
     --verify) VERIFY_ONLY=1; shift ;;
     --prefix) PREFIX="$2"; shift 2 ;;
     -h|--help) sed -n '2,25p' "$0"; exit 0 ;;
@@ -96,23 +100,36 @@ bun run build
 # ── 4. C 层：改名（构建后，所以 assert-bundle / assert-asymmetric-drift 都已跑过） ──
 node "$HERE/rename-ctx-tools.mjs" "$REPO" "$PREFIX"
 
-# ── 5. 体检：三层改动是不是真的都落在树上（含拉起 MCP 子进程问工具表） ────────
-node "$HERE/verify.mjs" "$REPO"
-
-# ── 6. 安装提示（幂等） ───────────────────────────────────────────────────────
-if [[ "$DO_INSTALL" == "1" ]]; then
-  if node -e '
-    const fs=require("fs"),p=process.argv[1];
-    if(!fs.existsSync(p))process.exit(1);
-    process.exit((JSON.parse(fs.readFileSync(p,"utf8")).packages??[]).some(s=>s.includes("forks/context-mode"))?0:1)
-  ' "$AGENT_DIR/settings.json"; then
-    echo "[context-mode] 已在 $AGENT_DIR/settings.json，跳过 pi install"
-  else
-    read -r -p "把 $REPO 加进 Pi 包列表(pi install)？[Y/n] " a
-    [[ "${a:-Y}" =~ ^[Yy]$|^$ ]] && pi install "$REPO" || echo "跳过。手动安装: pi install $REPO"
-  fi
-else
-  echo "[context-mode] 装进 Pi: pi install $REPO"
+# ── 5. D 层：发布包（产物走 GitHub release，不进 git 历史） ──────────────────
+#     目标机只需要下载这个 ~400K 的 tar 包：不需要 bun、不需要 clone、也不需知道上游。
+node "$HERE/release.mjs" "$REPO"
+if [[ "$DO_PUBLISH" == "1" ]]; then
+  node "$HERE/release.mjs" "$REPO" --publish
 fi
 
-echo "[context-mode] 完成。重启 Pi 生效（本地路径安装，改动无需重装）。"
+# ── 6. 体检：三层改动 + 发布包是不是真的都落在树上（解开 tar 包，拉起包内 MCP 子进程问工具表） ──
+node "$HERE/verify.mjs" "$REPO"
+
+# ── 7. 目标机怎么装（幂等）+ 两个副本不能同时登记 ───────────────────────────────
+#     release 解出来的目录 与 本地 clone 路径 同时登记 → 两个扩展注册同名 ctxm_* 工具 → Pi 启动 exit 1。
+python3 - "$AGENT_DIR/settings.json" "$AGENT_DIR" <<'PY'
+import json, os, sys
+try:
+    pkgs = json.load(open(sys.argv[1], encoding="utf-8")).get("packages") or []
+except Exception:
+    pkgs = []
+agent = sys.argv[2]
+abs_of = lambda p: os.path.normpath(p if os.path.isabs(str(p)) else os.path.join(agent, str(p)))
+stale = [abs_of(p) for p in pkgs if "context-mode" in str(p) and "vendor" not in str(p)]
+installed = any("vendor/context-mode" in str(p) for p in pkgs)
+print("[context-mode] 目标机安装/更新:")
+print("  curl -fsSL https://github.com/brilliantrough/agent-skills/releases/latest/download/pi-context-mode-vendor.tar.gz \\")
+print("    | tar -xz -C ~/.pi/agent/vendor/context-mode && pi install ~/.pi/agent/vendor/context-mode")
+print("[context-mode] 本机本发布包副本：" + ("已登记" if installed else "未登记（其它机器跑 pi-setup.sh 会自动装）"))
+if stale:
+    print("[context-mode] ⚠ 还登记着旧的 clone 路径：" + ", ".join(stale))
+    print("[context-mode] ⚠ 它和发布包副本会同时注册 ctxm_* 工具，Pi 启动会 exit 1。摘掉一个（相对形式 pi remove 匹配不到，用绝对路径）：")
+    print("  pi remove " + stale[0])
+PY
+
+echo "[context-mode] 完成。目标机重启 Pi 生效；本机改完 clone 后要 --publish 才能让其它机器拿到。"
