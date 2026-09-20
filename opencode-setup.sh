@@ -1076,6 +1076,20 @@ if [ -f "$LATER_DIR/index.mjs" ] && \
   ensure_tui_plugin "./tui-plugins/later" 'tui-plugins/later'
 fi
 
+# ---- 5.3b later server 插件(agent 可调用工具)----
+# 与上面的 TUI 输入框版互补:TUI 版管人手输,这个管 agent 调 later 工具(Hooks.tool 注册,
+# 到点 session.promptAsync 注入同一会话)。server 插件放 $PLUGINS 自动加载,无需注册条目。
+if curl -fsSL --connect-timeout 8 -m 60 -o "$PLUGINS/later.js.new" "$RAW/opencode/plugins/later.js"; then
+  if [ -f "$PLUGINS/later.js" ] && cmp -s "$PLUGINS/later.js.new" "$PLUGINS/later.js"; then
+    rm -f "$PLUGINS/later.js.new"; echo "unchanged: plugins/later.js"
+  else
+    [ -f "$PLUGINS/later.js" ] && cp -p "$PLUGINS/later.js" "$PLUGINS/later.js.bak-$(date +%Y%m%d%H%M%S)"
+    mv -f "$PLUGINS/later.js.new" "$PLUGINS/later.js"; echo "deployed: plugins/later.js"
+  fi
+else
+  rm -f "$PLUGINS/later.js.new"; echo "WARN: later server 插件下载失败(检查代理)" >&2
+fi
+
 # ---- 5.4 TUI 按键(Enter 发送、Shift+Enter 换行;不绑定 Ctrl+Enter)----
 # 用户确认后仅更新三个相关 action,其它按键和插件保留;变化时先展示差异并备份。
 if ask "统一为 Enter 发送、Shift+Enter 换行,取消旧 Ctrl+Enter/Ctrl+J 发送绑定(仅更新 $TUI_CFG 的三个相关按键)?" Y; then
