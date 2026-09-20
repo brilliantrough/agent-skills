@@ -216,7 +216,7 @@ function sidebarLayout(width: number, config: AtelierConfig): SidebarLayout {
 	const compact = width <= COMPACT_SIDEBAR_MAX_WIDTH;
 	return {
 		compact,
-		showToolNames: config.showSidebarToolNames && !compact,
+		showToolNames: config.showSidebarToolNames,
 	};
 }
 
@@ -1092,7 +1092,6 @@ export interface SidebarComponentOptions {
 	colorEnabled?: boolean;
 	/** 全屏分栏（外层是 ScrollView）时不禁内容高度，让面板完整渲染并靠滚动查看。 */
 	isScrollable?: boolean;
-	onToggleToolNames?(): void;
 }
 
 /** 可滚动侧栏的组装预算：足够容纳所有已启用面板，由 ScrollView 负责剪裁。 */
@@ -1370,11 +1369,11 @@ export function createSidebarController(options: SidebarControllerOptions): Side
 							isResizing: binding.isResizing,
 							// 全屏分栏时外层是 ScrollView：内容可高于面板，靠滚动查看。
 							isScrollable: tui.mode === "fullscreen",
-							onToggleToolNames: options.onToggleToolNames,
 							// SAFETY: the Pi-supplied Theme implements the fg/bg/bold subset used here.
 							theme: theme as unknown as ThemeLike,
 							...(options.colorEnabled === undefined ? {} : { colorEnabled: options.colorEnabled }),
 						}),
+						{ onToggleToolNames: options.onToggleToolNames },
 					);
 				},
 				{

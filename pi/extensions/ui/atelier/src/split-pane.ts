@@ -183,15 +183,23 @@ export function createSplitPaneController(options: SplitPaneControllerOptions = 
 		adaptedTui[PI_084_REGULAR_RENDER_ADAPTER] = undefined;
 	};
 
-	const createFullscreenSplitRoot = (originalRoot: Component): Component =>
-		new HStack([
+	const createFullscreenSplitRoot = (originalRoot: Component): Component => {
+		const sidebar = new ScrollView(fullscreenSidebarComponent ?? EMPTY_SIDEBAR_COMPONENT, {
+			primary: false, follow: "none", overscroll: "contain", scrollbar: "auto",
+		});
+		const handleMouse = sidebar.handleMouse.bind(sidebar);
+		const sidebarComponent: Component = sidebar;
+		sidebarComponent.handleMouse = (event) => {
+			if (event.type !== "wheel") return handleMouse(event);
+			sidebar.scrollBy(event.wheelDelta ?? 0);
+			return { handled: true };
+		};
+		return new HStack([
 			{ component: originalRoot, basis: 0, grow: 1, shrink: 1, minSize: minimumMain },
 			{
 				// A non-primary viewport gives native Pi selection its own coordinate/text bounds.
 				// Keep the transcript primary: keyboard scrolling/search continue to target the chat.
-				component: new ScrollView(fullscreenSidebarComponent ?? EMPTY_SIDEBAR_COMPONENT, {
-					primary: false, follow: "none", overscroll: "contain", scrollbar: "auto",
-				}),
+				component: sidebar,
 				basis: sidebarWidth,
 				grow: 0,
 				shrink: 1,
@@ -204,6 +212,7 @@ export function createSplitPaneController(options: SplitPaneControllerOptions = 
 				},
 			},
 		]);
+	};
 
 	const syncFullscreenLayoutAdapter = () => {
 		if (!isPiFullscreenRenderer() || !tui) return;
@@ -299,6 +308,7 @@ export function createSplitPaneController(options: SplitPaneControllerOptions = 
 					focus: () => handle.focus(),
 					unfocus: (options) => handle.unfocus(options),
 					isFocused: () => handle.isFocused(),
+					getBounds: () => handle.getBounds(),
 				};
 			}
 			return base.call(tui, component, overlayOptions);

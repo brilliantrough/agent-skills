@@ -18,8 +18,8 @@ import { getAgentDir } from "@earendil-works/pi-coding-agent";
  */
 const CONFIG_FILE = "agent-skills-ui.json";
 const ANSI = /\u001b\[[0-9;]*m/g;
-const HEADER = /^╭─\s*[✦✧]\s*(.+?)\s*─*╮$/;
-const FOOTER = /^╰─+╯$/;
+const HEADER = /^\s*(?:│\s*)?╭─\s*[✦✧]\s*(.+?)\s*─*╮\s*$/;
+const FOOTER = /^\s*(?:│\s*)?╰─+╯\s*$/;
 
 export interface PanelBlock {
 	key: string;
@@ -31,6 +31,7 @@ export interface PanelBlock {
 export interface MouseEventLike {
 	type: string;
 	y: number;
+	button?: "left" | "middle" | "right" | "none";
 	clickCount?: number;
 }
 
@@ -47,8 +48,8 @@ const DISCLOSURE = /^[│|\s]*\d+\s*\/\s*\d+\s*active\s*[▸▾][│|\s]*$/;
 
 export interface CollapsibleComponent {
 	render(width: number): string[];
-	invalidate?(): void;
-	handleMouse?(event: MouseEventLike): { consume?: boolean; render?: boolean } | undefined;
+	invalidate(): void;
+	handleMouse?(event: MouseEventLike): MouseResult | undefined;
 }
 
 function configPath(): string {
@@ -127,7 +128,7 @@ export function shapeLines(
 				output.push(collapsedHeader(line, block.title));
 				// Drop the body, the footer and the blank spacer after it.
 				const rest = lines[block.endRow + 1]?.replace(ANSI, "");
-				const stop = rest === "" ? block.endRow + 2 : block.endRow + 1;
+				const stop = rest !== undefined && /^[│\s]*$/.test(rest) ? block.endRow + 2 : block.endRow + 1;
 				for (let drop = row + 1; drop < stop; drop += 1) skip.add(drop);
 				continue;
 			}
@@ -158,9 +159,10 @@ export function withCollapsiblePanels(
 			return shaped.lines;
 		},
 		invalidate(): void {
-			inner.invalidate?.();
+			inner.invalidate();
 		},
 		handleMouse(event: MouseEventLike): MouseResult | undefined {
+			if (event.button && event.button !== "left") return undefined;
 			const onDisclosure = disclosureRows.has(event.y);
 			if (event.type === "press" && (panelRows.has(event.y) || onDisclosure)) {
 				// 吃掉 press：不要再开始文本选区；同时让 pi-tui 记住按下的目标，
