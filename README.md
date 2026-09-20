@@ -383,8 +383,13 @@ npm 形式条目在 opencode 重启时自动安装;配置改动重启 opencode �
 ## 更新
 
 ```bash
-npx skills update -g
+npx skills add brilliantrough/agent-skills --all -g -y   # 刷新已装 + 装入仓库新增的 skill
+npx skills update -g                                     # 刷新 lock 里登记的第三方源(mattpocock/drawio/find-skills)
 ```
+
+- `add --all` 是幂等的:已登记的 skill 有变化才覆盖,仓库新增的 skill(如 `steady-do`)靠它落地。
+- **`update -g` 不会安装新增 skill**:它只遍历 `~/.agents/.skill-lock.json` 里已登记的条目、按内容哈希逐个刷新,上游新增的至多打印一行 `To install: npx skills add …`。两个 setup 脚本已按 `add --all` → `update -g` 的顺序跑。
+- 手工拷进 `~/.agents/skills/` 的副本不在 lock 里(`npx skills ls -g` 显示 `Source: local`),两个命令都不会碰,只能靠 `add` 纳入跟踪(add 会以仓库内容覆盖本地副本;服务器上的演化更新请先回流仓库)。
 
 重跑 `opencode-setup.sh` / `pi-setup.sh` 是幂等的,配置文件按「字段级合并」更新,不覆盖本地敏感值:
 

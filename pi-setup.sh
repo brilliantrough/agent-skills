@@ -26,7 +26,7 @@
 #   5. claude-mem 资产(缺失则官方安装器,只为拿 worker/MCP 资产)——先装 runtime,再合并它的配置,
 #      这样安装器写的 settings 会被我们的模板覆盖(api key/网关等本地敏感值保留)
 #   6. subagent 定义 ~/.pi/agent/agents/{explore,general}.md(对应 opencode 的两个 agent)
-#   7. skills 本体:npx skills update -g / add(pi 原生读 ~/.agents/skills)
+#   7. skills 本体:npx skills add --all(刷新 + 装入新增 skill)+ update -g(第三方源);pi 原生读 ~/.agents/skills
 #   8. uv(缺则装;含自升级与清华 PyPI 镜像)+ strictdoc(用 uv tool 全局安装,.sdoc 校验依赖)
 #
 # 用法:bash pi-setup.sh   (遵循 PI_CODING_AGENT_DIR,与 pi 一致)
@@ -820,15 +820,14 @@ if [ "$PI_OK" -eq 1 ]; then
 fi
 
 # ---- 7. skills 本体 ----
-if [ -d "$HOME/.agents/skills/load-mem" ]; then
-  if command -v npx >/dev/null 2>&1 && ask "更新 skills 本体(npx skills update -g)?" Y; then
-    npx -y skills@latest update -g || true
-  fi
-elif ! command -v npx >/dev/null 2>&1; then
+# add 幂等:既刷新已登记的 skill,也装入仓库新增的 skill。update 只刷新 lock 里已有的条目,
+# 不安装新增 skill(mattpocock/drawio/find-skills 这类第三方源仍靠它),所以两步都要跑。
+if ! command -v npx >/dev/null 2>&1; then
   echo "跳过 skills 安装(需要 npx:先装 Node 再重跑)"
-elif ask "安装 skills 本体(brilliantrough/agent-skills 全部 skills;pi 原生读 ~/.agents/skills)?" Y; then
-  # || true:PromptScript 等无关 agent 不支持全局安装会报错退出,但其余目标已装好
+elif ask "更新 skills 本体(add --all + update -g;pi 原生读 ~/.agents/skills)?" Y; then
+  # || true:PromptScript/Eve 等无关 agent 不支持全局安装会报错退出,但其余目标已装好
   npx -y skills@latest add brilliantrough/agent-skills --all -g -y || true
+  npx -y skills@latest update -g || true
 fi
 
 # ---- 8. strictdoc(.sdoc 校验依赖;uv 已在 1.3 检查/安装)----

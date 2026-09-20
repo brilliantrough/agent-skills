@@ -25,7 +25,7 @@
 #   5.5 context-mode 插件(GitHub Release 预构建包解到 plugins/context-mode/,入口 entry.js;
 #      skills 装到 skill/;不写 opencode.json 的 plugin 字段)
 #   6. notify 插件(brilliantrough/opencode-notify-hub,GitHub Release 预构建包)
-#   7. skills 本体:npx skills add brilliantrough/agent-skills --all -g -y
+#   7. skills 本体:npx skills add --all(刷新 + 装入新增 skill)+ update -g(第三方源)
 #   8. uv(缺则装;含自升级与清华 PyPI 镜像)+ strictdoc(用 uv tool 全局安装,.sdoc 校验依赖)
 #
 # 用法:bash opencode-setup.sh   (遵循 OPENCODE_CONFIG_DIR,与官方安装器一致)
@@ -1223,16 +1223,15 @@ PYEOF
 fi
 
 # ---- 7. skills 本体 ----
-if [ -d "$HOME/.agents/skills/load-mem" ]; then
-  if command -v npx >/dev/null 2>&1 && ask "更新 skills 本体(npx skills update -g)?" Y; then
-    echo "== 更新 skills 本体(brilliantrough/agent-skills;有无变化看下面 npx skills 的输出)=="
-    npx -y skills@latest update -g || true
-  fi
-elif ! command -v npx >/dev/null 2>&1; then
+# add 幂等:既刷新已登记的 skill,也装入仓库新增的 skill。update 只刷新 lock 里已有的条目,
+# 不安装新增 skill(mattpocock/drawio/find-skills 这类第三方源仍靠它),所以两步都要跑。
+if ! command -v npx >/dev/null 2>&1; then
   echo "跳过 skills 安装(需要 npx:先装 Node 再重跑)"
-elif ask "安装 skills 本体(brilliantrough/agent-skills 全部 skills)?" Y; then
-  # || true:PromptScript 等无关 agent 不支持全局安装会报错退出,但其余目标已装好
+elif ask "更新 skills 本体(add --all + update -g)?" Y; then
+  echo "== 更新 skills 本体(brilliantrough/agent-skills;有无变化看下面 npx skills 的输出)=="
+  # || true:PromptScript/Eve 等无关 agent 不支持全局安装会报错退出,但其余目标已装好
   npx -y skills@latest add brilliantrough/agent-skills --all -g -y || true
+  npx -y skills@latest update -g || true
 fi
 
 # ---- 8. uv(可选)+ strictdoc(.sdoc 校验依赖)----
