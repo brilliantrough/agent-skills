@@ -8,7 +8,8 @@
 #   0. 代理环境提醒(大小写都查;未设则探测直连,透明代理不拦;都不通才要求确认)
 #   1. 依赖检查(全部前置):curl/git/python3(缺失即退出)、npx(缺 → 征得同意装 fnm + Node LTS)、
 #      bun(缺 → 征得同意装,claude-mem MCP server 与 context-mode 构建都需要)、uv(可选,.sdoc 校验用)
-#   2. pi 本体:未装 → 官方 install.sh(下载到文件再执行);已装 → 征得同意 pi update --all
+#   2. pi 本体:未装 → 官方 install.sh(下载到文件再执行);已装 → 询问 pi update --all(默认 N:
+#      会连带升级 magic-context,与 opencode 侧共享 context.db,需用户手动同步两边版本)
 #   3. pi 包(pi install,幂等):pi-mcp-adapter / @dietrichgebert/ponytail / pi-subagents-j0k3r /
 #      pi-lens / @juicesharp/rpiv-ask-user-question / pi-autoname@0.6.8 / @cortexkit/pi-magic-context /
 #      git:github.com/brilliantrough/agent-skills(本仓库自身;含个性化 UI、later、任务耗时扩展、
@@ -513,7 +514,10 @@ report_repo_pi_pkg() {
 if [ -x "$PI_BIN" ]; then
   echo "pi 就绪: $("$PI_BIN" --version 2>/dev/null || echo 未知版本) ($PI_BIN)"
   PI_OK=1
-  if ask "更新 pi 本体与已装包(pi update --all --no-approve)?" Y; then
+  # 默认不更新:pi update --all 会连带升级 pi-magic-context,而它与 opencode 缓存的
+  # magic-context 共享 context.db,两边版本不同步会被 fail-closed;要更新时输 y,
+  # 并由用户手动同步两边版本。
+  if ask "更新 pi 本体与已装包(pi update --all --no-approve,含 magic-context,需手动同步两边版本)?" N; then
     "$PI_BIN" update --all --no-approve < /dev/null || echo "WARN: pi update 失败(可稍后手动重试)" >&2
     report_repo_pi_pkg
   fi
