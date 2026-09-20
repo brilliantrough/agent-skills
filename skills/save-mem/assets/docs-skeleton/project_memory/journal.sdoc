@@ -1,2 +1,4 @@
 [DOCUMENT]
 TITLE: 进展日志 (Journal)
+OPTIONS:
+  MARKUP: Markdown

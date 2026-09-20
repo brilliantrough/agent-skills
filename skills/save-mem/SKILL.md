@@ -1,43 +1,65 @@
 ---
 name: save-mem
-description: save memory according to current state and progress — durable facts to ctx_memory, narrative to StrictDoc project_memory
+description: Preserve useful project knowledge through StrictDoc, Magic Context, and available memory tools, including overlapping storage where useful. Maintain readable current norms in StrictDoc; update them when a genuine decision change is clear and briefly inform the user, without routinely churning the canon. Ordinary memories and explanatory docs can evolve more freely. Favor concise phrases, lists, tables, and occasional PS explanations; choose storage, detail, and timing with judgment.
 ---
 
-Record the current state so the next session can resume quickly. Extract the most core and important content. Be concise and to the point.
+# Save Memory
 
-**When to run this:** at milestones, before ending any work session, and immediately after a decision or config change lands — do not wait for the human to ask.
+## Intent
 
-**Before writing, check what already exists:** the injected `<project-memory>` block lists current memories — update or merge an existing entry instead of writing a near-duplicate (`ctx_memory` action=`update`/`merge`/`archive`).
+Leave memory that helps both the next Agent and the human reader understand **what applies now, why, and how the project got here**. Preserve useful knowledge rather than reproducing the conversation. Decide what deserves saving and where; the following are guidance, not a storage pipeline or a checklist for every save.
 
-**Tools missing?** If `ctx_memory`/`ctx_note` don't exist on this machine, don't lose the fact: record it as a journal `[TEXT]` node and say plainly that the tool layer is absent.
+## Use the stores together
 
-**Route by content type — do not dump everything into files:**
+| Store | Useful capabilities |
+|---|---|
+| StrictDoc `docs/` | Readable current rules and decisions, rationale, project history, specs, and runbooks |
+| Magic Context `ctx_memory` | Persistent facts, rules, decisions, lessons, and context available across sessions |
+| Magic Context `ctx_search` / `ctx_expand` | Find existing knowledge and recover the discussion behind it |
+| Magic Context `ctx_note` | Reminders and follow-ups for later |
+| claude-mem | Captured activity and searchable observations, where installed and capturing |
 
-1. **Durable operational facts** (constraints, config values, naming conventions, architecture facts, hard-won workarounds) → write to `ctx_memory`. These are auto-injected into every future session.
-2. **Project narrative** (progress, decisions with rationale, next steps) → the `docs/project_memory/` tree (see below).
-3. **Durable documents** (specs, research reports, evaluations, design docs) → the `docs/handbook/<topic>/` tree (see below).
-4. **Follow-ups for later** → `ctx_note`.
-5. **Action details** (which commands ran, which files were touched) → do NOT record. claude-mem captures tool activity automatically.
+- Storing the same knowledge in StrictDoc and Magic Context is reasonable and often useful. Database entries can contain substantive knowledge, not just document pointers.
+- Choose the amount of overlap and detail that helps future work. There is no requirement for every memory to have a document counterpart, or for every document to be mirrored in a database.
+- Existing memories and relevant source files help avoid accidental duplicates and stale claims. `ctx_memory` supports writing, updating, merging, and archiving; use the operation that fits. Paths and UIDs are useful cross-references, not prerequisites for saving.
+- Missing tools need not stop the other stores from being useful. Be clear about any important knowledge that remains unsaved or unverified.
 
-**Writing to `docs/project_memory/` (memory tree):**
+## Keep current truth distinguishable from history
 
-- **No `docs/` skeleton yet?** Bootstrap from the bundled one: `mkdir -p <project>/docs && cp -r ~/.agents/skills/save-mem/assets/docs-skeleton/. <project>/docs/`, edit `project_title` in `strictdoc_config.py`, then validate with `strictdoc export .` — skeleton is pre-validated (custom DECISION grammar included).
+**StrictDoc is the source of truth for current project norms when records disagree.** Magic Context and claude-mem may legitimately contain earlier or conflicting accounts; useful overlap does not imply equal authority for every historical statement.
 
-- **Decisions** go to `decisions.sdoc` as `[DECISION]` nodes: `UID` (DEC-XXX-NNN), `STATUS` (Proposed/Active/Deprecated/Superseded), `TITLE`, `STATEMENT` (the canon), `RATIONALE` (the original motivation — always fill this; losing it is a known pain point).
-- **Progress entries** go to `journal.sdoc` as `[TEXT]` nodes with a date UID (e.g. `JOURNAL-2026-08-26`), referencing decision UIDs where relevant.
-- **Never delete or rewrite a node.** To retire one: set `STATUS: Deprecated` or `Superseded` and add a `RELATIONS: - TYPE: Parent / VALUE: <successor UID> / ROLE: Supersedes` link from the successor node.
-- **Validate after every write**: run `strictdoc export .` in `docs/` (covers both trees). A parse error must be fixed immediately — never leave the tree broken. Environment: prefer plain `strictdoc` from the currently activated Python env (the agent shell usually inherits the user's conda/uv/venv env). If it's not on PATH, detect the project's env (e.g. `.venv/bin/strictdoc`, `uv run strictdoc`, or a named conda env) — do not assume `.venv`.
-- SDoc strict rules: one empty line between nodes, no content outside grammar elements, no empty optional fields (omit them). Sections use ONLY the double-bracket form `[[SECTION]]`/`[[/SECTION]]` — the single-bracket `[SECTION]` was removed in strictdoc 0.28.3 (processor error). If export fails with "[SECTION] elements are no longer supported", some file uses the single-bracket form — fix with: `find . -name '*.sdoc' -exec sed -i -e 's/^\[SECTION\]/[[SECTION]]/g' -e 's/^\[\/SECTION\]/[[\/SECTION]]/g' {} +`
+- Keep current rules and their scope easy to identify. In the bundled grammar, decisions use `Active`, `Proposed`, `Deprecated`, or `Superseded`; dated journal entries describe experience rather than policy.
+- **Active norms are maintainable, but historical nodes are not erased.** When the user changes a decision, or a settled change is clear from the conversation and evidence, add a successor when useful, mark the old node `Superseded`, and briefly tell the user. Do not change the canon for guesses, temporary experiments, or every task. Ordinary explanatory docs and non-normative memories may be revised more freely.
+- Keep meaningful decision changes understandable. A journal note, revision context, or successor decision may preserve what mattered about the previous approach; choose the lightest suitable form rather than requiring a new node for every edit. Follow any project-specific history-preservation rules.
+- Capture the reason when known: evidence, constraints, alternatives, or the user's intent. An unknown reason is better acknowledged than invented.
+- Distinguish accepted decisions, observed behavior, pending work, and unverified claims. A working implementation may still differ from the intended rule.
+- Where useful, reconcile known stale database claims and link related records. This does not call for auditing every store on every save.
 
-**Writing to `docs/handbook/` (document tree):**
+## Human-readable writing taste
 
-- One `.sdoc` per document under a topic subdir (e.g. `handbook/research/`, `handbook/specs/`).
-- `[DOCUMENT]` header has no UID field — use `TITLE:` + `DATE:`; add `OPTIONS:` with `MARKUP: Markdown` (the default RST chokes on ``` fences and `backticks`).
-- Map `##` headings to `[[SECTION]]` + `[TEXT]` nodes; **every section must be closed with `[[/SECTION]]`**.
-- Keep the content verbatim; structure is the only thing you add.
+Use the user's language, Chinese by default; retain technical names and exact identifiers.
 
-**Document taste (applies to everything you author — decisions, journal, handbook):**
+- **Short phrases and short sentences.** One point per bullet, one coherent topic per node; put the useful conclusion first.
+- **Structure instead of dense prose.** Numbered lists for order, bullets for independent points, compact tables for comparison, parameters, status, or evidence. Avoid paragraphs disguised as oversized table cells.
+- **Enough detail to act correctly.** Preserve meaningful paths, commands, versions, thresholds, units, conditions, and uncertainty; brevity should not erase the caveat or the reason.
+- **Occasional `PS:` notes.** A longer sentence beside the relevant points can explain why, a trade-off, or a special case. It is an aside, not the main format or a place to hide essential rules.
+- **History that can be skimmed.** Outcomes, key evidence, lessons, and remaining questions are usually more useful than a tool-by-tool diary. Give source references when the original detail matters.
+- Favor readable distillation over copying a long passage into the current handbook. Preserve original evidence where useful; archival source material need not be rewritten just to match the style.
 
-- 中文为主,术语可保留英文。
-- 结构优先:对比/参数/状态用**表格**,步骤/要点用**列表**;不要"小标题 + 大段连续文字"的形态。
-- Ponytail 式简洁:一个节点只说一件事;不写铺垫、复述、总结性废话;同一信息只出现一处。
+## Practical StrictDoc reference
+
+- The bundled layout is one project under `docs/`: `strictdoc_config.py`, `project_memory/{decisions,journal}.sdoc`, and `handbook/`. Adapt to an existing project's layout rather than assuming an empty directory.
+- `assets/docs-skeleton/`, relative to this skill, provides a starting point. Add missing pieces without overwriting existing docs or config. `migrate-mem` covers onboarding an already-developed project.
+- The decision grammar supports `UID`, `STATUS`, `TITLE`, `STATEMENT`, optional `RATIONALE`, and relations. Plain journal `[TEXT]` nodes do not automatically support decision fields such as `STATUS`.
+- When a successor decision is useful, it can carry the relation below, pointing to the old UID; mark the old decision `Superseded`. The reverse relation is `SupersededBy`:
+
+  ```text
+  RELATIONS:
+  - TYPE: Parent
+    VALUE: DEC-TOPIC-001
+    ROLE: Supersedes
+  ```
+
+- Markdown rendering is enabled by `OPTIONS:` followed by indented `MARKUP: Markdown`. Sections use `[[SECTION]]` / `[[/SECTION]]`; stable UIDs belong on content nodes, not `[DOCUMENT]` headers. Inspect the project's actual grammar when adding fields.
+- Validate `.sdoc`, grammar, or config changes with `strictdoc export .` from the docs root. Use the available executable or project environment; no particular environment manager or hard-coded version is assumed. Report a missing validator or failed export honestly and resolve it before calling the document update complete.
+- Keep secrets out of stored/exported content; names and references to secret locations usually suffice. Respect the project's existing rules for version control and preservation of historical nodes.

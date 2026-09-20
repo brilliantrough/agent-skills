@@ -32,7 +32,7 @@ bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.co
 
 本仓库仍以 **OpenCode 为主**；Pi 与 OpenCode 共享记忆配置（`~/.claude-mem/settings.json`、`~/.config/cortexkit/magic-context.jsonc`）；Codex 复用现有 skills 原文，不为其修改技能工作流。详见下面的 Pi 与 Codex 说明。
 
-## Skills(12 个)
+## Skills(13 个)
 
 来自 [mattpocock/skills](https://github.com/mattpocock/skills)(MIT,见 [NOTICE](NOTICE.md)):
 
@@ -49,16 +49,24 @@ bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.co
 
 | Skill | 用途 |
 |---|---|
-| `load-mem` | 会话启动时加载全部记忆层(注入记忆 / StrictDoc / claude-mem) |
-| `save-mem` | 里程碑时持久化记忆(`ctx_memory` 存事实,StrictDoc 存叙事) |
-| `migrate-mem` | 旧记忆文件迁入三层记忆系统 |
+| `load-mem` | 启动或接续工作时恢复相关项目记忆：结合 StrictDoc、Magic Context、claude-mem 与代码证据,分清当前规范和历史 |
+| `save-mem` | 保存有用知识：Agent 自主选择存储位置、粒度和时机,允许多处保存；文档优先短语、列表、表格与少量 `PS:` 解释 |
+| `migrate-mem` | 为已有开发痕迹的项目建立或补全记忆,重点初始化可读的 StrictDoc 文档；不假定旧工作流或自动搬走原文件 |
 
-自制·任务工作流(在需求后手动 cue 触发):
+**记忆 intent**：三套系统相互补充,功能可以交叠；同一事实或决策同时保存在 StrictDoc 和 Magic Context 是合理的,不强制逐条分流或同步。发生口径冲突时,以 **StrictDoc 中当前有效的规范** 为准。规范可以随已明确的决策变化而主动更新,并简短告知用户,无需另等“保存”命令；但不因猜测、临时尝试或每次任务就频繁改动。普通记忆和说明文档可以更灵活地维护,保留有价值的历史脉络即可。文档默认中文,短语、列表、表格与少量 `PS:` 解释优先；技能提供目标与必要工具用法,具体如何调查和存取由 Agent 判断。
+
+自制·任务工作流(手动指定优先,未指定时由 Agent 按任务意图选择):
 
 | Skill | 用途 |
 |---|---|
-| `plan-brief` | 复杂需求 → 盘问细节 → 计划文档 `docs/plans/<slug>.md` + 启动 prompt → 新会话执行 → 开发报告 `<slug>.report.md` → 审查 `<slug>.review.md`。验证模式:TDD(快反馈代码)/ smoke-and-read(科研长任务) |
-| `quick-do` | 简单任务当前会话直接完成:不写计划、不测试、完工只报一行 |
+| `quick-do` | 行为明确、边界清楚的小修小补或机械改动：读相关代码 → 当前会话直接修改与验证；不展开 grilling、不写计划 |
+| `steady-do` | 日常功能、插件、扩展及存在关键设计决策的任务：理解项目 → 分轮澄清 → 当前会话实现与验证；不写交接文档 |
+| `plan-brief` | 需要规划与执行分工的长程多阶段任务：澄清 → 计划 `docs/plans/<slug>.md` + 启动 prompt → 新会话执行 → 报告 `<slug>.report.md` → 原会话审查 `<slug>.review.md`；本会话不实施 |
+
+- **选择依据**：看不确定性、模块耦合、风险与交接需求,不按需求字数或文件数量机械分档；quick/steady 难以判断时用 `steady-do`。复杂任务适合交接但用户未要求时,先建议 `plan-brief` 并确认,不擅自把“现在实现”改成“只交计划”。
+- **显式选择优先**：用户指定哪个就用哪个；发现所选流程无法安全承载任务时说明原因、协商调整,不静默切换。普通问答和只读解释不强制套开发流程。
+- **共同口径**：事实自己查、只问未决的关键选择；保持 ponytail 简洁品味。默认最小真实运行 + 代码复读,不新增测试/TDD/验证脚本；用户明确要求及项目强制检查照常遵循。检查通过不等于真实交互已验收,未验证项必须说明。
+- 三个 skill 的指令统一用英文；回复与交付物跟随用户语言,默认中文。例如：“给现有插件增加一个功能，先问清楚再做，用 steady-do。”
 
 自制·个人领域知识:
 
@@ -69,8 +77,8 @@ bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.co
 ## 依赖
 
 - 6 个 Matt 的 skill:零依赖
-- 3 个记忆 skill:依赖三层记忆栈(magic-context `ctx_memory` 插件、claude-mem、`docs/` StrictDoc 结构);项目 `AGENTS.md` 需粘入本仓库 [AGENTS.md](AGENTS.md) 中 `memory-system:start/end` 之间的触发块
-- 2 个工作流 + 1 品味 skill:无硬依赖,品味内联
+- 3 个记忆 skill:配合 Magic Context、claude-mem 与 `docs/` StrictDoc 使用,缺少某一层时仍可利用其余层；初始化和文档校验需要 StrictDoc。项目可采用本仓库 [AGENTS.md](AGENTS.md) 中 `memory-system:start/end` 之间的引导块
+- 3 个工作流 + 1 品味 skill:无硬依赖,品味内联
 - `.sdoc` 校验需要 `strictdoc`:脚本末尾会检查 `uv`(缺则装,并处理 uv 自升级与清华 PyPI 镜像),并可选择用 `uv tool install strictdoc==0.28.1` 全局安装(升级:`uv tool upgrade strictdoc`)
 
 ## 一键脚本的首次部署(只需要网关地址 + API key)

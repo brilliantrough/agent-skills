@@ -1,37 +1,51 @@
 ---
 name: migrate-mem
-description: migrate an existing project's scattered/flat legacy memory files and documents into the three-layer memory system (ctx_memory + StrictDoc project_memory/handbook). Use when adopting the memory stack in a project that already has accumulated messy memory notes or docs.
+description: Establish useful memory for a project that already has development history, or improve an incomplete memory setup. Survey the project and its existing evidence, then initialize or enrich human-readable StrictDoc docs/ with current norms and historical context. Use Magic Context and other available memory alongside it where useful. No previous workflow, legacy folder convention, or pre-existing StrictDoc skeleton is assumed.
 ---
 
-Migrate legacy memory files into the three-layer system WITHOUT losing information or misjudging what is still current. Work in phases; the classification plan must be reviewed by the human before any writing.
+# Migrate Memory
 
-**Prerequisites (verify first, stop if missing):** strictdoc env installed (pin the version, e.g. `strictdoc==0.28.1`, and keep it identical across machines — GitHub releases run ahead of PyPI and 0.28.3 removes single-bracket `[SECTION]`), `docs/` StrictDoc skeleton exists in the v2 layout (config at `docs/strictdoc_config.py` + `project_memory/` + `handbook/` trees), project `AGENTS.md` trigger block in place. If the skeleton is absent or a different layout, stop and ask the human — do not improvise a restructure.
+## Intent
 
-## Phase 0 — Safety
+Help an already-developed project acquire a readable, trustworthy memory foundation. The emphasis is **understanding the project and initializing useful StrictDoc documentation**, not moving old files or converting every artifact.
 
-- Copy every legacy memory file to `docs/_memory_archive/` (OUTSIDE the two sdoc trees, preserving paths). Originals are only moved, never deleted, and only after the final report is accepted.
+Use judgment about investigation depth, document structure, storage overlap, and which questions need the user's input. There is no fixed inventory, mandatory classification report, or approval ceremony for every initialization.
 
-## Phase 1 — Inventory
+## Understand the project as it exists
 
-- Find all memory-bearing files: old `docs/project_memory/*.md`, scattered NOTES/TODO files, spec/plan/research/evaluation docs under `docs/` subdirectories, root-level notes.
-- Read them fully (chunk large files; keep a ledger file so compaction loses nothing). Extract discrete items, each tagged: operational fact / decision / progress / durable document / action trivia / obsolete — with its source file path.
+- Look across project instructions, README, main modules, entry points, configuration, existing docs, and relevant development history. Follow the evidence far enough to understand purpose, architecture, conventions, current state, and unfinished work.
+- Existing Magic Context memories and claude-mem observations can recover decisions or experiences not visible in code. Their absence does not prevent initializing StrictDoc.
+- Read the useful sources in context rather than assuming particular note names, plan directories, or an older development methodology. Generated output and exhaustive transcripts rarely need the same attention as key code and decisions.
+- Separate intended policy, observed implementation, past experience, and unresolved questions. Newer evidence can reveal change without automatically settling what the current rule ought to be.
 
-## Phase 2 — Classification plan (HUMAN CHECKPOINT)
+## Build a useful memory foundation
 
-- Route each item per the standard rules: durable operational fact → `ctx_memory`; decision → `[DECISION]` node; progress/status → `journal.sdoc`; durable document (spec/research/evaluation/design doc) → `docs/handbook/<topic>/` via md→sdoc wrapping (see Phase 3); pure action trivia → drop (claude-mem covers it).
-- Contradictions: pick the current canon, mark losers as `Superseded` with a relation to the winner. If you cannot tell which is current, mark the item `STATUS: Proposed` and flag it — do NOT guess.
-- **Never fabricate a RATIONALE.** Only write one when the original motivation is discernible from the source text; otherwise omit the field. An invented rationale is worse than a missing one.
-- Present the plan as a table (item → destination → STATUS → reason) and STOP for human approval. On first migration of a project, always stop; on later runs, stop only if conflicts or Proposed items exist.
+The companion `save-mem` skill describes writing taste and StrictDoc mechanics. Its `assets/docs-skeleton/` is a starting point, located through the skill registry or the sibling `../save-mem/` directory, not a fixed home-directory path.
 
-## Phase 3 — Execute (after approval)
+| Common location | Useful content |
+|---|---|
+| `docs/project_memory/decisions.sdoc` | Current rules and decisions, their scope and rationale, and retired predecessors |
+| `docs/project_memory/journal.sdoc` | A dated project baseline, important experiences, progress, and open questions |
+| `docs/handbook/` | Reference material worth maintaining: architecture, usage, specs, or operational guidance |
+| `docs/strictdoc_config.py` | The StrictDoc project configuration |
 
-- UIDs: scan existing nodes, continue the sequence; topic prefixes (DEC-MEM-*, DEC-AUTH-*, ...).
-- Write `decisions.sdoc` / `journal.sdoc` nodes. STATEMENT keeps the original wording of the canon (light clarity edits only). Newly authored node content follows the document taste in `save-mem` (中文为主;表格/列表优先,忌小标题+大段文字;不冗余). Legacy documents being wrapped stay verbatim — structure only.
-- **Document wrapping (md → handbook sdoc)**: one md file → one `.sdoc` under `docs/handbook/<topic>/`. `[DOCUMENT]` header: `TITLE:` + `DATE:` (no UID field exists) + `OPTIONS:` with `MARKUP: Markdown`. Map `##` headings to `[[SECTION]]` + `[TEXT]` nodes (double brackets ONLY — single-bracket `[SECTION]` is removed in 0.28.3+); close every section with `[[/SECTION]]`. Content stays verbatim — you add structure, not prose.
-- Write `ctx_memory` entries for operational facts — list existing memories first to avoid duplicates.
-- Validate after EVERY file edit: `strictdoc export .` in `docs/`. Fix parse errors immediately. Prefer plain `strictdoc` from the activated Python env (conda/uv/venv — the agent shell usually inherits it); if not on PATH, detect the project's env instead of assuming `.venv`.
+- Adapt this layout to what already exists. Missing docs or a missing skeleton are normal starting conditions; an existing docs directory is not an invitation to overwrite it.
+- Distill enough knowledge to make the project understandable. Prefer a small useful baseline over a document for every module or every past action.
+- Make **current StrictDoc norms the source of truth**, distinguishable from historical journal entries and reports. Statuses such as Active, Proposed, Deprecated, and Superseded help preserve this distinction as the project evolves.
+- When sources conflict or the intended rule is unclear, surface the consequential question. Avoid inventing a rationale or presenting inferred policy as confirmed. If a settled decision has genuinely changed, maintain the current norm and briefly tell the user rather than waiting for a separate documentation command; ordinary memory and explanatory cleanup can be more flexible.
+- The same fact or decision may also be stored in Magic Context. Choose overlap that improves recall and resilience; neither one-store-per-fact nor mirror-everything is the goal.
 
-## Phase 4 — Report & archive
+## Preserve the project while improving readability
 
-- Report: counts by destination, conflicts resolved (and which side won), `Proposed` items awaiting human confirmation, dropped trivia.
-- Move originals into `docs/_memory_archive/`. Confirm `strictdoc export .` still passes.
+- Keep existing source material and working documentation useful. Add or integrate rather than automatically moving, archiving, deleting, or reformatting everything; discuss consequential restructuring with the user.
+- On later runs, build on existing nodes and references instead of recreating the baseline. Observe the project's history-preservation and version-control conventions.
+- Write for humans: Chinese by default, short phrases and sentences, numbered points, bullets, compact tables, and occasional adjacent `PS:` explanations. Preserve technical precision and useful evidence without importing walls of text into the current norms.
+- Where helpful, connect conclusions to source files, commits, or memory references. Original documents can remain as evidence rather than being copied verbatim into the new handbook.
+- Startup/save guidance in `AGENTS.md` can help future Agents find the memory. Align it with the agreed intent where needed, preserving unrelated project instructions.
+
+## Check the result in the real project
+
+- Use the available StrictDoc installation or project environment. Inspect existing config and grammar before changing them; avoid assuming a specific version, environment manager, or plugin installation.
+- Validate `.sdoc` and configuration changes with `strictdoc export .` from the docs root, and inspect enough of the export to see whether lists, tables, and notes are readable.
+- Consider whether a new reader can tell what applies now, why it applies, what happened before, and what remains uncertain. A successful export alone does not establish that the content is correct.
+- Briefly report the useful memory established, unresolved questions, and actual validation status. Missing integrations or unverified runtime claims can remain explicit gaps rather than reasons to invent completion.

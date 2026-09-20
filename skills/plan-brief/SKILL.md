@@ -1,74 +1,80 @@
 ---
 name: plan-brief
-description: Turn a complex, thought-through requirement into a detailed execution plan document plus a standalone launcher prompt for a fresh agent session. Use when the user provides a long requirement (in chat or a file) and wants a plan before execution, or mentions 执行计划 / 计划文档 / 新会话执行 / 交接 prompt. Grills missing details first (runtime env, paths, verification philosophy), applies ponytail taste, and never executes the plan itself.
+description: Plan long-horizon, multi-stage development for a separate execution session with ponytail taste. Use when explicitly requested, or when the user wants a durable execution plan, a handoff prompt, or review of a prior plan's execution report. Investigate and clarify decisions, write the plan and launcher prompt, then review the executor's report later; never implement here. For complex work without a requested handoff, propose this workflow rather than silently deferring execution. Prefer steady-do for implementation in this session and quick-do for clear, bounded changes.
 ---
 
-# Plan Brief: requirement → grilled plan → clean-session prompt
+# Plan Brief: understand → clarify → plan → hand off → review
 
-One job: produce (1) a detailed execution plan document and (2) a copy-paste prompt that launches a FRESH agent session to execute it. You plan; you never execute. No execution sub-agents.
+## Choose the workflow
 
-## Phase 0 — Absorb the requirement
+- An explicit user choice takes precedence. Do not silently switch workflows; if the chosen one cannot safely fit the task, explain the mismatch and ask about the necessary adjustment.
+- Without an explicit choice: use `quick-do` for clear, bounded changes; `steady-do` for ordinary feature work or unresolved design decisions; `plan-brief` for long-horizon work needing a durable plan and separate-session execution.
+- Judge by uncertainty, coupling, risk, and handoff needs, not prompt length or file count. If unsure between quick and steady, use steady. If a handoff would help but was not requested, propose it before changing who executes; complexity alone does not authorize a handoff.
+- These workflows govern requested development work, not every explanation or read-only question. Skill instructions are in English; replies and deliverables follow the user's language (Chinese by default).
 
-- Read the raw requirement completely (chat text, or the file the user points at).
-- Restate in 2-3 sentences: goal, scope, what "done" looks like.
-- Split it into: explicit requirements vs open details. Do NOT plan yet.
+Your job is a detailed execution plan and a self-contained launcher prompt for a fresh session, followed by review when the user returns. No implementation or execution sub-agents here.
 
-## Phase 1 — Survey the project
+## 1. Understand the request and project
 
-- Skim directory structure, AGENTS.md/README, entry points, and everything the requirement touches.
-- Establish: what exists, its current state, which conventions the project already follows (env managers, doc locations, run commands).
+- Read the complete requirement and decisions already settled in this conversation. Restate the goal, scope, non-goals, and observable completion criteria in 2-3 sentences; separate explicit requirements from open questions.
+- Read project rules, README, relevant entry points, and affected modules. Establish existing capabilities, reuse opportunities, real call chains, compatibility boundaries, and project conventions before designing the plan.
+- Investigate the facts yourself using code, config, memory, and docs. Check upstream docs, source, or issues for uncertain external APIs and platform limits rather than inventing constraints.
 
-## Phase 2 — Grill the details
+## 2. Grill the unresolved decisions
 
-Invoke the `grilling` skill (or `grill-with-docs` in memory-stack projects). The requirement never contains enough detail — interview the user, one question at a time, until every step of the plan is unambiguous. ALWAYS cover:
+Use the bounded, round-based grilling method below; it is self-contained and does not require a separate skill or extra document workflow.
 
-- **Runtime environment**: exact interpreter and env (venv/conda path + activation command), env vars, working directory, package manager, versions. NEVER assume system python.
-- **Inputs/outputs**: formats, paths, expected artifacts.
-- **Execution order**: dependencies between steps, what is parallelizable.
-- **Conventions**: where outputs, docs, and configs live in this project.
-- **Verification mode (mandatory decision — pick ONE and justify in one line)**:
-  - **TDD mode** — only when the feedback loop is fast and tests are cheap: frontend/UI, product services, library code with instant unit tests. Invoke the `tdd` skill.
-  - **Smoke-and-read mode** (default for research/exploration) — long-running or heavy-compute work (model training, data pipelines, experiments, one-off scripts). NO pytest, NO test scaffolding, NO wrapper harnesses: the run itself is expensive, so tests are 入不敷出. Verification = a short smoke run that exits without errors + the agent re-reads its own code to confirm the semantics are right + the user runs the real workload afterwards.
-  - Rule of thumb: if writing/running the test costs more than the failures it would catch, don't write it.
+- Ask only unresolved decisions that affect scope, behavior, compatibility, risk, execution dependencies, or acceptance. Give a recommendation and brief trade-offs; do not ask the user for facts you can inspect.
+- Group independently answerable questions in one round; defer dependent questions until their prerequisites are settled. Use structured questions when available, otherwise numbered questions in chat, then wait for answers.
+- Do not repeat settled questions, invent a quota, or assume every requirement is incomplete. Stop when the plan's execution-critical and acceptance-critical decisions are resolved and understanding is shared.
+- Establish the following where relevant, from investigation or user decisions:
+  - **Environment:** interpreter, environment activation, working directory, package manager, required versions and env var names. Never assume system Python; reference existing secret locations without copying credentials into the plan.
+  - **Inputs and outputs:** formats, paths, expected artifacts, and compatibility constraints.
+  - **Execution order:** dependencies, milestones, and genuinely independent work.
+  - **Document location:** the project's working-doc directory; default `docs/plans/YYYY-MM-DD-<slug>.md`. Keep the report and review beside the plan with the same basename.
+  - **Verification:** what runs, the observable expected result, cost and environment limits, and who verifies what.
+- Default to **smoke-and-read**: the smallest real execution path plus code rereading and checks of relevant adjacent behavior. For documentation-only work, use content review and applicable format checks. Do not add tests, TDD, or verification scripts by default; follow explicit user requests and mandatory project checks. Invoke `tdd` only when TDD is requested or required, not merely because the task is frontend or library code.
+- Briefly recap the agreed scope, approach, and verification, then write the plan without an extra approval gate. If the recap introduces an unresolved material choice, wait for its answer first.
 
-## Phase 3 — Set the taste
+## 3. Keep ponytail taste
 
-Invoke `ponytail` if installed; otherwise apply these rules directly: minimum code that works. No over-encapsulation, no defensive programming, no redundant re-validation, no speculative abstraction. Functional code that runs correctly is DONE. Plan the lazy path.
+- Plan the smallest working change: reuse existing code, then stdlib/native features, then installed dependencies. No over-encapsulation, speculative abstractions, defensive boilerplate, redundant checks, future scaffolding, or unrelated cleanup.
+- Fix root causes along real call chains and account for sibling callers of shared logic. Preserve necessary trust-boundary validation, security, accessibility, data protection, and error handling that prevents data loss.
+- Include authorization gates for destructive or irreversible operations; permission to execute the plan is not permission to overwrite secrets or change unrelated environments.
 
-## Phase 4 — Write the plan document
+## 4. Write the plan
 
-One Chinese markdown document, structured (tables for comparisons/params, lists for steps — no heading + wall of text), saved to the project's working-doc location (default `docs/plans/YYYY-MM-DD-<slug>.md`; confirm the location during grilling). Sections:
+One structured Markdown document in the user's language: tables for comparisons and parameters, lists for steps, no walls of text. Sections:
 
-1. **目标与范围** — the Phase 0 restatement
-2. **现状** — what exists now; Phase 1 findings
-3. **环境与前提** — exact activation commands, env vars, versions
-4. **执行步骤** — ordered; each step: what / command / expected result
-5. **注意事项与已知坑** — everything surfaced in grilling
-6. **验证方式** — name the chosen verification mode (TDD / smoke-and-read) and why; per the Phase 2 discussion; who runs what at the end
-7. **交付物清单** — including the development report path: `docs/plans/YYYY-MM-DD-<slug>.report.md` (same slug as this plan)
+1. **Goal and scope:** agreed outcomes and non-goals.
+2. **Current state:** relevant existing code, behavior, and reuse points.
+3. **Environment and prerequisites:** exact known commands, paths, versions, and unresolved external blockers clearly labeled.
+4. **Execution steps:** ordered actions, relevant files or commands, expected results, and dependencies. Do not invent commands or API details that were not verified.
+5. **Constraints and known pitfalls:** compatibility, risks, and necessary authorization gates.
+6. **Verification:** agreed approach, concrete acceptance evidence, and responsibilities. Distinguish static checks, loading, local calls, and real user interaction; never treat lack of errors as proof of the full outcome.
+7. **Deliverables:** include `<plan-basename>.report.md` beside the plan. Required product docs and project memory still apply.
 
-## Phase 5 — Write the launcher prompt
+## 5. Write the launcher prompt
 
-Append it to the plan doc inside a fenced block AND print it in chat for copying. It must be fully self-contained for a clean session:
+Append a fenced prompt to the plan AND print it in chat for copying. It must be self-contained for a fresh session:
 
-- Point to the plan doc path; instruct the new agent to read it plus AGENTS.md/project docs before acting.
-- Hard constraints: activate the specified env before running anything; follow the plan's step order; ponytail taste; no scope creep; stop and ask when the plan is ambiguous; report results per the verification section.
-- **Development report (mandatory, even for partial work)**: when done — or when stopping — write `docs/plans/YYYY-MM-DD-<slug>.report.md` (Chinese, structured) with sections: 完成情况总表 (per plan step: 完成/部分/搁置/未动 + evidence) / 做了什么 / 没做什么与搁置原因 / 规范遵循情况 / 特殊处理与偏离 / 遗留问题与建议.
-- **Partial completion is legitimate**: steps blocked by real constraints (missing deps, env limits, out of scope) may be shelved — never fake completion, never silently skip. The report must say exactly what was and wasn't done.
-- State the deliverables.
+- Point to the plan; instruct the executor to read it, project rules, and relevant project docs before acting.
+- Carry the agreed scope, environment, step dependencies, ponytail taste, verification, authorization gates, and deliverables. Follow the plan rather than restarting workflow selection and grilling settled decisions.
+- Stop affected work and ask when the plan is ambiguous, new evidence invalidates it, or scope must change. Resolve ordinary local implementation details without repeated approval.
+- **Development report is mandatory, even for partial work:** write `<plan-basename>.report.md` beside the plan, in the user's language. Include a per-step status/evidence table (complete / partial / blocked / not started), changes made, work omitted and why, convention compliance, deviations, and remaining issues.
+- Report only actual evidence. Separate static checks, successful loading, injected input, and end-to-end user behavior. If blocked or dependent on the user's environment, give concrete remaining checks and expected observations; never fake completion or silently skip steps.
 
-## Review loop (审查闭环)
+## Review loop
 
-When the user returns saying the executor finished (or drops the report path), audit — do not re-explore the codebase from scratch:
+When the user returns with the executor's completion or report:
 
-1. Read the plan doc and the report side by side. Spot-check the code only where claims need evidence.
-2. Build a 核对表: per plan step — report claim vs evidence vs verdict (符合/存疑/不符).
-3. Audit 规范遵循: env activation, step order, ponytail taste, test-script restraint.
-4. Judge each deviation/特殊处理: reasonable or should be reverted, with why.
-5. Verdict: 符合 / 部分符合 / 不符合, then concrete prioritized 修改意见 (minimal fixes, ponytail style).
-6. Write the review to `docs/plans/YYYY-MM-DD-<slug>.review.md` (never edit the executor's report — it is their artifact) and print it in chat.
-7. If fixes are needed, produce a new self-contained launcher prompt (Phase 5 rules) re-dispatching exactly the fix items to a fresh session.
+1. Read the plan and report side by side. Spot-check implementation and claimed evidence where needed; do not re-explore the entire project by default.
+2. Build a per-step table: report claim, evidence, and verdict (conforms / uncertain / does not conform).
+3. Audit environment use, step dependencies, scope, ponytail taste, agreed verification, and necessary authorization. Judge deviations with reasons rather than treating every deviation as wrong.
+4. Give an overall verdict (conforms / partially conforms / does not conform), followed by prioritized minimal fixes.
+5. Write `<plan-basename>.review.md` beside the plan in the user's language and present the review in chat. Never edit the executor's report.
+6. If fixes are needed, provide a self-contained launcher prompt for exactly those fixes, preserving the same reporting and verification obligations.
 
 ## Hard boundary
 
-When plan + prompt are delivered, the planning job is DONE for now. Do not execute the plan here. Do not spawn execution sub-agents. The user launches the fresh session themselves; this session's next role is reviewer (see Review loop).
+After delivering the plan and prompt, wait for the user to launch the execution session. Do not implement here or spawn execution sub-agents. This session's next role is reviewer unless the user explicitly changes the workflow.

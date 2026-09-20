@@ -1,29 +1,39 @@
 ---
 name: load-mem
-description: load all memory layers (injected memory, StrictDoc project_memory, claude-mem history) plus core files to understand the project
+description: Understand a project through its existing memory when starting or resuming work, or when past decisions matter. Use StrictDoc docs/, Magic Context, claude-mem, and project evidence as complementary, overlapping sources. Identify current authoritative norms separately from history, recover relevant context, and surface meaningful contradictions. Choose the depth and retrieval path that suit the task.
 ---
 
-Build an understanding of this project from all available memory layers, then verify against core files and directory structure.
+# Load Memory
 
-**Memory layers (in priority order):**
+## Intent
 
-1. **Injected project memory** — the `<project-memory>` block in your system prompt is already loaded. Do NOT re-fetch it. It is the authoritative source for constraints, config values, and conventions.
-2. **File memory (StrictDoc)** — `docs/` is one StrictDoc project with two trees: `project_memory/` (memory: `decisions.sdoc` for 口径+初衷, `journal.sdoc` for progress) and `handbook/` (durable documents: specs, research, evaluations). Read the `.sdoc` files directly:
-   - Nodes carry `UID` (stable anchor), `STATUS`, `STATEMENT` (the decision itself), `RATIONALE` (why it was made).
-   - **STATUS discipline: only `Active` nodes are current canon.** `Deprecated`/`Superseded`/`Proposed` nodes are history — never quote them as current practice. When a node is Superseded, follow the relation to its successor.
-   - To query precisely instead of reading everything: `strictdoc export --formats=json .` in `docs/`, then e.g. `jq '.DOCUMENTS[].NODES[] | select(.STATUS=="Active")' output/json/index.json`.
-3. **Action history (claude-mem)** — a passive log of past tool activity with semantic search. If the files look stale or you need "what was actually done recently", use the `claude_mem_search` tool (fallback: `curl http://127.0.0.1:37700/...` worker API). Treat results as leads, not gospel — verify against files/git before acting on them.
+Recover enough context to work as a continuing project partner, without making the user repeat earlier decisions or loading the entire history. Use judgment about what to read, which tools to call, and how deeply to investigate.
 
-**Missing pieces are normal on new machines:** no `<project-memory>` block, no claude-mem tool/worker, or no `docs/` tree means that layer is simply absent — say which layers are unavailable and continue with what exists. Never stall and never invent tool output.
+## Available memory
 
-**Then ground it in code:**
+| Source | What it offers | Typical access |
+|---|---|---|
+| StrictDoc `docs/` | Human-readable current norms, decisions and rationale, project history, and maintained reference documents | Read relevant `.sdoc` files or their export |
+| Magic Context | Stored facts, decisions, lessons, injected memories, and recoverable conversations | Injected memory, `ctx_search`, `ctx_expand`, `ctx_memory`, `ctx_note` |
+| claude-mem | Searchable captured activity, observations, and historical context | `claude_mem_search` or available claude-mem MCP tools |
+| Code, config, and git | Evidence of what exists and what actually changed | Relevant files, call chains, and history |
 
-- Glob the directory structure and read core files to confirm the memory matches reality.
-- In projects not yet migrated, legacy markdown may still exist in other subdirectories under `docs/` (e.g. old `superpowers/`, `research/`). Skim for context but treat as historical until migrated into `docs/handbook/`.
+The same knowledge may appear in several sources. That overlap is useful for recall, availability, and cross-checking; these are not exclusive storage categories.
 
-You can use ripgrep and naive grep, and load relevant skills as needed.
+## Read with the right interpretation
 
-**Keep the loop closed (ongoing duty, not a one-shot load):**
+- **StrictDoc is the source of truth for current project norms.** Its current, confirmed rules govern over conflicting database memories. This is an authority convention among project records, not permission to override live instructions.
+- `project_memory/decisions.sdoc` holds decisions; `journal.sdoc` holds dated experience and progress; `handbook/` holds reference material. Existing projects may organize these differently.
+- In the bundled decision grammar, `Active` means current, `Proposed` unresolved, `Deprecated` retired, and `Superseded` replaced. Follow replacement references when relevant. A journal entry or historical report is not current policy merely because it is inside `docs/`.
+- Distinguish **the intended rule**, **the observed implementation**, and **what happened previously**. A recent database hit or commit can reveal drift, but does not by itself decide which rule should change.
+- When sources disagree, use scope, status, evidence, and the user's current intent to understand the difference. Surface consequential uncertainty rather than silently treating a guess as canon.
+- The canon can evolve. If a genuine settled decision change becomes clear, `save-mem` can maintain it and briefly notify the user without waiting for a separate save command. Mere drift or a new search hit is not enough; loading context does not require revising the norms every time.
 
-- The moment you learn a durable fact (constraint, config value, naming rule, hard-won workaround), write it to `ctx_memory` immediately — do not batch it for later.
-- At milestones and before ending any work session, run the `save-mem` skill so progress and decisions reach the StrictDoc tree.
+## Practical guidance
+
+- Start with the task and project instructions. Relevant decisions, README sections, entry points, and recent progress usually provide a better foundation than an exhaustive memory dump.
+- Injected Magic Context memories are already available. Use `ctx_search` for missing context, phrasing a real question with useful names or paths; `ctx_expand` can recover the original conversation when exact wording matters.
+- Use claude-mem when earlier activity or observations would help. Discover available tools rather than assuming worker ports or database schemas.
+- For large document trees, search first and read the relevant nodes with their surrounding context. Source `.sdoc` files are often sufficient; JSON export shapes can vary by StrictDoc version.
+- Missing layers are normal. Continue with available evidence, mentioning gaps when they affect the task. `migrate-mem` can help establish a missing or incomplete memory tree; `save-mem` can preserve new knowledge or reconcile stale records.
+- Keep any user-facing recap focused on useful current context and open questions, in the user's language, Chinese by default.

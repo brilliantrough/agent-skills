@@ -1230,7 +1230,7 @@ if [ -d "$HOME/.agents/skills/load-mem" ]; then
   fi
 elif ! command -v npx >/dev/null 2>&1; then
   echo "跳过 skills 安装(需要 npx:先装 Node 再重跑)"
-elif ask "安装 skills 本体(brilliantrough/agent-skills 全部 12 个)?" Y; then
+elif ask "安装 skills 本体(brilliantrough/agent-skills 全部 skills)?" Y; then
   # || true:PromptScript 等无关 agent 不支持全局安装会报错退出,但其余目标已装好
   npx -y skills@latest add brilliantrough/agent-skills --all -g -y || true
 fi
