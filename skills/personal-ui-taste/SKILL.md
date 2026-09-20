@@ -2,8 +2,8 @@
 name: personal-ui-taste
 description: "个人前端审美与持续演化的 UI 品味指南。Use when designing, building, polishing or reviewing this user's frontend UI, dashboards, charts, forms or admin panels, when asked to follow 我的品味/个人审美, or to remember an approved visual preference. Applies confirmed preferences, solves known interaction pitfalls, and incorporates explicit feedback across projects. Not for backend-only work."
 metadata:
-  version: "1.6.0"
-  updated: "2026-09-15"
+  version: "1.12.1"
+  updated: "2026-09-20"
 ---
 
 # Personal UI Taste · 个人前端品味
@@ -25,6 +25,10 @@ metadata:
 
 | 用户描述的症状 | 直接查阅 |
 | --- | --- |
+| 图例按钮点亮/点灭与曲线可见性对不上，有的灰了还可见 | patterns.md §1：图例开关按名称选择、系列重名导致脱钧 |
+| 基线/起点被画成孤零零的点，不参与曲线 | [S03 §2](scenarios/research-charts.md)：标量固定值画水位参考线；先判互斥性再选分页或叠加 |
+| 柱状图看不出东西/想撤掉；想看折线 | [S03 §1.6 / §3](scenarios/research-charts.md)：折线是主视图，指标选择器放折线图头部 |
+| 数据集/方法被做成只能选一个；想同时看但可隐藏 | [S03 §1.3 / §2](scenarios/research-charts.md)：每数据集一幅图 + 可见性开关；只有实验批次互斥 |
 | 曲线高亮了，但信息框没有突出对应条目；其他条目没变淡 | patterns.md §1：统一焦点与真实命中验收 |
 | 提示框挡住折线、点不到其他线；信息太多看不全、不能滚动；两图并排画布太小 | [patterns.md §2.1：密集图表详情遮挡](patterns.md#dense-chart-details) |
 | 信息被移到图下，要低头找，失去悬浮查看的直觉 | patterns.md §2.1：恢复目标附近浮层，优先扩大画布、自动避让和限高滚动 |
@@ -45,7 +49,7 @@ metadata:
 | T08 | 有序列表、密集状态历史 | 直接拖拽排序；密集状态用细矩形红黄绿历史灯带、足够长的时间轴、悬浮解释；稀疏且可跳转的状态采用 S02 | 只有按钮才能调排序；密集历史被粗大灯块挤短；颜色无解释 |
 | T09 | 预览型工作台、卡片与主题 | 冷灰蓝画布、白色面板、蓝紫强调；柔和细边框的大圆角矩形；比例字体、克制按钮与轻浮层，见 S02 | 把内容卡片一律压成密集表格；大矩形做成胶囊；重描边/重阴影 |
 | T10 | 每日时间点选择 | 明确的 24 小时制 `00–23`；新增时间分钟默认 `00`，允许主动选其他分钟 | AM/PM 切换；空值弹出后分钟跟随当前时间；默认值在保存时被误添为时间点 |
-| T11 | 研究指标与曲线看板 | 已认可左侧筛选栏与顶部服务器切换栏；图表偏好明亮的蓝紫青绿、常规厚度柱和清楚折线；视觉验收独立于功能验收 | 拒绝层层卡片与胶囊堆叠的“塑料感”，也拒绝灰暗、沉重的图表配色；不能将拒绝容器风格误解为拒绝亮色图表 |
+| T11 | 研究指标与曲线看板 | 已认可左侧筛选栏与顶部服务器切换栏；图表偏好明亮的蓝紫青绿、清楚折线；折线为指标对比主视图；视觉验收独立于功能验收 | 拒绝层层卡片与胶囊堆叠的“塑料感”，也拒绝灰暗、沉重的图表配色；拒绝多 run 指标的横排柱状图；不能将拒绝容器风格误解为拒绝亮色图表 |
 
 ## 场景索引
 
@@ -53,8 +57,17 @@ metadata:
 | --- | --- | --- | --- |
 | S01 | 浅色信息密集界面：表单、列表、表格、数据图表、状态时间轴 | 本文件视觉基线 + [patterns.md](patterns.md) | 按所需组件选读，不要求同时包含所有组件 |
 | S02 | 冷灰蓝预览型工作台：主题、卡片画廊、稀疏可跳转状态 | [preview-workbench.md](scenarios/preview-workbench.md) | 主题与基础元素可跨场景复用；卡片/状态块密度按内容选择，与 S01 共存 |
+| S03 | 科研指标绘图：数据形态→图形映射、族叠加 vs 分页互斥、参考线 | [research-charts.md](scenarios/research-charts.md) | 实验指标看板、训练曲线、方法对比图；与 S01 图表规则配套使用 |
 
 新场景经过实际设计与反馈后，增量添加索引项。内容少时在现有模式中补一个小节；出现独立风格或较多规则时再建立 `scenarios/<scene-name>.md`，记录适用范围、确认偏好、反例和交互要点，并在此链接。不要提前创建空场景，也不要把新场景规则自动推广为全局默认。
+
+## 参考例子
+
+| 例子 | 位置 | 内容 |
+| --- | --- | --- |
+| 实验指标看板（脱敏） | [research-dashboard.md](examples/research-dashboard.md) | S03 的完整落地实例：数据模型、页面结构、形态→画法对照表、踩坑清单。数据集/方法/平台名均已泛化 |
+
+例子只承载结构与决策，不照搬具体项目的样式数值；新例子放入 `examples/`，抹去本地项目信息，保持任何人可读。
 
 ### 视觉参考的使用方式
 

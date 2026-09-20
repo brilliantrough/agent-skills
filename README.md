@@ -32,7 +32,7 @@ bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.co
 
 本仓库仍以 **OpenCode 为主**；Pi 与 OpenCode 共享记忆配置（`~/.claude-mem/settings.json`、`~/.config/cortexkit/magic-context.jsonc`）；Codex 复用现有 skills 原文，不为其修改技能工作流。详见下面的 Pi 与 Codex 说明。
 
-## Skills(13 个)
+## Skills(16 个)
 
 来自 [mattpocock/skills](https://github.com/mattpocock/skills)(MIT,见 [NOTICE](NOTICE.md)):
 
@@ -73,6 +73,14 @@ bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.co
 | Skill | 用途 |
 |---|---|
 | `personal-ui-taste` | 个人前端审美:已确认偏好与场景规则(浅色信息密集界面 / 预览型工作台)、多系列图表焦点联动、密集图表就近悬浮、症状索引与反馈演化协议 |
+
+自制·科研实验(ponytail for experiments:实验规模随证据收缩,但完整性满足论点):
+
+| Skill | 用途 |
+|---|---|
+| `exp-campaign` | 为一个研究假设设计分阶段、可剪枝的实验战役：观察已有结果 → 访谈对齐 → 枚举最大实验空间 → 用廉价探针实验剪枝 → 产出带观察门限的决策树计划与最终指标/图表设计,按阶段交给 exp-batch 执行 |
+| `exp-batch` | 执行一条有界的实验分支(单一 方法×数据×预算 或一条消融分支)：先确认分支未被剪枝,只问未决配置,按项目惯例运行,指标落到共享表格且形状直接可用于最终图表 |
+| `exp-probe` | 一次性科研抽查:补一个缺失数据点、失败后重跑、单配置 sanity check、最小复现;至多一个聚焦问题,跑完一行汇报 |
 
 ## 依赖
 
