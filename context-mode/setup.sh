@@ -3,10 +3,12 @@
 #
 #   bash context-mode/setup.sh              # 同步 + 构建 + 三层改动 + 打包 + 体检
 #   bash context-mode/setup.sh --publish    # 顺带发 GitHub release（目标机靠它拿新版）
+#   bash context-mode/setup.sh --install    # 同 --publish（别名）
 #   bash context-mode/setup.sh --verify     # 只体检（不动上游、不构建、不打包）
 #
 # 顺序：A 补丁 → B 锚定改写 → 构建 → C 改名 → D 打包 → 体检（B 在构建前，C/D 在构建后）。
 # 环境变量：CONTEXT_MODE_DIR（clone 位置）、CONTEXT_MODE_PREFIX（工具名前缀，默认 ctxm_）。
+# 没有 clone（首次运行或 clone 被删）会自动 clone 上游到 CONTEXT_MODE_DIR 下的路径。
 # 不要调 ctxm_upgrade —— 它会从 GitHub 覆盖成纯上游。
 
 set -euo pipefail
@@ -25,14 +27,19 @@ while [[ $# -gt 0 ]]; do
     --install) DO_PUBLISH=1; shift ;;
     --verify) VERIFY_ONLY=1; shift ;;
     --prefix) PREFIX="$2"; shift 2 ;;
-    -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
     *) echo "未知参数: $1" >&2; exit 1 ;;
   esac
 done
 export CONTEXT_MODE_PREFIX="$PREFIX"
 
 for c in git bun node npm; do command -v "$c" >/dev/null || { echo "缺少 $c" >&2; exit 1; }; done
-[[ -d "$REPO/.git" ]] || { echo "不是 git clone: $REPO" >&2; exit 1; }
+UPSTREAM_URL="https://github.com/mksglu/context-mode"
+if [[ ! -d "$REPO/.git" ]]; then
+  echo "[context-mode] 没有 clone，从上游拉一份 → $REPO"
+  mkdir -p "$(dirname "$REPO")"
+  git clone "$UPSTREAM_URL" "$REPO" || { echo "clone 失败: $UPSTREAM_URL（目录非空或网络不通）" >&2; exit 1; }
+fi
 
 # ── 只体检 ────────────────────────────────────────────────────────────────────
 if [[ "$VERIFY_ONLY" == "1" ]]; then
