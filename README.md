@@ -77,7 +77,7 @@ bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.co
 ## 依赖
 
 - 6 个 Matt 的 skill:零依赖
-- 3 个记忆 skill:配合 Magic Context、claude-mem 与 `docs/` StrictDoc 使用,缺少某一层时仍可利用其余层；初始化和文档校验需要 StrictDoc。项目可采用本仓库 [AGENTS.md](AGENTS.md) 中 `memory-system:start/end` 之间的引导块
+- 3 个记忆 skill:配合 Magic Context、claude-mem 与 `docs/` StrictDoc 使用,缺少某一层时仍可利用其余层；初始化和文档校验需要 StrictDoc。项目可采用本仓库 [AGENTS.tail.md](AGENTS.tail.md) 中 `memory-system:start/end` 之间的引导块
 - 3 个工作流 + 1 品味 skill:无硬依赖,品味内联
 - `.sdoc` 校验需要 `strictdoc`:脚本末尾会检查 `uv`(缺则装,并处理 uv 自升级与清华 PyPI 镜像),并可选择用 `uv tool install strictdoc==0.28.1` 全局安装(升级:`uv tool upgrade strictdoc`)
 

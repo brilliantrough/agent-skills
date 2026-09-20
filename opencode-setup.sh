@@ -1296,11 +1296,11 @@ echo "      cd ~/.claude/plugins/marketplaces/thedotmack && npm run worker:resta
 echo "      curl -s http://$(mem_worker_url)/api/health   # 端口取自 $SETTINGS(见下方提示)"
 # ---- 项目接入记忆系统(可选,默认不写):把 memory-system 块写到当前目录的 AGENTS.md 最尾部 ----
 PROJ_AGENTS="$PWD/AGENTS.md"
-AGENTS_SRC="$(cd "$(dirname "$0")" 2>/dev/null && pwd)/AGENTS.md"
-AGENTS_URL="https://raw.githubusercontent.com/brilliantrough/agent-skills/main/AGENTS.md"
+AGENTS_SRC="$(cd "$(dirname "$0")" 2>/dev/null && pwd)/AGENTS.tail.md"
+AGENTS_URL="https://raw.githubusercontent.com/brilliantrough/agent-skills/main/AGENTS.tail.md"
 if ask "把记忆系统规范块写进 $PROJ_AGENTS 的最尾部(项目自身内容在前)?" N; then
   _tmp="$(mktemp)"; _ok=0
-  # 本地 AGENTS.md 只有在确实含规范块、且不是目标文件本身时才算源;否则一律下载
+  # 本地 AGENTS.tail.md 只有在确实含规范块、且不是目标文件本身时才算源;否则一律下载
   if [ -f "$AGENTS_SRC" ] && [ "$AGENTS_SRC" != "$PROJ_AGENTS" ] && grep -q '<!-- memory-system:start -->' "$AGENTS_SRC"; then
     cp "$AGENTS_SRC" "$_tmp" && _ok=1
   elif curl -fsSL --connect-timeout 8 -m 60 -o "$_tmp" "$AGENTS_URL" 2>/dev/null \
@@ -1328,7 +1328,7 @@ PYEOF
   fi
   rm -f "$_tmp"
 fi
-echo "$n. 项目接入记忆系统(可选):上一步若跳过,可手动把本仓库 AGENTS.md 的 memory-system 块粘到项目 AGENTS.md 的最尾部"; n=$((n+1))
+echo "$n. 项目接入记忆系统(可选):上一步若跳过,可手动把本仓库 AGENTS.tail.md 的 memory-system 块粘到项目 AGENTS.md 的最尾部"; n=$((n+1))
 if [ -x "$CG_BIN" ]; then
   echo "$n. 代码知识图谱(按项目):cd <项目> && codegraph init(建 .codegraph/ 索引,之后自动增量同步;不 init 则 MCP 无内容可查)"; n=$((n+1))
 fi
