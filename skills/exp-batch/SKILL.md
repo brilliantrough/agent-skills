@@ -27,8 +27,18 @@ Small but complete: one branch, done right, plottable. Do not expand scope sidew
 - Watch for the known failure modes of this project class: OOM, NaN, checkpoint serialization, degenerate metric collapse (e.g., all-same-answer). On failure: preserve the failing artifact/log, isolate minimally, never report a failed run as a result row.
 - Negative results are results: record them with the same schema as successes.
 
-## 4. Land the metrics where figures can use them
+## 4. Wait on long runs with `later` (delegated execution)
+
+Long runs (GPU hours) must not hold the turn and must not be polled in a loop. The unattended pattern:
+
+- **Delegation is explicit.** "Run it and check the results" delegates execution. If the researcher has not delegated, offer it before launching: "this needs ~Xh; I can run it in the background and resume automatically with the `later` tool — delegate to me?" State that each turn will end with a `later` schedule until the batch lands.
+- **Launch in the background** per project conventions (nohup/tmux/launcher), then call the `later` tool: estimate the duration, add ~10% margin (5h run → schedule 5.5h), and write the prompt as a complete instruction to your future self — what to check, what to decide, what to run next.
+- **End the turn** after scheduling. The scheduled prompt arrives as a user message and resumes the session with no human present. Chain wake-ups across runs: each wake-up checks, decides, launches the next run, schedules the next `later`.
+- **A timer is an estimate, not a completion signal.** On wake-up, verify the run actually finished and succeeded before recording metrics; if still running, schedule another `later` with the remaining estimate.
+- If the host has no `later` tool, degrade: tell the researcher the expected duration and when to return, or follow the project's own waiting convention.
+
+## 5. Land the metrics where figures can use them
 
 - Every run lands in the shared results table with: id, config, split, surface, metrics, status, evidence path. Include every epoch/point recorded, not only the chosen one.
 - Before finishing, check plottability: does this batch slot into the final figure as its own curve family, with the anchors (baseline reference lines) it needs? If the data shape would force an awkward plot (isolated points, mixed axes), fix the data collection now, not at figure time.
-- Report concisely: cells filled, key numbers (all epochs/surfaces, not cherry-picked), deviations from sibling runs, and what the campaign should reconsider because of this batch.
+- Report concisely: cells filled, key numbers (all epochs/surfaces, not cherry-picked), deviations from sibling runs, what the campaign should reconsider because of this batch — and, under delegated execution, which `later` wake-ups fired and what each one found.
