@@ -1196,12 +1196,13 @@ PYEOF
 fi
 
 # ---- 6. notify 插件(brilliantrough/opencode-notify-hub,GitHub Release 预构建包)----
+# 每次拉最新 release 的 zip,与已装文件比对:一致就不动,不同才备份 .bak-时间戳 再替换。
 NOTIFY_TARGET="$PLUGINS/session-notify.js"
-if [ ! -f "$NOTIFY_TARGET" ] && command -v curl >/dev/null 2>&1; then
-  if ask "未找到 notify 插件,从 GitHub Release 下载最新 opencode-notify-plugin?" Y; then
-    python3 - "$PLUGINS" <<'PYEOF' || echo "WARN: notify 插件下载失败(检查代理)" >&2
-import json, os, sys, urllib.request, zipfile
-plugins_dir = sys.argv[1]
+if command -v curl >/dev/null 2>&1; then
+  if [ -f "$NOTIFY_TARGET" ] || ask "未找到 notify 插件,从 GitHub Release 下载最新 opencode-notify-plugin?" Y; then
+    _new="$NOTIFY_TARGET.new"
+    notify_ver="$(python3 - "$_new" <<'PYEOF' || true
+import json, sys, urllib.request, zipfile
 api = "https://api.github.com/repos/brilliantrough/opencode-notify-hub/releases"
 req = urllib.request.Request(api, headers={"User-Agent": "opencode-setup"})
 rels = json.load(urllib.request.urlopen(req, timeout=30))
@@ -1210,15 +1211,25 @@ url = next((a["browser_download_url"] for r in rels if not r.get("draft")
             if a["name"].startswith("opencode-notify-plugin-") and a["name"].endswith(".zip")), None)
 if not url:
     raise SystemExit("release 中没有 opencode-notify-plugin-*.zip 资产")
-print("downloading:", url)
 tmp, _ = urllib.request.urlretrieve(url)
-os.makedirs(plugins_dir, exist_ok=True)
 with zipfile.ZipFile(tmp) as z:
     name = next(n for n in z.namelist() if n.endswith("session-notify.js"))
-    with z.open(name) as src, open(os.path.join(plugins_dir, "session-notify.js"), "wb") as dst:
+    with z.open(name) as src, open(sys.argv[1], "wb") as dst:
         dst.write(src.read())
-print("installed: plugins/session-notify.js")
+print(url.rsplit("/", 1)[-1])
 PYEOF
+)"
+    if [ -z "$notify_ver" ] || [ ! -s "$_new" ]; then
+      rm -f "$_new"; echo "WARN: notify 插件下载失败(检查代理)" >&2
+    elif [ -f "$NOTIFY_TARGET" ] && cmp -s "$_new" "$NOTIFY_TARGET"; then
+      rm -f "$_new"; echo "unchanged: plugins/session-notify.js($notify_ver)"
+    else
+      _action=installed
+      if [ -f "$NOTIFY_TARGET" ]; then
+        cp -p "$NOTIFY_TARGET" "$NOTIFY_TARGET.bak-$(date +%Y%m%d%H%M%S)"; _action=updated
+      fi
+      mv "$_new" "$NOTIFY_TARGET"; echo "$_action: plugins/session-notify.js($notify_ver)"
+    fi
   fi
 fi
 

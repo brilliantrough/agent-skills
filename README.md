@@ -391,6 +391,15 @@ npx skills update -g                                     # 刷新 lock 里登记
 - **`update -g` 不会安装新增 skill**:它只遍历 `~/.agents/.skill-lock.json` 里已登记的条目、按内容哈希逐个刷新,上游新增的至多打印一行 `To install: npx skills add …`。两个 setup 脚本已按 `add --all` → `update -g` 的顺序跑。
 - 手工拷进 `~/.agents/skills/` 的副本不在 lock 里(`npx skills ls -g` 显示 `Source: local`),两个命令都不会碰,只能靠 `add` 纳入跟踪(add 会以仓库内容覆盖本地副本;服务器上的演化更新请先回流仓库)。
 
+插件本体(不是配置)的更新方式:
+
+| 插件 | 更新方式 |
+|---|---|
+| 本仓库 Pi 扩展/主题(git 包)、npm 类 Pi 包 | 脚本步骤 2 的 `pi update --all`(`pi-autoname@0.6.8` 这类钉版被 pi 跳过) |
+| context-mode fork(Pi/opencode 两侧)、later、notify | 每次拉最新 release/raw 与已装内容比对:不一致才替换,原文件存 `.bak-YYYYmmddHHMMSS` |
+| claude-mem wrapper | 脚本内生成,内容不同才询问替换 |
+| opencode 侧 magic-context / ponytail | 脚本只保证配置条目存在,升级由 opencode 自己的包缓存决定 |
+
 重跑 `opencode-setup.sh` / `pi-setup.sh` 是幂等的,配置文件按「字段级合并」更新,不覆盖本地敏感值:
 
 | 文件 | 更新方式(non-destructive) |
