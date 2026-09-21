@@ -32,10 +32,19 @@ bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.co
 
 **更新时少按回车（`-y`）**：`-y`（等价 `--yes`，也认环境变量 `ASSUME_YES=1`）只自动回答**默认就是 Y** 的确认项 —— 装缺的软件/包、各 json/toml 按字段级合并写入（保留本地敏感值）、刷新 skills；**默认 N 的项目照旧停下人工确认**（`pi update --all` 升级本体、magic-context 版本守卫、覆盖插件缓存、无代理继续），所以不会有不知情的覆盖或升级。首次部署的「网关地址 / API key / mcphub host」提问也会跳过（占位符保留，之后重跑或手工填；无人值守请改用 `PI_GATEWAY_BASE_URL` / `PI_GATEWAY_API_KEY` / `MCPHUB_HOST`）。
 
+形式一（和上面三条一样，推荐）：
+
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/pi-setup.sh)" -- -y
-# 也可以: curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/pi-setup.sh | bash -s -- -y
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/opencode-setup.sh)" -- -y
 ```
+
+形式二（管道）：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/opencode-setup.sh | bash -s -- -y
+```
+
+两个任选一个复制；`pi-setup.sh` / `codex-setup.sh` 同理，把脚本名换掉即可。
 
 本仓库仍以 **OpenCode 为主**；Pi 与 OpenCode 共享记忆配置（`~/.claude-mem/settings.json`、`~/.config/cortexkit/magic-context.jsonc`）；Codex 复用现有 skills 原文，不为其修改技能工作流。详见下面的 Pi 与 Codex 说明。
 
