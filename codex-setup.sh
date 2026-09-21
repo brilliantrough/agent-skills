@@ -9,8 +9,19 @@
 # 4. 提示 /hooks 信任和 /mcp 检查;Magic Context、notify 不安装,原生压缩不变
 # 已配置项不重写、不自动升级;冲突/显式禁用项保留;修改前备份,不碰模型/认证配置
 # (例外:~/.claude-mem/settings.json 走 dot_file 模板字段级合并,api key/base url 等敏感值仍保留)
-# 用法:bash codex-setup.sh;支持 CODEX_HOME(首次 claude-mem 官方安装仅支持默认路径)
+# 用法:bash codex-setup.sh [-y|--yes];支持 CODEX_HOME(首次 claude-mem 官方安装仅支持默认路径)
 set -euo pipefail
+
+# -y/--yes(或环境变量 ASSUME_YES=1):自动回答「默认就是 Y」的确认项;默认 N 的项(如共享 runtime 升级)仍人工确认
+ASSUME_YES="${ASSUME_YES:-}"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -y|--yes) ASSUME_YES=1 ;;
+    -h|--help) echo "用法: bash <本脚本> [-y|--yes]   # -y 跳过默认 Y 的确认项,默认 N 的仍人工确认"; exit 0 ;;
+    *) echo "未知参数: $1(仅支持 -y|--yes / -h|--help)" >&2; exit 2 ;;
+  esac
+  shift
+done
 
 CFG="${CODEX_HOME:-$HOME/.codex}"
 CONFIG="$CFG/config.toml"
@@ -23,6 +34,8 @@ errors=0
 ask() {
   local a="" def="${2:-N}" hint="y/N"
   [ "$def" = Y ] && hint="Y/n"
+  # -y:只对默认 Y 的项自动通过;默认 N 的照样问,避免不知情的覆盖/升级
+  if [ -n "$ASSUME_YES" ] && [ "$def" = Y ]; then echo "$1 [$hint] → 是 (-y)"; return 0; fi
   if { true < /dev/tty; } 2>/dev/null && read -r -p "$1 [$hint] " a < /dev/tty; then
     if [ -z "$a" ]; then [ "$def" = Y ]; else [[ "$a" =~ ^[Yy]$ ]]; fi
   else
@@ -95,6 +108,8 @@ MCPHUB_HOST="${MCPHUB_HOST:-}"
 
 ask_value() { # $1=提示 $2=输出变量 $3=非空则不回显(用于 key)
   local a=""
+  # -y 下不阻塞:等同回车跳过,占位符保留
+  if [ -n "$ASSUME_YES" ]; then echo "$1: (跳过,-y)"; return 0; fi
   if { exec 9</dev/tty; } 2>/dev/null; then
     if [ -n "${3:-}" ]; then read -r -s -u 9 -p "$1: " a || a=""; echo
     else read -r -u 9 -p "$1: " a || a=""; fi

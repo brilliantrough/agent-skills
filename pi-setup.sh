@@ -30,9 +30,21 @@
 #   7. skills 本体:npx skills add --all(刷新 + 装入新增 skill)+ update -g(第三方源);pi 原生读 ~/.agents/skills
 #   8. uv(缺则装;含自升级与清华 PyPI 镜像)+ strictdoc(用 uv tool 全局安装,.sdoc 校验依赖)
 #
-# 用法:bash pi-setup.sh   (遵循 PI_CODING_AGENT_DIR,与 pi 一致)
+# 用法:bash pi-setup.sh [-y|--yes]   (-y 只自动通过默认 Y 的确认项,默认 N 的仍人工确认;遵循 PI_CODING_AGENT_DIR,与 pi 一致)
 
 set -euo pipefail
+
+# -y/--yes(或环境变量 ASSUME_YES=1):自动回答「默认就是 Y」的确认项(装缺件、字段级合并写配置、刷新 skills)。
+# 默认 N 的项(升级本体、覆盖缓存、版本守卫、无代理继续)照旧人工确认,不会知情外地改动。
+ASSUME_YES="${ASSUME_YES:-}"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -y|--yes) ASSUME_YES=1 ;;
+    -h|--help) echo "用法: bash <本脚本> [-y|--yes]   # -y 跳过默认 Y 的确认项,默认 N 的仍人工确认"; exit 0 ;;
+    *) echo "未知参数: $1(仅支持 -y|--yes / -h|--help)" >&2; exit 2 ;;
+  esac
+  shift
+done
 
 AGENT_DIR="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
 MODELS="$AGENT_DIR/models.json"
@@ -49,6 +61,8 @@ OC_MC_CACHE="$HOME/.cache/opencode/packages/@cortexkit/opencode-magic-context@la
 ask() { # $1=提示 $2=默认(Y/N,缺省 N)
   local a="" def="${2:-N}" hint="y/N"
   [ "$def" = Y ] && hint="Y/n"
+  # -y:只对默认 Y 的项自动通过;默认 N 的照样问,避免不知情的覆盖/升级
+  if [ -n "$ASSUME_YES" ] && [ "$def" = Y ]; then echo "$1 [$hint] → 是 (-y)"; return 0; fi
   # 不能把 read 的 stderr 丢掉:read -p 的提示符走 stderr,吞掉后提示不可见,脚本像卡死。
   # 用 fd 9 显式打开 /dev/tty:无控制终端时(CI/cron/管道)打开失败保持安静,直接走默认值。
   if { exec 9</dev/tty; } 2>/dev/null; then
@@ -121,6 +135,8 @@ GW_BASE="${PI_GATEWAY_BASE_URL:-}"; GW_KEY="${PI_GATEWAY_API_KEY:-}"; MCPHUB_HOS
 
 ask_value() { # $1=提示 $2=输出变量 $3=非空则不回显(用于 key)
   local a=""
+  # -y 下不阻塞:等同回车跳过,占位符保留(要无人值守就用 PI_GATEWAY_* / MCPHUB_HOST 环境变量预填)
+  if [ -n "$ASSUME_YES" ]; then echo "$1: (跳过,-y)"; return 0; fi
   if { exec 9</dev/tty; } 2>/dev/null; then
     if [ -n "${3:-}" ]; then read -r -s -u 9 -p "$1: " a || a=""; echo
     else read -r -u 9 -p "$1: " a || a=""; fi
