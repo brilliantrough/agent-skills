@@ -23,6 +23,7 @@ Leave memory that helps both the next Agent and the human reader understand **wh
 - Choose the amount of overlap and detail that helps future work. There is no requirement for every memory to have a document counterpart, or for every document to be mirrored in a database.
 - Existing memories and relevant source files help avoid accidental duplicates and stale claims. `ctx_memory` supports writing, updating, merging, and archiving; use the operation that fits. Paths and UIDs are useful cross-references, not prerequisites for saving.
 - Missing tools need not stop the other stores from being useful. Be clear about any important knowledge that remains unsaved or unverified.
+- A project's **vocabulary and domain model** are memory too: `domain-modeling` is the skill for changing them (challenging terms, glossary entries, hard-to-reverse decisions). Land its output in this project's own layers — the glossary in StrictDoc's handbook (or a `CONTEXT.md` where the project already uses one), hard-to-reverse decisions as `project_memory/decisions.sdoc` nodes rather than a second parallel decision tree.
 
 ## Keep current truth distinguishable from history
 

@@ -5,7 +5,6 @@ The following skills in skills/ are derived from mattpocock/skills
 licensed under the MIT License:
 
   - grilling
-  - grill-with-docs
   - domain-modeling
   - tdd
   - diagnosing-bugs

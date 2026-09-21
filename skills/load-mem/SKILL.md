@@ -32,6 +32,7 @@ The same knowledge may appear in several sources. That overlap is useful for rec
 ## Practical guidance
 
 - Start with the task and project instructions. Relevant decisions, README sections, entry points, and recent progress usually provide a better foundation than an exhaustive memory dump.
+- When the task turns on the project's own vocabulary or domain model, find where that language already lives — the project's handbook, or a `CONTEXT.md` where the project uses one — before inventing names. Loading is not changing: changing the model is `domain-modeling`'s job.
 - Injected Magic Context memories are already available. Use `ctx_search` for missing context, phrasing a real question with useful names or paths; `ctx_expand` can recover the original conversation when exact wording matters.
 - Use claude-mem when earlier activity or observations would help. Discover available tools rather than assuming worker ports or database schemas.
 - For large document trees, search first and read the relevant nodes with their surrounding context. Source `.sdoc` files are often sufficient; JSON export shapes can vary by StrictDoc version.

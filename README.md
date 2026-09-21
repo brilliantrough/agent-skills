@@ -32,14 +32,13 @@ bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.co
 
 本仓库仍以 **OpenCode 为主**；Pi 与 OpenCode 共享记忆配置（`~/.claude-mem/settings.json`、`~/.config/cortexkit/magic-context.jsonc`）；Codex 复用现有 skills 原文，不为其修改技能工作流。详见下面的 Pi 与 Codex 说明。
 
-## Skills(18 个)
+## Skills(17 个)
 
 来自 [mattpocock/skills](https://github.com/mattpocock/skills)(MIT,见 [NOTICE](NOTICE.md)):
 
 | Skill | 用途 |
 |---|---|
 | `grilling` | 对计划/设计做穷追不舍的访谈,直到每个分支都有结论 |
-| `grill-with-docs` | grilling + 同步沉淀 `CONTEXT.md` 和 ADR |
 | `domain-modeling` | 领域模型、术语表 |
 | `tdd` | 红-绿-重构的测试驱动开发 |
 | `diagnosing-bugs` | bug 诊断回路:先建反馈回路,再假设原因 |
@@ -437,4 +436,4 @@ npx skills add brilliantrough/agent-skills@tdd -g -y
 
 ## License
 
-自研部分 MIT。`skills/{grilling,grill-with-docs,domain-modeling,tdd,diagnosing-bugs,code-review}` 来自 mattpocock/skills,归属见 [NOTICE](NOTICE.md)。
+自研部分 MIT。`skills/{grilling,domain-modeling,tdd,diagnosing-bugs,code-review}` 来自 mattpocock/skills,归属见 [NOTICE](NOTICE.md)。
