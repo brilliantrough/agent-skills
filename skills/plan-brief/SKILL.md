@@ -26,6 +26,7 @@ Use the bounded, round-based grilling method below; it is self-contained and doe
 
 - Ask only unresolved decisions that affect scope, behavior, compatibility, risk, execution dependencies, or acceptance. Give a recommendation and brief trade-offs; do not ask the user for facts you can inspect.
 - Group independently answerable questions in one round; defer dependent questions until their prerequisites are settled. Use structured questions when available, otherwise numbered questions in chat, then wait for answers.
+- After each round, recompute what its answers unblocked and ask the next round. Rounds continue while a further question would still change scope, behavior, compatibility, risk, execution dependencies, or acceptance; the stopping rule is nothing material left open, not one round done.
 - Do not repeat settled questions, invent a quota, or assume every requirement is incomplete. Stop when the plan's execution-critical and acceptance-critical decisions are resolved and understanding is shared.
 - Establish the following where relevant, from investigation or user decisions:
   - **Environment:** interpreter, environment activation, working directory, package manager, required versions and env var names. Never assume system Python; reference existing secret locations without copying credentials into the plan.

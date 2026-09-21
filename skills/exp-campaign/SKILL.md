@@ -20,7 +20,7 @@ Ponytail for experiments: **the campaign is as small as the evidence allows, and
 
 ## 2. Grill the researcher
 
-Use bounded, round-based grilling (the `grilling` method): frontier questions only, each with a recommended answer; facts you can inspect are yours to find, never the user's.
+Use bounded rounds of frontier questions — only what the settled decisions have already unblocked — each with a recommended answer; facts you can inspect are yours to find, never the researcher's. Recompute the frontier after each round of answers and ask the next round: the round count is not capped, and stopping is decided by whether a further question would still move scope, claim, or acceptance.
 
 Ask about and surface, in frontier order:
 

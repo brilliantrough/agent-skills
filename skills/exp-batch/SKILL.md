@@ -16,7 +16,7 @@ Small but complete: one branch, done right, plottable. Do not expand scope sidew
 
 - Facts (paths, GPU availability, cache locations, prior configs) are yours to inspect. Ask the user only for choices that change the scientific meaning: hyperparameters not pinned by protocol, seed count, which split, callback-vs-reload coverage, formal vs exploratory status.
 - Keep the batch's **metric contract identical to sibling runs**: same splits, same metric definitions, same surfaces. A batch measured differently cannot share a figure with the others — flag any deviation explicitly in the record.
-- One round of structured questions max for a batch; if config decisions explode, the work is actually a campaign — propose `exp-campaign`.
+- Ask one round of structured questions; a second round is allowed only when an answer opened a genuinely new scientific choice. If config decisions explode, the work is actually a campaign — propose `exp-campaign`.
 
 ## 3. Implement in this session, run under project conventions
 

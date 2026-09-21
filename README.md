@@ -32,7 +32,7 @@ bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.co
 
 本仓库仍以 **OpenCode 为主**；Pi 与 OpenCode 共享记忆配置（`~/.claude-mem/settings.json`、`~/.config/cortexkit/magic-context.jsonc`）；Codex 复用现有 skills 原文，不为其修改技能工作流。详见下面的 Pi 与 Codex 说明。
 
-## Skills(17 个)
+## Skills(18 个)
 
 来自 [mattpocock/skills](https://github.com/mattpocock/skills)(MIT,见 [NOTICE](NOTICE.md)):
 
@@ -78,6 +78,7 @@ bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.co
 
 | Skill | 用途 |
 |---|---|
+| `exp-discuss` | 把一个还很模糊的科研想法聊清楚：带着已有证据分轮追问 frontier 问题、点出被忽略的细节、逼出「最便宜的证伪观测」，最后明确交给 exp-campaign / exp-batch / exp-probe 或有意搁置；不设计矩阵、不跑东西 |
 | `exp-campaign` | 为一个研究假设设计分阶段、可剪枝的实验战役：观察已有结果 → 访谈对齐 → 枚举最大实验空间 → 用廉价探针实验剪枝 → 产出带观察门限的决策树计划与最终指标/图表设计,按阶段交给 exp-batch 执行 |
 | `exp-batch` | 执行一条有界的实验分支(单一 方法×数据×预算 或一条消融分支)：先确认分支未被剪枝,只问未决配置,按项目惯例运行,指标落到共享表格且形状直接可用于最终图表 |
 | `exp-probe` | 一次性科研抽查:补一个缺失数据点、失败后重跑、单配置 sanity check、最小复现;至多一个聚焦问题,跑完一行汇报 |

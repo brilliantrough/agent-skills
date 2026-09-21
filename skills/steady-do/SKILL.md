@@ -26,6 +26,7 @@ Use the bounded, round-based grilling method below; it is self-contained and doe
 - **Find facts yourself; ask the user for decisions.** Consult code, config, project memory, and docs first. For uncertain external APIs or platform limits, check upstream docs, source, or issues instead of presenting guesses as constraints.
 - Ask only questions that affect behavior, scope, compatibility, risk, or acceptance. Give a recommendation and a brief trade-off for each. Resolve ordinary implementation details using project conventions.
 - Group independently answerable questions in one round; defer questions that depend on unanswered ones. Use structured questions when available, otherwise numbered questions in chat, then wait for answers.
+- After each round, recompute what its answers unblocked and ask the next round. Rounds continue while a further question would still change behavior, scope, compatibility, risk, or acceptance; the stopping rule is nothing material left open, not one round done.
 - Do not repeat settled questions or invent a question quota. If the request and context already resolve the decisions, proceed to the recap.
 - Establish what will run, what observable result counts, and who verifies what. Reuse an agreed verification approach instead of asking again.
 - Stop when implementation-critical and acceptance-critical ambiguity is resolved and understanding is shared. Do not grill speculative future requirements or ask the user to design each function.
