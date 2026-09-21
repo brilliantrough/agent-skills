@@ -57,9 +57,9 @@ One Markdown document, tables over prose:
 1. **Claim and scope** — including the final deliverable: the metrics table schema (rows = runs, columns = metrics × surfaces × splits) and the figure list (each figure: axes, curve families, reference lines, per-dataset layout). Every planned run must fill at least one cell or curve; a run that changes no figure needs justification.
 2. **Current evidence** — what is already measured, with pointers.
 3. **Maximal matrix** with per-cell labels from §3.
-4. **Stages with observation gates:** Stage 0 probes → decision point (which branches survive) → Stage 1 core runs → Stage 2 confirmatory runs (full epochs, independent reload, formal protocol). For each gate: exact command list, cost estimate, expected observation, and the branch table for each outcome.
+4. **Stages with observation gates:** Stage 0 probes → decision point (which branches survive) → Stage 1 core runs → Stage 2 confirmatory runs (full epochs, independent reload, formal protocol). For each gate: exact command list, cost estimate, expected observation, the resource/device convention for its runs (chosen from a live read, passed explicitly, never the default device), and the branch table for each outcome. Every run in the plan passes the preflight pass from `exp-batch` before it starts.
 5. **Pruning ledger** — assumptions made, probes that justify them, confidence.
-6. **Failure handling** — what to do on OOM/NaN/inconclusive: capture evidence, isolate minimally, do not silently skip.
+6. **Failure handling** — what to do on OOM/NaN/inconclusive/**evicted** (a neighbour's job or the machine taking the card): capture evidence, isolate minimally, do not silently skip. Name these as the expected shapes, not the full space: unforeseen failures are decided on the spot and recorded as deviations, not escalated into a new process.
 7. **Deliverables:** plan file, per-stage handoff prompts for `exp-batch`, and a results-merge step into the shared dashboard/table.
 
 ## 6. Hand off and review

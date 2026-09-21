@@ -1,9 +1,9 @@
 ---
 name: exp-batch
-description: Execute one bounded research experiment branch in the current session with ponytail-for-experiments taste. Use when explicitly requested, or for a single coherent batch of runs with known configuration (one method × dataset × budget, or one ablation branch of a campaign). First check the branch was not already pruned or answered, grill only unresolved config decisions, run per project conventions, and land metrics in the shared table in a shape the final figures can use directly. Prefer exp-discuss when the idea is still fuzzy and needs talking through; prefer exp-campaign when the work needs staged pruning across branches; prefer exp-probe for one-off spot checks.
+description: Execute one bounded research experiment branch in the current session with ponytail-for-experiments taste. Use when explicitly requested, or for a single coherent batch of runs with known configuration (one method × dataset × budget, or one ablation branch of a campaign). First check the branch was not already pruned or answered, grill only unresolved config decisions, preflight environment and resources, run per project conventions, and land metrics in the shared table in a shape the final figures can use directly. Prefer exp-discuss when the idea is still fuzzy and needs talking through; prefer exp-campaign when the work needs staged pruning across branches; prefer exp-probe for one-off spot checks.
 ---
 
-# Exp Batch: confirm necessity → clarify config → run → land metrics
+# Exp Batch: confirm necessity → clarify config → preflight → run → land metrics
 
 Small but complete: one branch, done right, plottable. Do not expand scope sideways into other branches; do not shrink rigor to save time.
 
@@ -18,16 +18,28 @@ Small but complete: one branch, done right, plottable. Do not expand scope sidew
 - Keep the batch's **metric contract identical to sibling runs**: same splits, same metric definitions, same surfaces. A batch measured differently cannot share a figure with the others — flag any deviation explicitly in the record.
 - Ask one round of structured questions; a second round is allowed only when an answer opened a genuinely new scientific choice. If config decisions explode, the work is actually a campaign — propose `exp-campaign`.
 
-## 3. Implement in this session, run under project conventions
+## 3. Preflight: environment and resources
+
+A run that starts without this pass is the run that fights someone else for device 0. It takes seconds, needs no approval, and happens before every launch — probe or formal, long or short.
+
+- **Environment:** interpreter/environment activation, working directory, the dependency versions that are actually importable now, input paths present, output and checkpoint directories writable.
+- **Resources as they are, not as they usually are:** read the live state before choosing a device — `nvidia-smi` for utilization, memory, and **which process owns each card** (other people's jobs and this project's own parallel branches both count). Decide from that read and pass the device explicitly (`CUDA_VISIBLE_DEVICES=…`); never let a run fall through to the default device. Disk for checkpoints/logs, and RAM/CPU when the job is not GPU-bound, come from the same look.
+- **Collisions:** leftover jobs from earlier attempts ("did the last one really die?") and sibling branches are the usual hidden claim on a card; owner, name, and elapsed time in the process list settle it.
+- **Cost:** an honest duration/memory estimate for this configuration, so later contention reads as contention instead of being blamed on the code.
+- **Then run** under the project's rules on who launches what. If the free resources do not fit the configuration, do not start and do not silently shrink it: state what is short, and pick between waiting, another device, or an agreed config change.
+
+## 4. Implement in this session, run under project conventions
 
 - Implementation happens **here, in the same session**, after the researcher issues the go-ahead. No fresh-session handoff (that is exp-campaign's model); the researcher drives execution timing, and formal runs follow the project's rules on who launches them — the researcher runs them or grants explicit permission.
 - **Module placement:** put each piece in the module it belongs to; keep experiment-specific code inside the experiment's own directory with its predictable layout, so the experiment is findable by name. Do not create a shared abstraction for one consumer; do split into separate modules when sibling branches would otherwise contend on one file.
 - **Loose coupling:** consume stable shared libraries through their existing interfaces. Never modify shared internals to fit this batch, never add batch-specific branches to shared code. If an interface genuinely lacks something, stop and escalate — that is a campaign-level decision.
 - **Ponytail research code:** the minimum code that runs the batch correctly. **No defensive programming:** no speculative validation, no "just in case" branches, no swallowed errors — on error, exit with the real error. When a run fails, first suspect the environment (GPU contention, full disk, stale cache, conflicting job) before the code; only change code when the evidence says the code is wrong.
-- Watch for the known failure modes of this project class: OOM, NaN, checkpoint serialization, degenerate metric collapse (e.g., all-same-answer). On failure: preserve the failing artifact/log, isolate minimally, never report a failed run as a result row.
+- Watch for the known failure modes of this project class: OOM (yours or the machine's), NaN, checkpoint serialization, degenerate metric collapse (e.g., all-same-answer), and eviction — a neighbour's job or the kernel taking the card mid-run. On failure: preserve the failing artifact/log, isolate minimally, never report a failed run as a result row.
+- **Separate "environment" from "code" before acting:** exit code, the log's last lines, and a fresh `nvidia-smi` (is my process still alive? who owns the card now?) tell an evicted job apart from a real bug. An evicted run keeps its evidence, gets a free device chosen from the live read, and is requeued with the deviation recorded; only change code when the evidence says the code is wrong. A config changed to fit the resources must be flagged — it can break the metric contract with sibling runs.
+- **These shapes are the pattern, not the whole space.** Unforeseen failures are yours to handle on the spot: decide, preserve the evidence, and say what you did. Do not stall waiting for a rule that does not exist, and never let a failure pass as a result.
 - Negative results are results: record them with the same schema as successes.
 
-## 4. Wait on long runs with `later` (delegated execution)
+## 5. Wait on long runs with `later` (delegated execution)
 
 Long runs (GPU hours) must not hold the turn and must not be polled in a loop. The unattended pattern:
 
@@ -37,7 +49,7 @@ Long runs (GPU hours) must not hold the turn and must not be polled in a loop. T
 - **A timer is an estimate, not a completion signal.** On wake-up, verify the run actually finished and succeeded before recording metrics. If it is still running, re-estimate the remainder from observed progress (log/epoch counters, current throughput — contention can stretch a planned 5h run to 7h), never from the original plan, and schedule another `later` for that remainder plus margin. Repeat until the run actually finishes; there is no wake-up budget.
 - If the host has no `later` tool, degrade: tell the researcher the expected duration and when to return, or follow the project's own waiting convention.
 
-## 5. Land the metrics where figures can use them
+## 6. Land the metrics where figures can use them
 
 - Every run lands in the shared results table with: id, config, split, surface, metrics, status, evidence path. Include every epoch/point recorded, not only the chosen one.
 - Before finishing, check plottability: does this batch slot into the final figure as its own curve family, with the anchors (baseline reference lines) it needs? If the data shape would force an awkward plot (isolated points, mixed axes), fix the data collection now, not at figure time.
