@@ -7,11 +7,10 @@ description: Talk a research idea through with the researcher before anything is
 
 This is the **entry layer** of the experiment family. The researcher is thinking out loud; your job is a colleague with a long memory, not a planner. Nothing runs here, and nothing here becomes a plan document.
 
-## Choose the workflow
+## When this skill applies
 
-- An explicit user choice takes precedence.
-- Without one: `exp-discuss` when the idea is still fuzzy and the researcher wants to think together; `exp-probe` for a missing datapoint, rerun, or one-off diagnostic; `exp-batch` for one bounded experiment branch with known configuration; `exp-campaign` for directions needing multiple branches, ablations, or conditional staging.
-- Judge by how sharp the claim is, not by how long the experiments would run. If the researcher already knows the route, skip ahead — this skill serves the conversation, not the other way around. Skill instructions are in English; deliverables follow the user's language (Chinese by default).
+- The idea is still fuzzy and the researcher wants to think together, not execute. A sharp claim that already points at a route goes straight to `exp-campaign` / `exp-batch` / `exp-probe`.
+- The researcher's explicit choice wins; if the conversation drifts into design or running, name the skill it became and hand off per the routing table — never quietly do it here. Judge by how sharp the claim is, not by how long the experiments would run. Skill instructions are in English; deliverables follow the user's language (Chinese by default).
 
 ## Posture
 

@@ -7,11 +7,10 @@ description: Design a staged, prunable research experiment campaign for a resear
 
 Ponytail for experiments: **the campaign is as small as the evidence allows, and as complete as the claim requires.** Never open with the full factorial matrix; never silently drop a dimension. Enumerate everything, then earn every deletion with a cheap probe whose outcome justifies it.
 
-## Choose the workflow
+## When this skill applies
 
-- An explicit user choice takes precedence.
-- Without one: `exp-discuss` when the idea is still fuzzy and the researcher wants to think together; `exp-probe` for a missing datapoint, rerun, or one-off diagnostic; `exp-batch` for one bounded experiment branch with known configuration; `exp-campaign` for directions needing multiple branches, ablations, or conditional staging.
-- Judge by decision-tree depth and factor count, not by how long the experiments run. If unsure between probe and batch, use batch. Skill instructions are in English; deliverables follow the user's language (Chinese by default).
+- A direction that needs multiple branches, ablations, or conditional staging. One bounded branch with known configuration is `exp-batch`; one missing datapoint is `exp-probe`; a still-fuzzy idea is `exp-discuss`.
+- The researcher's explicit choice wins; never switch silently. Judge by decision-tree depth and factor count, not by how long the experiments run (if unsure between probe and batch, use batch). Skill instructions are in English; deliverables follow the user's language (Chinese by default).
 
 ## 1. Observe before asking
 
@@ -60,7 +59,7 @@ One Markdown document, tables over prose:
 4. **Stages with observation gates:** Stage 0 probes → decision point (which branches survive) → Stage 1 core runs → Stage 2 confirmatory runs (full epochs, independent reload, formal protocol). For each gate: exact command list, cost estimate, expected observation, the resource/device convention for its runs (chosen from a live read, passed explicitly, never the default device), and the branch table for each outcome. Every run in the plan passes the preflight pass from `exp-batch` before it starts.
 5. **Pruning ledger** — assumptions made, probes that justify them, confidence.
 6. **Failure handling** — what to do on OOM/NaN/inconclusive/**evicted** (a neighbour's job or the machine taking the card): capture evidence, isolate minimally, do not silently skip. Name these as the expected shapes, not the full space: unforeseen failures are decided on the spot and recorded as deviations, not escalated into a new process.
-7. **Deliverables:** plan file, per-stage handoff prompts for `exp-batch`, and a results-merge step into the shared dashboard/table.
+7. **Deliverables:** the plan file (project working-doc dir; default `docs/plans/YYYY-MM-DD-<slug>.md`), one self-contained launcher prompt per stage (fenced in the plan AND printed in chat), the gate decisions recorded in the pruning ledger, the mandatory per-stage executor reports (`<slug>.stage<N>.report.md`, written by `exp-batch`), and a results-merge step into the shared dashboard/table.
 
 ## 6. Hand off and review
 
@@ -68,7 +67,8 @@ One Markdown document, tables over prose:
 - Each launcher prompt carries: the cells this stage must fill, exact configs/commands, the metric contract, stop conditions, and the gate observations to report back. The executor follows the plan rather than re-grilling settled decisions; it stops and asks when evidence invalidates the plan.
 - **State the waiting arrangement in every launcher prompt.** Either the researcher has already delegated execution — say so explicitly ("you may launch runs and use the `later` tool to wait unattended") — or the executing agent must ask for delegation at stage start. With delegation and a host that provides the `later` tool, the executor runs long jobs in the background, schedules its own wake-up with ~10% margin (prompt written as a complete next-step instruction), and ends the turn; wake-ups chain until the stage's gate observations are collected, re-estimating from observed progress whenever a run overruns rather than trusting the original plan. This keeps multi-hour stages unattended; without it, the executor stops at every long run to wait for a human.
 - **Who launches formal runs is the researcher's call**, not the plan's: the executing agent implements code and preflights; the researcher either runs formal commands themselves or grants execution permission explicitly. The plan must state which commands are formal.
-- When results return: compare predicted vs observed at every gate; if a probe's assumption failed, reopen the pruned cells it justified and say so loudly. Update the pruning ledger.
+- **When a stage's report returns, this session owns the next move** — the researcher is the courier, so do not wait for an automatic ping. Read `<slug>.stage<N>.report.md` (not chat memory), compare predicted vs observed at every gate, write the decision into the pruning ledger (`gate N: observed X → keep / skip cells …`), reopen the cells a failed probe assumption justified and say so loudly, then emit the stage N+1 launcher prompt, replacing the pre-written branch variant it supersedes.
+- **Exit:** the campaign closes when every surviving cell has a row in the shared table and each figure in the figure list can be drawn from it. Then record `Status: done (stages: N)` at the top of the plan, state what was pruned and by which evidence, hand the negative results to the researcher, and stop opening branches. If a gate leaves the claim unresolved after the confirmatory stage, hand the open question back instead of adding stages.
 - Final review: does the metrics table/figure set answer the original claim? Are negative results and config deviations visible? Publish to the shared dashboard with both callback and reload surfaces where they exist.
 
 ## 7. Code organization (planned here, implemented by exp-batch)

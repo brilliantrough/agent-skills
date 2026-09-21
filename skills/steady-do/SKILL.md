@@ -5,11 +5,10 @@ description: Develop features in an existing project within the current session 
 
 # Steady Do: understand → clarify → implement here → verify
 
-## Choose the workflow
+## When this skill applies
 
-- An explicit user choice takes precedence. Do not silently switch workflows; if the chosen one cannot safely fit the task, explain the mismatch and ask about the necessary adjustment.
-- Without an explicit choice: use `quick-do` for clear, bounded changes; `steady-do` for ordinary feature work or unresolved design decisions; `plan-brief` for long-horizon work needing a durable plan and separate-session execution.
-- Judge by uncertainty, coupling, risk, and handoff needs, not prompt length or file count. If unsure between quick and steady, use steady. If a handoff would help but was not requested, propose it before changing who executes; complexity alone does not authorize a handoff.
+- Ordinary feature, plugin, extension, and cross-module work in an existing project, implemented and verified in this session.
+- The user's explicit choice wins — never switch workflows silently; if the chosen one cannot fit the task, say why and ask. Bounded and clear → `quick-do`; long-horizon work needing a durable plan and a separate-session handoff → `plan-brief` (propose it when a handoff would help but was not requested).
 - These workflows govern requested development work, not every explanation or read-only question. Skill instructions are in English; replies and deliverables follow the user's language (Chinese by default).
 
 ## 1. Understand the request and project
@@ -28,7 +27,11 @@ Use the bounded, round-based grilling method below; it is self-contained and doe
 - Group independently answerable questions in one round; defer questions that depend on unanswered ones. Use structured questions when available, otherwise numbered questions in chat, then wait for answers.
 - After each round, recompute what its answers unblocked and ask the next round. Rounds continue while a further question would still change behavior, scope, compatibility, risk, or acceptance; the stopping rule is nothing material left open, not one round done.
 - Do not repeat settled questions or invent a question quota. If the request and context already resolve the decisions, proceed to the recap.
-- Establish what will run, what observable result counts, and who verifies what. Reuse an agreed verification approach instead of asking again.
+- **Verification mode — mandatory decision; name it in the recap and justify it in one line:**
+  - **TDD mode** — only when the feedback loop is fast and tests are cheap (frontend/UI, product services, library code with instant unit tests); invoke the `tdd` skill.
+  - **Smoke-and-read mode** (default for research, long-running, or heavy-compute work): the smallest real execution path + rereading your own change + checking the adjacent behavior it touches; the user runs the real workload afterwards. No test scaffolding, no wrapper harnesses.
+  - Rule of thumb: if writing and running the test costs more than the failures it would catch, don't write it.
+- **Acceptance and responsibility** — what is observed, the expected result, and who runs/verifies what at the end. Reuse an agreed verification approach instead of asking again.
 - Stop when implementation-critical and acceptance-critical ambiguity is resolved and understanding is shared. Do not grill speculative future requirements or ask the user to design each function.
 
 ## 3. Recap and implement here
@@ -51,5 +54,5 @@ Use the bounded, round-based grilling method below; it is self-contained and doe
 - Default to the smallest real execution path plus a reread of the change and affected adjacent behavior. Check the agreed observable outcome, not merely the absence of errors. For documentation-only changes, inspect content and applicable format checks.
 - Do not add tests, TDD, or verification scripts by default. Follow explicit user requests and mandatory project checks; feature work does not automatically imply TDD.
 - Distinguish static checks, successful loading, local calls, and complete user interaction. A loadable plugin is not a working feature; injected input is not a physical terminal interaction.
-- If execution needs the user's environment or is blocked, state what remains unverified and give concrete steps and expected observations. Never invent completion or silently omit blocked work.
+- If execution needs the user's environment or is blocked, state what remains unverified and give concrete steps and expected observations. **Blocked is a legitimate outcome** — say so with the exact check the user must run; never invent completion or silently omit blocked work.
 - Briefly report what changed, what actually ran, and what needs user confirmation. One line when sufficient; no separate report or summary essay.

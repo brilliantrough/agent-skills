@@ -13,11 +13,10 @@ Deliverables checklist — none of these may be skipped silently:
 - [ ] launcher prompt: fenced inside the plan doc AND printed in chat
 - [ ] when the report comes back: `<slug>.review.md` beside the plan, plus a fix prompt if fixes are needed
 
-## Choose the workflow (only when the user did not choose one)
+## When this skill applies
 
-- An explicit user choice takes precedence; never switch workflows silently. If the chosen one cannot safely fit the task, say so and ask about the adjustment.
-- Without a choice: `quick-do` for clear, bounded changes; `steady-do` for ordinary feature work or unresolved design decisions; `plan-brief` for work that needs a durable plan and a separate-session handoff.
-- Judge by uncertainty, coupling, risk, and handoff needs — not prompt length or file count. If a handoff would help but was not requested, propose it before changing who executes.
+- The user wants a durable execution plan, execution handed to a separate session, or a report reviewed / a fix round dispatched — the three artifacts above.
+- The user's explicit choice wins; never switch workflows silently. In-session implementation is `quick-do` / `steady-do`; if a handoff would help but was not requested, propose it before changing who executes.
 
 ## Phase 0 — Absorb the requirement
 
