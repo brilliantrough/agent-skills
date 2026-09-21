@@ -15,7 +15,7 @@ description: Develop features in an existing project within the current session 
 
 - Read the complete requirement and decisions already settled in this conversation. Separate explicit requirements from open questions; investigate before modifying files.
 - Read project rules, README, relevant entry points and modules. Trace the real flow, reuse opportunities, affected callers, and compatibility boundaries. Expand by relevance, not a whole-repo tour or a single-function guess.
-- Establish the runtime, dependency versions, launch commands, input/output formats, and config locations needed for this work. Inspect facts rather than assuming an interpreter or system Python.
+- **Look at the live site first (seconds, no approval):** activation command and interpreter, dependency versions that actually import now, launch commands, input/output formats, config paths, and whether anything relevant is already running. Inspect instead of assuming an interpreter or system Python. One cheap look buys the avoidance of a whole round of avoidable errors — skipping ceremony is the point, skipping this is not.
 - Briefly state the goal, scope, non-goals, and observable completion criteria in chat. Do not create a plan document.
 
 ## 2. Grill the unresolved decisions

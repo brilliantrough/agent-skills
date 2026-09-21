@@ -20,7 +20,7 @@ Small but complete: one branch, done right, plottable. Do not expand scope sidew
 
 ## 3. Preflight: environment and resources
 
-A run that starts without this pass is the run that fights someone else for the default device. It takes seconds, needs no approval, and happens before every launch — probe or formal, long or short.
+A run that starts without this pass is the run that fights someone else for the default device. It takes seconds, needs no approval, and happens before every launch — probe or formal, long or short. Skipping ceremony is the point (no scaffolding, no defensive code, no extra approval rounds); this one look is not ceremony.
 
 - **Environment:** interpreter/environment activation, working directory, the dependency versions that are actually importable now, input paths present, output and checkpoint directories writable.
 - **Know the platform first:** use the device platform the project's memory, conventions, or the session already names (CUDA / Ascend / MUSA / PPU-class / …). If it is genuinely unknown, read it off the environment (installed toolkit, device files, what the project's own launcher sets) or ask once; then work in that platform's own tool and variable vocabulary — wrong-platform errors are self-inflicted and cost runs.
@@ -54,5 +54,5 @@ Long runs (device hours) must not hold the turn and must not be polled in a loop
 
 - Every run lands in the shared results table with: id, config, split, surface, metrics, status, evidence path. Include every epoch/point recorded, not only the chosen one.
 - Before finishing, check plottability: does this batch slot into the final figure as its own curve family, with the anchors (baseline reference lines) it needs? If the data shape would force an awkward plot (isolated points, mixed axes), fix the data collection now, not at figure time.
-- **Batch report is mandatory — including for partial, blocked, or aborted work.** Write `<batch-or-stage>.report.md` beside the campaign plan (default `docs/plans/<slug>.stage<N>.report.md`; a standalone branch goes in the project's experiment area) with: 完成情况总表 (per planned run/cell: 完成 / 部分 / 搁置 / 未动 + evidence path), the exact configs and commands that ran, what was not run and why, metric-contract deviations, failures and how they were handled (eviction / OOM / NaN), and what the campaign should reconsider. Never fake a result row, never silently skip a planned run.
+- **Batch report is mandatory — including for partial, blocked, or aborted work.** Write `<batch-or-stage>.report.md` beside the campaign plan (default `docs/experiments/<slug>.stage<N>.report.md`; a standalone branch goes in the project's experiment area) with: 完成情况总表 (per planned run/cell: 完成 / 部分 / 搁置 / 未动 + evidence path), the exact configs and commands that ran, what was not run and why, metric-contract deviations, failures and how they were handled (eviction / OOM / NaN), and what the campaign should reconsider. Never fake a result row, never silently skip a planned run.
 - Report the same content concisely in chat. The planning session is **not** woken by this batch — the researcher brings the report back, so the file is what gets reviewed.
