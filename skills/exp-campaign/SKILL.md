@@ -27,7 +27,7 @@ Ask about and surface, in frontier order:
 - **The claim:** what exactly should the final plot/table show? Which comparison would change the researcher's mind?
 - **The axes:** which factors matter (method, model, dataset, precision, seed, lr, …), and which levels per factor.
 - **Overlooked details the researcher may have missed:** evaluation split, calibration vs eval data leakage, callback-vs-reload metric consistency, seed variance, degenerate baselines (e.g., all-same-answer collapse), early/late checkpoint selection, and platform/numeric equivalence. Propose these explicitly; researchers under-specify them.
-- **Budgets:** GPU hours, wall-clock deadline, storage; which runs are formal vs exploratory.
+- **Budgets:** device hours, wall-clock deadline, storage; which runs are formal vs exploratory.
 - **Acceptance:** what counts as success, tie, and negative result worth keeping.
 
 Stop when execution-critical and acceptance-critical decisions are settled. Do not invent a question quota.
@@ -78,7 +78,7 @@ The plan decides *where* code lives so every later branch lands consistently:
 - **Module placement is a decision, name it:** which existing module each piece belongs in, what stays in the experiment's own directory. No new shared abstraction for a single consumer; but do separate concerns into separate modules when two branches would otherwise edit the same file in different ways.
 - **Experiment directory isolation:** each experiment gets its own directory with a predictable layout, so a run can be found by name alone (scripts, configs, outputs mirror each other). Experiments never reach into another experiment's directory.
 - **Loose coupling over convenience:** experiments consume stable shared libraries through their existing interfaces; an experiment must not modify shared internals to fit its needs, and shared libraries must not grow experiment-specific branches. If the shared interface genuinely lacks something, that gap is a plan-level decision, not a drive-by edit.
-- **Ponytail research code:** the minimum code that runs the experiment correctly. **No defensive programming** — no speculative input validation, no "just in case" branches, no swallowed errors. On error, exit with the real error. Post-mortem decides whether the fix is code or environment (GPU contention, full disk, stale cache); often the code is already right.
+- **Ponytail research code:** the minimum code that runs the experiment correctly. **No defensive programming** — no speculative input validation, no "just in case" branches, no swallowed errors. On error, exit with the real error. Post-mortem decides whether the fix is code or environment (device contention, full disk, stale cache); often the code is already right.
 
 ## Hard boundaries
 
