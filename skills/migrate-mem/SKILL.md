@@ -20,7 +20,7 @@ Use judgment about investigation depth, document structure, storage overlap, and
 
 ## Build a useful memory foundation
 
-The companion `save-mem` skill describes writing taste and StrictDoc mechanics. Its `assets/docs-skeleton/` is a starting point, located through the skill registry or the sibling `../save-mem/` directory, not a fixed home-directory path.
+The companion `save-mem` skill describes memory maintenance and StrictDoc mechanics. Its `assets/docs-skeleton/` is a starting point, located through the skill registry or the sibling `../save-mem/` directory, not a fixed home-directory path.
 
 | Common location | Useful content |
 |---|---|
@@ -39,7 +39,7 @@ The companion `save-mem` skill describes writing taste and StrictDoc mechanics. 
 
 - Keep existing source material and working documentation useful. Add or integrate rather than automatically moving, archiving, deleting, or reformatting everything; discuss consequential restructuring with the user.
 - On later runs, build on existing nodes and references instead of recreating the baseline. Observe the project's history-preservation and version-control conventions.
-- Write for humans: Chinese by default, short phrases and sentences, numbered points, bullets, compact tables, and occasional adjacent `PS:` explanations. Preserve technical precision and useful evidence without importing walls of text into the current norms.
+- Before drafting or revising prose, load `readable-docs` for the shared project writing style: phrases, lists, and compact tables without losing facts or conditions. It applies beyond memory and `docs/` as well.
 - Where helpful, connect conclusions to source files, commits, or memory references. Original documents can remain as evidence rather than being copied verbatim into the new handbook.
 - Startup/save guidance in `AGENTS.md` can help future Agents find the memory. Align it with the agreed intent where needed, preserving unrelated project instructions.
 

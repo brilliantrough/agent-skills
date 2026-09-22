@@ -48,7 +48,7 @@ curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/op
 
 本仓库仍以 **OpenCode 为主**；Pi 与 OpenCode 共享记忆配置（`~/.claude-mem/settings.json`、`~/.config/cortexkit/magic-context.jsonc`）；Codex 复用现有 skills 原文，不为其修改技能工作流。详见下面的 Pi 与 Codex 说明。
 
-## Skills(17 个)
+## Skills(18 个)
 
 来自 [mattpocock/skills](https://github.com/mattpocock/skills)(MIT,见 [NOTICE](NOTICE.md)):
 
@@ -69,6 +69,17 @@ curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/op
 | `migrate-mem` | 为已有开发痕迹的项目建立或补全记忆,重点初始化可读的 StrictDoc 文档；不假定旧工作流或自动搬走原文件 |
 
 **记忆 intent**：三套系统相互补充,功能可以交叠；同一事实或决策同时保存在 StrictDoc 和 Magic Context 是合理的,不强制逐条分流或同步。发生口径冲突时,以 **StrictDoc 中当前有效的规范** 为准。规范可以随已明确的决策变化而主动更新,并简短告知用户,无需另等“保存”命令；但不因猜测、临时尝试或每次任务就频繁改动。普通记忆和说明文档可以更灵活地维护,保留有价值的历史脉络即可。文档默认中文,短语、列表、表格与少量 `PS:` 解释优先；技能提供目标与必要工具用法,具体如何调查和存取由 Agent 判断。
+
+自制·技术写作:
+
+| Skill | 用途 |
+|---|---|
+| [`readable-docs`](skills/readable-docs/SKILL.md) | 所有面向人的项目技术文本：短语、分点、紧凑对比表；保留事实、条件与约束强度 |
+
+- **默认使用**：README、设计说明、计划、报告、操作手册、变更记录、记忆文档；不限目录，不必特意要求“去 AI 味”。
+- **表达目标**：像 PPT 要点一样便于扫读；单元格不塞长文，复杂因果保留短段落。见[中文改写示例](skills/readable-docs/references/examples.md)。
+- **接入**：安装 skill，并将新版 [AGENTS.tail.md](AGENTS.tail.md) 规范块合入项目 `AGENTS.md`；已有项目也需更新该块。`save-mem` / `migrate-mem` 同样引用它。
+- **边界**：不批量重写旧文档；不改变既有模板、规范强度、代码或原始证据；不靠编造事实或情绪“人性化”。
 
 自制·任务工作流(手动指定优先,未指定时由 Agent 按任务意图选择):
 
@@ -108,7 +119,7 @@ curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/op
 
 - 6 个 Matt 的 skill:零依赖
 - 3 个记忆 skill:配合 Magic Context、claude-mem 与 `docs/` StrictDoc 使用,缺少某一层时仍可利用其余层；初始化和文档校验需要 StrictDoc。项目可采用本仓库 [AGENTS.tail.md](AGENTS.tail.md) 中 `memory-system:start/end` 之间的引导块
-- 3 个工作流 + 1 品味 skill:无硬依赖,品味内联
+- 3 个工作流 + 1 品味 + 1 技术写作 skill:无硬依赖
 - `.sdoc` 校验需要 `strictdoc`:脚本末尾会检查 `uv`(缺则装,并处理 uv 自升级与清华 PyPI 镜像),并可选择用 `uv tool install strictdoc==0.28.1` 全局安装(升级:`uv tool upgrade strictdoc`)
 
 ## 一键脚本的首次部署(只需要网关地址 + API key)

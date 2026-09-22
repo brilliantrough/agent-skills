@@ -535,7 +535,7 @@ fi
 
 # ---- 5. skills:仅安装缺失项,已共享给 OpenCode 的内容不覆盖 ----
 missing=()
-for s in grilling domain-modeling tdd diagnosing-bugs code-review load-mem save-mem migrate-mem plan-brief steady-do quick-do personal-ui-taste exp-discuss exp-campaign exp-batch exp-probe; do
+for s in grilling domain-modeling tdd diagnosing-bugs code-review load-mem save-mem migrate-mem readable-docs plan-brief steady-do quick-do personal-ui-taste exp-discuss exp-campaign exp-batch exp-probe; do
   if [ ! -f "$HOME/.agents/skills/$s/SKILL.md" ] && [ ! -f "$CFG/skills/$s/SKILL.md" ]; then
     missing+=("$s")
   fi

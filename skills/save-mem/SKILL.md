@@ -36,16 +36,12 @@ Leave memory that helps both the next Agent and the human reader understand **wh
 - Distinguish accepted decisions, observed behavior, pending work, and unverified claims. A working implementation may still differ from the intended rule.
 - Where useful, reconcile known stale database claims and link related records. This does not call for auditing every store on every save.
 
-## Human-readable writing taste
+## Human-readable writing
 
-Use the user's language, Chinese by default; retain technical names and exact identifiers.
+Before drafting or revising memory prose, load `readable-docs` for the shared project writing style. It applies to all human-facing technical records, not only memory: Chinese by default, phrases, lists, and compact tables without losing facts or conditions.
 
-- **Short phrases and short sentences.** One point per bullet, one coherent topic per node; put the useful conclusion first.
-- **Structure instead of dense prose.** Numbered lists for order, bullets for independent points, compact tables for comparison, parameters, status, or evidence. Avoid paragraphs disguised as oversized table cells.
-- **Enough detail to act correctly.** Preserve meaningful paths, commands, versions, thresholds, units, conditions, and uncertainty; brevity should not erase the caveat or the reason.
-- **Occasional `PS:` notes.** A longer sentence beside the relevant points can explain why, a trade-off, or a special case. It is an aside, not the main format or a place to hide essential rules.
-- **History that can be skimmed.** Outcomes, key evidence, lessons, and remaining questions are usually more useful than a tool-by-tool diary. Give source references when the original detail matters.
-- Favor readable distillation over copying a long passage into the current handbook. Preserve original evidence where useful; archival source material need not be rewritten just to match the style.
+- For history, preserve outcomes, evidence, lessons, and remaining questions rather than a tool-by-tool diary. Link to original detail when useful.
+- Distill readable current guidance; preserve original evidence and historical nodes instead of rewriting them merely for style.
 
 ## Practical StrictDoc reference
 
