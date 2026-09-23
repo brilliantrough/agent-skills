@@ -1,0 +1,74 @@
+{
+  "providers": {
+    "openai": {
+      "baseUrl": "https://api.do1e.com/v1",
+      "api": "openai-responses",
+      "compat": {
+        "sendSessionAffinityHeaders": true,
+        "sessionAffinityFormat": "openai"
+      },
+      "modelOverrides": {
+        "gpt-6-astra": {
+          "contextWindow": 1050000
+        },
+        "gpt-5.6-sol": {
+          "contextWindow": 1050000
+        },
+        "gpt-5.6-terra": {
+          "contextWindow": 1050000
+        },
+        "gpt-5.6-luna": {
+          "contextWindow": 1050000
+        }
+      }
+    },
+    "deepseek": {
+      "baseUrl": "https://api.do1e.com/v1",
+      "compat": {
+        "sendSessionAffinityHeaders": true,
+        "sessionAffinityFormat": "openai"
+      }
+    },
+    "zai-coding-cn": {
+      "baseUrl": "https://api.do1e.com/v1",
+      "compat": {
+        "sendSessionAffinityHeaders": true,
+        "sessionAffinityFormat": "openai"
+      }
+    },
+    "moonshotai": {
+      "baseUrl": "https://api.do1e.com/v1",
+      "compat": {
+        "sendSessionAffinityHeaders": true,
+        "sessionAffinityFormat": "openai"
+      }
+    },
+    "self-hosted": {
+      "baseUrl": "https://api.do1e.com/v1",
+      "api": "openai-completions",
+      "compat": {
+        "sendSessionAffinityHeaders": true,
+        "sessionAffinityFormat": "openai"
+      },
+      "models": [
+        {
+          "id": "qwen3.8-27b",
+          "name": "Qwen3.8-27B",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "contextWindow": 256000,
+          "maxTokens": 131072,
+          "thinkingLevelMap": {
+            "off": "none",
+            "minimal": null,
+            "low": "low",
+            "medium": "medium",
+            "high": null,
+            "xhigh": "xhigh",
+            "max": null
+          }
+        }
+      ]
+    }
+  }
+}

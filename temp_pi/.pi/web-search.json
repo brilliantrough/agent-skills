@@ -1,0 +1,12 @@
+{
+  "tavilyApiKey": "tvly-dev-xxxxxx",
+  "search1apiApiKey": "xxxxxxxx",
+  "searchRouting": {
+    "providers": ["tavily", "search1api", "openai", "exa"],
+    "useCurrentModel": true,
+    "fallbackOn": ["unsupported", "transient", "quota", "network", "invalid-response"]
+  },
+  "githubClone": {
+    "clonePath": "$TEMP/agents/pi-github-repos"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "context7": {
+      "url": "https://mcp.do1e.com/mcp/context7",
+      "headers": {
+        "Authorization": "Bearer xxxx"
+      }
+    },
+    "mcphub": {
+      "url": "https://mcp.do1e.com/mcp/$smart",
+      "headers": {
+        "Authorization": "Bearer xxxx"
+      }
+    }
+  }
+}

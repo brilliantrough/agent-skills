@@ -137,6 +137,43 @@ curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/op
 - 已有值永不被覆盖(见「更新」一节的隐私规则)；非 `/v1` 风格的网关(带自定义路径)建议填完后核对 `pi/models.json` 里 anthropic 渠道的根域与 claude-mem 的 BASE_URL。
 - 仍需手工的只剩：`pi/auth.json` 的 coding-plan key(仅用 zai/kimi 这类内置 provider 时)、`~/.func`(由 dot_file 的 `linux-setup.sh` 部署)、notify 插件的 `NOTIFY_*` 环境变量(可选)。
 
+## Windows(Git Bash)
+
+同一份 `*-setup.sh` 在**原生 Windows 的 Git Bash**里直接跑（不是 WSL；WSL 本身是 Linux，按 Linux 方式就行，无需任何变化）。
+
+前置（脚本会逐个检测，缺哪个提示哪个）：
+
+| 需要 | 说明 |
+| --- | --- |
+| Git for Windows | 提供 bash / curl / git；用它的 **Git Bash** 开终端 |
+| Python 3 | 配置合并依赖它：`winget install Python.Python.3.12` 后**重开 Git Bash**（脚本认 `python3` / `python` / `py`） |
+| Node LTS | 缺时用 fnm 官方脚本装；失败可 `winget install OpenJS.NodeJS.LTS` |
+| bun / uv | 缺时走各自官方脚本（两者都支持 MinGW）；失败会提示手工命令 |
+
+命令与 Linux 相同（在 Git Bash 里）：
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/pi-setup.sh)"
+```
+
+脚本自己处理的 Windows 差异：
+
+- **路径**：写进 `mcp.json` / `opencode.json` 的本机路径转成 `C:/...` 原生形式（Git Bash 的 `/c/...` 原生宿主读不懂），可执行文件补回 `.exe`。
+- **claude-mem worker 端口**：Windows 无 uid 时按 77 兑底 → `37777`，与 claude-mem 及桥扩展的 `process.getuid?.() ?? 77` 一致。
+- **codegraph**：官方 `install.sh` 只认 Darwin/Linux，Windows 改走 `npm i -g @colbymchenry/codegraph@latest`。
+- **Pi 本体**：官方 `install.sh` 只认 Darwin/Linux，Windows 改走 `npm i -g --ignore-scripts @earendil-works/pi-coding-agent`。
+- **uv 镜像**：windows 上写 `%APPDATA%\uv\uv.toml`（uv 不读 `~/.config`）。
+- **本仓库开发用的类型软链**：Windows 跳过（`ln -s` 需开发者模式，否则会退化成整目录拷贝）。
+- **配置目录与 Linux 一致**：`~/.pi/agent`、`~/.config/opencode`、`~/.claude-mem`、`~/.agents`（Git Bash 的 `$HOME` 就是 `%USERPROFILE%`）。
+
+宿主在 Windows 上的成熟度不同（脚本不改变这一点）：
+
+| 宿主 | 官方立场 |
+| --- | --- |
+| Pi | 原生 Windows + Git Bash 是官方路径（[Run Pi on Windows](https://pi.dev/docs/latest/windows)） |
+| OpenCode | 能原生跑（choco/scoop/npm），官方仍推荐 WSL |
+| Codex | 原生 Windows 仍是 experimental，官方推荐 WSL；脚本按 best effort 配置并提示 |
+
 ## Codex 插件配置(best effort)
 
 | 项目 | `codex-setup.sh` 的行为 |

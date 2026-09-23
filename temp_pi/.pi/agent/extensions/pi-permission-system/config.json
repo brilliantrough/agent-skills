@@ -1,0 +1,87 @@
+{
+  "$schema": "https://raw.githubusercontent.com/gotgenes/pi-packages/main/packages/pi-permission-system/schemas/permissions.schema.json",
+  "debugLog": false,
+  "permissionReviewLog": false,
+  "yoloMode": true,
+  "permission": {
+    "*": "allow",
+    "path": {
+      "*": "allow",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "*.env.example": "allow"
+    },
+    "external_directory": {
+      "*": "ask",
+      "/tmp/*": "allow",
+      "~/AppData/Local/Temp/*": "allow",
+      "~/.pi/*": "allow",
+      "~/scoop/apps/pi-coding-agent/*": "allow",
+      "~/.agent/*": "allow"
+    },
+    "bash": {
+      "*": "ask",
+      "rm *": "deny",
+      "rmdir *": "deny",
+      "unlink *": "deny",
+      "ri *": "deny",
+      "*Delete()*": "deny",
+      "Remove-Item *": "deny",
+      "remove-item *": "deny",
+      "del *": "deny",
+      "rd *": "deny",
+      "erase *": "deny",
+      "agent-browser *": "allow",
+      "base64 *": "allow",
+      "cat *": "allow",
+      "echo *": "allow",
+      "find *": "allow",
+      "gh api *": "allow",
+      "gh issue list *": "allow",
+      "gh issue view *": "allow",
+      "gh pr list *": "allow",
+      "gh pr view *": "allow",
+      "gh repo view *": "allow",
+      "gh search *": "allow",
+      "git diff *": "allow",
+      "git log *": "allow",
+      "git show *": "allow",
+      "git status *": "allow",
+      "grep *": "allow",
+      "head *": "allow",
+      "tail *": "allow",
+      "jq *": "allow",
+      "ls *": "allow",
+      "rg *": "allow",
+      "pnpm exec tsc *": "allow",
+      "pnpm lint *": "allow",
+      "pnpm run lint *": "allow",
+      "pnpm type-check *": "allow",
+      "pnpm build *": "allow",
+      "sort *": "allow",
+      "stat *": "allow",
+      "strings *": "allow",
+      "uv run ruff check *": "allow",
+      "wc *": "allow",
+      "Get-ChildItem *": "allow",
+      "Measure-Object *": "allow",
+      "Select-Object *": "allow",
+      "Test-Path *": "allow",
+      "Out-String *": "allow"
+    },
+    "edit": {
+      "*": "ask"
+    },
+    "write": {
+      "*": "ask"
+    }
+  },
+  "shellTools": {
+    "powershell": {
+      "commandArgument": "command"
+    },
+    "bg_run": {
+      "commandArgument": "command"
+    }
+  }
+}

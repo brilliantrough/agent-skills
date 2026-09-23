@@ -31,8 +31,29 @@
 #   8. uv(缺则装;含自升级与清华 PyPI 镜像)+ strictdoc(用 uv tool 全局安装,.sdoc 校验依赖)
 #
 # 用法:bash pi-setup.sh [-y|--yes]   (-y 只自动通过默认 Y 的确认项,默认 N 的仍人工确认;遵循 PI_CODING_AGENT_DIR,与 pi 一致)
+# Windows:在 Git Bash(不是 WSL)里跑同一份脚本;Python 3 需自备(curl/git 由 Git for Windows 自带)。
 
 set -euo pipefail
+
+# ---- 平台:同一套逻辑跑 Linux/macOS 与 Windows 的 Git Bash(MSYS/MinGW),差异集中在这几处 ----
+#   * Windows 上没有 python3 这个名字(只有 python/py)→ 包一层同名函数,下面所有调用原样不变
+#   * 内嵌 python 的 os.getuid() 在 Windows 不存在 → 统一按 77 兜底,与 claude-mem 和本仓库桥扩展的
+#     `process.getuid?.() ?? 77` 一致(端口 37700 + 77 = 37777)
+#   * 写进 JSON 的路径要让 Windows 原生宿主(node/opencode/codex)认得,不能是 Git Bash 的 /c/...
+IS_WIN=0
+case "$(uname -s 2>/dev/null || true)" in MINGW*|MSYS*|CYGWIN*) IS_WIN=1 ;; esac
+if [ "$IS_WIN" = 1 ] && ! command -v python3 >/dev/null 2>&1; then
+  if command -v python >/dev/null 2>&1; then python3() { python "$@"; }
+  elif command -v py >/dev/null 2>&1; then python3() { py -3 "$@"; }
+  fi
+fi
+npath() { # POSIX 路径 → 宿主路径(Git Bash 的 /c/Users/x 对原生程序无效,要 C:/Users/x)
+  if [ "$IS_WIN" = 1 ] && command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s' "$1"; fi
+}
+nbin() { # 可执行文件的宿主路径:MSYS 的 command -v 会去掉 .exe,宿主 spawn 前显式补回
+  if [ "$IS_WIN" = 1 ] && [ -f "$1.exe" ]; then npath "$1.exe"; else npath "$1"; fi
+}
+BIN_EXT=""; [ "$IS_WIN" = 1 ] && BIN_EXT=".exe"   # 手写兜底路径要带 .exe(PATH 查找不用)
 
 # -y/--yes(或环境变量 ASSUME_YES=1):自动回答「默认就是 Y」的确认项(装缺件、字段级合并写配置、刷新 skills)。
 # 默认 N 的项(升级本体、覆盖缓存、版本守卫、无代理继续)照旧人工确认,不会知情外地改动。
@@ -91,7 +112,7 @@ except Exception as e:
     sys.exit(1)
 if not isinstance(s, dict):
     sys.exit(1)
-want = {'CLAUDE_MEM_WORKER_HOST': '127.0.0.1', 'CLAUDE_MEM_WORKER_PORT': str(37700 + os.getuid() % 100)}
+want = {'CLAUDE_MEM_WORKER_HOST': '127.0.0.1', 'CLAUDE_MEM_WORKER_PORT': str(37700 + getattr(os, 'getuid', lambda: 77)() % 100)}
 missing = [k for k in want if not s.get(k)]
 if not missing:
     print('unchanged'); sys.exit(0)
@@ -124,7 +145,7 @@ try:
 except Exception:
     s = {}
 host = os.environ.get('CLAUDE_MEM_WORKER_HOST') or s.get('CLAUDE_MEM_WORKER_HOST') or '127.0.0.1'
-port = os.environ.get('CLAUDE_MEM_WORKER_PORT') or s.get('CLAUDE_MEM_WORKER_PORT') or str(37700 + os.getuid() % 100)
+port = os.environ.get('CLAUDE_MEM_WORKER_PORT') or s.get('CLAUDE_MEM_WORKER_PORT') or str(37700 + getattr(os, 'getuid', lambda: 77)() % 100)
 print(f'{host}:{port}')
 PYEOF
 }
@@ -227,7 +248,7 @@ merge_cfg() {
   fi
   fill_template_placeholders "$tmp"
   if [ "$mode" = mcp ]; then
-    python3 - "$tmp" "$HOME" "$BUN_BIN" "$CG_BIN" "$MCP_CJS" <<'PYEOF'
+    python3 - "$tmp" "$(npath "$HOME")" "$(nbin "$BUN_BIN")" "$(nbin "$CG_BIN")" "$(npath "$MCP_CJS")" <<'PYEOF'
 import sys
 p, home, bun, cg, cjs = sys.argv[1:6]
 t = open(p, encoding='utf-8').read()
@@ -410,7 +431,11 @@ fi
 # ---- 1. 依赖(必需): curl / git / python3 ----
 for tool in curl git python3; do
   command -v "$tool" >/dev/null 2>&1 || {
-    echo "ERROR: 未检测到 $tool(下载模板/装依赖/写配置都要用它)。请先安装(如 apt install $tool)后重跑。" >&2
+    if [ "$IS_WIN" = 1 ]; then
+      echo "ERROR: 未检测到 $tool(下载模板/装依赖/写配置都要用它)。Git for Windows 自带 curl/git;Python 3 请自行安装(如 winget install Python.Python.3.12)后重开 Git Bash 再跑。" >&2
+    else
+      echo "ERROR: 未检测到 $tool(下载模板/装依赖/写配置都要用它)。请先安装(如 apt install $tool)后重跑。" >&2
+    fi
     exit 1
   }
 done
@@ -425,7 +450,14 @@ if ! command -v npx >/dev/null 2>&1; then
     fnm install --lts
     fnm default lts-latest
     eval "$(fnm env)"
-    command -v npx >/dev/null 2>&1 || { echo "ERROR: 安装后 npx 仍不可用,请重开终端后重跑本脚本" >&2; exit 1; }
+    command -v npx >/dev/null 2>&1 || {
+      if [ "$IS_WIN" = 1 ]; then
+        echo "ERROR: 安装后 npx 仍不可用。可改用 winget install OpenJS.NodeJS.LTS 装 Node,重开 Git Bash 后重跑本脚本。" >&2
+      else
+        echo "ERROR: 安装后 npx 仍不可用,请重开终端后重跑本脚本" >&2
+      fi
+      exit 1
+    }
     echo "Node $(node --version) 就绪"
   else
     echo "跳过 Node(claude-mem 安装、pi 包与 skills 安装将不可用)"
@@ -443,11 +475,11 @@ if ! command -v bun >/dev/null 2>&1; then
   fi
 fi
 # 只写真实存在的绝对路径;都没有时退化为裸命令名(交给运行时 PATH),别把猜测路径写进 MCP 配置
-BUN_BIN="$(command -v bun 2>/dev/null || true)"; [ -n "$BUN_BIN" ] || BUN_BIN="$HOME/.bun/bin/bun"
+BUN_BIN="$(command -v bun 2>/dev/null || true)"; [ -n "$BUN_BIN" ] || BUN_BIN="$HOME/.bun/bin/bun$BIN_EXT"
 [ -x "$BUN_BIN" ] || BUN_BIN=bun
 
 # ---- 1.3 依赖: uv(可选;strictdoc / .sdoc 校验用)----
-UVP="$HOME/.local/bin/uv"
+UVP="$HOME/.local/bin/uv$BIN_EXT"
 if ! command -v uv >/dev/null 2>&1 && [ ! -x "$UVP" ]; then
   if ask "未检测到 uv,安装 uv(astral.sh 官方脚本,装到 ~/.local/bin)?" Y; then
     uv_sh="$(mktemp)"
@@ -476,6 +508,8 @@ if [ -x "$UV_BIN" ]; then
     echo "uv 已是最新(${uv_cur:-未知})"
   fi
   UVCFG="$HOME/.config/uv/uv.toml"
+  # uv 在 Windows 读 %APPDATA%\uv\uv.toml,不是 ~/.config
+  if [ "$IS_WIN" = 1 ] && [ -n "${APPDATA:-}" ]; then UVCFG="$(cygpath -u "$APPDATA")/uv/uv.toml"; fi
   if grep -q 'pypi.tuna' "$UVCFG" 2>/dev/null; then
     echo "uv PyPI 镜像已配置(清华),跳过"
   elif [ -f "$UVCFG" ]; then
@@ -497,7 +531,16 @@ if [ -z "$PI_BIN" ] && [ -x "$HOME/.local/share/pi-node/current/bin/pi" ]; then
 fi
 if [ -z "$PI_BIN" ]; then
   echo "未检测到 pi。"
-  if ask "是否安装 Pi(官方 install.sh,装到 ~/.local/share/pi-node)?" Y; then
+  if [ "$IS_WIN" = 1 ]; then
+    # Pi 官方 install.sh 在 Windows 上跑不了(内部 detect_node_binary_platform 只认 Darwin/Linux),
+    # 走官方文档给的 npm 替代路径;Node/npm 由上面 1.1 的 fnm 提供。
+    if ! command -v npm >/dev/null 2>&1; then
+      echo "跳过 Pi 安装:未检测到 npm(先 winget install OpenJS.NodeJS.LTS,重开 Git Bash 后重跑)"
+    elif ask "是否用 npm 全局安装 Pi(@earendil-works/pi-coding-agent)?" Y; then
+      npm install -g --ignore-scripts @earendil-works/pi-coding-agent || echo "WARN: npm 安装 Pi 失败,请看上方输出" >&2
+      PI_BIN="$(command -v pi 2>/dev/null || true)"
+    fi
+  elif ask "是否安装 Pi(官方 install.sh,装到 ~/.local/share/pi-node)?" Y; then
     pi_sh="$(mktemp)"
     if curl -fsSL --connect-timeout 8 -m 60 -o "$pi_sh" https://pi.dev/install.sh; then
       sh "$pi_sh" || echo "WARN: pi 安装脚本退出码非 0,请看上方输出" >&2
@@ -681,7 +724,7 @@ if [ "$PI_OK" -eq 1 ]; then
     merge_cfg "$RAW/pi/pi-autoname.json" "$AGENT_DIR/pi-autoname.json" || true
   fi
   merge_cfg "$RAW/pi/models.json" "$MODELS" || true
-  CG_BIN="$(command -v codegraph 2>/dev/null || true)"; [ -n "$CG_BIN" ] || CG_BIN="$HOME/.local/bin/codegraph"
+  CG_BIN="$(command -v codegraph 2>/dev/null || true)"; [ -n "$CG_BIN" ] || CG_BIN="$HOME/.local/bin/codegraph$BIN_EXT"
   [ -x "$CG_BIN" ] || CG_BIN=codegraph
   merge_cfg "$RAW/pi/mcp.json" "$SHARED_MCP" mcp || true
 
@@ -711,7 +754,14 @@ EOF
   # ---- 4.1 codegraph MCP 需要的 CLI(可选)----
   if [ ! -x "$CG_BIN" ]; then
     echo "未检测到 codegraph(代码知识图谱,MCP 需要 CLI 提供 graph)。"
-    if ask "是否安装 codegraph CLI(curl 官方 install.sh)?" Y; then
+    if [ "$IS_WIN" = 1 ]; then
+      # codegraph 官方 install.sh 明确不支持 Windows(只认 Darwin/Linux),README 给的 Windows 路径是 npm
+      if ! command -v npm >/dev/null 2>&1; then
+        echo "跳过 codegraph:未检测到 npm"
+      elif ask "是否安装 codegraph CLI(npm i -g @colbymchenry/codegraph@latest)?" Y; then
+        npm install -g @colbymchenry/codegraph@latest || echo "WARN: codegraph 安装失败,请看上方输出" >&2
+      fi
+    elif ask "是否安装 codegraph CLI(curl 官方 install.sh)?" Y; then
       cg_sh="$(mktemp)"
       if curl -fsSL --connect-timeout 8 -m 60 -o "$cg_sh" https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh; then
         sh "$cg_sh" || echo "WARN: codegraph 安装脚本退出码非 0,请看上方输出" >&2
@@ -851,7 +901,7 @@ elif ask "更新 skills 本体(add --all + update -g;pi 原生读 ~/.agents/skil
 fi
 
 # ---- 8. strictdoc(.sdoc 校验依赖;uv 已在 1.3 检查/安装)----
-UV_BIN="$(command -v uv 2>/dev/null || echo "$HOME/.local/bin/uv")"
+UV_BIN="$(command -v uv 2>/dev/null || echo "$UVP")"
 if [ -x "$UV_BIN" ]; then
   if command -v strictdoc >/dev/null 2>&1; then
     echo "strictdoc 已存在,跳过(升级: uv tool upgrade strictdoc)"
@@ -871,6 +921,8 @@ echo ""
 # 仓库 node_modules 即可消失(node_modules 已在 .gitignore 中排除,不会被提交)。
 link_dev_types() {
   [ -f "$PWD/pi/extensions/ui/index.ts" ] || return 0   # 只在仓库源码目录里跑
+  # Windows 上 ln -s 需要开发者模式,否则 MSYS 会退化成整目录深拷贝(pi 包很大),直接跳过
+  if [ "$IS_WIN" = 1 ]; then echo "类型诊断软链: Windows 跳过"; return 0; fi
   local pkg=""
   if [ -n "${PI_BIN:-}" ]; then
     pkg="$(readlink -f "$PI_BIN" 2>/dev/null || true)"

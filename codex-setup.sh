@@ -10,7 +10,27 @@
 # 已配置项不重写、不自动升级;冲突/显式禁用项保留;修改前备份,不碰模型/认证配置
 # (例外:~/.claude-mem/settings.json 走 dot_file 模板字段级合并,api key/base url 等敏感值仍保留)
 # 用法:bash codex-setup.sh [-y|--yes];支持 CODEX_HOME(首次 claude-mem 官方安装仅支持默认路径)
+# Windows:在 Git Bash(不是 WSL)里跑同一份脚本;Python 3.11+ 需自备。
 set -euo pipefail
+
+# ---- 平台:同一套逻辑跑 Linux/macOS 与 Windows 的 Git Bash(MSYS/MinGW),差异集中在这几处 ----
+#   * Windows 上没有 python3 这个名字(只有 python/py)→ 包一层同名函数,下面所有调用原样不变
+#   * 内嵌 python 的 os.getuid() 在 Windows 不存在 → 统一按 77 兜底,与 claude-mem 和本仓库桥扩展的
+#     `process.getuid?.() ?? 77` 一致(端口 37700 + 77 = 37777)
+#   * 传给 codex(Windows 原生程序)的本机路径不能是 Git Bash 的 /c/...
+IS_WIN=0
+case "$(uname -s 2>/dev/null || true)" in MINGW*|MSYS*|CYGWIN*) IS_WIN=1 ;; esac
+if [ "$IS_WIN" = 1 ] && ! command -v python3 >/dev/null 2>&1; then
+  if command -v python >/dev/null 2>&1; then python3() { python "$@"; }
+  elif command -v py >/dev/null 2>&1; then python3() { py -3 "$@"; }
+  fi
+fi
+npath() { # POSIX 路径 → 宿主路径(Git Bash 的 /c/Users/x 对原生程序无效,要 C:/Users/x)
+  if [ "$IS_WIN" = 1 ] && command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s' "$1"; fi
+}
+nbin() { # 可执行文件的宿主路径:MSYS 的 command -v 会去掉 .exe,宿主 spawn 前显式补回
+  if [ "$IS_WIN" = 1 ] && [ -f "$1.exe" ]; then npath "$1.exe"; else npath "$1"; fi
+}
 
 # -y/--yes(或环境变量 ASSUME_YES=1):自动回答「默认就是 Y」的确认项;默认 N 的项(如共享 runtime 升级)仍人工确认
 ASSUME_YES="${ASSUME_YES:-}"
@@ -62,7 +82,7 @@ except Exception as e:
     sys.exit(1)
 if not isinstance(s, dict):
     sys.exit(1)
-want = {'CLAUDE_MEM_WORKER_HOST': '127.0.0.1', 'CLAUDE_MEM_WORKER_PORT': str(37700 + os.getuid() % 100)}
+want = {'CLAUDE_MEM_WORKER_HOST': '127.0.0.1', 'CLAUDE_MEM_WORKER_PORT': str(37700 + getattr(os, 'getuid', lambda: 77)() % 100)}
 missing = [k for k in want if not s.get(k)]
 if not missing:
     print('unchanged'); sys.exit(0)
@@ -95,7 +115,7 @@ try:
 except Exception:
     s = {}
 host = os.environ.get('CLAUDE_MEM_WORKER_HOST') or s.get('CLAUDE_MEM_WORKER_HOST') or '127.0.0.1'
-port = os.environ.get('CLAUDE_MEM_WORKER_PORT') or s.get('CLAUDE_MEM_WORKER_PORT') or str(37700 + os.getuid() % 100)
+port = os.environ.get('CLAUDE_MEM_WORKER_PORT') or s.get('CLAUDE_MEM_WORKER_PORT') or str(37700 + getattr(os, 'getuid', lambda: 77)() % 100)
 print(f'{host}:{port}')
 PYEOF
 }
@@ -310,12 +330,15 @@ install_plugin() {
   echo "待添加: 插件 $id;市场来源 $source"
   if ask "安装 $id?" Y; then
     backup "$CONFIG" || return 1
-    codex plugin marketplace add "$source" || return 1
+    # 市场来源可能是本机路径(Windows 上要给原生 codex 传 C:/... 而不是 /c/...)
+    local src="$source"; case "$src" in /*) src="$(npath "$src")";; esac
+    codex plugin marketplace add "$src" || return 1
     codex plugin add "$id" || return 1
   fi
 }
 
 echo "== Codex 插件配置(best effort) =="
+[ "$IS_WIN" = 1 ] && echo "提示: Codex 原生 Windows 仍是 experimental(官方推荐 WSL);本脚本按 best effort 配置。"
 for cmd in curl git python3 codex; do
   command -v "$cmd" >/dev/null || { echo "ERROR: 缺少 $cmd,请先安装后重跑" >&2; exit 1; }
 done
@@ -335,7 +358,8 @@ if [ -L "$CFG" ] || [ -L "$CONFIG" ]; then
 fi
 value >/dev/null  # 解析失败立即退出,绝不将损坏配置当成空文件
 mkdir -p "$CFG"
-export CODEX_HOME="$CFG"
+# 给原生 codex 的必须是宿主路径(MSYS 不会转换环境变量里的 /c/...)
+CODEX_HOME="$(npath "$CFG")"; export CODEX_HOME
 
 proxy="${http_proxy:-${https_proxy:-${all_proxy:-${HTTP_PROXY:-${HTTPS_PROXY:-${ALL_PROXY:-}}}}}}"
 if [ -n "$proxy" ]; then
@@ -522,10 +546,19 @@ if [ "$(value mcp_servers codegraph)" != null ]; then
   echo 'unchanged: mcp_servers.codegraph 已存在,保留本地配置'
 else
   if ! command -v codegraph >/dev/null && ask '安装 CodeGraph CLI?' Y; then
-    download_run https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh || warn 'CodeGraph 安装失败'
+    if [ "$IS_WIN" = 1 ]; then
+      # codegraph 官方 install.sh 明确不支持 Windows(只认 Darwin/Linux),README 给的 Windows 路径是 npm
+      if ! command -v npm >/dev/null; then
+        warn '缺少 npm,跳过 CodeGraph'
+      elif ! npm install -g @colbymchenry/codegraph@latest; then
+        warn 'CodeGraph 安装失败'
+      fi
+    else
+      download_run https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh || warn 'CodeGraph 安装失败'
+    fi
   fi
   if command -v codegraph >/dev/null; then
-    cg="$(command -v codegraph)"
+    cg="$(nbin "$(command -v codegraph)")"
     if ask "添加 MCP codegraph: $cg serve --mcp?" Y; then
       backup "$CONFIG"
       codex mcp add codegraph -- "$cg" serve --mcp || warn 'CodeGraph MCP 注册失败'

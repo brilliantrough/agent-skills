@@ -1,0 +1,9 @@
+{
+  "tui.input.submit": ["ctrl+enter", "alt+enter", "ctrl+j"],
+  "tui.input.newLine": ["enter", "shift+enter"],
+  "app.session.new": ["alt+n"],
+  "app.session.toggleNamedFilter": [],
+  "app.thinking.cycle": ["alt+t"],
+  "app.model.select": ["alt+m"],
+  "app.session.resume": ["alt+l"]
+}

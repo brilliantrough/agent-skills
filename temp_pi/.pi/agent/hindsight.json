@@ -1,0 +1,26 @@
+{
+  "hindsight": {
+    "baseUrl": "https://hindsight.do1e.com",
+    "apiKey": "xxxxx"
+  },
+  "enabled": true,
+  "excludeDirs": [
+    "C:\\Users\\Do1e\\Downloads",
+    "C:\\Users\\Do1e\\Downloads\\**",
+    "/tmp/pi",
+    "/root"
+  ],
+  "scope": {
+    "mode": "isolated-bank"
+  },
+  "banks": {
+    "project": {
+      "enabled": true,
+      "derive": "repo"
+    },
+    "user": {
+      "enabled": true,
+      "bankId": "do1e"
+    }
+  }
+}

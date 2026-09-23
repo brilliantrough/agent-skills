@@ -1,0 +1,10 @@
+{
+  "enabled": true,
+  "model": "openai/gpt-5.6-luna",
+  "fallbackModels": [
+    "zai-coding-cn/glm-5.3-flash"
+  ],
+  "cooldownMinutes": 1440,
+  "debug": false,
+  "respectManualName": true
+}
