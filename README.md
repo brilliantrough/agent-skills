@@ -141,14 +141,16 @@ curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/op
 
 同一份 `*-setup.sh` 在**原生 Windows 的 Git Bash**里直接跑（不是 WSL；WSL 本身是 Linux，按 Linux 方式就行，无需任何变化）。
 
-前置（脚本会逐个检测，缺哪个提示哪个）：
+**硬前置**：Git for Windows（用它开 Git Bash）与 Python 3。本套装面向已在用 Git Bash 的人，不为零前提的 Windows 用户另维护一份 PowerShell 版；其余缺件由脚本代装或给出命令：
 
 | 需要 | 说明 |
 | --- | --- |
-| Git for Windows | 提供 bash / curl / git；用它的 **Git Bash** 开终端 |
+| Git for Windows | 提供 bash / curl / git / cygpath；用它的 **Git Bash** 开终端 |
 | Python 3 | 配置合并依赖它：`winget install Python.Python.3.12` 后**重开 Git Bash**（脚本认 `python3` / `python` / `py`） |
 | Node LTS | 缺时用 fnm 官方脚本装；失败可 `winget install OpenJS.NodeJS.LTS` |
 | bun / uv | 缺时走各自官方脚本（两者都支持 MinGW）；失败会提示手工命令 |
+
+- 上游工具的 `install.ps1` / winget 包（uv、bun、codegraph 都另发 PowerShell 脚本，fnm 走 winget/scoop）面向的是零前提的 Windows 用户；本项目把 Git Bash 当既定约定，一份 bash 同时覆盖三个脚本，不拆成两套代码。
 
 命令与 Linux 相同（在 Git Bash 里）：
 
@@ -159,10 +161,10 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 脚本自己处理的 Windows 差异：
 
 - **路径**：写进 `mcp.json` / `opencode.json` 的本机路径转成 `C:/...` 原生形式（Git Bash 的 `/c/...` 原生宿主读不懂），可执行文件补回 `.exe`。
-- **claude-mem worker 端口**：Windows 无 uid 时按 77 兑底 → `37777`，与 claude-mem 及桥扩展的 `process.getuid?.() ?? 77` 一致。
+- **claude-mem worker 端口**：Windows 无 uid 时按 77 兜底 → `37777`，与 claude-mem 及桥扩展的 `process.getuid?.() ?? 77` 一致。
 - **codegraph**：官方 `install.sh` 只认 Darwin/Linux，Windows 改走 `npm i -g @colbymchenry/codegraph@latest`。
 - **Pi 本体**：官方 `install.sh` 只认 Darwin/Linux，Windows 改走 `npm i -g --ignore-scripts @earendil-works/pi-coding-agent`。
-- **uv 镜像**：windows 上写 `%APPDATA%\uv\uv.toml`（uv 不读 `~/.config`）。
+- **uv 镜像**：Windows 上写 `%APPDATA%\uv\uv.toml`（uv 不读 `~/.config`）。
 - **本仓库开发用的类型软链**：Windows 跳过（`ln -s` 需开发者模式，否则会退化成整目录拷贝）。
 - **配置目录与 Linux 一致**：`~/.pi/agent`、`~/.config/opencode`、`~/.claude-mem`、`~/.agents`（Git Bash 的 `$HOME` 就是 `%USERPROFILE%`）。
 
