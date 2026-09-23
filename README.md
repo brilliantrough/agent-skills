@@ -141,12 +141,11 @@ curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/op
 
 同一份 `*-setup.sh` 在**原生 Windows 的 Git Bash**里直接跑（不是 WSL；WSL 本身是 Linux，按 Linux 方式就行，无需任何变化）。
 
-**硬前置**：Git for Windows（用它开 Git Bash）与 Python 3。本套装面向已在用 Git Bash 的人，不为零前提的 Windows 用户另维护一份 PowerShell 版；其余缺件由脚本代装或给出命令：
+**硬前置只剩一个**：Git for Windows（用它开 **Git Bash**，自带 bash / curl / git / cygpath）。本套装面向已在用 Git Bash 的人，不为零前提的 Windows 用户另维护一份 PowerShell 版；其余缺件由脚本代装或给出命令：
 
 | 需要 | 说明 |
 | --- | --- |
-| Git for Windows | 提供 bash / curl / git / cygpath；用它的 **Git Bash** 开终端 |
-| Python 3 | 配置合并依赖它：`winget install Python.Python.3.12` 后**重开 Git Bash**（脚本认 `python3` / `python` / `py`） |
+| Python 3 | 配置合并依赖；没有就用 uv 自管理的 3.12 兜底（脚本会问），也可手工 `winget install Python.Python.3.12` |
 | Node LTS | 缺时用 fnm 官方脚本装；失败可 `winget install OpenJS.NodeJS.LTS` |
 | bun / uv | 缺时走各自官方脚本（两者都支持 MinGW）；失败会提示手工命令 |
 

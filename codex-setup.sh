@@ -10,26 +10,45 @@
 # 已配置项不重写、不自动升级;冲突/显式禁用项保留;修改前备份,不碰模型/认证配置
 # (例外:~/.claude-mem/settings.json 走 dot_file 模板字段级合并,api key/base url 等敏感值仍保留)
 # 用法:bash codex-setup.sh [-y|--yes];支持 CODEX_HOME(首次 claude-mem 官方安装仅支持默认路径)
-# Windows:在 Git Bash(不是 WSL)里跑同一份脚本;Python 3.11+ 需自备。
+# Windows:在 Git Bash(不是 WSL)里跑同一份脚本;Python 3.11+ 缺了由 uv 自管理提供。
 set -euo pipefail
 
 # ---- 平台:同一套逻辑跑 Linux/macOS 与 Windows 的 Git Bash(MSYS/MinGW),差异集中在这几处 ----
-#   * Windows 上没有 python3 这个名字(只有 python/py)→ 包一层同名函数,下面所有调用原样不变
+#   * python3 解析链(见 resolve_python3):系统 python3 → python → py → uv 自管理 3.12;Windows 没有 python3 这个名字
 #   * 内嵌 python 的 os.getuid() 在 Windows 不存在 → 统一按 77 兜底,与 claude-mem 和本仓库桥扩展的
 #     `process.getuid?.() ?? 77` 一致(端口 37700 + 77 = 37777)
 #   * 传给 codex(Windows 原生程序)的本机路径不能是 Git Bash 的 /c/...
 IS_WIN=0
 case "$(uname -s 2>/dev/null || true)" in MINGW*|MSYS*|CYGWIN*) IS_WIN=1 ;; esac
-if [ "$IS_WIN" = 1 ] && ! command -v python3 >/dev/null 2>&1; then
-  if command -v python >/dev/null 2>&1; then python3() { python "$@"; }
-  elif command -v py >/dev/null 2>&1; then python3() { py -3 "$@"; }
-  fi
-fi
+BIN_EXT=""; [ "$IS_WIN" = 1 ] && BIN_EXT=".exe"
 npath() { # POSIX 路径 → 宿主路径(Git Bash 的 /c/Users/x 对原生程序无效,要 C:/Users/x)
   if [ "$IS_WIN" = 1 ] && command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s' "$1"; fi
 }
 nbin() { # 可执行文件的宿主路径:MSYS 的 command -v 会去掉 .exe,宿主 spawn 前显式补回
   if [ "$IS_WIN" = 1 ] && [ -f "$1.exe" ]; then npath "$1.exe"; else npath "$1"; fi
+}
+resolve_python3() { # python3 就绪返回 0;否则 python → py → uv 自管理 3.12(缺 uv 征得同意后装)。ask 在后面定义,调用时才解析
+  # 候选一律先 -c pass 试跑:Windows 商店的 python.exe 占位 stub 能 command -v 到,一跑就报错
+  if command -v python3 >/dev/null 2>&1 && python3 -c pass >/dev/null 2>&1; then return 0; fi
+  if command -v python >/dev/null 2>&1 && python -c pass >/dev/null 2>&1; then python3() { python "$@"; }; return 0; fi
+  if command -v py >/dev/null 2>&1 && py -3 -c pass >/dev/null 2>&1; then python3() { py -3 "$@"; }; return 0; fi
+  command -v uv >/dev/null 2>&1 || [ -x "$HOME/.local/bin/uv$BIN_EXT" ] || {
+    ask "没有可用的 Python 3;用 uv 装一个自管理的 Python 3.12(会先装 uv 本体)?" Y || return 1
+    local sh_tmp rc=1
+    sh_tmp="$(mktemp)" || return 1
+    if curl -fsSL --connect-timeout 8 -m 60 -o "$sh_tmp" https://astral.sh/uv/install.sh; then
+      UV_INSTALL_DIR="$HOME/.local/bin" UV_NO_MODIFY_PATH=1 sh "$sh_tmp" && rc=0
+    fi
+    rm -f "$sh_tmp"
+    [ $rc -eq 0 ] || return 1
+  }
+  export PATH="$HOME/.local/bin:$PATH"
+  command -v uv >/dev/null 2>&1 || return 1
+  uv python install 3.12 || return 1
+  local p; p="$(uv python find 3.12 2>/dev/null || true)"
+  [ -n "$p" ] || return 1
+  if [ "$IS_WIN" = 1 ] && command -v cygpath >/dev/null 2>&1; then p="$(cygpath -u "$p")"; fi
+  UV_PY="$p"; python3() { "$UV_PY" "$@"; }
 }
 
 # -y/--yes(或环境变量 ASSUME_YES=1):自动回答「默认就是 Y」的确认项;默认 N 的项(如共享 runtime 升级)仍人工确认
@@ -339,9 +358,11 @@ install_plugin() {
 
 echo "== Codex 插件配置(best effort) =="
 [ "$IS_WIN" = 1 ] && echo "提示: Codex 原生 Windows 仍是 experimental(官方推荐 WSL);本脚本按 best effort 配置。"
-for cmd in curl git python3 codex; do
+for cmd in curl git codex; do
   command -v "$cmd" >/dev/null || { echo "ERROR: 缺少 $cmd,请先安装后重跑" >&2; exit 1; }
 done
+# python3 缺失不致命:resolve_python3 用 uv 自管理的 3.12 兜底(自带 tomllib)
+resolve_python3 || { echo 'ERROR: 没有可用的 Python 3(读 config.toml 依赖它);可手工装 Python 3.11+ 或允许脚本用 uv 装后重跑' >&2; exit 1; }
 python3 -c 'import tomllib' 2>/dev/null || { echo 'ERROR: 需要 Python 3.11+(tomllib);请在合适的环境中重跑,脚本不会升级系统 Python' >&2; exit 1; }
 codex plugin marketplace add --help >/dev/null
 codex features enable --help >/dev/null

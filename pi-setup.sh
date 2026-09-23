@@ -6,7 +6,7 @@
 #   询问默认:装缺的软件/包、写入条目 → [Y/n](回车即装);覆盖已有配置、无代理下继续 → [y/N];
 #            非交互环境按各自默认执行
 #   0. 代理环境提醒(大小写都查;未设则探测直连,透明代理不拦;都不通才要求确认)
-#   1. 依赖检查(全部前置):curl/git/python3(缺失即退出)、npx(缺 → 征得同意装 fnm + Node LTS)、
+#   1. 依赖检查(全部前置):curl/git(缺失即退出)、python3(缺则由 uv 提供自管理 3.12)、npx(缺 → 征得同意装 fnm + Node LTS)、
 #      bun(缺 → 征得同意装,claude-mem MCP server 与 context-mode 构建都需要)、uv(可选,.sdoc 校验用)
 #   2. pi 本体:未装 → 官方 install.sh(下载到文件再执行);已装 → 询问 pi update --all(默认 N:
 #      会连带升级 magic-context,与 opencode 侧共享 context.db,需用户手动同步两边版本)
@@ -36,24 +36,42 @@
 set -euo pipefail
 
 # ---- 平台:同一套逻辑跑 Linux/macOS 与 Windows 的 Git Bash(MSYS/MinGW),差异集中在这几处 ----
-#   * Windows 上没有 python3 这个名字(只有 python/py)→ 包一层同名函数,下面所有调用原样不变
+#   * python3 解析链(见 resolve_python3):系统 python3 → python → py → uv 自管理 3.12;Windows 没有 python3 这个名字
 #   * 内嵌 python 的 os.getuid() 在 Windows 不存在 → 统一按 77 兜底,与 claude-mem 和本仓库桥扩展的
 #     `process.getuid?.() ?? 77` 一致(端口 37700 + 77 = 37777)
 #   * 写进 JSON 的路径要让 Windows 原生宿主(node/opencode/codex)认得,不能是 Git Bash 的 /c/...
 IS_WIN=0
 case "$(uname -s 2>/dev/null || true)" in MINGW*|MSYS*|CYGWIN*) IS_WIN=1 ;; esac
-if [ "$IS_WIN" = 1 ] && ! command -v python3 >/dev/null 2>&1; then
-  if command -v python >/dev/null 2>&1; then python3() { python "$@"; }
-  elif command -v py >/dev/null 2>&1; then python3() { py -3 "$@"; }
-  fi
-fi
+BIN_EXT=""; [ "$IS_WIN" = 1 ] && BIN_EXT=".exe"   # 手写兜底路径要带 .exe(PATH 查找不用)
+resolve_python3() { # python3 就绪返回 0;否则 python → py → uv 自管理 3.12(缺 uv 征得同意后装)。ask 在后面定义,调用时才解析
+  # 候选一律先 -c pass 试跑:Windows 商店的 python.exe 占位 stub 能 command -v 到,一跑就报错
+  if command -v python3 >/dev/null 2>&1 && python3 -c pass >/dev/null 2>&1; then return 0; fi
+  if command -v python >/dev/null 2>&1 && python -c pass >/dev/null 2>&1; then python3() { python "$@"; }; return 0; fi
+  if command -v py >/dev/null 2>&1 && py -3 -c pass >/dev/null 2>&1; then python3() { py -3 "$@"; }; return 0; fi
+  command -v uv >/dev/null 2>&1 || [ -x "$HOME/.local/bin/uv$BIN_EXT" ] || {
+    ask "没有可用的 Python 3;用 uv 装一个自管理的 Python 3.12(会先装 uv 本体)?" Y || return 1
+    local sh_tmp rc=1
+    sh_tmp="$(mktemp)" || return 1
+    if curl -fsSL --connect-timeout 8 -m 60 -o "$sh_tmp" https://astral.sh/uv/install.sh; then
+      UV_INSTALL_DIR="$HOME/.local/bin" UV_NO_MODIFY_PATH=1 sh "$sh_tmp" && rc=0
+    fi
+    rm -f "$sh_tmp"
+    [ $rc -eq 0 ] || return 1
+  }
+  export PATH="$HOME/.local/bin:$PATH"
+  command -v uv >/dev/null 2>&1 || return 1
+  uv python install 3.12 || return 1
+  local p; p="$(uv python find 3.12 2>/dev/null || true)"
+  [ -n "$p" ] || return 1
+  if [ "$IS_WIN" = 1 ] && command -v cygpath >/dev/null 2>&1; then p="$(cygpath -u "$p")"; fi
+  UV_PY="$p"; python3() { "$UV_PY" "$@"; }
+}
 npath() { # POSIX 路径 → 宿主路径(Git Bash 的 /c/Users/x 对原生程序无效,要 C:/Users/x)
   if [ "$IS_WIN" = 1 ] && command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s' "$1"; fi
 }
 nbin() { # 可执行文件的宿主路径:MSYS 的 command -v 会去掉 .exe,宿主 spawn 前显式补回
   if [ "$IS_WIN" = 1 ] && [ -f "$1.exe" ]; then npath "$1.exe"; else npath "$1"; fi
 }
-BIN_EXT=""; [ "$IS_WIN" = 1 ] && BIN_EXT=".exe"   # 手写兜底路径要带 .exe(PATH 查找不用)
 
 # -y/--yes(或环境变量 ASSUME_YES=1):自动回答「默认就是 Y」的确认项(装缺件、字段级合并写配置、刷新 skills)。
 # 默认 N 的项(升级本体、覆盖缓存、版本守卫、无代理继续)照旧人工确认,不会知情外地改动。
@@ -429,16 +447,14 @@ else
 fi
 
 # ---- 1. 依赖(必需): curl / git / python3 ----
-for tool in curl git python3; do
+for tool in curl git; do
   command -v "$tool" >/dev/null 2>&1 || {
-    if [ "$IS_WIN" = 1 ]; then
-      echo "ERROR: 未检测到 $tool(下载模板/装依赖/写配置都要用它)。Git for Windows 自带 curl/git;Python 3 请自行安装(如 winget install Python.Python.3.12)后重开 Git Bash 再跑。" >&2
-    else
-      echo "ERROR: 未检测到 $tool(下载模板/装依赖/写配置都要用它)。请先安装(如 apt install $tool)后重跑。" >&2
-    fi
+    echo "ERROR: 未检测到 $tool(下载模板/装依赖都要用它)。Git for Windows 自带 curl/git;Linux 用包管理器装(如 apt install $tool)。" >&2
     exit 1
   }
 done
+# python3 缺失不致命:resolve_python3 用 uv 自管理的 3.12 兜底(Git for Windows 不带 python)
+resolve_python3 || { echo "ERROR: 没有可用的 Python 3(写配置依赖它)。可手工装(winget install Python.Python.3.12 / apt install python3)或允许脚本用 uv 装后重跑。" >&2; exit 1; }
 
 # ---- 1.1 依赖: npx(fnm + Node)----
 if ! command -v npx >/dev/null 2>&1; then
