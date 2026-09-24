@@ -23,7 +23,7 @@ const require = createRequire(join(root, "package.json"));
 const piTui = pathToFileURL(
 	join(require.resolve("@earendil-works/pi-tui/package.json").replace(/package\.json$/, ""), "dist/index.js"),
 ).href;
-const { Editor, sliceByColumn, stripTerminalSequences, visibleWidth } = await import(piTui);
+const { Editor, sliceByColumn, stripTerminalSequences, truncateToWidth, visibleWidth } = await import(piTui);
 
 const dir = mkdtempSync(join(tmpdir(), "copy-clean-"));
 process.env.AGENT_DIR = dir;
@@ -105,16 +105,21 @@ function composerSurface(text, width) {
 	});
 	editor.focused = true;
 	editor.setText(text);
-	const rendered = editor.render(width);
+	// 生产里基编辑器按 innerWidth 渲染（railWidth 之外全给正文）。
+	const innerWidth = Math.max(1, width - visibleWidth(CHROME));
+	const rendered = editor.render(innerWidth);
 	const bodyRows = rendered.slice(1, -1).map(plain);
 	const meta = `${CHROME}meta line`;
 	const completion = ["  completion item", "  another item"];
+	// 生产里每行都被填充到面板宽度（fillLine），边框撑满整宽。这样跟真实屏幕一致，
+	// 侧栏内容从第 width 列开始，裁掉就能对上本面板这一行。
+	const fill = (line) => truncateToWidth(`${line}${" ".repeat(Math.max(0, width - visibleWidth(line)))}`, width, "");
 	const frame = [
 		"─".repeat(width),
-		CHROME.trimEnd(),
-		...bodyRows.map((row) => `${CHROME}${row}`),
-		CHROME.trimEnd(),
-		meta,
+		fill(CHROME.trimEnd()),
+		...bodyRows.map((row) => fill(`${CHROME}${row}`)),
+		fill(CHROME.trimEnd()),
+		fill(meta),
 		"─".repeat(width),
 		...completion,
 	];
@@ -129,10 +134,11 @@ function composerSurface(text, width) {
 	registerCopySurface("composer", CHROME, rows);
 	return {
 		screenRows: rows.map((row) => row.screen),
-		// 正文在登记表里的位置:前面只有一行空行。
-		bodyStart: 1,
-		bodyEnd: rows.length - 3,
+		// 正文行 = 带逻辑行号的那几行。
+		bodyStart: rows.findIndex((row) => row.logical !== undefined),
+		bodyEnd: rows.findLastIndex((row) => row.logical !== undefined),
 		frame,
+		width,
 		frameBodyStart: 2,
 		completion: completion.map(plain),
 		logical: editor.getLines().join("\n"),
@@ -162,6 +168,32 @@ const TEXTS = [
 ];
 
 // 1) 选中整段正文(含左侧装饰)必须还原成用户输入的原文。
+//    frame 才是真实屏幕:上/下边框 + 空行 + 正文 + 元信息行;同屏有侧栏时右侧还会接上侧栏内容。
+const sidebarOf = (index) =>
+	["", "╭─ TOOLS ──╮", "│ 40/46 active ▸ │", "╰──────────╯", "", "", "side 3", ""][index] ?? "侧栏";
+/** 拖到上下边框的一半（选中的只有 ─）：也是装饰，应当丢掉。 */
+const cleanupCase = (surface, width) => {
+	const rows = surface.frame.slice(0, surface.frame.length - 2);
+	const lines = rows.map((row, index) => {
+		const padded = `${row}${" ".repeat(Math.max(0, width - visibleWidth(row)))}`;
+		if (index === 0) return padded.slice(4);
+		if (index === rows.length - 1) return padded.slice(0, 20);
+		return padded;
+	});
+	return cleanCopiedText(lines.join("\n"));
+};
+
+const dragWholeBox = (surface, width, withSidebar) => {
+	// frame = [上边框, 空行, 正文…, 空行, 元信息行, 下边框, 补全项 x2];
+	// 只拖输入框自己的那几行（补全菜单是浮层）。
+	const composerRows = surface.frame.slice(0, surface.frame.length - 2);
+	const rows = composerRows.map((row, index) => {
+		const padded = `${row}${" ".repeat(Math.max(0, width - visibleWidth(row)))}`;
+		return withSidebar ? `${padded}${sidebarOf(index)}` : row;
+	});
+	return clipboard(rows, 0, 0, rows.length - 1, 1000);
+};
+
 for (const text of TEXTS) {
 	for (const width of [39, 60, 79]) {
 		clearCopySurfaces();
@@ -173,6 +205,25 @@ for (const text of TEXTS) {
 		const copied = clipboard(surface.screenRows, surface.bodyStart, 0, surface.bodyEnd, 1000);
 		const cleaned = cleanCopiedText(copied);
 		check(`整段还原 @${width} ${JSON.stringify(text.slice(0, 12))}`, cleaned === text, JSON.stringify(cleaned));
+		// 拖到边框的一半(上下边框都是 ─):也是装饰,不该混进正文。
+		clearCopySurfaces();
+		const partial = cleanupCase(composerSurface(text, width), width);
+		check(
+			`半截边框不混进正文 @${width} ${JSON.stringify(text.slice(0, 8))}`,
+			partial === text,
+			JSON.stringify(partial),
+		);
+		// 真实现场:拖过整个输入框(带边框/空行/元信息行),右侧还拼着侧栏。
+		for (const withSidebar of [false, true]) {
+			clearCopySurfaces();
+			const fresh = composerSurface(text, width);
+			const whole = cleanCopiedText(dragWholeBox(fresh, width, withSidebar));
+			check(
+				`拖过整个输入框${withSidebar ? "(有侧栏)" : ""} @${width} ${JSON.stringify(text.slice(0, 8))}`,
+				whole === text,
+				JSON.stringify(whole),
+			);
+		}
 	}
 }
 
@@ -254,12 +305,12 @@ for (const text of TEXTS) {
 		cleaned === "\n\n第一段\n折行的第二段\n\n",
 		JSON.stringify(cleaned),
 	);
-	// 从上边框里面开始拖：上边框那一段对不上，只能原样留着，下面的正文照旧清理。
+	// 从上边框里面开始拖：选中的只有半截 ─，也是装饰，一起丢掉。
 	const fromRule = [plain(rows[0]).slice(0, 20), ...rows.slice(1).map(plain)].join("\n");
 	const cleanedRule = cleanCopiedText(fromRule);
 	check(
 		"用户消息去装饰(从上边框内起拖)",
-		cleanedRule === "────────────────────\n\n第一段\n折行的第二段\n\n",
+		cleanedRule === "\n\n第一段\n折行的第二段\n\n",
 		JSON.stringify(cleanedRule),
 	);
 }
@@ -279,15 +330,17 @@ for (const text of TEXTS) {
 {
 	clearCopySurfaces();
 	const surface = composerSurface("钩子测试文本", 60);
-	// 同屏有侧栏时,选到输入框右边界以外的行会带上侧栏文本:装饰照去、后面的内容不动。
-	const widened = surface.screenRows.map((row) =>
-		row === surface.screenRows[surface.bodyStart] ? `${row}     侧栏文本` : row,
-	);
-	const widenedCopy = clipboard(widened, surface.bodyStart, 0, surface.bodyStart, 1000);
+	// 同屏有侧栏时，输入框那一行的右边会接上侧栏内容：裁掉别人的，只留本面板的。
+	const SIDEBAR = ["", "", "  ╭─ TOOLS ─╮", "  │ 40/46 active ▸ │", "  ╰───╯", "", ""];
+	const composed = surface.screenRows.map((row, index) => {
+		const pad = " ".repeat(Math.max(0, 60 - visibleWidth(row)));
+		return `${row}${pad}${SIDEBAR[index] ?? " 新内容"}`;
+	});
+	const composedCopy = clipboard(composed, surface.bodyStart, 0, surface.bodyStart, 1000);
 	check(
-		"选过右边界时只去装饰",
-		cleanCopiedText(widenedCopy) === "钩子测试文本     侧栏文本",
-		JSON.stringify(cleanCopiedText(widenedCopy)),
+		"侧栏内容不混进正文",
+		cleanCopiedText(composedCopy) === "钩子测试文本",
+		JSON.stringify(cleanCopiedText(composedCopy)),
 	);
 	const captured = [];
 	const fakeTui = { copySelection: async (text) => (captured.push(text), true) };

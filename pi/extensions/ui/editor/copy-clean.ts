@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import { stripTerminalSequences } from "@earendil-works/pi-tui";
+import { sliceByColumn, stripTerminalSequences, visibleWidth } from "@earendil-works/pi-tui";
 
 /**
  * 鼠标划词复制拿到的是屏幕文本，不是组件文本：pi-tui 的 `TuiAltScreen.getActiveSelectionText()`
@@ -12,6 +12,9 @@ import { stripTerminalSequences } from "@earendil-works/pi-tui";
  * 渲染时登记的行对（`screen` ↔ `clean`）把复制文本还原成正文；输入框正文还带上逻辑行号与
  * "拼回下一行时要补的空白"，同一逻辑行的相邻行因此还原成用户真正敲进去的那一行。
  * 对不上的行原样保留（失败即放行），所以登记表坏了最坏退化成现在的行为。
+ *
+ * 同屏还有侧栏时，输入框那一行的屏幕内容是"本面板这一行 + 侧栏那一行"拼起来的，所以按登记
+ * 时的面板宽度把右侧别人的内容裁掉再比对（复制本身不知道面板分界）。
  *
  * Toggle: `cleanCopiedText` in `agent-skills-ui.json` (default true).
  */
@@ -25,6 +28,10 @@ export type CopyRow = {
 	screen: string;
 	/** 去掉装饰后的正文。 */
 	clean: string;
+	/** 纯装饰行（空行、元信息行）：匹配上也不产出内容。 */
+	drop?: boolean;
+	/** 面板宽度：复制出来的屏幕行可能拖着右侧另一个面板的内容，比对前先按这个宽度裁掉。 */
+	width?: number;
 	/** 逻辑行号；只有能可靠对齐的输入框正文行才有。 */
 	logical?: number;
 	/** 与"同一逻辑行的下一行"拼接时插入的文本（行尾被裁掉的空白 + 折行间隙）。 */
@@ -49,6 +56,13 @@ interface CopyRenderer {
 
 export function plainRow(line: string): string {
 	return stripTerminalSequences(line).trimEnd();
+}
+
+/** 一帧里最长的那一行就是本面板的宽度（边框撑满整宽）。 */
+export function paneWidthOf(frameRows: string[]): number | undefined {
+	let width = 0;
+	for (const row of frameRows) width = Math.max(width, visibleWidth(row));
+	return width > 0 ? width : undefined;
 }
 
 export function registerCopySurface(key: string, chrome: string, rows: CopyRow[]): void {
@@ -136,22 +150,34 @@ export function composerSurfaceRows(input: {
 		visualMap: input.visualMap,
 	});
 	if (!rows || rows.length === 0) return undefined;
+	const width = paneWidthOf(frameRows);
 	const decorate = (screen: string): CopyRow => ({
 		screen,
 		clean: screen.startsWith(chrome) ? screen.slice(chrome.length) : "",
+		drop: true,
+		width,
 	});
 	let low = window;
 	let high = window + rows.length;
 	while (low > 0 && isChromeRow(plains[low - 1], chrome)) low--;
 	while (high < plains.length && isChromeRow(plains[high], chrome)) high++;
+	// 紧邻的横线是输入框自己的上下边框：一起登记成 drop，别把 ─── 也贴进去。
+	if (low > 0 && isRuleRow(plains[low - 1])) low--;
+	if (high < plains.length && isRuleRow(plains[high])) high++;
 	return plains
 		.slice(low, high)
-		.map((screen, index) => rows[index - (window - low)] ?? decorate(screen));
+		.map((screen, index) => rows[index - (window - low)] ?? decorate(screen))
+		.map((row) => ({ ...row, width }));
 }
 
 /** 纯装饰行：只有左侧装饰（空行）也算。 */
 function isChromeRow(screen: string, chrome: string): boolean {
 	return screen.startsWith(chrome) || screen === chrome.trimEnd();
+}
+
+/** 输入框的上下边框（整行横线）。 */
+function isRuleRow(screen: string): boolean {
+	return /^[─━═]{3,}$/.test(screen.trim());
 }
 
 /** 在完整视觉行表里找到正好渲染成这批正文行的窗口；找不到说明映射不可信。 */
@@ -177,12 +203,17 @@ function findBodyWindow(
 	return undefined;
 }
 
-function stripRow(copied: string, row: CopyRow, chrome: string, first: boolean): string | undefined {
+function stripRow(rawCopied: string, row: CopyRow, chrome: string, first: boolean): string | undefined {
+	// 裁掉右侧别的面板的内容，后面全部按本面板这一行来比。
+	const copied =
+		row.width === undefined
+			? rawCopied
+			: sliceByColumn(rawCopied, 0, row.width, true).trimEnd();
 	if (copied === row.screen) return row.clean;
-	// 选到了输入框右边界以外（同屏还有侧栏时）：去掉装饰，后面的内容原样留着。
-	if (row.clean !== "" && copied.startsWith(row.screen)) {
-		return `${row.clean}${copied.slice(row.screen.length)}`.trimEnd();
-	}
+	// 从装饰行右侧起拖（只有一个竖线、裁完就空了）也算撞上这一行，但没选中内容就什么都不给。
+	if (copied === "" && row.drop) return "";
+	// 只拖到边框的一段：也是装饰，不是正文。
+	if (isRuleRow(row.screen) && /^[─━═]{2,}$/.test(copied)) return "";
 	if (copied !== "" && row.clean) {
 		// 选区在正文中间结束，或（第一行）从正文中间开始。
 		if (row.clean.startsWith(copied)) return copied;
@@ -198,7 +229,7 @@ function stripRow(copied: string, row: CopyRow, chrome: string, first: boolean):
 	return undefined;
 }
 
-type Hit = { index: number; text: string; logical?: number; join?: string };
+type Hit = { index: number; text: string; drop?: boolean; logical?: number; join?: string };
 type Alignment = { skip: number; hits: Hit[] };
 
 /** 只在前几个最近登记的渲染面里找对齐：可见内容总在表头，老消息不必扫。 */
@@ -215,11 +246,19 @@ function align(lines: string[]): Alignment | undefined {
 			for (let start = 0; start < surface.rows.length; start++) {
 				if (best && best.hits.length === lines.length) return best;
 				const hits = runFrom(surface, start, lines, skip);
-				if (hits && (!best || hits.length > best.hits.length)) best = { skip, hits };
+				if (hits && better(hits, best?.hits)) best = { skip, hits };
 			}
 		}
 	}
 	return best;
+}
+
+/** 先比长度；一样长时宁可要解释得通的那段（空行撞上哪一行都不奇怪，别让它主导对齐）。 */
+function better(candidate: Hit[], best: Hit[] | undefined): boolean {
+	if (!best) return true;
+	if (candidate.length !== best.length) return candidate.length > best.length;
+	const filled = (hits: Hit[]) => hits.filter((hit) => hit.text !== "").length;
+	return filled(candidate) > filled(best);
 }
 
 function runFrom(surface: Surface, start: number, lines: string[], skip: number): Hit[] | undefined {
@@ -229,7 +268,7 @@ function runFrom(surface: Surface, start: number, lines: string[], skip: number)
 		if (!row) break;
 		const text = stripRow(lines[index], row, surface.chrome, index === skip);
 		if (text === undefined) break;
-		hits.push({ index: start + index - skip, text, logical: row.logical, join: row.join });
+		hits.push({ index: start + index - skip, text, drop: row.drop, logical: row.logical, join: row.join });
 	}
 	if (hits.length === 0) return undefined;
 	// 单行匹配必须真把装饰去掉了，或整行与登记行完全相同。
@@ -253,6 +292,7 @@ export function cleanCopiedText(text: string): string {
 			out.push(lines[index]);
 			continue;
 		}
+		if (hit.drop) continue;
 		const previous = index > skip ? hits[index - skip - 1] : undefined;
 		const continues =
 			previous !== undefined &&

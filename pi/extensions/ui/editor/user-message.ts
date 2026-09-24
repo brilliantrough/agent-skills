@@ -1,6 +1,6 @@
 import { type Theme, UserMessageComponent } from "@earendil-works/pi-coding-agent";
 import { type Markdown, wrapTextWithAnsi } from "@earendil-works/pi-tui";
-import { plainRow, registerCopySurface } from "./copy-clean";
+import { paneWidthOf, plainRow, registerCopySurface } from "./copy-clean";
 import type { ZentuiConfig } from "./config";
 import { installPrototypePatch, removePrototypePatch } from "./prototype-patch-registry";
 import {
@@ -251,14 +251,18 @@ function rememberMessageCopy(
 	const chrome = `${config.icons.rail} `;
 	const key = messageKeys.get(instance) ?? nextMessageKey++;
 	messageKeys.set(instance, key);
+	const width = paneWidthOf(lines);
 	registerCopySurface(
 		`message:${key}`,
 		chrome,
-		lines.map((line) => {
+		lines.map((line, index) => {
 			const screen = plainRow(line);
 			return {
 				screen,
 				clean: screen.startsWith(chrome) ? screen.slice(chrome.length) : "",
+				// framed 风格的上下两条分隔线是装饰，别当空行贴进去。
+				drop: (index === 0 || index === lines.length - 1) && plainRow(line) !== "",
+				width,
 			};
 		}),
 	);
