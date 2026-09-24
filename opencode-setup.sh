@@ -632,7 +632,7 @@ out = json.dumps(merged, indent=2, ensure_ascii=False) + '\n'
 same = load(target_p) == merged   # 按 JSON 语义比较:只有格式化/键序不同不算变更(避免每轮重写)
 msgs = []
 if not same:
-    with open(sys.argv[5], 'w', encoding='utf-8') as f:
+    with open(sys.argv[4], 'w', encoding='utf-8') as f:
         f.write(out)
     msgs.append(('%d 个 provider 的 models 按模板覆盖,本地字段保留' % len(tpl_prov)) if live else '首次写入(含占位符)')
 if os.path.exists(jsonc_p):
