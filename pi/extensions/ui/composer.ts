@@ -1,6 +1,7 @@
 import { CustomEditor, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { WrappedPolishedEditor } from "./editor/ui.js";
 import { loadConfig } from "./editor/config.js";
+import { installCopyCleanup } from "./editor/copy-clean.js";
 import { installUserMessageStyle } from "./editor/user-message.js";
 import { installWheelScrollLines } from "./wheel.js";
 import { installClearSelectionOnRelease } from "./selection.js";
@@ -51,6 +52,7 @@ export function installComposer(pi: ExtensionAPI) {
       submitIsCtrlJ = keys.matches(CTRL_J, "tui.input.submit");
       installWheelScrollLines(tui);
       installClearSelectionOnRelease(tui);
+      installCopyCleanup(tui);
       const base = new CustomEditor(tui, theme, keys);
       const input = base.handleInput.bind(base);
       let pasting = false;

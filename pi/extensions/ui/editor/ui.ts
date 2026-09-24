@@ -6,12 +6,17 @@ import {
 	truncateToWidth,
 	visibleWidth,
 } from "@earendil-works/pi-tui";
-import { ACCENT_RAIL_CHROME_WIDTH, renderAccentRailEditorFrame } from "./accent-rail-editor";
+import { ACCENT_RAIL_CHROME_WIDTH, accentRailChrome, renderAccentRailEditorFrame } from "./accent-rail-editor";
 import type { CodexQuota } from "./codex-quota";
 import { renderCodexQuota } from "./codex-quota-display";
 import { omitTrailingNativeCompletionCountRow, renderCompletionPalette } from "./completion-menu";
 import { componentColor, editorShellColor } from "./component-colors";
 import type { EditorStyle, ZentuiConfig } from "./config";
+import {
+	composerSurfaceRows,
+	registerCopySurface,
+	type VisualLine,
+} from "./copy-clean";
 import {
 	type EditorMetadataZones,
 	renderEditorMetadataFormatSplit,
@@ -314,6 +319,43 @@ export function renderWithAutocompleteCapture<T>(
 			capture.compatible = false;
 		}
 	}
+}
+
+/**
+ * Private in the base `Editor`, so read through a cast instead of widening
+ * `WrappedEditor` (declaring them public would break its structural assignability).
+ */
+type VisualLineSource = {
+	buildVisualLineMap?: (width: number) => VisualLine[];
+	lastWidth?: number;
+};
+
+/**
+ * 把这一帧输入框的屏幕行登记给复制清洗：`screen` ↔ `clean` 用于去掉左侧装饰，
+ * 正文行再带上逻辑行号与拼接文本，让软折行拼回用户真正敲进去的那一行。
+ * 只能在渲染的同一轮里登记 —— 基编辑器的视觉行表与这批正文行必须同源。
+ */
+function rememberComposerCopy(
+	base: WrappedEditor,
+	frameLines: string[],
+	chrome: string,
+	fallbackWidth: number,
+): void {
+	if (!chrome) return;
+	const bodyRows = POLISHED_FRAME_SPLITS.get(frameLines)?.split.editorLines;
+	if (!bodyRows || bodyRows.length === 0) return;
+	const source = base as VisualLineSource;
+	const lastWidth = source.lastWidth;
+	const rows = composerSurfaceRows({
+		frameRows: frameLines,
+		bodyRows,
+		chrome,
+		logicalLines: base.getLines?.() ?? [],
+		visualMap: source.buildVisualLineMap?.(
+			typeof lastWidth === "number" && lastWidth > 0 ? lastWidth : fallbackWidth,
+		),
+	});
+	if (rows) registerCopySurface("composer", chrome, rows);
 }
 
 function clampRenderedLines(lines: string[], width: number): string[] {
@@ -1122,7 +1164,15 @@ export class WrappedPolishedEditor implements EditorComponent {
 						config,
 						ownedFrame: provenance.ownedFrame,
 					});
-					if (result.decorated) return result.lines;
+					if (result.decorated) {
+						rememberComposerCopy(
+							this.base,
+							result.lines,
+							ansiStrippedText(accentRailChrome(config)),
+							Math.max(1, width - ACCENT_RAIL_CHROME_WIDTH - 1),
+						);
+						return result.lines;
+					}
 				}
 			} catch {
 				// Decoration is optional; preserve the completed same-render rows below.
@@ -1178,7 +1228,12 @@ export class WrappedPolishedEditor implements EditorComponent {
 		if (width <= 2) return clampRenderedLines(this.renderBase(width), width);
 
 		const shellMode = isShellModeInput(this.base.getText());
-		const { railWidth } = getEditorChromeWidths(config, this.uiTheme, "\x1b[0m", shellMode);
+		const { rail, railWidth } = getEditorChromeWidths(
+			config,
+			this.uiTheme,
+			"\x1b[0m",
+			shellMode,
+		);
 		const innerWidth = Math.max(0, width - railWidth);
 		let captured: { value: string[]; capture?: AutocompleteCapture };
 		try {
@@ -1213,7 +1268,15 @@ export class WrappedPolishedEditor implements EditorComponent {
 		} catch {
 			// Decoration is optional; preserve the completed same-render rows below.
 		}
-		if (result?.decorated) return result.lines;
+		if (result?.decorated) {
+			rememberComposerCopy(
+				this.base,
+				result.lines,
+				ansiStrippedText(rail),
+				Math.max(1, innerWidth - 1),
+			);
+			return result.lines;
+		}
 		return clampRenderedLines(captured.value, width);
 	}
 

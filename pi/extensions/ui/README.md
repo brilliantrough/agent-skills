@@ -12,6 +12,7 @@
 - `sidebar-collapse.ts`：侧栏面板的可交互层。Pi 全屏渲染器会把鼠标事件派发给光标下的组件（`dispatchMouseToLayout` → `handleMouse(event)`，坐标为组件局部坐标，返回 `{ render: true }` 即重绘），侧栏本身就是布局里的普通组件，所以只包一层即可，不动上游布局。两种点击：① 点面板**标题行**折叠/展开整块（状态存 `agent-skills-ui.json` 的 `collapsedPanels` 数组）；② 点 TOOLS 的 `│ 39 / 45 active ▸ │` 行则转发给上游 `/ui sidebar tools` 的同一动作（展开工具名列表）。面板块从渲染结果里的 `╭─ ✦ TITLE ──╮` 边框识别，键取标题首词（`TASKS · 3/3` 这种计数器变化不影响）。`press` 被吞掉以免拖出文本选择，真正的切换在 `click` 上做。
 - 侧栏**可滚动**：全屏分栏时侧栏内容不再按面板高度裁剪（`isScrollable` → 用大预算排版，再让外层 `ScrollView` 剪裁），`scrollbar: "auto"` 只在溢出时显示；滚轮由 pi-tui 的 `routeWheel` 按光标位置路由到侧栏自己的 ScrollView。
 - `selection.ts`：松开鼠标（copy-on-select）后清掉高亮。Pi 上游是有意保留选中框的（点一下才消失），但框会一直盖在正文/输入框上；这里在 release 处理完成后（剪贴板文本已同步取到）清空选区并重绘。开关：`agent-skills-ui.json` 的 `clearSelectionOnRelease`，**默认 true**；设 false 时不动选区（那种情况下 `hasActiveSelection()` 是 Pi 的 copy 命令唯一依据）。
+- `editor/copy-clean.ts`：划词复制清洗。全屏复制的文本来自 pi-tui 的 `getActiveSelectionText()`（按屏幕行取文本、逐行 `join("\n")`），所以输入框/用户消息框行首的 `│ ` 会跟着进剪贴板，输入框里的软折行也被写成硬换行。这里在 `copySelection` 实例字段外面包一层，用渲染时登记的 `screen`↔`clean` 行对去掉装饰，输入框正文再按 `Editor.buildVisualLineMap()` 的逻辑行号把同一逻辑行的相邻行拼回去（拼回时补上行尾被裁掉的空白与折行间隙）。对不上的行原样保留。开关：`agent-skills-ui.json` 的 `cleanCopiedText`，**默认 true**。回归：`node tests/ui-copy-clean.mjs`。
 - `tps.ts`：每秒最多更新一次的估算 TPS，结束后显示最后一次回复 usage 的平均速度。
 
 配置：共享 `~/.config/cortexkit/magic-context.jsonc` 的 `todowrite.overlay: false` 只关闭 MC 的重复任务 widget，保留工具和持久化（dot_file 模板已同步）。

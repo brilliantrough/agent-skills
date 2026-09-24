@@ -1,5 +1,6 @@
 import { type Theme, UserMessageComponent } from "@earendil-works/pi-coding-agent";
 import { type Markdown, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { plainRow, registerCopySurface } from "./copy-clean";
 import type { ZentuiConfig } from "./config";
 import { installPrototypePatch, removePrototypePatch } from "./prototype-patch-registry";
 import {
@@ -234,6 +235,35 @@ function renderZentuiUserMessage(
 	return lines;
 }
 
+/**
+ * 登记用户消息框的装饰行，让划词复制不再带上每行行首的 `│ `。
+ * 这里只去装饰、不合并折行 —— 消息正文是 Markdown 重排的结果，
+ * 拼回去未必等于用户当初敲的那几行。右侧边框（labeled 风格）暂不处理。
+ */
+const messageKeys = new WeakMap<object, number>();
+let nextMessageKey = 0;
+
+function rememberMessageCopy(
+	instance: PatchableUserMessagePrototype,
+	lines: string[],
+	config: ZentuiConfig,
+): void {
+	const chrome = `${config.icons.rail} `;
+	const key = messageKeys.get(instance) ?? nextMessageKey++;
+	messageKeys.set(instance, key);
+	registerCopySurface(
+		`message:${key}`,
+		chrome,
+		lines.map((line) => {
+			const screen = plainRow(line);
+			return {
+				screen,
+				clean: screen.startsWith(chrome) ? screen.slice(chrome.length) : "",
+			};
+		}),
+	);
+}
+
 function withPromptZoneMarkers(lines: string[]): string[] {
 	if (lines.length === 1) {
 		return [`${OSC133_ZONE_START}${lines[0]}${OSC133_ZONE_END}${OSC133_ZONE_FINAL}`];
@@ -316,7 +346,12 @@ export function installUserMessageStyle(
 						getTheme(),
 						getConfig(),
 					);
-					if (lines) return lines.length ? withPromptZoneMarkers(lines) : lines;
+				if (lines) {
+					if (isObject(receiver)) {
+						rememberMessageCopy(receiver as PatchableUserMessagePrototype, lines, getConfig());
+					}
+					return lines.length ? withPromptZoneMarkers(lines) : lines;
+				}
 				} catch {
 					const safeFallback = renderSafeSourceFallback(
 						receiver as PatchableUserMessagePrototype,

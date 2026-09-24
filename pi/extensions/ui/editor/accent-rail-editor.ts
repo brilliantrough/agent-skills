@@ -48,6 +48,11 @@ function selectedRail(config: ZentuiConfig): string {
 	return visibleWidth(glyph) === 1 ? glyph : fallback;
 }
 
+/** 左侧装饰的纯文本前缀（渲染用的 rail 带颜色码，比对时要先去 ANSI）。 */
+export function accentRailChrome(config: ZentuiConfig): string {
+	return `${selectedRail(config)} `;
+}
+
 function viewportLabel(
 	direction: "above" | "below",
 	count: string | undefined,
