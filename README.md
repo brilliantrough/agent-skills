@@ -2,18 +2,18 @@
 
 个人 agent skills 集，含三层记忆系统、任务工作流与个人前端品味。
 
-**一键配置**（交互确认、幂等）——一条命令同时搞定「装 skills 本体」和「配插件」（claude-mem / magic-context / ponytail / notify / codegraph / later）：
+**一键配置·默认安装（`-y`，幂等）**——一条命令同时搞定「装 skills 本体」和「配插件」（claude-mem / magic-context / ponytail / codegraph / later），启动后**只问一轮凭据**（统一网关 + 5 个 key，见后文）：
 
 OpenCode（主目标）：
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/opencode-setup.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/opencode-setup.sh)" -- -y
 ```
 
 Pi：
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/pi-setup.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/pi-setup.sh)" -- -y
 ```
 
 只想要 skills、不配插件的场景：
@@ -30,21 +30,16 @@ skill 装在 `~/.agents/skills/`，重开 agent session 生效。
 bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.com/brilliantrough/agent-skills/main/codex-setup.sh)"
 ```
 
-**默认安装（`-y`）**：`-y`（等价 `--yes`，也认环境变量 `ASSUME_YES=1`）不再逐项确认，一律取默认——默认 Y 的照做（装缺的软件/包、各 json/toml 按字段级合并写入并保留本地敏感值、刷新 skills），默认 N 的跳过（notify 插件不装、覆盖插件缓存、升级 Pi 本体、无代理继续、AGENTS.md 注入）。**唯一还会问的就是凭据**（统一网关 + 5 个 key，见下一节）；没有终端时静默跳过、占位符保留（无人值守用环境变量预填）。不给 `-y` 时逐项确认：写每个文件前都列出变更项（模型名/`models` 也在其中），可以逐项拒绝。
+**默认安装（`-y`）**：`-y`（等价 `--yes`，也认环境变量 `ASSUME_YES=1`）不再逐项确认，一律取默认——默认 Y 的照做（装缺的软件/包、各 json/toml 按字段级合并写入并保留本地敏感值、刷新 skills），默认 N 的跳过（notify 插件不装、覆盖插件缓存、升级 Pi 本体、无代理继续、AGENTS.md 注入）。**唯一还会问的就是凭据**（统一网关 + 5 个 key，见下一节）；没有终端时静默跳过、占位符保留（无人值守用环境变量预填）。
 
-形式一（和上面三条一样，推荐）：
-
-```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/opencode-setup.sh)" -- -y
-```
-
-形式二（管道）：
+**逐句确认（不给 `-y`）**：写每个文件前都列出变更项（模型名/`models` 也在其中）并问一次，可以逐项拒绝：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/opencode-setup.sh | bash -s -- -y
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/opencode-setup.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/pi-setup.sh)"
 ```
 
-两个任选一个复制；`pi-setup.sh` / `codex-setup.sh` 同理，把脚本名换掉即可。
+也支持管道写法（`curl -fsSL <脚本 URL> | bash -s -- -y`）；`codex-setup.sh` 同理，把脚本名换掉即可。
 
 本仓库仍以 **OpenCode 为主**；Pi 与 OpenCode 共享记忆配置（`~/.claude-mem/settings.json`、`~/.config/cortexkit/magic-context.jsonc`）；Codex 复用现有 skills 原文，不为其修改技能工作流。详见下面的 Pi 与 Codex 说明。
 
