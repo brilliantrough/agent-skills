@@ -9,7 +9,7 @@
 # 4. 提示 /hooks 信任和 /mcp 检查;Magic Context、notify 不安装,原生压缩不变
 # 已配置项不重写、不自动升级;冲突/显式禁用项保留;修改前备份,不碰模型/认证配置
 # (例外:~/.claude-mem/settings.json 走 dot_file 模板字段级合并,api key/base url 等敏感值仍保留)
-# 用法:bash codex-setup.sh [-y|--yes];支持 CODEX_HOME(首次 claude-mem 官方安装仅支持默认路径)
+# 用法:bash codex-setup.sh [-y|--yes](-y 默认安装:不再逐项确认、只问凭据);支持 CODEX_HOME(首次 claude-mem 官方安装仅支持默认路径)
 # Windows:在 Git Bash(不是 WSL)里跑同一份脚本;Python 3.11+ 缺了由 uv 自管理提供。
 set -euo pipefail
 
@@ -51,7 +51,9 @@ resolve_python3() { # python3 就绪返回 0;否则 python → py → uv 自管�
   UV_PY="$p"; python3() { "$UV_PY" "$@"; }
 }
 
-# -y/--yes(或环境变量 ASSUME_YES=1):自动回答「默认就是 Y」的确认项;默认 N 的项(如共享 runtime 升级)仍人工确认
+# -y/--yes(或环境变量 ASSUME_YES=1)「默认安装」:不再逐项确认,一律取默认值 —— 默认 Y 的照做,
+# 默认 N 的(共享 runtime 升级、AGENTS.md 注入等)跳过。唯一还会问的是凭据(网关 + claude-mem 的 key);
+# 没有终端时静默跳过、占位符保留(无人值守用环境变量预填)。
 ASSUME_YES="${ASSUME_YES:-}"
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -74,7 +76,11 @@ ask() {
   local a="" def="${2:-N}" hint="y/N"
   [ "$def" = Y ] && hint="Y/n"
   # -y:只对默认 Y 的项自动通过;默认 N 的照样问,避免不知情的覆盖/升级
-  if [ -n "$ASSUME_YES" ] && [ "$def" = Y ]; then echo "$1 [$hint] → 是 (-y)"; return 0; fi
+  # -y(默认安装):不再逐项确认,直接取默认 —— 默认 Y 的照做,默认 N 的跳过(凭据由 ask_value 单独问)
+  if [ -n "$ASSUME_YES" ]; then
+    if [ "$def" = Y ]; then echo "$1 [$hint] → 是 (-y)"; return 0
+    else echo "$1 [$hint] → 否 (-y,跳过)"; return 1; fi
+  fi
   if { true < /dev/tty; } 2>/dev/null && read -r -p "$1 [$hint] " a < /dev/tty; then
     if [ -z "$a" ]; then [ "$def" = Y ]; else [[ "$a" =~ ^[Yy]$ ]]; fi
   else
@@ -139,20 +145,28 @@ print(f'{host}:{port}')
 PYEOF
 }
 
-# ---- 网关占位符预填：新机器只需填 base url + api key ----
-# 环境变量优先(便于无人值守):PI_GATEWAY_BASE_URL / PI_GATEWAY_API_KEY
-GW_BASE="${PI_GATEWAY_BASE_URL:-}"; GW_KEY="${PI_GATEWAY_API_KEY:-}"
+# ---- 网关/凭据预填:新机器只需填网关 + claude-mem 的 key ----
+# 环境变量优先(便于无人值守):PI_GATEWAY_BASE_URL / PI_CLAUDE_MEM_API_KEY(或 PI_GATEWAY_API_KEY)
+# codex 侧不配 models.json / magic-context:下面四个变量只为与 pi/opencode 的 fill/merge 保持逐字节一致
+DEFAULT_GW="https://api.pezayo.com/v1"
+GW_BASE="${PI_GATEWAY_BASE_URL:-}"
+K_MEM="${PI_CLAUDE_MEM_API_KEY:-${PI_GATEWAY_API_KEY:-}}"
+K_CLAUDE=""; K_CODEX=""; K_ANTHROPIC=""; K_EMBED=""
 # codex 侧不配 mcphub;此变量仅为与 pi/opencode 的 merge_cfg 保持逐字节一致
 MCPHUB_HOST="${MCPHUB_HOST:-}"
 
-ask_value() { # $1=提示 $2=输出变量 $3=非空则不回显(用于 key)
-  local a=""
-  # -y 下不阻塞:等同回车跳过,占位符保留
-  if [ -n "$ASSUME_YES" ]; then echo "$1: (跳过,-y)"; return 0; fi
+ask_value() { # $1=提示(括号里写协议/分组等说明) $2=输出变量 $3=非空则不回显(用于 key) $4=默认值(回车采用;输 - 留占位符)
+  local a="" hint
+  if [ -n "${4:-}" ]; then hint="$1;回车=默认 $4,输 - 留占位符"
+  else hint="$1;回车跳过(占位符保留)"; fi
+  # 有终端就问(-y 也问:凭据只能人工给);无终端(CI/管道)静默保持空 → 占位符保留。
+  # 无人值守用环境变量预填(见上方 GW_BASE / K_MEM)。
   if { exec 9</dev/tty; } 2>/dev/null; then
-    if [ -n "${3:-}" ]; then read -r -s -u 9 -p "$1: " a || a=""; echo
-    else read -r -u 9 -p "$1: " a || a=""; fi
+    if [ -n "${3:-}" ]; then read -r -s -u 9 -p "$hint: " a || a=""; echo
+    else read -r -u 9 -p "$hint: " a || a=""; fi
     exec 9<&-
+    [ "$a" = "-" ] && a=""
+    [ -z "$a" ] && a="${4:-}"
     printf -v "$2" '%s' "$a"
   fi
 }
@@ -164,24 +178,27 @@ needs_gateway_fill() {
 }
 
 collect_gateway_values() {
-  [ -n "$GW_BASE" ] && [ -n "$GW_KEY" ] && return 0
   needs_gateway_fill || return 0
-  [ -z "$GW_BASE" ] && ask_value "OpenAI 兼容网关完整地址(如 https://gw.example.com/v1;回车跳过)" GW_BASE
+  [ -z "$GW_BASE" ] && ask_value "统一网关完整地址" GW_BASE 0 "$DEFAULT_GW"
   if [ -z "$GW_BASE" ]; then
     echo "未提供网关地址:占位符保留,装完手工填"
     return 0
   fi
-  [ -z "$GW_KEY" ] && ask_value "该网关 API key(回车跳过)" GW_KEY 1
+  [ -z "$K_MEM" ] && ask_value "claude-mem 的 API key(openai chat completions 协议 · 任意模型 · 建议 coding openai 分组)" K_MEM 1
+  if [ -n "$K_MEM" ]; then echo "凭据:网关 $GW_BASE;claude-mem key:已填"
+  else echo "凭据:网关 $GW_BASE;claude-mem key:留空(占位符保留)"; fi
   return 0
 }
 
 # 把已提供的值填进文件(python 负责 JSON 转义);未提供则原样保留占位符。
+# 5 个槽位与 pi/opencode 逐字节一致(codex 只用 GW_BASE/K_MEM);三个 <YOUR_NEWAPI_API_KEY>
+# 在同一份模板里对应不同 key,只能按 provider 块就近替换;embedding/claude-mem 按各自键名替。
 fill_template_placeholders() {
-  [ -z "$GW_BASE$GW_KEY" ] && return 0
-  [ -f "$1" ] || return 0
-  python3 - "$1" "$GW_BASE" "$GW_KEY" <<'PYEOF'
+  [ -z "$GW_BASE$K_CLAUDE$K_CODEX$K_ANTHROPIC$K_EMBED$K_MEM$MCPHUB_HOST" ] && return 0
+  python3 - "$1" "$GW_BASE" "$K_CLAUDE" "$K_CODEX" "$K_ANTHROPIC" "$K_EMBED" "$K_MEM" "$MCPHUB_HOST" <<'PYEOF'
 import json, re, sys
-p, base, key = sys.argv[1], sys.argv[2].rstrip('/'), sys.argv[3]
+p, base, k_claude, k_codex, k_anth, k_embed, k_mem, mcphub = sys.argv[1:9]
+base = base.rstrip('/')
 def esc(v): return json.dumps(v)[1:-1]
 t = open(p, encoding='utf-8').read()
 if base:
@@ -193,8 +210,21 @@ if base:
     t = t.replace('<YOUR_GATEWAY_HOST>/v1', esc(base))
     t = t.replace('<YOUR_GATEWAY_HOST>', esc(re.sub(r'^https?://', '', host)))
     t = t.replace('<YOUR_NEWAPI_BASE_URL>', esc(base))
-if key:
-    t = t.replace('<YOUR_NEWAPI_API_KEY>', esc(key)).replace('<YOUR_API_KEY>', esc(key))
+slot = '"apiKey": "<YOUR_NEWAPI_API_KEY>"'
+names = {'claude-newapi': k_claude, 'codex-newapi': k_codex, 'anthropic-newapi': k_anth}
+# 按 provider 名切块(到下一个 provider 名之前):只填该 provider 自己那处 apiKey,
+# 已填过的块里没有槽位,不会把隔壁 provider 的 key 抢过来填。
+blocks = [(m.start(), m.group(1)) for m in re.finditer(r'"(claude-newapi|codex-newapi|anthropic-newapi)"\s*:', t)]
+for n, (start, name) in enumerate(blocks):
+    end = blocks[n + 1][0] if n + 1 < len(blocks) else len(t)
+    if names[name] and slot in t[start:end]:
+        t = t[:start] + t[start:end].replace(slot, slot.replace('<YOUR_NEWAPI_API_KEY>', esc(names[name])), 1) + t[end:]
+for anchor, key in (('"api_key": "<YOUR_API_KEY>"', k_embed),
+                    ('"CLAUDE_MEM_OPENROUTER_API_KEY": "<YOUR_API_KEY>"', k_mem)):
+    if key and anchor in t:
+        t = t.replace(anchor, anchor.replace('<YOUR_API_KEY>', esc(key)))
+if mcphub:
+    t = t.replace('<YOUR_MCPHUB_HOST>', esc(mcphub))
 open(p, 'w', encoding='utf-8').write(t)
 PYEOF
   return 0
@@ -207,7 +237,7 @@ merge_cfg() {
   fi
   # 操作员在提示里给了网关/密钥:先把本地文件里的占位符补上(改前存 .bak),再走正常合并
   # (补进去的是敏感键,合并会原样保留)。目标文件不存在时由模板侧的 fill_template_placeholders 负责。
-  if [ -f "$dest" ] && [ -n "$GW_BASE$GW_KEY$MCPHUB_HOST" ] && grep -q '<YOUR_' "$dest" 2>/dev/null; then
+  if [ -f "$dest" ] && [ -n "$GW_BASE$K_CLAUDE$K_CODEX$K_ANTHROPIC$K_EMBED$K_MEM$MCPHUB_HOST" ] && grep -q '<YOUR_' "$dest" 2>/dev/null; then
     cp -p "$dest" "$dest.bak-$(date +%Y%m%d%H%M%S)"
     fill_template_placeholders "$dest"
     echo "filled placeholders: $dest"
@@ -270,9 +300,10 @@ def merge(cur, new):
         return new
     out = dict(cur)
     for k, v in new.items():
-        if k in cur and k.startswith('CLAUDE_MEM_') and (k.endswith('_MODEL') or k.endswith('_BASE_URL') or k.endswith('_API_KEY')\
+        if k in cur and k.startswith('CLAUDE_MEM_') and (k.endswith('_BASE_URL') or k.endswith('_API_KEY')\
                 or k.endswith('_PORT') or k.endswith('_HOST')):
-            continue  # 已有模型/接口/凭据保留，包括占位值
+            continue  # 已有接口/凭据保留，包括占位值
+        # CLAUDE_MEM_*_MODEL 不保留:模型名跟模板走 —— 默认安装(-y)直接覆盖,交互跑由下面的确认拦截
         if k in cur and SENSITIVE.search(k):                       # 敏感键:本地值优先
             continue
         if k in cur and isinstance(v, str) and PLACEHOLDER.search(v):  # 占位值不覆盖已填内容
@@ -504,7 +535,7 @@ else
   mem_ok=1
   collect_gateway_values
   # 已存在但仍含占位符时按提示补上(改前存 .bak);不存在则由下面的内嵌模板写入后再补
-  if [ -f "$SETTINGS" ] && [ -n "$GW_BASE$GW_KEY" ] && grep -q '<YOUR_' "$SETTINGS" 2>/dev/null; then
+  if [ -f "$SETTINGS" ] && [ -n "$GW_BASE$K_CLAUDE$K_CODEX$K_ANTHROPIC$K_EMBED$K_MEM$MCPHUB_HOST" ] && grep -q '<YOUR_' "$SETTINGS" 2>/dev/null; then
     backup "$SETTINGS" >/dev/null || true
     fill_template_placeholders "$SETTINGS"
     echo "filled placeholders: $SETTINGS"
@@ -605,7 +636,7 @@ else warn '缺少 npx,跳过 skills'; fi
 echo '== 配置步骤结束 =='
 echo '1. 在 Codex /hooks 审阅并信任插件 hooks,然后重开会话;更新 hooks 后可能需要重新信任。'
 echo '2. 用 /mcp 检查连接,实际调用 claude-mem 查询和 CodeGraph 工具。'
-echo "3. claude-mem worker 地址 http://$(mem_worker_url)(端口取自 $SETTINGS,默认 37700)。后端配置: $SETTINGS（本脚本启动时已问过网关地址 + API key 并填入;若当时跳过,手工填 <YOUR_*> 占位符;环境变量预填方式:PI_GATEWAY_BASE_URL / PI_GATEWAY_API_KEY)。如刚运行安装器,填好配置后执行 npx claude-mem@latest start。"
+echo "3. claude-mem worker 地址 http://$(mem_worker_url)(端口取自 $SETTINGS,默认 37700)。后端配置: $SETTINGS（本脚本启动时已问过网关地址 + claude-mem 的 API key 并填入;若当时跳过,手工填 <YOUR_*> 占位符;环境变量预填方式:PI_GATEWAY_BASE_URL / PI_CLAUDE_MEM_API_KEY)。如刚运行安装器,填好配置后执行 npx claude-mem@latest start。"
 echo '4. 新项目执行 codegraph init;已有项目索引可复用。'
 echo '5. skills 原样复用;缺少 Magic Context 的 ctx_* 工具时仅 best effort,以 OpenCode 为主。'
 echo '6. 本脚本不升级已有插件/skills;更新方法见 README 的 Codex 一节。'

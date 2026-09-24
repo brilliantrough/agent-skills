@@ -5,6 +5,9 @@
 # 干什么(交互确认 + 幂等,重复跑安全):
 #   询问默认:装缺的软件/包、写入条目 → [Y/n](回车即装);覆盖已有配置、无代理下继续 → [y/N];
 #            非交互环境按各自默认执行
+#   凭据(只问这一处):统一网关(回车=默认 https://api.pezayo.com/v1)+ 5 个 api key
+#            (claude-newapi / codex-newapi / anthropic-newapi / magic-context embedding / claude-mem);
+#            回车=跳过,占位符保留,之后重跑可补(三处 <YOUR_NEWAPI_API_KEY> 按 provider 名各填各的)
 #   0. 代理环境提醒(大小写都查;未设则探测直连,透明代理不拦;都不通才要求确认)
 #   1. 依赖检查(全部前置):curl/git(缺失即退出)、python3(缺则由 uv 提供自管理 3.12)、npx(缺 → 征得同意装 fnm + Node LTS)、
 #      bun(缺 → 征得同意装,claude-mem MCP server 与 context-mode 构建都需要)、uv(可选,.sdoc 校验用)
@@ -30,7 +33,8 @@
 #   7. skills 本体:npx skills add --all(刷新 + 装入新增 skill)+ update -g(第三方源);pi 原生读 ~/.agents/skills
 #   8. uv(缺则装;含自升级与清华 PyPI 镜像)+ strictdoc(用 uv tool 全局安装,.sdoc 校验依赖)
 #
-# 用法:bash pi-setup.sh [-y|--yes]   (-y 只自动通过默认 Y 的确认项,默认 N 的仍人工确认;遵循 PI_CODING_AGENT_DIR,与 pi 一致)
+# 用法:bash pi-setup.sh [-y|--yes]   (-y 默认安装:不再逐项确认、一律取默认——默认 Y 的照做,默认 N 的跳过
+#       (pi update --all、插件缓存清理、magic-context 强启用、AGENTS.md 注入),只问一次凭据;遵循 PI_CODING_AGENT_DIR,与 pi 一致)
 # Windows:在 Git Bash(不是 WSL)里跑同一份脚本;Python 3 需自备(curl/git 由 Git for Windows 自带)。
 
 set -euo pipefail
@@ -73,8 +77,9 @@ nbin() { # 可执行文件的宿主路径:MSYS 的 command -v 会去掉 .exe,宿
   if [ "$IS_WIN" = 1 ] && [ -f "$1.exe" ]; then npath "$1.exe"; else npath "$1"; fi
 }
 
-# -y/--yes(或环境变量 ASSUME_YES=1):自动回答「默认就是 Y」的确认项(装缺件、字段级合并写配置、刷新 skills)。
-# 默认 N 的项(升级本体、覆盖缓存、版本守卫、无代理继续)照旧人工确认,不会知情外地改动。
+# -y/--yes(或环境变量 ASSUME_YES=1)「默认安装」:不再逐项确认,一律取默认值 —— 默认 Y 的照做
+# (装缺件、字段级合并写配置、刷新 skills),默认 N 的跳过(升级本体、覆盖缓存、版本守卫、无代理继续、AGENTS.md 注入)。
+# 唯一还会问的是凭据(网关 + 5 个 api key);没有终端时静默跳过、占位符保留(无人值守用环境变量预填)。
 ASSUME_YES="${ASSUME_YES:-}"
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -100,8 +105,11 @@ OC_MC_CACHE="$HOME/.cache/opencode/packages/@cortexkit/opencode-magic-context@la
 ask() { # $1=提示 $2=默认(Y/N,缺省 N)
   local a="" def="${2:-N}" hint="y/N"
   [ "$def" = Y ] && hint="Y/n"
-  # -y:只对默认 Y 的项自动通过;默认 N 的照样问,避免不知情的覆盖/升级
-  if [ -n "$ASSUME_YES" ] && [ "$def" = Y ]; then echo "$1 [$hint] → 是 (-y)"; return 0; fi
+  # -y(默认安装):不再逐项确认,直接取默认 —— 默认 Y 的照做,默认 N 的跳过(凭据由 ask_value 单独问)
+  if [ -n "$ASSUME_YES" ]; then
+    if [ "$def" = Y ]; then echo "$1 [$hint] → 是 (-y)"; return 0
+    else echo "$1 [$hint] → 否 (-y,跳过)"; return 1; fi
+  fi
   # 不能把 read 的 stderr 丢掉:read -p 的提示符走 stderr,吞掉后提示不可见,脚本像卡死。
   # 用 fd 9 显式打开 /dev/tty:无控制终端时(CI/cron/管道)打开失败保持安静,直接走默认值。
   if { exec 9</dev/tty; } 2>/dev/null; then
@@ -168,18 +176,29 @@ print(f'{host}:{port}')
 PYEOF
 }
 
-# ---- 网关占位符预填：新机器只需填 base url + api key ----
-# 环境变量优先(便于无人值守):PI_GATEWAY_BASE_URL / PI_GATEWAY_API_KEY / MCPHUB_HOST
-GW_BASE="${PI_GATEWAY_BASE_URL:-}"; GW_KEY="${PI_GATEWAY_API_KEY:-}"; MCPHUB_HOST="${MCPHUB_HOST:-}"
+# ---- 网关/凭据预填:新机器只需填网关 + 各 api key ----
+# 环境变量优先(便于无人值守):PI_GATEWAY_BASE_URL / PI_GATEWAY_API_KEY(兜底给没单独给的槽)
+# / PI_{CLAUDE,CODEX,ANTHROPIC}_NEWAPI_API_KEY / PI_EMBEDDING_API_KEY / PI_CLAUDE_MEM_API_KEY / MCPHUB_HOST
+DEFAULT_GW="https://api.pezayo.com/v1"
+GW_BASE="${PI_GATEWAY_BASE_URL:-}"; MCPHUB_HOST="${MCPHUB_HOST:-}"
+K_CLAUDE="${PI_CLAUDE_NEWAPI_API_KEY:-${PI_GATEWAY_API_KEY:-}}"
+K_CODEX="${PI_CODEX_NEWAPI_API_KEY:-${PI_GATEWAY_API_KEY:-}}"
+K_ANTHROPIC="${PI_ANTHROPIC_NEWAPI_API_KEY:-${PI_GATEWAY_API_KEY:-}}"
+K_EMBED="${PI_EMBEDDING_API_KEY:-${PI_GATEWAY_API_KEY:-}}"
+K_MEM="${PI_CLAUDE_MEM_API_KEY:-${PI_GATEWAY_API_KEY:-}}"
 
-ask_value() { # $1=提示 $2=输出变量 $3=非空则不回显(用于 key)
-  local a=""
-  # -y 下不阻塞:等同回车跳过,占位符保留(要无人值守就用 PI_GATEWAY_* / MCPHUB_HOST 环境变量预填)
-  if [ -n "$ASSUME_YES" ]; then echo "$1: (跳过,-y)"; return 0; fi
+ask_value() { # $1=提示(括号里写协议/分组等说明) $2=输出变量 $3=非空则不回显(用于 key) $4=默认值(回车采用;输 - 留占位符)
+  local a="" hint
+  if [ -n "${4:-}" ]; then hint="$1;回车=默认 $4,输 - 留占位符"
+  else hint="$1;回车跳过(占位符保留)"; fi
+  # 有终端就问(-y 也问:凭据只能人工给);无终端(CI/管道)静默保持空 → 占位符保留。
+  # 无人值守用环境变量预填(见上方 GW_BASE / K_*)。
   if { exec 9</dev/tty; } 2>/dev/null; then
-    if [ -n "${3:-}" ]; then read -r -s -u 9 -p "$1: " a || a=""; echo
-    else read -r -u 9 -p "$1: " a || a=""; fi
+    if [ -n "${3:-}" ]; then read -r -s -u 9 -p "$hint: " a || a=""; echo
+    else read -r -u 9 -p "$hint: " a || a=""; fi
     exec 9<&-
+    [ "$a" = "-" ] && a=""
+    [ -z "$a" ] && a="${4:-}"
     printf -v "$2" '%s' "$a"
   fi
 }
@@ -195,26 +214,37 @@ needs_gateway_fill() {
 }
 
 collect_gateway_values() {
-  [ -n "$GW_BASE" ] && [ -n "$GW_KEY" ] && return 0
   needs_gateway_fill || return 0
-  [ -z "$GW_BASE" ] && ask_value "OpenAI 兼容网关完整地址(如 https://gw.example.com/v1;回车跳过)" GW_BASE
+  [ -z "$GW_BASE" ] && ask_value "统一网关完整地址" GW_BASE 0 "$DEFAULT_GW"
   if [ -z "$GW_BASE" ]; then
     echo "未提供网关地址:模板里的 <YOUR_*> 占位符保留,装完手工填(见文末清单)"
     return 0
   fi
-  [ -z "$GW_KEY" ] && ask_value "该网关 API key(回车跳过)" GW_KEY 1
-  [ -z "$MCPHUB_HOST" ] && ask_value "mcphub MCP host(如 mcp.example.com;回车跳过)" MCPHUB_HOST
+  [ -z "$K_CLAUDE" ]    && ask_value "claude-newapi 的 API key(anthropic 协议 · claude 模型 · 网关 claude code 分组)" K_CLAUDE 1
+  [ -z "$K_CODEX" ]     && ask_value "codex-newapi 的 API key(openai responses 协议 · gpt 模型 · 网关 codex 分组)" K_CODEX 1
+  [ -z "$K_ANTHROPIC" ] && ask_value "anthropic-newapi 的 API key(anthropic 协议 · 国产模型 · 网关 coding anthropic 分组)" K_ANTHROPIC 1
+  [ -z "$K_EMBED" ]     && ask_value "magic-context embedding 的 API key(openai 协议 · 嵌入模型 · 任意分组)" K_EMBED 1
+  [ -z "$K_MEM" ]       && ask_value "claude-mem 的 API key(openai chat completions 协议 · 任意模型 · 建议 coding openai 分组)" K_MEM 1
+  [ -z "$MCPHUB_HOST" ] && ask_value "mcphub MCP host(如 mcp.example.com)" MCPHUB_HOST
+  local m=""
+  for kv in "claude:$K_CLAUDE" "codex:$K_CODEX" "anthropic:$K_ANTHROPIC" "embedding:$K_EMBED" "claude-mem:$K_MEM"; do
+    [ -n "${kv#*:}" ] || m="$m ${kv%%:*}"
+  done
+  echo "凭据:网关 $GW_BASE;留空(占位符保留)的 key:${m:-无}"
   return 0
 }
 
 # 把已提供的值填进模板(python 负责 JSON 转义);未提供则原样保留占位符。
 # <YOUR_GATEWAY_HOST> 填到主机名:pi 的 anthropic-messages provider 要根域(/v1 会 404),
 # 而模板里的 <YOUR_GATEWAY_HOST>/v1 正好给 opencode/embedding/claude-mem 这类要 /v1 的。
+# 三个 <YOUR_NEWAPI_API_KEY> 在同一份模板里对应不同 key,只能按 provider 块就近替换
+# (不能全局 replace);embedding(magic-context 的 "api_key")与 claude-mem 按各自键名替,同样不全局换。
 fill_template_placeholders() {
-  [ -z "$GW_BASE$GW_KEY$MCPHUB_HOST" ] && return 0
-  python3 - "$1" "$GW_BASE" "$GW_KEY" "$MCPHUB_HOST" <<'PYEOF'
+  [ -z "$GW_BASE$K_CLAUDE$K_CODEX$K_ANTHROPIC$K_EMBED$K_MEM$MCPHUB_HOST" ] && return 0
+  python3 - "$1" "$GW_BASE" "$K_CLAUDE" "$K_CODEX" "$K_ANTHROPIC" "$K_EMBED" "$K_MEM" "$MCPHUB_HOST" <<'PYEOF'
 import json, re, sys
-p, base, key, mcphub = sys.argv[1], sys.argv[2].rstrip('/'), sys.argv[3], sys.argv[4]
+p, base, k_claude, k_codex, k_anth, k_embed, k_mem, mcphub = sys.argv[1:9]
+base = base.rstrip('/')
 def esc(v): return json.dumps(v)[1:-1]
 t = open(p, encoding='utf-8').read()
 if base:
@@ -226,8 +256,19 @@ if base:
     t = t.replace('<YOUR_GATEWAY_HOST>/v1', esc(base))
     t = t.replace('<YOUR_GATEWAY_HOST>', esc(re.sub(r'^https?://', '', host)))
     t = t.replace('<YOUR_NEWAPI_BASE_URL>', esc(base))
-if key:
-    t = t.replace('<YOUR_NEWAPI_API_KEY>', esc(key)).replace('<YOUR_API_KEY>', esc(key))
+slot = '"apiKey": "<YOUR_NEWAPI_API_KEY>"'
+names = {'claude-newapi': k_claude, 'codex-newapi': k_codex, 'anthropic-newapi': k_anth}
+# 按 provider 名切块(到下一个 provider 名之前):只填该 provider 自己那处 apiKey,
+# 已填过的块里没有槽位,不会把隔壁 provider 的 key 抢过来填。
+blocks = [(m.start(), m.group(1)) for m in re.finditer(r'"(claude-newapi|codex-newapi|anthropic-newapi)"\s*:', t)]
+for n, (start, name) in enumerate(blocks):
+    end = blocks[n + 1][0] if n + 1 < len(blocks) else len(t)
+    if names[name] and slot in t[start:end]:
+        t = t[:start] + t[start:end].replace(slot, slot.replace('<YOUR_NEWAPI_API_KEY>', esc(names[name])), 1) + t[end:]
+for anchor, key in (('"api_key": "<YOUR_API_KEY>"', k_embed),
+                    ('"CLAUDE_MEM_OPENROUTER_API_KEY": "<YOUR_API_KEY>"', k_mem)):
+    if key and anchor in t:
+        t = t.replace(anchor, anchor.replace('<YOUR_API_KEY>', esc(key)))
 if mcphub:
     t = t.replace('<YOUR_MCPHUB_HOST>', esc(mcphub))
 open(p, 'w', encoding='utf-8').write(t)
@@ -254,7 +295,7 @@ merge_cfg() {
   fi
   # 操作员在提示里给了网关/密钥:先把本地文件里的占位符补上(改前存 .bak),再走正常合并
   # (补进去的是敏感键,合并会原样保留)。目标文件不存在时由模板侧的 fill_template_placeholders 负责。
-  if [ -f "$dest" ] && [ -n "$GW_BASE$GW_KEY$MCPHUB_HOST" ] && grep -q '<YOUR_' "$dest" 2>/dev/null; then
+  if [ -f "$dest" ] && [ -n "$GW_BASE$K_CLAUDE$K_CODEX$K_ANTHROPIC$K_EMBED$K_MEM$MCPHUB_HOST" ] && grep -q '<YOUR_' "$dest" 2>/dev/null; then
     cp -p "$dest" "$dest.bak-$(date +%Y%m%d%H%M%S)"
     fill_template_placeholders "$dest"
     echo "filled placeholders: $dest"
@@ -327,9 +368,10 @@ def merge(cur, new):
         return new
     out = dict(cur)
     for k, v in new.items():
-        if k in cur and k.startswith('CLAUDE_MEM_') and (k.endswith('_MODEL') or k.endswith('_BASE_URL') or k.endswith('_API_KEY')\
+        if k in cur and k.startswith('CLAUDE_MEM_') and (k.endswith('_BASE_URL') or k.endswith('_API_KEY')\
                 or k.endswith('_PORT') or k.endswith('_HOST')):
-            continue  # 已有模型/接口/凭据保留，包括占位值
+            continue  # 已有接口/凭据保留，包括占位值
+        # CLAUDE_MEM_*_MODEL 不保留:模型名跟模板走 —— 默认安装(-y)直接覆盖,交互跑由下面的确认拦截
         if k in cur and SENSITIVE.search(k):                       # 敏感键:本地值优先
             continue
         if k in cur and isinstance(v, str) and PLACEHOLDER.search(v):  # 占位值不覆盖已填内容
@@ -733,8 +775,9 @@ PYEOF
 fi
 
 # ---- 4. 部署 Pi 配置(字段级合并 dot_file 模板)----
+# 凭据先问:下面步骤 4(models/mcp/auth)与步骤 6(claude-mem settings、magic-context)都要用它填占位符
+collect_gateway_values
 if [ "$PI_OK" -eq 1 ]; then
-  collect_gateway_values
   merge_cfg "$RAW/pi/settings.json" "$SETTINGS" || true
   if [ "$AGENT_DIR" = "$HOME/.pi/agent" ]; then
     merge_cfg "$RAW/pi/pi-autoname.json" "$AGENT_DIR/pi-autoname.json" || true
@@ -998,14 +1041,16 @@ echo "  扩展/配置改动后要重启 pi(或 /reload)才生效"
 echo ""
 echo "== done. 需要你手工完成的 =="
 n=1
-echo "$n. 网关/凭据:脚本启动时已问过「网关地址 + API key」并填进各配置(可用环境变量预填、非交互跑:PI_GATEWAY_BASE_URL / PI_GATEWAY_API_KEY / MCPHUB_HOST)"; n=$((n+1))
-echo "   当时跳过了才需要手工填下面这些占位符:"
-[ "$PI_OK" -eq 1 ] && echo "   - $MODELS:https://<YOUR_GATEWAY_HOST>(anthropic 协议填根域,openai 协议带 /v1)、<YOUR_NEWAPI_API_KEY>"
-[ "$PI_OK" -eq 1 ] && echo "   - $AUTH:coding plan 等内置 provider 的 key(如 zai-coding-cn / kimi-coding)"
-echo "   - $SHARED_MCP:https://<YOUR_MCPHUB_HOST>/mcp/web"
-echo "   - $MC_SETTINGS:BASE_URL / MODEL / API_KEY(openrouter 走 OpenAI 协议)"
-echo "   - $MC_CFG:BASE_URL / API_KEY;historian/dreamer 的 model 用 <provider>/<model-id>"
-echo "   - ~/.func(linux-setup.sh 部署):<YOUR_GATEWAY_HOST> / <YOUR_ANTHROPIC_AUTH_TOKEN>"
+echo "$n. 网关/凭据:脚本启动时已问过「统一网关 + 5 个 api key」并填进各配置(可用环境变量预填、非交互跑:PI_GATEWAY_BASE_URL / PI_GATEWAY_API_KEY / MCPHUB_HOST)"; n=$((n+1))
+echo "   当时跳过了才会剩下占位符(<YOUR_*>):"
+_ph=0
+for _f in "$MODELS" "$AUTH" "$SHARED_MCP" "$MC_SETTINGS" "$MC_CFG" "$HOME/.func"; do
+  if [ -f "$_f" ] && grep -q '<YOUR_' "$_f" 2>/dev/null; then
+    echo "   - $_f:$(grep -o '<YOUR_[A-Z_]*>' "$_f" | sort -u | tr '\n' ' ')"; _ph=1
+  fi
+done
+[ "$_ph" = 0 ] && echo "   (无,凭据已齐)"
+echo "   提示:claude-mem 走 openrouter(OpenAI 协议),它的 key 与 magic-context embedding 的各自独立;historian/dreamer 的 model 用 <provider>/<model-id>"
 echo "$n. 重启 claude-mem worker 并验证:"; n=$((n+1))
 echo "      cd ~/.claude/plugins/marketplaces/thedotmack && npm run worker:restart"
 echo "      curl -s http://$(mem_worker_url)/api/health   # 端口取自 $MC_SETTINGS(见下方提示)"

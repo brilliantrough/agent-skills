@@ -30,7 +30,7 @@ skill 装在 `~/.agents/skills/`，重开 agent session 生效。
 bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.com/brilliantrough/agent-skills/main/codex-setup.sh)"
 ```
 
-**更新时少按回车（`-y`）**：`-y`（等价 `--yes`，也认环境变量 `ASSUME_YES=1`）只自动回答**默认就是 Y** 的确认项 —— 装缺的软件/包、各 json/toml 按字段级合并写入（保留本地敏感值）、刷新 skills；**默认 N 的项目照旧停下人工确认**（`pi update --all` 升级本体、magic-context 版本守卫、覆盖插件缓存、无代理继续），所以不会有不知情的覆盖或升级。首次部署的「网关地址 / API key / mcphub host」提问也会跳过（占位符保留，之后重跑或手工填；无人值守请改用 `PI_GATEWAY_BASE_URL` / `PI_GATEWAY_API_KEY` / `MCPHUB_HOST`）。
+**默认安装（`-y`）**：`-y`（等价 `--yes`，也认环境变量 `ASSUME_YES=1`）不再逐项确认，一律取默认——默认 Y 的照做（装缺的软件/包、各 json/toml 按字段级合并写入并保留本地敏感值、刷新 skills），默认 N 的跳过（notify 插件不装、覆盖插件缓存、升级 Pi 本体、无代理继续、AGENTS.md 注入）。**唯一还会问的就是凭据**（统一网关 + 5 个 key，见下一节）；没有终端时静默跳过、占位符保留（无人值守用环境变量预填）。不给 `-y` 时逐项确认：写每个文件前都列出变更项（模型名/`models` 也在其中），可以逐项拒绝。
 
 形式一（和上面三条一样，推荐）：
 
@@ -122,20 +122,26 @@ curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/op
 - 3 个工作流 + 1 品味 + 1 技术写作 skill:无硬依赖
 - `.sdoc` 校验需要 `strictdoc`:脚本末尾会检查 `uv`(缺则装,并处理 uv 自升级与清华 PyPI 镜像),并可选择用 `uv tool install strictdoc==0.28.1` 全局安装(升级:`uv tool upgrade strictdoc`)
 
-## 一键脚本的首次部署(只需要网关地址 + API key)
+## 一键脚本的首次部署(只需要网关 + 5 个 key)
 
-`pi-setup.sh` / `opencode-setup.sh` / `codex-setup.sh` 启动后会**问一次**并自动填好各配置(只在“首次部署”时问：目标文件都不再含 `<YOUR_*>` 占位符就跳过)：
+`pi-setup.sh` / `opencode-setup.sh` / `codex-setup.sh` 启动后会**问一轮凭据**并自动填好各配置(只在“首次部署”时问：目标文件都不再含 `<YOUR_*>` 占位符就跳过)。网关**回车即用统一网关**；每个 key **回车=跳过、占位符保留**，之后重跑脚本可补。
 
 | 问什么 | 填到哪里 |
 | --- | --- |
-| OpenAI 兼容网关完整地址(如 `https://gw.example.com/v1`) | `pi/models.json`（`anthropic-messages` 的 provider 填根域、`openai-responses` 带 `/v1`）、`opencode.json` 各 provider 的 `baseURL`、`~/.claude-mem/settings.json`、`~/.config/cortexkit/magic-context.jsonc` 的 embedding `endpoint` |
-| 该网关 API key(输入不回显) | 同上四处的 key 字段；写完后 `models.json` 与 claude-mem settings 会被 `chmod 600` |
-| mcphub MCP host(可选，回车跳过) | `~/.agents/mcp.json`、`opencode.json` 的 `mcp.mcphub-web.url` |
+| 统一网关地址（回车=默认 `https://api.pezayo.com/v1`；输 `-` 留占位符） | `pi/models.json`（`anthropic-messages` 的 provider 填根域、`openai-responses` 带 `/v1`）、`opencode.json` 各 provider 的 `baseURL`、`~/.claude-mem/settings.json`、`~/.config/cortexkit/magic-context.jsonc` 的 embedding `endpoint` |
+| `claude-newapi` 的 key（anthropic 协议 · claude 模型 · 网关 claude code 分组） | `opencode.json` / `pi/models.json` 里 `claude-newapi` 的 `apiKey` |
+| `codex-newapi` 的 key（openai responses 协议 · gpt 模型 · 网关 codex 分组） | 同上两处 `codex-newapi` 的 `apiKey` |
+| `anthropic-newapi` 的 key（anthropic 协议 · 国产模型 · 网关 coding anthropic 分组） | 同上两处 `anthropic-newapi` 的 `apiKey` |
+| magic-context embedding 的 key（openai 协议 · 嵌入模型 · 任意分组） | `magic-context.jsonc` 的 `embedding.api_key` |
+| claude-mem 的 key（openai chat completions 协议 · 任意模型 · 建议 coding openai 分组） | `~/.claude-mem/settings.json` 的 `CLAUDE_MEM_OPENROUTER_API_KEY` |
+| mcphub MCP host（可选，回车跳过；codex 侧不问） | `~/.agents/mcp.json`、`opencode.json` 的 `mcp.mcphub-web.url` |
 
-- 非交互/无人值守不必手输：设 `PI_GATEWAY_BASE_URL` / `PI_GATEWAY_API_KEY` / `MCPHUB_HOST` 环境变量即可。
-- 回车跳过则模板里的 `<YOUR_*>` 占位符保留，按脚本末尾清单手工填(先跳过、后补也行：再跑一次脚本，目标文件里还有占位符时会重新问)。
-- 已有值永不被覆盖(见「更新」一节的隐私规则)；非 `/v1` 风格的网关(带自定义路径)建议填完后核对 `pi/models.json` 里 anthropic 渠道的根域与 claude-mem 的 BASE_URL。
-- 仍需手工的只剩：`pi/auth.json` 的 coding-plan key(仅用 zai/kimi 这类内置 provider 时)、`~/.func`(由 dot_file 的 `linux-setup.sh` 部署)、notify 插件的 `NOTIFY_*` 环境变量(可选)。
+- 5 个 key 各自填到自己那处：同一份模板里的三处 `<YOUR_NEWAPI_API_KEY>` 按 provider 名就近替换，不会串位。
+- 非交互/无人值守：设 `PI_GATEWAY_BASE_URL` + `PI_GATEWAY_API_KEY`（兜底给没单独给的槽）就够；要分开给用 `PI_CLAUDE_NEWAPI_API_KEY` / `PI_CODEX_NEWAPI_API_KEY` / `PI_ANTHROPIC_NEWAPI_API_KEY` / `PI_EMBEDDING_API_KEY` / `PI_CLAUDE_MEM_API_KEY`，另加 `MCPHUB_HOST`。
+- 回车跳过则 `<YOUR_*>` 占位符保留，按脚本末尾清单（会列出哪个文件还差哪些占位符）手工填；再跑一次脚本也会重新问。
+- 凭据（api key / base url / host）**永不被覆盖**；会跟着模板走的是**模型名**：各 provider 的 `models`、claude-mem 的 `CLAUDE_MEM_*_MODEL`、magic-context 的 model 字段。`-y` 下直接覆盖，交互跑会在写文件前列出变更并问一次——想保住自定义后端的模型，就别用 `-y`。
+- 非 `/v1` 风格的网关(带自定义路径)建议填完后核对 `pi/models.json` 里 anthropic 渠道的根域与 claude-mem 的 BASE_URL。
+- 仍需手工的只剩：`pi/auth.json` 的 coding-plan key(仅用 zai/kimi 这类内置 provider 时)、`~/.func`(由 dot_file 的 `linux-setup.sh` 部署)、notify 插件的 `NOTIFY_*` 环境变量(要装 notify 才有)。
 
 ## Windows(Git Bash)
 
