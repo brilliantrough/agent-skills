@@ -20,7 +20,8 @@ This project uses a three-layer memory system (Magic Context + StrictDoc + claud
 
 ### Context window (always applies)
 
-- Big output never enters context: bulk commands / multi-file analysis -> `ctxm_batch_execute`, one-off computation -> `ctxm_execute`, reading a file -> `ctxm_execute_file`. Web -> the configured MCP tools first (`tavily_search` for facts/news, `firecrawl_search` for ranked results, `firecrawl_scrape` for a known page), over any host built-in like WebFetch; `ctxm_fetch_and_index` only for a page you will re-query (how-to lives in the `context-mode` skill).
+- Big output never enters context: bulk commands / multi-file analysis -> `ctxm_batch_execute`, one-off computation -> `ctxm_execute`, reading a file -> `ctxm_execute_file`.
+- Web: never the host built-ins (WebSearch, WebFetch, web_search) — they are weaker or unconfigured here. Use the mcphub-web MCP tools: `tavily_search`/`tavily_extract` for facts/news, `firecrawl_search` for ranked results, `firecrawl_scrape` for a known page (exact names carry a host prefix, e.g. `tavily-mcp-tavily_search`). More sit behind the `mcp` gateway (firecrawl crawl/map/research, context7 docs): `mcp({search})` → describe → connect. `ctxm_fetch_and_index` only for a page you will re-query (how-to lives in the `context-mode` skill).
 - Magic Context supports recall and durable storage: `ctx_search` can recover earlier decisions before asking the user, `ctx_memory` can preserve useful knowledge, and `ctx_note` can hold reminders. Use alongside StrictDoc and claude-mem, with useful overlap.
 - Native `Read`/`Grep`/`Glob` stay right when you need the exact bytes or will edit the file — never route those through `ctxm_*`.
 
