@@ -62,7 +62,15 @@ curl -sm3 -o /dev/null -w '%{http_code}\n' https://pypi.tuna.tsinghua.edu.cn/sim
 
 ## 阶段 3：平台调研
 
-按 platforms.md 注册表的入口逐项查证（web 可用则查上游文档/发布矩阵/issue；不可用则让用户提供资料，不臆断）：
+**第一入口是厂商官方文档/下载中心，不是公共镜像源。** 平台专用 wheel（torch 后端包、平台版 triton、厂商通信库）在 PyPI/清华源不存在或版本错误——公共源搜不到只证明“不在公共源”，不证明平台不支持；厂商文档怎么写就怎么装。用宿主可用的 web 搜索工具（本项目规范：tavily/firecrawl，不用内置弱搜索）。
+
+检索路径（依次）：
+1. 厂商官网 → 文档中心/下载中心 → 安装指南：找 pip index-url、离线 SDK 包、驱动固件下载、版本兼容矩阵。
+2. 厂商 GitHub org（如 MooreThreads、Ascend、ROCm）→ torch 后端仓库 README：版本匹配行、生态支持声明（哪些库上游原生、哪些厂商 fork）。
+3. 检索式参考：`{{厂商}} {{SDK名}} 安装指南 pip 源`、`{{厂商}} pytorch wheel index-url`、`site:{{官方域}}`。
+4. 查到 index-url 后必须实查闭环：`python -m pip index versions torch --index-url <厂商源>`——文档可能落后，以实查为准并记录日期。
+
+逐项查证清单（对照 platforms.md 注册表，含各平台官方入口）：
 
 1. **兼容集**：OS ↔ 驱动 ↔ SDK ↔ 工具链版本约束（官方矩阵）。
 2. **wheel 矩阵**：厂商 pip index 上 `torch / torch 后端包 / torchvision / torchaudio / triton(平台版) / tilelang 类` 的可用版本行 × Python ABI；`python -m pip index versions <pkg> --index-url <厂商源>` 实查。
