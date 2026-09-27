@@ -1,9 +1,18 @@
 ---
-name: musa-pytorch-code-porting
-description: Use ONLY when writing, porting, reviewing, debugging, or running application code for Moore Threads MUSA or MTT S5000, especially CUDA-to-MUSA migration, torch.musa, MUSA_VISIBLE_DEVICES, MCCL, AMP, Transformers, distributed training, numerical parity, or CUDA extension compatibility. Use musa-pytorch-python for Python environment/package installation instead.
+name: accel-pytorch-code-porting
+description: 代码层：在本机加速平台上编写/移植/调试/运行 PyTorch 应用代码——CUDA→平台 API 映射、设备探测抽象、AMP 与数值稳定、分布式、第三方包兼容、迁移审计清单，适用任意厂商平台。Use ONLY when writing, porting, reviewing, debugging, or running application code for the local accelerator platform. 正文为当前已验证实例（现 MUSA/CUDA→MUSA 映射表）；非该平台首次初始化时先按头部「如何特化」改写正文。Python 环境与包装机用 accel-pytorch-python，系统层安装用 accel-platform-install。触发词：移植、torch.cuda 改写、设备探测、is_available、分布式后端、算子兼容。
 ---
 
-# MUSA S5000 PyTorch Development
+# Accelerator PyTorch Code Porting（代码层，名称永不变）
+
+## 如何特化本 skill（初始化时改写正文，不改名）
+
+> 下方正文是**当前已验证实例**（MUSA / MTT S5000，2026-09，面向 CUDA↔MUSA 双平台代码库）。在其他平台首次初始化时按 accel-init 阶段 3 的调研结论改写；改写后本 skill 即该平台版本。已装机器不追仓库新版。
+
+1. API 映射表是本层核心：换成本平台与 CUDA 的真实对照（设备字符串/可见设备变量/通信后端/显存 API/厂商 smi），逐行验证后再写。
+2. 生态兼容节（Transformers/加速库：上游原生/厂商 fork/不支持）与扩展编译节按本平台实况重写，附证据链接。
+3. 设备探测 helper、AMP、分布式、排障、迁移清单的结构保留，内容换本平台验证过的。
+4. 平台名只出现在内容里；本机事实写宿主机层。
 
 This skill guides Python/PyTorch development on the local Moore Threads MTT
 S5000 platform. It is intended for CUDA-centric repositories that need one
@@ -11,11 +20,12 @@ maintainable codebase across NVIDIA CUDA and Moore Threads MUSA.
 
 Related global skills have distinct ownership:
 
-- `musa-pytorch-python`: Python environments, package indexes, and wheel
+- `accel-pytorch-python`: Python environments, package indexes, and wheel
   compatibility;
-- `musa-local-server`: this server's installed Toolkit paths, driver, hardware,
+- the host-layer skill (local `<host>-environment` / `system-profile`): this
+  server's installed Toolkit paths, driver, hardware,
   and dynamic-library diagnosis;
-- `musa-ubuntu2204-install`: portable driver/Toolkit installation on another
+- `accel-platform-install`: portable driver/Toolkit installation on another
   Ubuntu 22.04 host.
 
 Repository instructions remain authoritative. Read the active repository's

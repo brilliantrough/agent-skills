@@ -84,10 +84,9 @@ curl -sm3 -o /dev/null -w '%{http_code}\n' https://pypi.tuna.tsinghua.edu.cn/sim
 
 ## 阶段 5：落盘交棒
 
-按 [accel-skill-template](../accel-skill-template/SKILL.md) 把验证过的知识固化为四层 skill：
-平台三层（install / pytorch-python / code-porting）落本机 `~/.agents/skills/`——新平台是新名字（不与仓库分发同名，不会被覆盖）；已有分发版（如 musa-*）的改动属于平台级新知识，**当日回流仓库**，不留仅本地副本。
-宿主机事实进 host 层（本机命名，永不入安装名单）。
-平台层若对其他机器普适，跑 `platform-environment-skill-audit` 脱敏后回流 `brilliantrough/agent-skills` 仓库。
+按 [accel-skill-template](../accel-skill-template/SKILL.md) 固化验证过的知识：
+平台三层是**固定通用名**三件套（accel-platform-install / accel-pytorch-python / accel-pytorch-code-porting，已随套装装在本机）——**就地改写正文**为当前平台（每件头部有「如何特化」指引），不新建平台名 skill；宿主机事实进 host 层（本机命名，永不入安装名单）。
+改写后的三件套即本机该平台的执行依据；内容对其他机器普适时，跑 `platform-environment-skill-audit` 脱敏后回流仓库更新分发版（旧实例进 git 历史；已装机器不追新版）。
 
 ## 边界
 

@@ -1,9 +1,20 @@
 ---
-name: musa-pytorch-python
-description: Use when creating or repairing a Python environment for MUSA PyTorch, torch_musa, MUSA torchvision, torchaudio, Triton-MUSA, or MCCL; explains Moore Threads versus public Python indexes, supported upstream libraries, version matching, and validation.
+name: accel-pytorch-python
+description: Python/wheel 层：为加速平台的 PyTorch 栈创建或修复 Python 环境——厂商源 vs 公共源纪律、版本匹配矩阵、环境变量、安装流程、验证与常见失败，适用任意厂商平台。Use when creating or repairing a Python environment for accelerator-platform PyTorch (vendor torch backend, torchvision/torchaudio, platform triton, vendor comm libs) on any platform. 正文为当前已验证实例（现 MUSA/摩尔线程源）；非该平台首次初始化时先按头部「如何特化」改写正文。触发词：装 torch、wheel 源、版本匹配、pip 源、依赖冲突。
 ---
 
-# Python and PyTorch on MUSA
+# PyTorch Python Environment on Accelerator Platforms（Python 层，名称永不变）
+
+## 如何特化本 skill（初始化时改写正文，不改名）
+
+> 下方正文是**当前已验证实例**（MUSA / Moore Threads index，2026-09）。在其他平台首次初始化时按 accel-init 阶段 3 的调研结论改写；改写后本 skill 即该平台版本。已装机器不追仓库新版。
+
+1. 双源纪律保留（厂商源 vs 公共源各平台本质相同）：换成本平台的 index URL、包族表（哪些包必须厂商源/哪些走公共源/哪些是厂商 fork）。
+2. 版本匹配矩阵换成实查行（`pip index versions --index-url 厂商源`），附查询日期与重查命令。
+3. 验证命令与预期输出用本机验证过的；未验证标 `(未验证)`。
+4. 平台名只出现在内容里；本机事实（env 名、路径）写宿主机层。
+
+## 当前实例：Python and PyTorch on MUSA
 
 Use this skill after the MUSA user-space Toolkit, muDNN, MCCL, and matching `libmusa.so.1` are available. This skill handles Python package selection; it does not install the kernel driver.
 

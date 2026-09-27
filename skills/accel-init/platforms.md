@@ -11,7 +11,7 @@
 | PyTorch | 官方轮子 `download.pytorch.org/whl/cu{{XXX}}`；`pip install torch --index-url ...` 或直接 PyPI（默认即 CUDA 版） |
 | triton/tilelang | 上游 PyPI 原生支持 |
 | transformers 生态 | 上游原生支持（基准平台，无 fork 问题） |
-| 已落盘 skill | 无（最成熟平台，按官方矩阵装即可） |
+| 已落盘 skill | 无需（官方矩阵足够；首次初始化仍改写三件套为 CUDA 版） |
 
 ## Moore Threads MUSA
 
@@ -22,7 +22,7 @@
 | PyTorch | 厂商 index `dl.mthreads.com/repo/api/pypi/pypi/simple`；`torch`+`torch_musa`（本地版本带 `+musa` 后缀） |
 | triton/tilelang | 厂商 triton（PyPI 同名！）、`tilelang_musa` |
 | transformers 生态 | transformers/accelerate 上游支持（torch_musa README 列明）；pytorch3d/pytorch_sparse 等为厂商 fork |
-| 已落盘 skill | `musa-ubuntu2204-install`、`musa-pytorch-python`、`musa-pytorch-code-porting`（参考实例） |
+| 已落盘 skill | `accel-*` 三件套（当前实例即 MUSA，无需改写） |
 
 ## 华为 Ascend NPU
 
@@ -33,7 +33,7 @@
 | PyTorch | `torch_npu`（PyPI 有发布，或厂商下载页匹配 CANN 版本的 wheel）；torch 版本须与 torch_npu 匹配 (未验证) |
 | triton/tilelang | 平台自有编译栈，上游 triton 不适用 (未验证) |
 | transformers 生态 | 上游 transformers 支持 `npu` device（device_map/accelerate 有 NPU 路径）；vllm-ascend 为独立 fork (未验证) |
-| 已落盘 skill | 无——首次在该平台走完全流程后按模板落盘 |
+| 已落盘 skill | 首次走完即改写 `accel-*` 三件套为 CANN 版 |
 
 ## AMD ROCm
 
@@ -44,7 +44,7 @@
 | PyTorch | 官方轮子 `download.pytorch.org/whl/rocm{{X.Y}}`；device 名仍为 `cuda`（HIP 转译）——代码层与 CUDA 几乎同源 |
 | triton/tilelang | 上游 triton 原生支持 AMD backend |
 | transformers 生态 | 上游原生支持 |
-| 已落盘 skill | 无——按官方支持矩阵装；走完后落盘 |
+| 已落盘 skill | 首次走完即改写 `accel-*` 三件套为 ROCm 版 |
 
 ## 其他/新平台（含 PPU 等）
 
@@ -53,7 +53,7 @@
 1. `lspci` 拿 vendor/device ID + 厂商名 → 官网文档找 smi 工具与 SDK 名。
 2. 查"{{厂商}} pytorch"：官方 index / fork 仓库 / 兼容声明，三者必居其一。
 3. 装完走 accel-init 阶段 4 验证阶梯，结论落盘成新平台行 + 平台层 skill。
-4. 落盘前跑 `platform-environment-skill-audit`。
+4. 首次走完按 accel-skill-template 改写 `accel-*` 三件套，回流前跑 `platform-environment-skill-audit`。
 
 ## 检测命令速查
 

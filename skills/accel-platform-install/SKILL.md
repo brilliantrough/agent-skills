@@ -1,12 +1,24 @@
 ---
-name: musa-ubuntu2204-install
-description: Use when installing, upgrading, or troubleshooting Moore Threads MUSA, torch_musa, muDNN, MCCL, mtgpu, or MTT S5000 on Ubuntu 22.04 x86_64; covers portable user-space installs, Python compatibility, dynamic libraries, and validation.
+name: accel-platform-install
+description: 系统层：本机加速平台栈（驱动/SDK/工具链/通信库）的安装、升级、排障与验证阶梯，适用任意厂商平台（CUDA/MUSA/Ascend/ROCm 等）。Use when installing, upgrading, or troubleshooting the local accelerator platform stack regardless of vendor — user-space installs, Python compatibility, dynamic libraries, validation ladder. 正文为当前已验证实例（现 MUSA/Ubuntu 22.04）；非该平台首次初始化时先按头部「如何特化」改写正文。触发词：装驱动、装SDK、工具链、平台栈、用户态安装、验证阶梯。
 ---
 
-# MUSA on Ubuntu 22.04 x86_64
+# Accelerator Platform Install（系统层，名称永不变）
+
+## 如何特化本 skill（初始化时改写正文，不改名）
+
+> 下方正文是**当前已验证实例**（MUSA / Ubuntu 22.04 x86_64 / S5000，2026-09）。在其他平台首次初始化时，按 accel-init 阶段 3 的调研结论改写正文；改写后本 skill 即该平台版本，后续项目直接照它执行。已装机器不追仓库新版（只装一次策略，仓库刷新属显式动作）。
+
+1. 逐节改写：结构保留，对本平台无意义的节整节删；兼容集/包名/工具名换成实际平台的。
+2. 验证命令与预期输出用**本机验证过的**；未验证标 `(未验证)`；版本行附查询日期与重查命令。
+3. 平台名只出现在内容里（工具、包名、index），skill 名称与触发词保持平台无关。
+4. 本机路径/用户名等事实不进本 skill，写宿主机层。
+
+## 当前实例：MUSA on Ubuntu 22.04 x86_64
 
 Scope: `portable`. Use this for an arbitrary compatible Ubuntu 22.04 host;
-current-server facts belong in `musa-local-server`.
+current-server facts belong in the host-layer skill (local
+`<host>-environment` / `system-profile` style factbook).
 
 Use this skill for a new or existing Ubuntu 22.04 x86_64 host. Do not assume paths, package versions, GPU models, or driver state from another machine.
 

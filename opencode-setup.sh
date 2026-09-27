@@ -1143,7 +1143,7 @@ fi
 #   服务器配置完成后即冻结,仓库模板后续更新不追。刷新属显式动作:npx skills add brilliantrough/agent-skills --skill <名> -g -y(接受覆盖,先回流本地演化)。
 # 第三方源 skill(mattpocock/drawio/find-skills 等)照旧 update,不受影响。
 BASE_SKILLS="code-review diagnosing-bugs domain-modeling editable-vector-slides exp-batch exp-campaign exp-discuss exp-probe grilling load-mem migrate-mem personal-ui-taste plan-brief quick-do readable-docs save-mem steady-do tdd writing-skill"
-ACCEL_SKILLS="accel-init accel-skill-template model-datasets musa-ubuntu2204-install musa-pytorch-python musa-pytorch-code-porting platform-environment-skill-audit"
+ACCEL_SKILLS="accel-init accel-skill-template model-datasets accel-platform-install accel-pytorch-python accel-pytorch-code-porting platform-environment-skill-audit"
 if ! command -v npx >/dev/null 2>&1; then
   echo "跳过 skills 安装(需要 npx:先装 Node 再重跑)"
 else
