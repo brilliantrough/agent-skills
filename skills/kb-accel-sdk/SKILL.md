@@ -5,7 +5,7 @@ description: 公共知识库：各大加速计算平台（CUDA/MUSA/Ascend CANN/
 
 # 加速平台 SDK 与生态知识库
 
-> 知识类 skill：内容为跨平台公共知识（调研日期 2026-09-27，易过期条目附重查入口）。本机特有事实不写这里（宿主机层管）。**结论与实机冲突时以实机为准，并回流更新本库。**
+> 知识类 skill：内容为跨平台公共知识（调研日期 2026-09-27；Ascend 节 2026-09-28 经 910B2 实机初始化验证刷新，易过期条目附重查入口）。本机特有事实不写这里（宿主机层管）。**结论与实机冲突时以实机为准，并回流更新本库。**
 
 ## 平台总览
 
@@ -13,7 +13,7 @@ description: 公共知识库：各大加速计算平台（CUDA/MUSA/Ascend CANN/
 | --- | --- | --- | --- | --- | --- | --- |
 | CUDA | NVIDIA | 驱动 + CUDA Toolkit（nvcc/cuBLAS/cuDNN/NCCL/TensorRT） | nvidia-smi | 原生 | NCCL | PyPI / download.pytorch.org/whl/cuXXX |
 | MUSA | 摩尔线程 | mtgpu 驱动 + MUSA SDK（musart/toolkit/muDNN/MCCL） | mthreads-gmi | torch_musa | MCCL | dl.mthreads.com 厂商 index |
-| Ascend | 华为 | 驱动+固件 + CANN（toolkit/kernels/NNAL，含 HCCL、ATB；推理另有 MindIE） | npu-smi | torch_npu | HCCL | PyPI(torch_npu) + hiascend.com 离线包 |
+| Ascend | 华为 | 驱动+固件 + CANN（toolkit/kernels/NNAL，含 HCCL、ATB；推理另有 MindIE） | npu-smi | torch_npu | HCCL | PyPI(torch_npu) + 华为云 mirrors.huaweicloud.com/ascend（triton-ascend/离线包） |
 | ROCm | AMD | amdgpu 驱动 + ROCm（HIP/hipBLAS/MIOpen/RCCL） | rocm-smi | 原生（HIP 转译，device 仍叫 cuda） | RCCL | download.pytorch.org/whl/rocmX.Y |
 | PPU | 阿里平头哥 | 真武 810/810E，GPGPU 路线；公开 SDK 文档极少（2026-01 才官方证实存在） | (未验证) | (未验证) | (未验证) | 阿里云渠道，无公共源 |
 | 沐曦 MACA | 沐曦 | MXMACA（mcBLAS/mcDNN/mcFlashAttention） | mx-smi | mcPytorch | mcCL(未验证) | 沐曦开发者社区镜像/发布包 |
@@ -24,9 +24,9 @@ description: 公共知识库：各大加速计算平台（CUDA/MUSA/Ascend CANN/
 
 | 框架 | CUDA | ROCm | Ascend | MUSA | PPU |
 | --- | --- | --- | --- | --- | --- |
-| triton | 上游原生 | 上游原生 | **triton-ascend**（triton-lang org 的 fork） | **Triton-MUSA**（fork，已至 3.6；PyPI 与上游同名，装错不报错） | 未验证 |
+| triton | 上游原生 | 上游原生 | **triton-ascend**（fork；**与上游 triton 同名互斥**，见 Ascend 节） | **Triton-MUSA**（fork，已至 3.6；PyPI 与上游同名，装错不报错） | 未验证 |
 | tilelang | 上游原生 | 上游(HIP) | **tilelang-ascend**（tile-ai org） | **tilelang_musa**（厂商 index） | 未验证 |
-| vllm | 上游原生 | 上游原生 | **vllm-ascend**（vllm-project org 官方插件，版本号对齐上游 vllm） | **vLLM-MUSA**（官方后端，开源 fork） | 未验证 |
+| vllm | 上游原生 | 上游原生 | **vllm-ascend**（vllm-project org 官方插件，版本号对齐上游 vllm；**钉死 torch/transformers 全链**，见 Ascend 节） | **vLLM-MUSA**（官方后端，开源 fork） | 未验证 |
 | sglang | 上游原生 | 未验证 | 官方支持（2025-08 起，`--device npu --attention-backend ascend`，sgl-kernel-npu 仓库） | 已合入主线（2026-05，源码装 + sgl-kernel） | 未验证 |
 
 规律：**推理/编译生态正在从"厂商自维护 fork"转向"官方仓库插件化"**（vllm hardware plugin 机制、sglang 合入主线），查版本时先看官方仓库的硬件支持矩阵，再看厂商 fork 的 release 行。
@@ -44,12 +44,20 @@ description: 公共知识库：各大加速计算平台（CUDA/MUSA/Ascend CANN/
 - 坑：`pip install torch` 会用公共 CUDA 版顶掉 `+musa` 版（静默失败，重查 `pip list | grep torch`）。
 - CUDA 兼容层：torchada（`import torchada` 让 99% CUDA 代码跑 MUSA）+ MATE 算子库（FlashAttention/FlashMLA/DeepGEMM 接口）。
 
-### Ascend CANN
-- 版本强绑定链：驱动+固件 ↔ CANN ↔ torch_npu ↔ triton-ascend，以 hiascend 支持矩阵为准（未验证具体行，查官方矩阵）。
-- triton-ascend 约束：Python 3.9–3.11；需先 source CANN 的 `set_env.sh`；与 torch_npu 版本配对（如某版要求 torch_npu==2.7.1，实查为准）。
+### Ascend CANN（2026-09-28 实机验证：910B2×8 / CANN 9.0.0 / aarch64 / py3.10，L1–L6 全过）
+- 版本强绑定链（已验证行）：驱动 25.2.1/固件 7.7.0.9.220 ↔ CANN 9.0.0 ↔ torch 2.10.0 ↔ torch_npu 2.10.0.post4 ↔ torchvision 0.25.0 / torchaudio 2.10.0 ↔ triton-ascend 3.2.2 ↔ vllm 0.23.0 + vllm-ascend 0.23.x ↔ transformers 5.5.4。配套表查法：`curl -s https://raw.githubusercontent.com/Ascend/pytorch/master/README.md | grep -A2 CANN`；vllm-ascend 各版钉子查 `pypi.org/pypi/vllm-ascend/<ver>/json` 的 requires_dist。
+- wheel 现状（2026-09-28）：torch_npu 在公共 PyPI，aarch64 从 2.9.x 起覆盖 cp310–cp313，但**正式版偶发只发部分 ABI**（2.12.0 只有 cp312/313）；查 ABI 以 simple 页文件名为准，别信 `pip index` 的 JSON 元数据（镜像上会滞后数月停在旧版）。
+- **vllm-ascend 安装五坑**（2026-09-28 全踩全解）：
+  1. 上游 vllm 钉的 torch 比 vllm-ascend 钉的高一档（vllm 0.23.0→torch 2.11，vllm-ascend 0.23.x→2.10）：装完 vllm **必须重钉** torch 全家 + transformers，否则 torch_npu ABI 断裂。
+  2. post 版常只有 sdist（rc 版反而有全 ABI wheel）：py3.10/3.11 用同线 rc wheel + `--no-deps`，缺依赖按其 METADATA 手补（xgrammar/compressed-tensors/numba/quart 一串）。
+  3. triton-ascend 与上游 triton **同名同命名空间互斥**（共存=后者遮蔽，症状 `'function' object is not subscriptable` / `No module named triton._C.libtriton.ascend`；卸载互相带走文件）：解法＝两个都卸，`--no-deps` 单装 triton-ascend，且**最后装**。
+  4. triton-ascend 新版公共源发布滞后（3.2.2 只有华为云有）：`--find-links https://mirrors.huaweicloud.com/ascend/repos/pypi/triton-ascend/`。
+  5. **NNAL（libatb.so）是 vllm 硬依赖**，不在 CANN toolkit 统一包（`--feature` 仅 ascendc）也无 pip 包：无官方镜像渠道时，可从 CANN 官方 docker 镜像（quay.io/ascend/cann:<ver>-910b-…）registry API 流式抽取 `/usr/local/Ascend/nnal` 落地安装；运行时必须双 source：CANN set_env + `nnal/atb/set_env.sh`，否则 `libatb.so not found` → engine 起不来。
+- torch_npu 使用面（已验证）：`torch.npu.*` 镜像 CUDA API；autocast `device_type="npu"`；transformers `device_map="auto"` 可跨多 NPU 分层；HCCL 单/双进程 all_reduce 精确。910B2 每卡 HBM 按 61GB 规划（系统保留 ~3.4GB）。
+- transformers 双向钉死冲突：vllm-ascend 钉 transformers（0.23.x↔5.5.4），模型 remote code 又常钉旧版（openPangu↔4.53.2，5.x 上 LossKwargs/rope 键名两处断）：解法选型＝该模型单独小环境，或走 vllm（不依赖 transformers remote code）；别在主环境逐符号打补丁（打不完）。
+- 症状速查：`ERR99999 UNKNOWN application exception` 是昇腾异常收尾行，真因在其上方 traceback；`NPUCachingAllocator ... 32 padding size` warning 无害别修。
 - tilelang-ascend：CANN ≥ 8.3.RC1、torch_npu ≥ 2.6.0；wheel 从 GitHub Releases 按 CANN/Python/架构匹配下载。
 - 硬件差异（写 kernel 必踩）：AI Core 分 Cube/Vector；每核 UB 仅 192KB（BLOCK_SIZE 大了溢出）；**越界访问无容错，直接 Device Hang——mask 必须严格**。
-- vllm-ascend 用法：pip 装 `vllm-ascend==<对齐 vllm 版本>`；关键 env 如 `ASCEND_RT_VISIBLE_DEVICES`、`PYTORCH_NPU_ALLOC_CONF=expandable_segments:True`。
 - 官方自有推理引擎 MindIE 与 vllm-ascend 并存，选型看场景（MindIE 商用闭源、vllm-ascend 社区开源）。
 
 ### ROCm
@@ -73,6 +81,10 @@ description: 公共知识库：各大加速计算平台（CUDA/MUSA/Ascend CANN/
 - `pip list | grep -E 'torch|triton|vllm'` 看**本地版本后缀**（+musa/+metax/+npu…）判断是不是平台适配版；无后缀≈公共版，多半是顶掉了。
 - 公共源找不到平台 wheel 是常态，不是平台不支持——去厂商文档/下载中心（见 accel-init 阶段 3 调研路径）。
 - 各平台可见设备变量不同：CUDA_VISIBLE_DEVICES / MUSA_VISIBLE_DEVICES / ASCEND_RT_VISIBLE_DEVICES / HIP_VISIBLE_DEVICES(ROCm)。
+- 插件也会顶版本：装 vllm-*/sglang-* 等平台插件后，立刻复核 torch/transformers/torchvision 是否被顶掉并重钉——"防串"不止防 `pip install torch`，还防一切钉 torch 的包（Ascend 2026-09-28 实例：vllm 把 torch 顶到高一档）。
+- 同名互斥包族：厂商 triton fork 与上游 triton 共享命名空间（MUSA/Ascend 均实锤），共存=静默坏（kernel 装饰器失效变普通函数、后端子模块缺失）；正解=两个都卸净，`--no-deps` 单装厂商版，且放在安装序列最后。
+- 镜像源的包 JSON 元数据可能滞后数月（实测清华源 torch-npu 元数据停在 2.3.1 而实际已到 2.12）：查版本/ABI 以 simple 页文件名或 pypi.org JSON 为准。
+- "运行库缺失型"硬依赖常有隐藏系统包（如 Ascend vllm 之于 NNAL/libatb.so）：报 `cannot open shared object file` 时先想系统层缺件，查官方安装文档的 Requirements 表，而不是继续折腾 pip。
 
 ## 演化（本库随时准备被更新）
 
