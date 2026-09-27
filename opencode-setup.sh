@@ -1144,16 +1144,15 @@ BASE_SKILLS="code-review diagnosing-bugs domain-modeling editable-vector-slides 
 ACCEL_SKILLS="accel-init accel-skill-template musa-ubuntu2204-install musa-pytorch-python musa-pytorch-code-porting platform-environment-skill-audit"
 if ! command -v npx >/dev/null 2>&1; then
   echo "跳过 skills 安装(需要 npx:先装 Node 再重跑)"
-elif ask "更新 skills 本体(base 组 $(echo $BASE_SKILLS | wc -w) 个 + update -g)?" Y; then
-  echo "== 更新 skills 本体(brilliantrough/agent-skills;有无变化看下面 npx skills 的输出)=="
+elif ask "安装全部 $(( $(echo $BASE_SKILLS $ACCEL_SKILLS | wc -w) )) 个 skill(基础 $(echo $BASE_SKILLS | wc -w) + 算力平台 $(echo $ACCEL_SKILLS | wc -w))?选 N 只装默认基础组(个人工作站选这个)" N; then
+  echo "== 安装全部 skill(基础 + 算力平台;有无变化看下面 npx skills 的输出)=="
   # || true:PromptScript/Eve 等无关 agent 不支持全局安装会报错退出,但其余目标已装好
+  npx -y skills@latest add brilliantrough/agent-skills --skill $BASE_SKILLS $ACCEL_SKILLS -g -y || true
+  npx -y skills@latest update -g || true
+else
+  echo "== 安装默认基础 skill 组(算力平台组不装;有无变化看下面 npx skills 的输出)=="
   npx -y skills@latest add brilliantrough/agent-skills --skill $BASE_SKILLS -g -y || true
   npx -y skills@latest update -g || true
-fi
-if command -v npx >/dev/null 2>&1; then
-  if ask "装算力平台 skill 组(accel 组 $(echo $ACCEL_SKILLS | wc -w) 个;仅深度学习算力服务器需要)?" N; then
-    npx -y skills@latest add brilliantrough/agent-skills --skill $ACCEL_SKILLS -g -y || true
-  fi
 fi
 
 # ---- 8. uv(可选)+ strictdoc(.sdoc 校验依赖)----
