@@ -953,7 +953,7 @@ fi
 # 名单与仓库 skills/ 目录的同步由 selfcheck 检查;新增 base/accel skill 要同步改这里。
 # add 幂等:既刷新已登记的 skill,也装入新增的 skill。update 只刷新 lock 里已有的条目,
 # 不安装新增 skill(mattpocock/drawio/find-skills 这类第三方源仍靠它),所以两步都要跑。
-BASE_SKILLS="code-review diagnosing-bugs domain-modeling editable-vector-slides exp-batch exp-campaign exp-discuss exp-probe grilling load-mem migrate-mem personal-ui-taste plan-brief quick-do readable-docs save-mem steady-do tdd"
+BASE_SKILLS="code-review diagnosing-bugs domain-modeling editable-vector-slides exp-batch exp-campaign exp-discuss exp-probe grilling load-mem migrate-mem personal-ui-taste plan-brief quick-do readable-docs save-mem steady-do tdd writing-skill"
 ACCEL_SKILLS="accel-init accel-skill-template model-datasets musa-ubuntu2204-install musa-pytorch-python musa-pytorch-code-porting platform-environment-skill-audit"
 if ! command -v npx >/dev/null 2>&1; then
   echo "跳过 skills 安装(需要 npx:先装 Node 再重跑)"
