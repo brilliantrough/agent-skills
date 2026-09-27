@@ -5,6 +5,7 @@ import {
 	UserMessageComponent,
 	copyToClipboard,
 	getAgentDir,
+	type ExtensionAPI,
 	type ExtensionContext,
 	type Theme,
 } from "@earendil-works/pi-coding-agent";
@@ -18,8 +19,21 @@ import {
 
 /**
  * 主栏消息悬浮按钮：指针悬停某条消息时，把按钮覆写到该消息的【第一行】右端
- * （用户消息：⧉ 复制 / ↩ 回填编辑；助手消息：⧉ 复制），指针悬停在按钮上时只高亮
+ * （用户消息：⧉ 复制 / ⟲ 回撤；助手消息：⧉ 复制），指针悬停在按钮上时只高亮
  * 那一个按钮。消息块本身不做高亮——用户明确只要"按钮高亮"，块级高亮会干扰阅读。
+ *
+ * 「⟲ 回撤」不是回填编辑，而是把会话 leaf 移回该用户消息之前：该消息及其后的
+ * 上下文全部离开当前分支（等价 OpenCode /undo、Pi /tree 选中用户消息），消息
+ * 文本由 navigateTree 自动回到输入框（仅当输入框为空时）。原分支不删除，
+ * /tree 仍可找回。实现走 /rewind 命令中转：pi.sendUserMessage("/rewind <id>",
+ * {expandPromptTemplates:true}) 在 prompt() 里先于模型校验派发扩展命令，零模型轮、
+ * 不写会话；命令 handler 拿到 ExtensionCommandContext.navigateTree —— 该 API 只在
+ * 命令语境存在，扩展事件/UI 回调里都够不到。
+ *
+ * 组件实例 → entry id 的映射：转录渲染严格按 buildContextEntries() 顺序为每条
+ * 可渲染用户消息建一个 UserMessageComponent（skill 块消息按 parseSkillBlock 规则
+ * 只为内嵌 userMessage 建组件）。点击时从 tui 向下 DFS 数出该组件在同类中的序号，
+ * 对齐到第 N 个可渲染用户 entry；序号校验失败再退回全文唯一匹配，仍不唯一则拒绝。
  *
  * 关键设计约束：
  * ① 不改行数。第一版在消息尾部追加按钮行，会让 hovered 消息高一行，pretty-tui 的
@@ -34,7 +48,7 @@ import {
  * tmux 下 Pi 不上报 move，按钮不会出现；点击路由不受影响。
  */
 
-type ActionId = "copy" | "refill";
+type ActionId = "copy" | "rewind";
 type MessageKind = "user" | "assistant";
 
 interface ButtonSpan {
@@ -65,6 +79,8 @@ let hovered: object | undefined;
 let hoveredButton: ActionId | undefined;
 let ctxRef: ExtensionContext | undefined;
 let themeRef: (() => Theme | undefined) | undefined;
+let piRef: ExtensionAPI | undefined;
+let tuiRef: unknown;
 
 /** 中枢 move 计数：handleMouseEvent 每见一次无按键 move 就 +1；消息组件认领时同步。 */
 let moveTick = 0;
@@ -99,7 +115,7 @@ function messageText(kind: MessageKind, receiver: MessageLike): string {
 
 function buttonDefs(kind: MessageKind): { action: ActionId; text: string }[] {
 	return kind === "user"
-		? [{ action: "copy", text: "⧉ 复制" }, { action: "refill", text: "↩ 回填编辑" }]
+		? [{ action: "copy", text: "⧉ 复制" }, { action: "rewind", text: "⟲ 回撤" }]
 		: [{ action: "copy", text: "⧉ 复制" }];
 }
 
@@ -143,13 +159,90 @@ function hitButton(receiver: WeakKey, event: MouseEventLike): ButtonSpan | undef
 	return buttonSpans.get(receiver)?.find((span) => event.x >= span.start && event.x < span.end);
 }
 
+/** 与 core parseSkillBlock 同一正则：skill 块消息只为内嵌 userMessage 建用户组件。 */
+const SKILL_BLOCK_RE = /^<skill name="([^"]+)" location="([^"]+)">\n([\s\S]*?)\n<\/skill>(?:\n\n([\s\S]+))?$/;
+
+/** 镜像 AgentSession.getUserMessageText：字符串 content 原样，数组只拼 text 块。 */
+function entryUserText(content: unknown): string {
+	if (typeof content === "string") return content;
+	if (!Array.isArray(content)) return "";
+	return content
+		.filter((part): part is { type: "text"; text: string } =>
+			Boolean(part && typeof part === "object" && (part as { type?: unknown }).type === "text" && typeof (part as { text?: unknown }).text === "string"))
+		.map((part) => part.text)
+		.join("");
+}
+
+interface RenderableUserEntry {
+	id: string;
+	/** 该 entry 渲染出的 UserMessageComponent 的文本（skill 块为内嵌 userMessage）。 */
+	componentText: string;
+}
+
+/** 按转录渲染规则枚举当前分支上会产生 UserMessageComponent 的用户 entry。 */
+function renderableUserEntries(): RenderableUserEntry[] {
+	const out: RenderableUserEntry[] = [];
+	for (const entry of ctxRef?.sessionManager.buildContextEntries() ?? []) {
+		if (entry.type !== "message") continue;
+		const message = entry.message as { role?: string; content?: unknown } | undefined;
+		if (!message || message.role !== "user") continue;
+		const text = entryUserText(message.content);
+		if (!text) continue; // 纯图片等无文本：不建组件
+		const skill = text.match(SKILL_BLOCK_RE);
+		if (skill) {
+			const userMessage = skill[4]?.trim() || undefined;
+			if (userMessage) out.push({ id: entry.id, componentText: userMessage });
+		} else {
+			out.push({ id: entry.id, componentText: text });
+		}
+	}
+	return out;
+}
+
+/** 从 tui 向下 DFS 收集转录里的 UserMessageComponent（显示顺序）。 */
+function transcriptUserComponents(): object[] {
+	const order: object[] = [];
+	const visit = (node: unknown): void => {
+		const children = (node as { children?: unknown } | undefined)?.children;
+		if (!Array.isArray(children)) return;
+		for (const child of children) {
+			if (child instanceof UserMessageComponent) order.push(child);
+			else visit(child);
+		}
+	};
+	visit(tuiRef);
+	return order;
+}
+
+/** 悬停组件 → 会话 entry id：序号对齐优先，全文唯一匹配兜底，无法唯一定位则 undefined。 */
+function resolveUserEntryId(receiver: MessageLike): string | undefined {
+	const text = messageText("user", receiver).trim();
+	if (!text) return undefined;
+	const candidates = renderableUserEntries();
+	const index = transcriptUserComponents().indexOf(receiver);
+	if (index >= 0 && index < candidates.length && candidates[index].componentText.trim() === text) {
+		return candidates[index].id;
+	}
+	const byText = candidates.filter((candidate) => candidate.componentText.trim() === text);
+	return byText.length === 1 ? byText[0].id : undefined;
+}
+
 async function runAction(kind: MessageKind, receiver: MessageLike, action: ActionId): Promise<void> {
 	const ui = ctxRef?.ui;
 	if (!ui) return;
-	if (action === "refill") {
+	if (action === "rewind") {
 		if (kind !== "user") return;
-		ui.setEditorText(messageText(kind, receiver));
-		ui.notify("已回填到输入框（历史未改动，发送即开新分支）", "info");
+		if (!ctxRef?.isIdle()) {
+			ui.notify("等当前回复结束后再回撤", "warning");
+			return;
+		}
+		const entryId = resolveUserEntryId(receiver);
+		if (!entryId) {
+			ui.notify("无法唯一定位该消息在会话中的位置，请用 /tree 回退", "error");
+			return;
+		}
+		// 经 /rewind 命令中转拿 navigateTree：命令在 prompt() 里先于模型校验派发，零模型轮。
+		piRef?.sendUserMessage(`/rewind ${entryId}`, { expandPromptTemplates: true });
 		return;
 	}
 	const text = messageText(kind, receiver);
@@ -218,6 +311,7 @@ function handleMouseWithActions(behavior: PatchInvocation, kind: MessageKind): P
  * 每次无按键 move 若没有任何消息组件认领（moveClaim 未同步到 moveTick），清除悬停并重绘。
  */
 export function installMessageActionsViewportHook(tui: unknown): void {
+	tuiRef = tui;
 	// SAFETY: Pi fullscreen 的 TUI 实例运行时是 TuiAltScreen，handleMouseEvent 是普通类方法。
 	const target = tui as ViewportMouseTarget;
 	if (typeof target?.handleMouseEvent !== "function") return;
@@ -242,15 +336,45 @@ export function installMessageActionsViewportHook(tui: unknown): void {
 }
 
 /**
+ * 注册 /rewind 命令：悬浮按钮点击经 sendUserMessage 派发到此处，借此拿到只存在于
+ * 命令语境的 ExtensionCommandContext.navigateTree（interactive 绑定会同步刷新转录并
+ * 在输入框为空时回填消息文本）。参数是目标用户消息的 entry id；手动执行亦可。
+ */
+export function registerRewindCommand(pi: ExtensionAPI): void {
+	pi.registerCommand("rewind", {
+		description: "回撤会话到指定用户消息之前（悬浮按钮内部使用，参数为 entry id）",
+		handler: async (args, ctx) => {
+			const entryId = args.trim();
+			if (!entryId) {
+				ctx.ui.notify("用法：/rewind <entryId>", "warning");
+				return;
+			}
+			try {
+				const result = await ctx.navigateTree(entryId, { summarize: false });
+				if (result.cancelled) {
+					ctx.ui.notify("回撤已取消", "warning");
+					return;
+				}
+				ctx.ui.notify("已回撤：该消息及其后的上下文已离开当前分支（/tree 可找回，文本已回到输入框）", "info");
+			} catch (error) {
+				ctx.ui.notify(`回撤失败：${error instanceof Error ? error.message : String(error)}`, "error");
+			}
+		},
+	});
+}
+
+/**
  * 安装主栏消息的悬浮按钮补丁。返回清理函数（session_shutdown 时调用）。
  * 补丁走注册表的命名适配器；必须最后安装（气泡分支会丢弃前任 render 输出）。
  */
 export function installMessageActions(
+	pi: ExtensionAPI,
 	ctx: ExtensionContext,
 	getTheme: () => Theme | undefined,
 ): () => void {
 	ctxRef = ctx;
 	themeRef = getTheme;
+	piRef = pi;
 	const userPrototype = UserMessageComponent.prototype as never;
 	const assistantPrototype = AssistantMessageComponent.prototype as never;
 	const registrations = [
@@ -267,6 +391,7 @@ export function installMessageActions(
 		hoveredButton = undefined;
 		ctxRef = undefined;
 		themeRef = undefined;
+		piRef = undefined;
 		for (const registration of registrations) registration();
 	};
 }
@@ -283,4 +408,5 @@ export function removeMessageActions(): void {
 	hoveredButton = undefined;
 	ctxRef = undefined;
 	themeRef = undefined;
+	piRef = undefined;
 }

@@ -3,6 +3,7 @@ import layout from "./atelier/extensions/index.js";
 import { installComposer } from "./composer.js";
 import panels from "./panels.js";
 import tps from "./tps.js";
+import { registerRewindCommand } from "./message-actions.js";
 
 /** Agent Skills UI: one owner for composer, sidebar and footer. */
 /**
@@ -14,6 +15,7 @@ import tps from "./tps.js";
  */
 export default function (pi: ExtensionAPI) {
   if (process.env.MAGIC_CONTEXT_PI_SUBAGENT === "1") return;
+  registerRewindCommand(pi);
   installComposer(pi);
   layout(pi);
   panels(pi);
