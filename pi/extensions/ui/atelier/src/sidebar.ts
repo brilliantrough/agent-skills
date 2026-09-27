@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import { withCollapsiblePanels } from "../../sidebar-collapse.js";
 import { basename } from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { type Component, type OverlayHandle, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { type Component, type OverlayHandle, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import type { ThemeLike } from "./footer.js";
 import { aggregateMetrics, formatTokens } from "./metrics.js";
 import { type AtelierPalette, createPalette, type PaletteRole } from "./palette.js";
@@ -181,23 +181,16 @@ function panelRows(
 	palette: AtelierPalette,
 	theme: ThemeLike,
 	role: PaletteRole,
-	jewel: "✦" | "✧",
+	_jewel: "✦" | "✧",
 ): string[] {
+	// 扁平分节风格：无边框/宝石，标题（角色色加粗）+ dim 横线填充，正文裸行，空行收尾。
+	// sidebar-collapse.ts 的折叠/hover 识别依赖此格式：标题行 = `TITLE  ────`。
 	const safeWidth = Math.max(4, Math.trunc(width));
-	const innerWidth = Math.max(0, safeWidth - 4);
 	const safeTitle = sanitizeSidebarPanelText(title, SIDEBAR_PANEL_MAX_TITLE_CHARS).toUpperCase();
-	const crownPrefix = `╭─ ${jewel} `;
-	const crownFill = "─".repeat(
-		Math.max(0, safeWidth - visibleWidth(crownPrefix) - visibleWidth(safeTitle) - 2),
-	);
-	const top = `${palette.paint(role, crownPrefix)}${theme.bold(
-		palette.paint(role, safeTitle),
-	)} ${palette.paint(role, `${crownFill}╮`)}`;
-	const body = rows.map((row) => {
-		const content = padToWidth(row, innerWidth);
-		return `${palette.paint("dim", "│")} ${content} ${palette.paint("dim", "│")}`;
-	});
-	return [top, ...body, palette.paint("dim", `╰${"─".repeat(safeWidth - 2)}╯`), ""];
+	const fill = "─".repeat(Math.max(2, safeWidth - visibleWidth(safeTitle) - 2));
+	const header = `${theme.bold(palette.paint(role, safeTitle))} ${palette.paint("dim", fill)}`;
+	const body = rows.map((row) => truncateToWidth(row, safeWidth, ""));
+	return [header, ...body, ""];
 }
 
 function valueRow(value: string | undefined, palette: AtelierPalette, role: PaletteRole): string {
@@ -567,7 +560,7 @@ function activeToolNameRows(
 	return rows;
 }
 
-function todosRows(snapshot: SidebarSnapshot, palette: AtelierPalette): string[] {
+function todosRows(snapshot: SidebarSnapshot, palette: AtelierPalette, contentWidth: number): string[] {
 	const todoList = snapshot.todos;
 	if (todoList.length === 0) return [];
 
@@ -589,7 +582,12 @@ function todosRows(snapshot: SidebarSnapshot, palette: AtelierPalette): string[]
 			todo.status === "completed"
 				? palette.paint("dim", sanitize(todo.text))
 				: palette.paint("primary", sanitize(todo.text));
-		rows.push(`${check} ${id} ${text}`);
+		// 长文本按可用宽度换行，续行与正文左对齐（前缀是 `✓ #12 ` 的可见宽度）。
+		const prefixWidth = 2 + String(todo.id).length + 2;
+		const chunks = wrapTextWithAnsi(text, Math.max(8, contentWidth - prefixWidth));
+		rows.push(`${check} ${id} ${chunks[0] ?? ""}`);
+		const indent = " ".repeat(prefixWidth);
+		for (const chunk of chunks.slice(1)) rows.push(`${indent}${chunk}`);
 	}
 	return rows;
 }
@@ -936,7 +934,7 @@ export function renderSidebarLines(
 			panel: "TODOS",
 			panelId: "todos",
 			panelRole: "accent",
-			rows: config.showSidebarTodos ? todosRows(snapshot, palette) : [],
+			rows: config.showSidebarTodos ? todosRows(snapshot, palette, panelContentWidth) : [],
 			required: false,
 			dropRank: 90,
 		},
@@ -1372,9 +1370,14 @@ export function createSidebarController(options: SidebarControllerOptions): Side
 							// SAFETY: the Pi-supplied Theme implements the fg/bg/bold subset used here.
 							theme: theme as unknown as ThemeLike,
 							...(options.colorEnabled === undefined ? {} : { colorEnabled: options.colorEnabled }),
-						}),
-						{ onToggleToolNames: options.onToggleToolNames },
-					);
+					}),
+					{
+						onToggleToolNames: options.onToggleToolNames,
+						// SAFETY: the Pi-supplied Theme implements getBgAnsi; ThemeLike 接口未声明，可选链兜底缺失。
+						getHoverBgOpen: () =>
+							(theme as unknown as { getBgAnsi?: (color: string) => string }).getBgAnsi?.("selectedBg"),
+					},
+				);
 				},
 				{
 					overlay: true,

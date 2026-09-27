@@ -5,6 +5,7 @@ import { installCopyCleanup } from "./editor/copy-clean.js";
 import { installUserMessageStyle } from "./editor/user-message.js";
 import { installWheelScrollLines } from "./wheel.js";
 import { installClearSelectionOnRelease } from "./selection.js";
+import { installMessageActions, installMessageActionsViewportHook } from "./message-actions.js";
 
 const CTRL_J = "\x1b[106;5u";
 const PASTE_START = "\x1b[200~";
@@ -41,10 +42,13 @@ function installQuestionnaireSubmitKey(pi: ExtensionAPI, ctx: ExtensionContext, 
 export function installComposer(pi: ExtensionAPI) {
   let cleanup: (() => void) | undefined;
   let cleanupSubmitKey: (() => void) | undefined;
+  let cleanupMessageActions: (() => void) | undefined;
   pi.on("session_start", (_event, ctx) => {
     cleanup?.();
     cleanupSubmitKey?.();
     cleanupSubmitKey = undefined;
+    cleanupMessageActions?.();
+    cleanupMessageActions = undefined;
     if (ctx.mode !== "tui") return;
     const config = loadConfig();
     let submitIsCtrlJ = false;
@@ -53,6 +57,7 @@ export function installComposer(pi: ExtensionAPI) {
       installWheelScrollLines(tui);
       installClearSelectionOnRelease(tui);
       installCopyCleanup(tui);
+      installMessageActionsViewportHook(tui);
       const base = new CustomEditor(tui, theme, keys);
       const input = base.handleInput.bind(base);
       let pasting = false;
@@ -70,10 +75,14 @@ export function installComposer(pi: ExtensionAPI) {
     });
     cleanupSubmitKey = installQuestionnaireSubmitKey(pi, ctx, () => submitIsCtrlJ);
     if (config.components.userMessages.enabled) cleanup = installUserMessageStyle(() => ctx.ui.theme, () => config);
+    // 必须在 user-message 之后安装：它的气泡分支会丢弃前任输出，message-actions 只有在
+    // 最外层才能把 hover 高亮和按钮行追加到气泡渲染结果上。
+    cleanupMessageActions = installMessageActions(ctx, () => ctx.ui.theme);
   });
   pi.on("session_shutdown", (_event, ctx) => {
     cleanup?.(); cleanup = undefined;
     cleanupSubmitKey?.(); cleanupSubmitKey = undefined;
+    cleanupMessageActions?.(); cleanupMessageActions = undefined;
     if (ctx.mode === "tui") ctx.ui.setEditorComponent(undefined);
   });
 }

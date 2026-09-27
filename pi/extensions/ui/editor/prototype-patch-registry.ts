@@ -4,21 +4,33 @@ type PrototypePatchAdapter =
 	| "user-message-render"
 	| "user-message-invalidate"
 	| "selector-border-render"
-	| "thinking-experimental-update-content";
+	| "thinking-experimental-update-content"
+	| "message-actions-user-render"
+	| "message-actions-user-mouse"
+	| "message-actions-assistant-render"
+	| "message-actions-assistant-mouse";
 
-type PrototypeResult = string[] | void;
+/** pi-tui 的 TuiMouseEventResult 最小形状：handled/capture/focus 至少其一才算被处理。 */
+export type MouseEventResult =
+	| { handled?: boolean; capture?: boolean; focus?: boolean; render?: boolean }
+	| undefined;
+
+type PrototypeResult = string[] | void | MouseEventResult;
 type PrototypeMethod = (this: unknown, ...args: unknown[]) => PrototypeResult;
 type PatchablePrototype = {
 	render?: (width: number) => string[];
 	invalidate?: () => void;
 	updateContent?: (...args: unknown[]) => void;
+	handleMouse?: (event: unknown) => MouseEventResult;
 };
 
-type PatchInvocation = {
+export type PatchInvocation = {
 	predecessor: PrototypeMethod;
 	receiver: unknown;
 	args: unknown[];
 };
+
+export type PrototypeResultLike = PrototypeResult;
 
 type PatchBehavior = (invocation: PatchInvocation) => PrototypeResult;
 
@@ -28,7 +40,7 @@ type Registration = {
 	onDisplaced?: () => void;
 };
 
-type PatchMethod = "render" | "invalidate" | "updateContent";
+type PatchMethod = "render" | "invalidate" | "updateContent" | "handleMouse";
 
 type PatchRecord = {
 	method: PatchMethod;
