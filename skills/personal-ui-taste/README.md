@@ -1,6 +1,6 @@
 # personal-ui-taste
 
-可迁移、可持续演化的个人前端品味 skill：保存喜欢什么、拒绝什么，以及真实交互问题的解决办法。
+可迁移、可持续演化的个人UI设计 skill：保存喜欢什么、拒绝什么、功能怎样对应信息组织，以及真实交互问题的解决办法。
 
 ## 安装与调用
 
@@ -31,7 +31,9 @@ OpenCode 支持扫描该全局目录（外部 skill 扫描需开启）。新建/
 - **改**：“将这个场景的圆角规则改成我们刚确认的版本，其他场景不变。”
 - **删**：“删除这条我不再喜欢的动效规则，并清理对应引用。”
 
-当前已收录 S01「浅色信息密集界面」与 S02「冷灰蓝预览型工作台」。共享柔和主题与基础元素语言；密集灯带和稀疏可跳转状态块按场景共存。
+当前已收录 S01「浅色信息密集界面」、S02「冷灰蓝预览型工作台」、S03「科研指标绘图」、S04「分析排查工作台」。按任务选读，不把某个场景变成所有页面的固定模板。
+
+S04适合联合排行、维度汇总、分层展开等分析交互；其指标汇总、快照采集、历史留存和重启恢复约定放在 `references/data-and-runtime.md`，按任务选读，不再单独安装另一个工程 skill。
 
 ## 跨服务器
 
@@ -50,5 +52,8 @@ scp -r ~/.agents/skills/personal-ui-taste USER@HOST:~/.agents/skills/
 - [patterns.md](patterns.md)：S01 的图表、浮层、筛选、状态时间轴、响应式模式和踩坑。
 - [evolution.md](evolution.md)：按场景增删改查、处理冲突、记录证据与版本。
 - [scenarios/preview-workbench.md](scenarios/preview-workbench.md)：S02 的主题配对、字体、矩形面板、按钮、预览卡片与稀疏状态。
+- [scenarios/research-charts.md](scenarios/research-charts.md)：S03 的数据形态、曲线、比较维度和参考线。
+- [scenarios/analytical-workbench.md](scenarios/analytical-workbench.md)：S04 的关系问题、联合排行、维度汇总、分层展开和语义筛选。
+- [references/data-and-runtime.md](references/data-and-runtime.md)：分析界面的指标合并、快照采集、时间/留存边界和运行恢复约定，按任务选读。
 
 不需要提前设计所有未来场景：明确反馈 → 当前场景落地 → 认可后沉淀 → 在下一项目复用。

@@ -1,20 +1,23 @@
 ---
 name: personal-ui-taste
-description: "个人前端审美与持续演化的 UI 品味指南。Use when designing, building, polishing or reviewing this user's frontend UI, dashboards, charts, forms or admin panels, when asked to follow 我的品味/个人审美, or to remember an approved visual preference. Applies confirmed preferences, solves known interaction pitfalls, and incorporates explicit feedback across projects. Not for backend-only work."
+description: "个人前端审美、功能驱动的信息组织与持续演化的 UI 设计指南。Use when designing, building, polishing or reviewing this user's frontend UI, dashboards, charts, forms or admin panels; choosing task-fit interactions such as joint rankings, rollups and drill-down; following 我的品味/个人审美; or recording approved feedback. Applies scoped preferences and interaction patterns across projects. Not for backend-only work."
 metadata:
-  version: "1.12.1"
-  updated: "2026-09-20"
+  version: "1.14.0"
+  updated: "2026-09-27"
 ---
 
-# Personal UI Taste · 个人前端品味
+# Personal UI Taste · 个人前端品味与交互设计
 
 你为同一位用户持续设计产品。这是其经多轮实际界面反馈确认的偏好，不是通用审美排行榜。
 **先采用已确认品味做出可用界面，再根据具体反馈改进；不要反复询问已经明确的风格。**
+
+品味也包含“信息怎样组织、操作怎样贴合目的”。先让界面回答用户的问题，再决定外观；不只在做完功能后补一层主题。
 
 ## 使用与阅读
 
 - 每次先读本文件：它是通用偏好与场景索引的入口，具体场景只加载对应的规则。
 - 涉及多系列图表或 tooltip 时，必读 [patterns.md](patterns.md) §1 的焦点联动与验收要求；筛选、状态历史、响应式等按需读对应章节。
+- 涉及谁使用了什么资源、消耗归因、联合排行或多维排查时，读 [S04 分析排查工作台](scenarios/analytical-workbench.md)。需要处理指标汇总、快照采集、历史留存或重启恢复时，按需读 [数据与运行约定](references/data-and-runtime.md)。
 - 用户给出新审美反馈、认可新方案或要求记住时，读 [evolution.md](evolution.md)，更新实际加载的这份 skill。
 - 安装、显式调用、跨服务器迁移见 [README.md](README.md)。所有设计知识随目录携带。
 - 当前任务的明确要求优先于默认品味；品牌要求、可访问性与本地项目约束需要同时满足。
@@ -34,8 +37,23 @@ metadata:
 | 信息被移到图下，要低头找，失去悬浮查看的直觉 | patterns.md §2.1：恢复目标附近浮层，优先扩大画布、自动避让和限高滚动 |
 | 最右侧信息框被挤窄、名称折行、超出边界 | patterns.md §2：自然宽度与定位翻转 |
 | 筛选要反复滚到页面顶部 | patterns.md §3：筛选就近 |
+| 分别有对象/资源/服务排行，仍找不到谁通过什么做了什么 | S04 §1–§2：由关系问题推导联合排行与组合明细 |
+| 想合并某个区别，又想逐层展开找原因 | S04 §3：维度汇总与折叠下钻的不同语义 |
+| 状态/动作又出现在资源列表，筛选互相矛盾 | S04 §4：语义去重与依赖筛选 |
+| 展开或翻页后小计对不上，返回后条件丢失 | S04 §5–§6：完整小计、状态连续性与排查路径验收 |
+| 汇总比例、峰值、去重数或直接相加后对不上 | [数据与运行约定](references/data-and-runtime.md) §1：指标合并条件 |
+| 快照轮询、缺测、滚动窗口、重启后的历史数字不可信 | 数据与运行约定 §2–§3：采集差分、时间边界与质量状态 |
+| 页面已好，但历史留存、进程重启或升级恢复没验证 | 数据与运行约定 §4–§5：持久化和运行方式 |
 
-## 当前确认的审美
+## 先确定界面要帮助完成什么
+
+1. 从用户的目标写出一条“比较什么 → 如何定位 → 查看什么证据”的操作路径。
+2. 看数据是否包含所需关系；多个独立总计不等于一张联合明细。
+3. 按任务选择表格、分组树、趋势或状态，读取适用场景。不要因叫dashboard就先堆总量卡片和图表。
+4. 将筛选、汇总、折叠和图例显隐区分；控件名称与实际效果一致。
+5. 用一条实际问题完成整个操作，再检查视觉、键盘和窄屏表现。
+
+## 当前确认的设计偏好
 
 | ID | 范围 | 用户喜欢 | 用户不喜欢 |
 | --- | --- | --- | --- |
@@ -50,6 +68,7 @@ metadata:
 | T09 | 预览型工作台、卡片与主题 | 冷灰蓝画布、白色面板、蓝紫强调；柔和细边框的大圆角矩形；比例字体、克制按钮与轻浮层，见 S02 | 把内容卡片一律压成密集表格；大矩形做成胶囊；重描边/重阴影 |
 | T10 | 每日时间点选择 | 明确的 24 小时制 `00–23`；新增时间分钟默认 `00`，允许主动选其他分钟 | AM/PM 切换；空值弹出后分钟跟随当前时间；默认值在保存时被误添为时间点 |
 | T11 | 研究指标与曲线看板 | 已认可左侧筛选栏与顶部服务器切换栏；图表偏好明亮的蓝紫青绿、清楚折线；折线为指标对比主视图；视觉验收独立于功能验收 | 拒绝层层卡片与胶囊堆叠的“塑料感”，也拒绝灰暗、沉重的图表配色；拒绝多 run 指标的横排柱状图；不能将拒绝容器风格误解为拒绝亮色图表 |
+| T12 | 多维分析与排查工作台 | 从要追查的关系组织联合排行；需要时同时支持维度合并与分层折叠，继承筛选查看组合趋势/明细 | 各维度单独排行却无法关联；只是隐藏列而未汇总；动作与资源混在同一筛选；不按功能推导界面 |
 
 ## 场景索引
 
@@ -58,6 +77,7 @@ metadata:
 | S01 | 浅色信息密集界面：表单、列表、表格、数据图表、状态时间轴 | 本文件视觉基线 + [patterns.md](patterns.md) | 按所需组件选读，不要求同时包含所有组件 |
 | S02 | 冷灰蓝预览型工作台：主题、卡片画廊、稀疏可跳转状态 | [preview-workbench.md](scenarios/preview-workbench.md) | 主题与基础元素可跨场景复用；卡片/状态块密度按内容选择，与 S01 共存 |
 | S03 | 科研指标绘图：数据形态→图形映射、族叠加 vs 分页互斥、参考线 | [research-charts.md](scenarios/research-charts.md) | 实验指标看板、训练曲线、方法对比图；与 S01 图表规则配套使用 |
+| S04 | 分析排查工作台：关系问题→联合排行→汇总/分层→明细 | [analytical-workbench.md](scenarios/analytical-workbench.md)；数据与运行约定按 S04 §6 选读 | 用量、资源、成本、运行归因等多维排查；非所有看板的固定模板 |
 
 新场景经过实际设计与反馈后，增量添加索引项。内容少时在现有模式中补一个小节；出现独立风格或较多规则时再建立 `scenarios/<scene-name>.md`，记录适用范围、确认偏好、反例和交互要点，并在此链接。不要提前创建空场景，也不要把新场景规则自动推广为全局默认。
 
@@ -106,7 +126,7 @@ metadata:
 
 ## 工作方式
 
-1. **理解现状**：读实际页面、共享样式、专用样式和交互流。列出这次涉及的页面，检查 inherited font、命中层和浮层定位等真正原因。
+1. **理解现状**：先明确用户要完成的判断与操作，再读实际页面、数据关系、共享样式和交互流。按问题查信息组织、筛选含义、inherited font、命中层或浮层定位，不只检查外观。
 2. **最小落地**：复用既有技术栈、原生控件、CSS/SVG 或已安装图表库。只为外观不另建组件体系、不换框架、不新增依赖。
 3. **完整体验**：加载/空数据/失败/禁用/选中/hover/focus/小屏一起考虑；图形显示与真实数据含义分开。
 4. **浏览器实证**：使用可用浏览器检查真实页面，优先看用户最常用路径，例如最右侧最新柱子、长名称、菜单贴边、筛选后返回原位置。检查控制台与布局，而不只看代码能否编译。
