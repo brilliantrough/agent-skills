@@ -1139,7 +1139,7 @@ fi
 # skill 分两组:base=全机型默认;accel=算力服务器可选(深度学习平台初始化,个人工作站不需要)。
 # 名单与仓库 skills/ 目录的同步由 selfcheck 检查;新增 base/accel skill 要同步改这里。
 # 策略:本仓库 skill 只装一次——已存在($HOME/.agents/skills/<名>)即不重复下载。
-#   原因:add -y 会无条件覆盖本地已被 agent 演化过的同名 skill(如 musa-* 落盘后的本机版);
+#   原因:add -y 会无条件覆盖本地已被 agent 特化过的三件套(accel-platform-install 等的正文);
 #   服务器配置完成后即冻结,仓库模板后续更新不追。刷新属显式动作:npx skills add brilliantrough/agent-skills --skill <名> -g -y(接受覆盖,先回流本地演化)。
 # 第三方源 skill(mattpocock/drawio/find-skills 等)照旧 update,不受影响。
 BASE_SKILLS="code-review diagnosing-bugs domain-modeling editable-vector-slides exp-batch exp-campaign exp-discuss exp-probe grilling load-mem migrate-mem personal-ui-taste plan-brief quick-do readable-docs save-mem steady-do tdd writing-skill"
