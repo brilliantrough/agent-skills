@@ -28,7 +28,7 @@
 
 | 项 | 内容 |
 | --- | --- |
-| 检测 | `npu-smi info`；`ls /dev/davinci*`；`lspci` Huawei |
+| 检测 | `npu-smi info`；`ls /dev/davinci*`；`lspci` Huawei；多为主机 aarch64（`uname -m`，aarch64 上部分生态包无预编译 wheel） |
 | 驱动/工具 | 驱动+固件（root）→ CANN Toolkit（版本与驱动强绑定，官方兼容矩阵为准）(未验证) |
 | PyTorch | `torch_npu`（PyPI 有发布，或厂商下载页匹配 CANN 版本的 wheel）；torch 版本须与 torch_npu 匹配 (未验证) |
 | triton/tilelang | 平台自有编译栈，上游 triton 不适用 (未验证) |

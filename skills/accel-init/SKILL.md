@@ -23,21 +23,35 @@ lsmod | grep -E 'nvidia|mthreads|davinci|amdgpu'; ls /usr/local/ | grep -iE 'cud
 对照 [platforms.md](platforms.md) 的注册表：平台、检测命令、官方入口、已知生态结论。
 探测不清或多种加速器并存 → 问用户，不猜。
 
+**环境边界三查**（同样影响后续所有阶段）：
+
+```bash
+uname -m                      # aarch64（昇腾等）wheel 生态窄，部分包无预编译只能源编
+ls /.dockerenv 2>/dev/null; grep -qE 'docker|kubepods' /proc/1/cgroup 2>/dev/null && echo 容器内
+# 容器内 lspci 不可靠，以 /dev 结点 + smi 为准；官方容器路线（nvidia-container/厂商镜像）作为选项提给用户
+curl -sm3 -o /dev/null -w '%{http_code}\n' https://pypi.tuna.tsinghua.edu.cn/simple/ https://hf-mirror.com/ 2>/dev/null
+```
+
+网络探测不可达（科研服务器常态）→ 源配置全部改走可达路径：访谈时问内网镜像/离线包/代理，不要照抄清华源与 hf-mirror。
+
 **现状分级**（决定后面阶段的范围）：驱动+SDK 全有 / 只有驱动 / 裸机。共享集群通常是第一种。
 
 ## 阶段 1：访谈（只问影响行为的）
 
 - root/sudo 有无 → 决定驱动层装不装（无 root 且无驱动 → 停，交回用户找管理员）。
 - 装到哪层：最小 torch 栈，还是 +transformers/vllm/分布式。
+- 项目对 Python 版本有无要求（决定 wheel 矩阵选哪一列 ABI）。
 - 独占还是共享机 → 命名规范、缓存位置、测试卡位（别人占用的卡不测）。
 - SDK/版本有无指定（无指定则调研后给推荐行让用户拍板）。
+- 外网不可达时：内网镜像地址、离线包在哪、代理怎么用（三选一至少有一样）。
 
 ## 阶段 2：Python 双栈底座（与平台无关，先搭）
 
 约定：**miniconda 与 uv 都装好，用户爱用哪个用哪个**；三处默认源配清华：
 
-- miniconda 安装到 `{{用户认可的目录}}`（共享机放大容量盘；装官方版，安装包可走清华 anaconda 镜像）。
-- uv：官方安装脚本或 pip 装，任一可用方式。
+- miniconda 安装到 `{{用户认可的目录}}`（共享机放大容量盘；安装包走清华镜像 `https://mirrors.tuna.tsinghua.edu.cn/anaconda/miniconda/`）。
+- uv：官方安装脚本或 pip 装，任一可用方式（无外网时 `pip install uv` 也可从内网/镜像源拿到）。
+- 缓存放大盘：pip/uv/HF 缓存目录指向大容量盘（软链或配置），别塞爆 /home 小盘。
 - 源配置三处：pip（`pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple`）、conda（`~/.condarc` 清华 channels）、uv（`UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple`，写进 `~/.config/uv/uv.toml` 或 shell 配置）。
 - apt 源**只提醒不改**：告知清华/中科大镜像地址与手动换法，是否换由用户决定（发行版格式差异大，改错会搞坏 apt）。
 - 底座事实全部记入宿主机层（阶段 5 落盘）。
@@ -61,6 +75,8 @@ lsmod | grep -E 'nvidia|mthreads|davinci|amdgpu'; ls /usr/local/ | grep -iE 'cud
 ## 阶段 4：执行与验证阶梯
 
 - 用户态优先；root 操作（驱动、内核模块、系统包）逐条列出并取得明确确认再动。
+- **动手前磁盘预检**：`df -h` 目标盘（torch 栈 + SDK + 缓存动辄几十 GB）；不够先清理或换盘，再开装。
+- **长下载/长编译后台化**：大 wheel、SDK 离线包、源码编译放 `nohup`/后台 + 轮询日志，不要阻塞在单次命令里。
 - 验证阶梯逐级走，每级通过再上一级：
   L1 工具链/版本查询 → L2 ldd 无缺库 → L3 单设备可见+小 matmul+autocast+synchronize → L4 单进程通信库 → L5 双进程 torchrun all-reduce → L6 短真实 workload。
 - 任何一级失败：回阶段 3 重查兼容集，不重复硬装。
