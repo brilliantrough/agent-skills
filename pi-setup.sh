@@ -17,6 +17,8 @@
 #      pi-lens / @juicesharp/rpiv-ask-user-question / pi-autoname@0.6.8 / @cortexkit/pi-magic-context /
 #      git:github.com/brilliantrough/agent-skills(本仓库自身;含个性化 UI、later、任务耗时扩展、
 #      claude-mem 桥扩展、one-dark 主题——旧版散装部署文件会自动清理);
+#      本仓库包已装时另外问一次"只更新这一个包"(默认 Y):pi install 对已登记条目只说"已有",
+#      不拉新版,UI/扩展的更新靠这次 pi update <source>(范围小于步骤 2 的 --all,不碰 magic-context)
 #      另外装 context-mode fork(产物走 GitHub release:下载 launch 包到 ~/.pi/agent/vendor/context-mode
 #      再 pi install;开发机用 bash context-mode/setup.sh --publish 发新版。
 #      检测到上游 npm:context-mode 或旧的 clone 路径条目会提示卸载——它们与 magic-context 抢 ctx_search/重复注册)
@@ -676,6 +678,13 @@ PYEOF
   fi
   # 本仓库自身作为 Pi 包:UI + claude-mem + later + message-timing + one-dark
   pi_install git:github.com/brilliantrough/agent-skills
+  # pi_install 对已登记包只说"已有",不会拉新版 —— 本仓库扩展(UI/later/任务耗时/主题)的更新靠这里。
+  # 只更新这一个包:不像 pi update --all 会连带升 magic-context(与 opencode 共享 context.db),
+  # 所以能默认 Y —— 服务器上重跑脚本即拿到最新 UI。
+  if [ -n "$repo_head_before" ] && ask "更新本仓库 Pi 扩展(UI/later/任务耗时/主题,只动这一个包)?" Y; then
+    "$PI_BIN" update git:github.com/brilliantrough/agent-skills --no-approve < /dev/null \
+      || echo "WARN: 本仓库 Pi 扩展更新失败(可稍后手动重试)" >&2
+  fi
   report_repo_pi_pkg
 
   # ---- 3.1 magic-context:共享 context.db 的版本守卫(不一致时 Pi 主回合会被拒绝) ----

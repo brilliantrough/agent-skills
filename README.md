@@ -465,7 +465,7 @@ npx skills update -g                                     # 刷新 lock 里登记
 
 | 插件 | 更新方式 |
 |---|---|
-| 本仓库 Pi 扩展/主题(git 包)、npm 类 Pi 包 | 脚本步骤 2 的 `pi update --all`（`pi-autoname@0.6.8` 这类钉版被 pi 跳过） |
+| 本仓库 Pi 扩展/主题(git 包) | 脚本步骤 3 的 `pi update git:github.com/brilliantrough/agent-skills`(已装时询问,默认 Y——`pi install` 对已登记条目只说"已有"不拉新版);步骤 2 的 `pi update --all` 也覆盖它但默认 N(`pi-autoname@0.6.8` 这类钉版被 pi 跳过) |
 | context-mode fork(Pi/opencode 两侧)、later、notify | 每次拉最新 release/raw 与已装内容比对：不一致才替换，原文件存 `.bak-YYYYmmddHHMMSS` |
 | claude-mem wrapper | 脚本内生成，内容不同才询问替换 |
 | opencode 侧 magic-context / ponytail | 脚本只保证配置条目存在，升级由 opencode 自己的包缓存决定 |
