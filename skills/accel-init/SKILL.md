@@ -44,6 +44,8 @@ lsmod | grep -E 'nvidia|mthreads|davinci|amdgpu'; ls /usr/local/ | grep -iE 'cud
 
 已有 conda/uv/pip 配置的，逐项查实况后只补缺，不覆盖既有配置（尤其已有私密/内网源时保留本机值）。
 
+**数据底座**（算力服务器必做，与平台无关）：按 [model-datasets](../model-datasets/SKILL.md) skill 落地——/data 大盘准备（按现状决策：直接用/软链/初始化 LVM+fstab）、`/data/models|datasets|hub` 目录、uv tool 装 `hf`/`modelscope` CLI、镜像环境变量（HF_ENDPOINT=hf-mirror、HF_HOME、HF_HUB_DISABLE_XET=1）、`dl` 脚本与验证清单（下个 tiny 模型试通后清理）。/data 初始化含分区/格式化，动手前先向用户确认盘是空的。
+
 ## 阶段 3：平台调研
 
 按 platforms.md 注册表的入口逐项查证（web 可用则查上游文档/发布矩阵/issue；不可用则让用户提供资料，不臆断）：

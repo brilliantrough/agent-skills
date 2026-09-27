@@ -1,18 +1,38 @@
 # `<host>-environment` 宿主机层模板
 
-> 使用：复制本骨架到**本机** `~/.agents/skills/local-python-environment/SKILL.md`（或带主机名的名字）。只装本机事实，永不回流仓库。参考实例：服务器上的 local-python-environment 与 musa-local-server（factbook 式记录）。
+> 使用：复制本骨架到**本机** `~/.agents/skills/local-python-environment/SKILL.md`（或带主机名的名字，如昇腾机上常见的 `system-profile` 式档案）。只装本机事实，永不回流仓库。参考实例：服务器上的 local-python-environment / musa-local-server / system-profile（昇腾机）。
 
 ---
 name: local-python-environment
-description: Use ONLY on this host when creating, repairing, inspecting, or naming Conda/uv Python environments; documents 本机 Python 底座安装位置、shell 行为、共享环境位置、缓存与命名规范，以及已装加速器平台栈的事实记录。
+description: Use ONLY on this host when creating, repairing, inspecting, or naming Conda/uv Python environments; documents 本机硬件与存储布局、Python 底座安装位置、shell 行为、共享环境位置、缓存与命名规范，以及已装加速器平台栈的事实记录。触发词：{{模型放哪、大文件放哪、python 环境、装依赖、本机是什么硬件}}。
 ---
 
-# Local Python Environment Policy（{{主机标识}}）
+# Local Environment Profile（{{主机标识}}）
 
-## Python 底座事实
+## 硬件与系统
 
-- Conda 安装：{{路径/版本}}；激活方式 `source {{...}}/etc/profile.d/conda.sh`；`auto_activate_base` 当前值 {{}}。
-- uv 安装：{{路径/版本}}；`UV_DEFAULT_INDEX` 配置在哪。
+| 项 | 值 |
+| --- | --- |
+| 主机 | {{主机名/架构/发行版}} |
+| 加速器 | {{数量×型号、驱动/固件版本、查看命令}} |
+| 厂商 SDK | {{版本、安装路径}} |
+| 根盘 | {{设备→挂载点，只放系统，别堆数据}} |
+| 数据卷 | {{LVM/直挂、容量、fstab 状态；扩容流程（pvcreate→vgextend→lvextend→resize2fs）与禁止事项（如别对已组卷的裸盘 fdisk/mkfs）}} |
+
+## 目录与存储规则
+
+{{大文件（模型/数据集）的统一入口与规则指针（通用约定见 model-datasets skill）；本机特有的目录/软链/挂载事实}}
+
+## Python 底座事实（多套环境别搞混）
+
+| 环境 | 路径 | 用途 | 包管理 |
+| --- | --- | --- | --- |
+| {{厂商 venv（如 CANN venv311）}} | {{}} | {{厂商库专用}} | {{禁止 pip install/升级（版本与 SDK 绑定）；需要厂商库时用它的 venv，而不是把厂商库装进项目}} |
+| 系统 | {{}} | 系统工具 | apt |
+| {{conda / uv 托管}} | {{}} | 按项目 | {{}} |
+
+- conda 安装：{{路径/版本}}；激活方式；`auto_activate_base` 当前值。
+- uv 安装：{{路径/版本}}；镜像源配置位置（`~/.config/uv/uv.toml`）。
 - 镜像源现状（查实况，不假设）：
 
 ```bash
