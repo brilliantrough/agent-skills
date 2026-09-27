@@ -25,6 +25,7 @@ description: 公共知识库：各大加速计算平台（CUDA/MUSA/Ascend CANN/
 | 框架 | CUDA | ROCm | Ascend | MUSA | PPU |
 | --- | --- | --- | --- | --- | --- |
 | triton | 上游原生 | 上游原生 | **triton-ascend**（fork；**与上游 triton 同名互斥**，见 Ascend 节） | **Triton-MUSA**（fork，已至 3.6；PyPI 与上游同名，装错不报错） | 未验证 |
+| transformers | 原生 | 原生 | 上游支持（torch_npu） | 上游声明支持（torch_musa README，但融合 kernel/可选扩展不保证） | 未验证 |
 | tilelang | 上游原生 | 上游(HIP) | **tilelang-ascend**（tile-ai org） | **tilelang_musa**（厂商 index） | 未验证 |
 | vllm | 上游原生 | 上游原生 | **vllm-ascend**（vllm-project org 官方插件，版本号对齐上游 vllm；**钉死 torch/transformers 全链**，见 Ascend 节） | **vLLM-MUSA**（官方后端，开源 fork） | 未验证 |
 | sglang | 上游原生 | 未验证 | 官方支持（2025-08 起，`--device npu --attention-backend ascend`，sgl-kernel-npu 仓库） | 已合入主线（2026-05，源码装 + sgl-kernel） | 未验证 |
@@ -38,11 +39,14 @@ description: 公共知识库：各大加速计算平台（CUDA/MUSA/Ascend CANN/
 - 驱动版本 ≥ wheel 的 CUDA runtime 版本即可（向前兼容）；nvidia-smi 右上角就是驱动支持的 CUDA 上限。
 - 容器路线最省心：nvidia-container-toolkit + 官方 NGC 镜像。
 
-### MUSA
-- MUSA SDK 5.1.0 对标 CUDA 12.8（2026-05 发布）；安装=官方 apt 仓库/离线包，用户态版本化目录。
-- torch+torch_musa 从 `dl.mthreads.com` 厂商 index 装，本地版本带 `+musa` 后缀。
+### MUSA（含 2026-09 S5000/MUSA 5.2 实机实例沉淀）
+- SDK：5.1.0 对标 CUDA 12.8（2026-05 发布）；安装＝官方 apt 仓库/离线包，用户态版本化目录；5.2 包族＝musa-toolkit-5-2 / musa-musart-5-2 / libmudnn3-musa-5-2 / libmthreads-compute，**MCCL 按卡型分包**（S5000 用 mccl-s5000 非 S4000 版）；纯用户态装法不碰 mthreads-driver/dkms。
+- 厂商 index 精确 URL：`https://dl.mthreads.com/repo/api/pypi/pypi/simple`；源里混着大量普通镜像包，**在厂商源里 ≠ 必须从这装**。
+- 包族路由（哪些必须厂商源）：torch / torch_musa / torchvision / torchaudio / triton（即 Triton-MUSA，包名就叫 triton）/ tilelang_musa / mate / vllm_musa / flash_attn_3 / flash_mla / deep-gemm / sageattention → 厂商源；transformers / accelerate / datasets 等设备无关包 → 公共源；pytorch3d、pytorch_sparse/scatter/cluster、部分 Lightning 分支 → 摩尔 fork，按需装。
+- 版本铁律：torch ↔ torch_musa **精确同版**；wheel 标 `musa5.2.0` ↔ 用户态 5.2 栈；cp310/cp312 ABI 匹配。已验证示例行（2026-09 查）：torchvision 0.24.1.post1+musa5.2.0 / torchaudio 2.9.1+musa5.2.0 / triton 3.6.0 / numpy 1.26.4。
 - 坑：`pip install torch` 会用公共 CUDA 版顶掉 `+musa` 版（静默失败，重查 `pip list | grep torch`）。
-- CUDA 兼容层：torchada（`import torchada` 让 99% CUDA 代码跑 MUSA）+ MATE 算子库（FlashAttention/FlashMLA/DeepGEMM 接口）。
+- 代码面：分布式 `backend="mccl"`；muDNN 开关在 `torch.backends.mudnn`；CUDA 分配器 env（PYTORCH_CUDA_ALLOC_CONF 等）对 MUSA 进程无效；工具：mthreads-gmi（smi）/ musaInfo / musa_version_query / mccl_version。
+- CUDA 兼容层：torchada（`import torchada` 让 99% CUDA 代码跑 MUSA，nccl 可映射 MCCL）+ MATE 算子库（FlashAttention/FlashMLA/DeepGEMM 接口）。完整安装/验证流程与 CUDA→MUSA API 映射表在 accel 三件套的 MUSA 实例里。
 
 ### Ascend CANN（2026-09-28 实机验证：910B2×8 / CANN 9.0.0 / aarch64 / py3.10，L1–L6 全过）
 - 版本强绑定链（已验证行）：驱动 25.2.1/固件 7.7.0.9.220 ↔ CANN 9.0.0 ↔ torch 2.10.0 ↔ torch_npu 2.10.0.post4 ↔ torchvision 0.25.0 / torchaudio 2.10.0 ↔ triton-ascend 3.2.2 ↔ vllm 0.23.0 + vllm-ascend 0.23.x ↔ transformers 5.5.4。配套表查法：`curl -s https://raw.githubusercontent.com/Ascend/pytorch/master/README.md | grep -A2 CANN`；vllm-ascend 各版钉子查 `pypi.org/pypi/vllm-ascend/<ver>/json` 的 requires_dist。
