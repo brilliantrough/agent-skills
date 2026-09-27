@@ -949,7 +949,7 @@ if [ "$PI_OK" -eq 1 ]; then
 fi
 
 # ---- 7. skills 本体 ----
-# skill 分两组:base=全机型默认;accel=算力服务器可选(深度学习平台初始化,个人工作站不需要)。
+# skill 分三类:base=个人品味/流程类,全机型默认;accel=模板类(算力平台初始化+落盘规则+脱敏审计),可选、缺才装(本机特化不覆盖);kb=公共知识类(跨平台速查知识库),可选、每次覆盖刷新。
 # 名单与仓库 skills/ 目录的同步由 selfcheck 检查;新增 base/accel skill 要同步改这里。
 # 策略:本仓库 skill 只装一次——已存在($HOME/.agents/skills/<名>)即不重复下载。
 #   原因:add -y 会无条件覆盖本地已被 agent 特化过的三件套(accel-platform-install 等的正文);
@@ -957,22 +957,32 @@ fi
 # 第三方源 skill(mattpocock/drawio/find-skills 等)照旧 update,不受影响。
 BASE_SKILLS="code-review diagnosing-bugs domain-modeling editable-vector-slides exp-batch exp-campaign exp-discuss exp-probe grilling load-mem migrate-mem personal-ui-taste plan-brief quick-do readable-docs save-mem steady-do tdd writing-skill"
 ACCEL_SKILLS="accel-init accel-skill-template model-datasets accel-platform-install accel-pytorch-python accel-pytorch-code-porting platform-environment-skill-audit"
+KNOWLEDGE_SKILLS="kb-accel-sdk"
 if ! command -v npx >/dev/null 2>&1; then
   echo "跳过 skills 安装(需要 npx:先装 Node 再重跑)"
 else
-  if ask "安装全部 $(( $(echo $BASE_SKILLS $ACCEL_SKILLS | wc -w) )) 个 skill(基础 $(echo $BASE_SKILLS | wc -w) + 算力平台 $(echo $ACCEL_SKILLS | wc -w))?选 N 只装默认基础组(个人工作站选这个);pi 原生读 ~/.agents/skills" N; then
-    WANT_SKILLS="$BASE_SKILLS $ACCEL_SKILLS"; WANT_LABEL="全部"
+  if ask "安装全部 $(( $(echo $BASE_SKILLS $ACCEL_SKILLS $KNOWLEDGE_SKILLS | wc -w) )) 个 skill(基础 $(echo $BASE_SKILLS | wc -w) + 算力平台模板 $(echo $ACCEL_SKILLS | wc -w) + 知识库 $(echo $KNOWLEDGE_SKILLS | wc -w))?选 N 只装默认基础组(个人工作站选这个);pi 原生读 ~/.agents/skills" N; then
+    # 模板类:缺才装(本机特化后的正文不被覆盖);知识库类:每次覆盖刷新(纯公共知识,无本机改动)
+    MISSING_SKILLS=""
+    for _s in $BASE_SKILLS $ACCEL_SKILLS; do [ -d "$HOME/.agents/skills/$_s" ] || MISSING_SKILLS="$MISSING_SKILLS $_s"; done
+    if [ -n "$MISSING_SKILLS" ]; then
+      echo "== 安装缺失的 skill:$MISSING_SKILLS(已存在的不动,不覆盖本机特化)=="
+      # || true:PromptScript/Eve 等无关 agent 不支持全局安装会报错退出,但其余目标已装好
+      npx -y skills@latest add brilliantrough/agent-skills --skill $MISSING_SKILLS -g -y || true
+    else
+      echo "== 基础+模板组已全部就位,跳过(不覆盖本机特化;刷新仓库版属显式动作)=="
+    fi
+    echo "== 刷新知识库组(允许覆盖):$KNOWLEDGE_SKILLS =="
+    npx -y skills@latest add brilliantrough/agent-skills --skill $KNOWLEDGE_SKILLS -g -y || true
   else
-    WANT_SKILLS="$BASE_SKILLS"; WANT_LABEL="默认基础组"
-  fi
-  MISSING_SKILLS=""
-  for _s in $WANT_SKILLS; do [ -d "$HOME/.agents/skills/$_s" ] || MISSING_SKILLS="$MISSING_SKILLS $_s"; done
-  if [ -n "$MISSING_SKILLS" ]; then
-    echo "== 安装${WANT_LABEL}组缺失的 skill:$MISSING_SKILLS(已存在的不动,不覆盖本机演化)=="
-    # || true:PromptScript/Eve 等无关 agent 不支持全局安装会报错退出,但其余目标已装好
-    npx -y skills@latest add brilliantrough/agent-skills --skill $MISSING_SKILLS -g -y || true
-  else
-    echo "== skills(${WANT_LABEL})已全部就位,跳过下载(不覆盖本机演化;刷新仓库版属显式动作)=="
+    MISSING_SKILLS=""
+    for _s in $BASE_SKILLS; do [ -d "$HOME/.agents/skills/$_s" ] || MISSING_SKILLS="$MISSING_SKILLS $_s"; done
+    if [ -n "$MISSING_SKILLS" ]; then
+      echo "== 安装默认基础组缺失的 skill:$MISSING_SKILLS =="
+      npx -y skills@latest add brilliantrough/agent-skills --skill $MISSING_SKILLS -g -y || true
+    else
+      echo "== 基础组已全部就位,跳过 =="
+    fi
   fi
   # 第三方源例行更新:只更新非本仓库的条目(本仓库的只装一次,不自动刷新)
   THIRD_SKILLS=$(python3 -c '
