@@ -11,14 +11,14 @@
 #   0. 代理环境提醒(大小写都查;未设则探测直连,透明代理不拦;都不通才要求确认)
 #   1. 依赖检查(全部前置):curl/git(缺失即退出)、python3(缺则由 uv 提供自管理 3.12)、npx(缺 → 征得同意装 fnm + Node LTS)、
 #      bun(缺 → 征得同意装,claude-mem MCP server 与 context-mode 构建都需要)、uv(可选,.sdoc 校验用)
-#   2. pi 本体:未装 → 官方 install.sh(下载到文件再执行);已装 → 询问 pi update --all(默认 N:
-#      会连带升级 magic-context,与 opencode 侧共享 context.db,需用户手动同步两边版本)
+#   2. pi 本体与已装包更新:已装 → 默认 Y,逐包 pi update(不用 --all,它会连带升 magic-context)
+#      唯独不碰 magic-context:它与 opencode 侧共享 context.db,升级要迁移 DB、会打断正在跑的
+#      进程,所以是独立一问、默认 N(步骤 3.1),要升请放到两边都没人使用的时段
 #   3. pi 包(pi install,幂等):pi-mcp-adapter / @dietrichgebert/ponytail / pi-subagents-j0k3r /
 #      pi-lens / @juicesharp/rpiv-ask-user-question / pi-autoname@0.6.8 / @cortexkit/pi-magic-context /
 #      git:github.com/brilliantrough/agent-skills(本仓库自身;含个性化 UI、later、任务耗时扩展、
-#      claude-mem 桥扩展、one-dark 主题——旧版散装部署文件会自动清理);
-#      本仓库包已装时另外问一次"只更新这一个包"(默认 Y):pi install 对已登记条目只说"已有",
-#      不拉新版,UI/扩展的更新靠这次 pi update <source>(范围小于步骤 2 的 --all,不碰 magic-context)
+#      claude-mem 桥扩展、one-dark 主题——旧版散装部署文件会自动清理;pi install 对已登记
+#      条目只说"已有",这些包的新版靠步骤 2 的逐个 pi update 拉)
 #      另外装 context-mode fork(产物走 GitHub release:下载 launch 包到 ~/.pi/agent/vendor/context-mode
 #      再 pi install;开发机用 bash context-mode/setup.sh --publish 发新版。
 #      检测到上游 npm:context-mode 或旧的 clone 路径条目会提示卸载——它们与 magic-context 抢 ctx_search/重复注册)
@@ -633,12 +633,35 @@ report_repo_pi_pkg() {
 if [ -x "$PI_BIN" ]; then
   echo "pi 就绪: $("$PI_BIN" --version 2>/dev/null || echo 未知版本) ($PI_BIN)"
   PI_OK=1
-  # 默认不更新:pi update --all 会连带升级 pi-magic-context,而它与 opencode 缓存的
-  # magic-context 共享 context.db,两边版本不同步会被 fail-closed;要更新时输 y,
-  # 并由用户手动同步两边版本。
-  if ask "更新 pi 本体与已装包(pi update --all --no-approve,含 magic-context,需手动同步两边版本)?" N; then
-    "$PI_BIN" update --all --no-approve < /dev/null || echo "WARN: pi update 失败(可稍后手动重试)" >&2
-    report_repo_pi_pkg
+  # 已登记包的更新清单:magic-context 一律排除(它与 opencode 侧共享 context.db,升级只能
+  # 在两边都没人用的时段单独做,见步骤 3.1 的独立询问);本地路径包(context-mode fork)
+  # 走步骤 3.2 的 release 比对,而 pi update 也不认这类 spec。
+  pkg_filter() { # $1=1 只列 magic-context;$1=0 列其余可 update 的包
+    python3 - "$SETTINGS" "$1" <<'PYEOF'
+import json, sys
+try:
+    pkgs = json.load(open(sys.argv[1], encoding="utf-8")).get("packages") or []
+except Exception:
+    pkgs = []
+only_mc = sys.argv[2] == "1"
+for p in pkgs:
+    s = str(p)
+    if ("magic-context" in s) != only_mc:
+        continue
+    if not only_mc and not s.startswith(("npm:", "git:")):
+        continue
+    print(s)
+PYEOF
+  }
+  # 默认 Y:除 magic-context 外逐个 pi update(不再用 --all —— 它会把 magic-context 一起拖下水)
+  if ask "更新 pi 本体与已装包(逐个 pi update,不含 magic-context)?" Y; then
+    "$PI_BIN" update pi --no-approve < /dev/null || echo "WARN: pi 本体更新失败(可稍后手动重试)" >&2
+    while IFS= read -r spec; do
+      [ -n "$spec" ] || continue
+      "$PI_BIN" update "$spec" --no-approve < /dev/null || echo "WARN: $spec 更新失败" >&2
+    done < <(pkg_filter 0)
+    mc_left="$(pkg_filter 1)"
+    if [ -n "$mc_left" ]; then echo "已跳过 magic-context(需在步骤 3.1 单独确认): $mc_left"; fi
   fi
 else
   echo "WARN: 未找到 pi,跳过所有 Pi 相关配置(装好后重跑本脚本即可)" >&2
@@ -678,16 +701,11 @@ PYEOF
   fi
   # 本仓库自身作为 Pi 包:UI + claude-mem + later + message-timing + one-dark
   pi_install git:github.com/brilliantrough/agent-skills
-  # pi_install 对已登记包只说"已有",不会拉新版 —— 本仓库扩展(UI/later/任务耗时/主题)的更新靠这里。
-  # 只更新这一个包:不像 pi update --all 会连带升 magic-context(与 opencode 共享 context.db),
-  # 所以能默认 Y —— 服务器上重跑脚本即拿到最新 UI。
-  if [ -n "$repo_head_before" ] && ask "更新本仓库 Pi 扩展(UI/later/任务耗时/主题,只动这一个包)?" Y; then
-    "$PI_BIN" update git:github.com/brilliantrough/agent-skills --no-approve < /dev/null \
-      || echo "WARN: 本仓库 Pi 扩展更新失败(可稍后手动重试)" >&2
-  fi
   report_repo_pi_pkg
 
   # ---- 3.1 magic-context:共享 context.db 的版本守卫(不一致时 Pi 主回合会被拒绝) ----
+  # 升级后可再跑一次:重算两边版本差并重新提示
+  mc_guard() {
   mc_blocked=0
   oc_pinned=""
   if [ -f "$OC_MC_CACHE/package.json" ]; then
@@ -709,8 +727,22 @@ PYEOF
       echo ""
     fi
   fi
+  }
+  mc_guard
   if pkg_installed npm:@cortexkit/pi-magic-context; then
     echo "已有: npm:@cortexkit/pi-magic-context(magic-context)"
+    # 单独一问、默认不升:升级会迁移两边共享的 context.db,必须在 OpenCode 与 Pi 都停用、
+    # 没有会话在跑的时候做(夜里没人用的窗口),否则会打断正在使用的进程。
+    if ask "现在升级 magic-context?(会迁移与 opencode 共享的 context.db;请放到两边都没人在用的时段做,两边版本必须一起升)" N; then
+      if "$PI_BIN" update npm:@cortexkit/pi-magic-context --no-approve < /dev/null; then
+        echo "  已升 Pi 侧;opencode 侧需同步: 停掉 opencode 会话 → rm -rf \"$OC_MC_CACHE\" → 重启(会拉新版并迁移 DB)"
+        mc_guard
+      else
+        echo "WARN: magic-context 升级失败(可稍后手动重试)" >&2
+      fi
+    else
+      echo "跳过: magic-context 保持当前版本(需升级时脚本会再问一次,也可手动 pi update npm:@cortexkit/pi-magic-context)"
+    fi
     [ "$mc_blocked" -eq 1 ] && echo "  WARN: 仍存在版本不一致,重启 opencode 前 Pi 记忆功能不可用"
   elif [ "$mc_blocked" -eq 1 ]; then
     if ask "仍要现在启用 Pi 版 magic-context(重启 opencode 前 Pi 主回合会被拒绝)?" N; then

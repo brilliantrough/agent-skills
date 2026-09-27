@@ -224,7 +224,7 @@ skills 共享，更新也影响 OpenCode；claude-mem runtime 更新按官方文
 | 任务耗时 | 本仓库包的 `pi/extensions/message-timing.ts`：`agent_start` → `agent_settled` 记秒数（含工具/重试/排队后续消息）；custom entry 持久保存、不进模型上下文、不高频刷新，仅 TUI |
 | 凭据 | `~/.pi/agent/auth.json`（权限 600，内置 coding-plan provider 的 key）：模板是 `zai-coding-cn`/`kimi-coding` 占位符；字段级合并、已填 key 不覆盖、仅初始化缺失文件。内置 provider（智谱 coding plan、Kimi For Coding、qwen/xiaomi token plan、opencode-go 等）不需要写 `models.json` |
 | MCP | `~/.agents/mcp.json`（共享）：mcphub-web（远程 URL）、codegraph、claude-mem；本地命令路径部署时替换为本机 `bun`/`codegraph` 绝对路径（pi-mcp-adapter 读取）。mcphub-web 配 `directTools` 挂 5 个直连工具（tavily search/extract、firecrawl scrape/search/research_search_github，首次调用自动 lazyConnect），其余走 `mcp` 网关（`mcp({search/describe/connect})`，网关内调用名带 `mcphub-web_` 前缀） |
-| 插件 | `pi install npm:...`：pi-mcp-adapter、`@dietrichgebert/ponytail`（官方带 pi-extension）、`pi-subagents-j0k3r`、`pi-lens`（实时诊断/符号检索）、`@juicesharp/rpiv-ask-user-question`（结构化提问 `ask_user_question`——pi 核心没有，plan-brief/grilling 需要）、`@cortexkit/pi-magic-context`、`pi-autoname@0.6.8`；**本仓库自身也是 Pi 包**（`pi install git:github.com/brilliantrough/agent-skills`：个性化 UI `/ui`、claude-mem 桥、`/later`、任务耗时、one-dark 主题；旧散装文件自动清理。`pi update --all` 后脚本明确报版本变化 `本仓库 Pi 插件已更新: <旧> -> <新>(N 个提交)`） |
+| 插件 | `pi install npm:...`:pi-mcp-adapter、`@dietrichgebert/ponytail`(官方带 pi-extension)、`pi-subagents-j0k3r`、`pi-lens`(实时诊断/符号检索)、`@juicesharp/rpiv-ask-user-question`(结构化提问 `ask_user_question`--pi 核心没有,plan-brief/grilling 需要)、`@cortexkit/pi-magic-context`、`pi-autoname@0.6.8`;**本仓库自身也是 Pi 包**(`pi install git:github.com/brilliantrough/agent-skills`:个性化 UI `/ui`、claude-mem 桥、`/later`、任务耗时、one-dark 主题;旧散装文件自动清理。步骤 2 逐包更新后脚本明确报版本变化 `本仓库 Pi 插件已更新: <旧> -> <新>(N 个提交)`） |
 | context-mode fork | 上游 `context-mode` 与 `magic-context` **都注册 `ctx_search`** —— Pi 同名工具检测会让启动 `process.exit(1)`。本仓库维护 fork（构建后 11 个工具改名 `ctxm_*`，另做三项口径修正），**产物走 GitHub release**（编译产物不进 git 历史）。脚本 curl 最新 release 解到 `~/.pi/agent/vendor/context-mode` 再 `pi install`（没变就跳过；目标机不需要 bun、不需要 clone），并摘掉旧 clone 路径条目（两份同时登记会让 Pi 起不来）。**不要装上游 `npm:context-mode`**，脚本检测到会提示卸载。开发机改完：`bash context-mode/setup.sh --publish`。OpenCode 侧同名处理：`opencode-context-mode-vendor.tar.gz` 解到 `~/.config/opencode/plugins/context-mode/` 再放一层 `entry.js` 入口（不碰 `opencode.json` 的 `plugin` 字段），7 个 skill 进 `~/.config/opencode/skill/` |
 | 主题 | `pi/themes/onedark.json` 随 Pi 包提供（One Dark，56 色 token，热重载），`settings.json` 里 `theme: one-dark`。换主题：改 `theme` 或装主题包（`awesome-pi-themes` 65 款、`@inobit/pi-themes`）；`/settings` 里选 |
 | claude-mem | 官方无 Pi 适配；本仓库 Pi 包内置自研桥（镜像 opencode 插件契约：POST worker `/api/sessions/init\|observations\|summarize`，`platformSource:"pi"`；采集工具调用 + 助手消息 + **用户 prompt**，支持 `前缀*` 跳过），并提供 `claude_mem_search` 直连 worker（不走 MCP） |
@@ -465,7 +465,8 @@ npx skills update -g                                     # 刷新 lock 里登记
 
 | 插件 | 更新方式 |
 |---|---|
-| 本仓库 Pi 扩展/主题(git 包) | 脚本步骤 3 的 `pi update git:github.com/brilliantrough/agent-skills`(已装时询问,默认 Y——`pi install` 对已登记条目只说"已有"不拉新版);步骤 2 的 `pi update --all` 也覆盖它但默认 N(`pi-autoname@0.6.8` 这类钉版被 pi 跳过) |
+| pi 本体与已装包(magic-context 除外) | 脚本步骤 2，默认 Y：逐包 `pi update <spec> --no-approve`（不用 `--all`——它会把 magic-context 一起升级）；本仓库 git 包（UI/later/耗时/主题）与 npm 类都在内（`pi-autoname@0.6.8` 钉版被 pi 跳过） |
+| magic-context（Pi/opencode 两侧） | **永远不跟着别的插件升级**：Pi 侧是步骤 3.1 的独立一问（默认 N）；opencode 侧要停掉会话后 `rm -rf ~/.cache/opencode/packages/@cortexkit/opencode-magic-context@latest` 再重启（拉新版并迁移 DB）。两边共享 `context.db`，升级必须选两边都没人使用的时段 |
 | context-mode fork(Pi/opencode 两侧)、later、notify | 每次拉最新 release/raw 与已装内容比对：不一致才替换，原文件存 `.bak-YYYYmmddHHMMSS` |
 | claude-mem wrapper | 脚本内生成，内容不同才询问替换 |
 | opencode 侧 magic-context / ponytail | 脚本只保证配置条目存在，升级由 opencode 自己的包缓存决定 |
