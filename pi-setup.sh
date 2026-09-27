@@ -30,7 +30,7 @@
 #   5. claude-mem 资产(缺失则官方安装器,只为拿 worker/MCP 资产)——先装 runtime,再合并它的配置,
 #      这样安装器写的 settings 会被我们的模板覆盖(api key/网关等本地敏感值保留)
 #   6. subagent 定义 ~/.pi/agent/agents/{explore,general}.md(对应 opencode 的两个 agent)
-#   7. skills 本体:npx skills add --all(刷新 + 装入新增 skill)+ update -g(第三方源);pi 原生读 ~/.agents/skills
+#   7. skills 本体:npx skills add --skill base 组(全机型;刷新+装入新增)+ 可选 accel 组(算力服务器)+ update -g;pi 原生读 ~/.agents/skills
 #   8. uv(缺则装;含自升级与清华 PyPI 镜像)+ strictdoc(用 uv tool 全局安装,.sdoc 校验依赖)
 #
 # 用法:bash pi-setup.sh [-y|--yes]   (-y 默认安装:不再逐项确认、一律取默认——默认 Y 的照做,默认 N 的跳过
@@ -949,14 +949,23 @@ if [ "$PI_OK" -eq 1 ]; then
 fi
 
 # ---- 7. skills 本体 ----
-# add 幂等:既刷新已登记的 skill,也装入仓库新增的 skill。update 只刷新 lock 里已有的条目,
+# skill 分两组安装:base=全机型默认;accel=算力服务器可选(深度学习平台初始化,个人工作站不需要)。
+# 名单与仓库 skills/ 目录的同步由 selfcheck 检查;新增 base/accel skill 要同步改这里。
+# add 幂等:既刷新已登记的 skill,也装入新增的 skill。update 只刷新 lock 里已有的条目,
 # 不安装新增 skill(mattpocock/drawio/find-skills 这类第三方源仍靠它),所以两步都要跑。
+BASE_SKILLS="code-review diagnosing-bugs domain-modeling editable-vector-slides exp-batch exp-campaign exp-discuss exp-probe grilling load-mem migrate-mem personal-ui-taste plan-brief quick-do readable-docs save-mem steady-do tdd"
+ACCEL_SKILLS="accel-init accel-skill-template musa-ubuntu2204-install musa-pytorch-python musa-pytorch-code-porting platform-environment-skill-audit"
 if ! command -v npx >/dev/null 2>&1; then
   echo "跳过 skills 安装(需要 npx:先装 Node 再重跑)"
-elif ask "更新 skills 本体(add --all + update -g;pi 原生读 ~/.agents/skills)?" Y; then
+elif ask "更新 skills 本体(base 组 $(echo $BASE_SKILLS | wc -w) 个 + update -g;pi 原生读 ~/.agents/skills)?" Y; then
   # || true:PromptScript/Eve 等无关 agent 不支持全局安装会报错退出,但其余目标已装好
-  npx -y skills@latest add brilliantrough/agent-skills --all -g -y || true
+  npx -y skills@latest add brilliantrough/agent-skills --skill $BASE_SKILLS -g -y || true
   npx -y skills@latest update -g || true
+fi
+if command -v npx >/dev/null 2>&1; then
+  if ask "装算力平台 skill 组(accel 组 $(echo $ACCEL_SKILLS | wc -w) 个;仅深度学习算力服务器需要)?" N; then
+    npx -y skills@latest add brilliantrough/agent-skills --skill $ACCEL_SKILLS -g -y || true
+  fi
 fi
 
 # ---- 8. strictdoc(.sdoc 校验依赖;uv 已在 1.3 检查/安装)----
