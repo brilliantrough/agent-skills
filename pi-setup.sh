@@ -629,6 +629,15 @@ report_repo_pi_pkg() {
     echo "本仓库 Pi 插件已更新: $repo_head_before -> $now($(git -C "$REPO_PI_PKG" rev-list --count "$repo_head_before..$now" 2>/dev/null || echo '?') 个提交)"
     echo "  最新提交: $subject"
   fi
+  # 与远端 main 对一次:步骤 2 被跳过(或 pi update 静默失败)时,本地会原样停在上次的 HEAD,
+  # 只报"本次无更新"容易被误读成"已是最新版"。
+  if command -v timeout >/dev/null 2>&1; then
+    local remote
+    remote="$(timeout 15 git -C "$REPO_PI_PKG" ls-remote origin main 2>/dev/null | awk '{print $1; exit}' | cut -c1-7)"
+    if [ -n "$remote" ] && [ "$remote" != "$now" ]; then
+      echo "  WARN: 本地 $now 落后远端 main $remote(拉取: $PI_BIN update --extensions)" >&2
+    fi
+  fi
 }
 if [ -x "$PI_BIN" ]; then
   echo "pi 就绪: $("$PI_BIN" --version 2>/dev/null || echo 未知版本) ($PI_BIN)"
@@ -662,6 +671,10 @@ PYEOF
     done < <(pkg_filter 0)
     mc_left="$(pkg_filter 1)"
     if [ -n "$mc_left" ]; then echo "已跳过 magic-context(需在步骤 3.1 单独确认): $mc_left"; fi
+  else
+    # 静默跳过会让人以为"检查过了、没有新版":本步骤不跑,后面报告的"本次无更新"就只是
+    # 上次留下的 HEAD,并不代表已是最新。
+    echo "跳过: 未更新 pi 本体与已装包(含本仓库 Pi 插件);要更新请重跑并答 Y,或手动: $PI_BIN update --extensions"
   fi
 else
   echo "WARN: 未找到 pi,跳过所有 Pi 相关配置(装好后重跑本脚本即可)" >&2
