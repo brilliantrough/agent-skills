@@ -977,6 +977,14 @@ if [ "$PI_OK" -eq 1 ]; then
         fi
       fi
     done
+    # 手拷到 ~/.pi/agent/extensions 的 pi-pretty-tui:包内(pi/extensions/pretty-tui)已提供同一份,
+    # 两份同时加载会重复注册内置工具。移到 backups 而不是删,误判可恢复。
+    if [ -d "$AGENT_DIR/extensions/pi-pretty-tui" ] && [ -f "$REPO_PI_PKG/pi/extensions/pretty-tui/index.ts" ]; then
+      if ask "把手工放置的 $AGENT_DIR/extensions/pi-pretty-tui 移进 backups(该扩展现已随 Pi 包分发,两份会双注册)?" Y; then
+        pp_dest="$AGENT_DIR/backups/pi-pretty-tui-$(date +%Y%m%d%H%M%S)"
+        mkdir -p "$AGENT_DIR/backups" && mv "$AGENT_DIR/extensions/pi-pretty-tui" "$pp_dest" && echo "moved: $pp_dest"
+      fi
+    fi
   fi
   # ---- 6. subagent 定义 + 个性化 UI 配置(仓库模板整文件覆盖;有差异先存 .bak)----
   # 不做一次性迁移:仓库模板就是当前已验证的配置,直接覆盖。

@@ -18,6 +18,14 @@ The personal Pi UI includes modified MIT-licensed source from:
     Selected editor/message renderer source: pi/extensions/ui/editor/
     License: pi/extensions/ui/editor/LICENSE
 
+The personal Pi UI also includes modified MIT-licensed source from:
+
+  - Pi Pretty TUI 0.2.3 (https://github.com/ykn0309/pi-pretty-tui)
+    Source: pi/extensions/pretty-tui/; license: pi/extensions/pretty-tui/LICENSE
+    One local change: `ENABLE_EDITOR_FRAME = false` in index.ts disables upstream's
+    rounded editor frame, which conflicts with this repo's borderless editor
+    (borders would land in copy-on-select text).
+
 Original copyright notices are retained in those license files.
 
 `context-mode/` builds a **fork of context-mode** (https://github.com/mksglu/context-mode),

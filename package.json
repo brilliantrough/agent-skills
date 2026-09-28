@@ -6,6 +6,7 @@
   "license": "MIT",
   "pi": {
     "extensions": [
+      "pi/extensions/pretty-tui/index.ts",
       "pi/extensions/ui/index.ts",
       "pi/extensions/claude-mem.ts",
       "pi/extensions/later.ts",
