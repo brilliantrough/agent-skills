@@ -5,6 +5,7 @@ import { installCopyCleanup } from "./editor/copy-clean.js";
 import { installUserMessageStyle } from "./editor/user-message.js";
 import { installWheelScrollLines } from "./wheel.js";
 import { installClearSelectionOnRelease } from "./selection.js";
+import { installTmuxMouseMotion } from "./tmux-motion.js";
 import { installMessageActions, installMessageActionsViewportHook } from "./message-actions.js";
 
 const CTRL_J = "\x1b[106;5u";
@@ -56,6 +57,7 @@ export function installComposer(pi: ExtensionAPI) {
       submitIsCtrlJ = keys.matches(CTRL_J, "tui.input.submit");
       installWheelScrollLines(tui);
       installClearSelectionOnRelease(tui);
+      installTmuxMouseMotion(tui);
       installCopyCleanup(tui);
       installMessageActionsViewportHook(tui);
       const base = new CustomEditor(tui, theme, keys);
