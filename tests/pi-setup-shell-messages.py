@@ -5,12 +5,14 @@ Run: python3 tests/pi-setup-shell-messages.py
 Only echo lines are executed; no installation or configuration changes.
 """
 import os
-from pathlib import Path
+import shutil
 import subprocess
+from pathlib import Path
 
+bash = os.environ.get("BASH") or shutil.which("bash") or "/bin/bash"
 script = (Path(__file__).resolve().parent.parent / "pi-setup.sh").read_text(encoding="utf-8")
 cases = (
-    ('echo "已登记:', "CM_DIR", "/tmp/context-mode", "stdout"),
+    ('echo "已登记:', "CM_DIR", "/fixture/context-mode", "stdout"),
     ('echo "WARN: 下载/解包发布包失败', "CM_URL", "https://example.com/vendor.tar.gz", "stderr"),
 )
 for prefix, variable, value, stream in cases:
@@ -18,9 +20,10 @@ for prefix, variable, value, stream in cases:
     assert len(lines) == 1, (prefix, lines)
     for locale in ("C", "zh_CN.UTF-8"):
         result = subprocess.run(
-            ["/bin/bash", "-euc", lines[0]],
+            [bash, "-euc", lines[0]],
             env={**os.environ, "LC_ALL": locale, variable: value},
             capture_output=True,
+            check=False,
         )
         assert result.returncode == 0, result.stderr.decode(errors="replace")
         assert value.encode() in getattr(result, stream), result

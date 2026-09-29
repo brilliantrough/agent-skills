@@ -6,8 +6,9 @@
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, readdirSync, existsSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const root = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
+const root = fileURLToPath(new URL("..", import.meta.url));
 const dir = mkdtempSync(join(tmpdir(), "ui-test-"));
 process.env.AGENT_DIR = dir;
 
@@ -20,18 +21,18 @@ function load(rel) {
     .replace(/getAgentDir\(\)/g, "process.env.AGENT_DIR");
   const file = join(dir, rel.split("/").pop().replace(/\.ts$/, "") + ".ts");
   writeFileSync(file, source);
-  return import(`file://${file}`);
+  return import(pathToFileURL(file).href);
 }
 
 const C = "\u001b[36m";
 const R = "\u001b[0m";
+// 与生产 sidebar.ts 的扁平分节格式一致;旧盒状标题已不再用于面板识别。
 const panel = (title, body) => [
-  `${C}╭─ ${C}${title}${R} ${C}${"─".repeat(20)}╮${R}`,
-  ...body.map((line) => `│ ${line} │`),
-  `╰${"─".repeat(26)}╯`,
+  `${C}${title}${R} ${C}${"─".repeat(20)}${R}`,
+  ...body.map((line) => `  ${line}`),
   "",
 ];
-const lines = [...panel("✦ TASKS · 1/2", ["▶ do a thing"]), ...panel("✦ TOOLS", ["bash 3", "read 2"])];
+const lines = [...panel("TASKS · 1/2", ["▶ do a thing"]), ...panel("TOOLS", ["bash 3", "read 2"])];
 const config = join(dir, "agent-skills-ui.json");
 writeFileSync(config, JSON.stringify({ clearSelectionOnRelease: true }, null, 2));
 
@@ -86,7 +87,7 @@ const expanded = shapeLines(lines, new Set());
 check("默认不折叠", expanded.lines.length === lines.length && expanded.panelRows.size === 2);
 
 const collapsed = shapeLines(lines, new Set(["TASKS"]));
-check("折叠后行数减少", collapsed.lines.length === lines.length - 3, `${collapsed.lines.length} vs ${lines.length}`);
+check("折叠后仅移除正文行(保留分节空行)", collapsed.lines.length === lines.length - 1, `${collapsed.lines.length} vs ${lines.length}`);
 check("折叠行有 ▸ 标记", collapsed.lines[0].includes("▸") && collapsed.lines[0].includes("TASKS"));
 check("另一块保留正文", collapsed.lines.some((line) => line.includes("bash 3")));
 check("折叠块不再是表头行", collapsed.panelRows.get(0) === "TASKS");
@@ -97,7 +98,7 @@ const first = component.render(80);check("包装后渲染一致(未折叠)", fir
 
 check("点击表头 → 折叠", component.handleMouse({ type: "click", y: 0 })?.render === true);
 check("配置已写入", readCollapsedPanels().has("TASKS"));
-check("点击后重渲染变短", component.render(80).length === lines.length - 3);
+check("点击后重渲染变短", component.render(80).length === lines.length - 1);
 check("其他键保留", JSON.parse(readFileSync(config, "utf8")).clearSelectionOnRelease === true);
 
 check("再次点击 → 展开", component.handleMouse({ type: "click", y: 0 })?.render === true);

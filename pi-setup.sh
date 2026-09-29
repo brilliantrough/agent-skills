@@ -37,7 +37,7 @@
 #
 # 用法:bash pi-setup.sh [-y|--yes]   (-y 默认安装:不再逐项确认、一律取默认——默认 Y 的照做,默认 N 的跳过
 #       (pi update --all、插件缓存清理、magic-context 强启用、AGENTS.md 注入),只问一次凭据;遵循 PI_CODING_AGENT_DIR,与 pi 一致)
-# Windows:在 Git Bash(不是 WSL)里跑同一份脚本;Python 3 需自备(curl/git 由 Git for Windows 自带)。
+# Windows:在 Git Bash(不是 WSL)里跑同一份脚本;Python 缺失由 uv 兜底(curl/git 由 Git for Windows 自带)。
 
 set -euo pipefail
 
@@ -121,6 +121,85 @@ ask() { # $1=提示 $2=默认(Y/N,缺省 N)
   else
     [ "$def" = Y ]  # 非交互(无 tty):按该询问的默认值
   fi
+}
+
+# 内嵌逻辑保留 Pi 的单文件入口;回归检查见 tests/pi-setup-windows-git-bash.py。
+ensure_git_bash_startup() {
+  [ "$IS_WIN" = 1 ] || return 0
+  ask '补齐 Git Bash 启动文件/Bun PATH及 mintty 缺省复制快捷键(已有配置保留,改前备份)?' Y || return 0
+  local bindir
+  bindir="$(cygpath -u "$(dirname "$BUN_BIN")")" || return 1
+  # 路径供 Bash 使用,不可被 MSYS 自动转换回 C:/...;仅对这一次 Python 调用禁用参数转换。
+  MSYS2_ARG_CONV_EXCL='*' python3 - "$(npath "$HOME")" "$bindir" "${TERM_PROGRAM:-}" <<'PY_GIT_BASH'
+import os, pathlib, shlex, shutil, sys, tempfile
+home, bindir, terminal = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+changes = []
+
+def read(p):
+    if p.is_symlink() or (p.exists() and not p.is_file()):
+        raise SystemExit(f'ERROR: {p} 不是普通文件,不穿透修改')
+    return p.read_bytes().decode('utf-8') if p.exists() else ''
+
+def stage(p, old, new):
+    if old != new:
+        changes.append((p, new))
+
+def block(p, name, body):
+    old = read(p)
+    start, end = f'# >>> agent-skills {name} >>>', f'# <<< agent-skills {name} <<<'
+    managed = start + '\n' + body + '\n' + end
+    if start in old or end in old:
+        if old.count(start) != 1 or old.count(end) != 1 or old.index(start) > old.index(end):
+            raise SystemExit(f'ERROR: {p} 的受管块不完整,保留原文件')
+        new = old[:old.index(start)] + managed + old[old.index(end) + len(end):]
+    else:
+        new = old + ('\n' if old and not old.endswith('\n') else '') + managed + '\n'
+    stage(p, old, new)
+
+block(home / '.bashrc', 'Bun PATH',
+      'case ":$PATH:" in\n'
+      f'  *{shlex.quote(":" + bindir + ":")}*) ;;\n'
+      f'  *) export PATH={shlex.quote(bindir)}:"$PATH" ;;\n'
+      'esac\n__agent_skills_bashrc_loaded=1')
+# Bash 只读第一个登录文件;不新建 .bash_profile 去遮蔽已有 .bash_login/.profile。
+profiles = [home / n for n in ('.bash_profile', '.bash_login', '.profile')]
+profile = next((p for p in profiles if p.exists() or p.is_symlink()), profiles[0])
+block(profile, 'bashrc',
+      'if [ "${__agent_skills_bashrc_loaded:-}" != 1 ] && [ -f "$HOME/.bashrc" ]; then\n'
+      '  . "$HOME/.bashrc"\nfi')
+if terminal == 'mintty':
+    p = home / '.minttyrc'
+    old = read(p)
+    options = dict(line.split('=', 1) for line in old.splitlines()
+                   if '=' in line and not line.lstrip().startswith('#'))
+    options = {k.strip(): v.strip() for k, v in options.items()}
+    wanted = {'CopyOnSelect': 'yes', 'CtrlShiftShortcuts': 'yes'}
+    if options.get('CtrlExchangeShift', '').lower() in ('yes', 'true', 'on', '1'):
+        wanted.pop('CtrlShiftShortcuts')
+        print('WARN: CtrlExchangeShift 已启用,不自动开启 CtrlShiftShortcuts;保留现有按键')
+    extra = ''.join(f'{k}={v}\n' for k, v in wanted.items() if k not in options)
+    if extra:
+        stage(p, old, old + ('\n' if old and not old.endswith('\n') else '') + extra)
+# 所有输入先验证,写前备份;临时文件与目标同目录,替换失败不截断原文。
+for p, new in changes:
+    if p.exists():
+        fd, backup = tempfile.mkstemp(prefix=p.name + '.bak-', dir=p.parent)
+        os.close(fd)
+        shutil.copy2(p, backup)
+        print(f'backup: {backup}')
+    fd, tmp = tempfile.mkstemp(prefix='.agent-skills-', dir=p.parent)
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8', newline='\n') as f:
+            f.write(new)
+        if p.exists():
+            shutil.copymode(p, tmp)
+        os.replace(tmp, p)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+    print(f'updated: {p}')
+print('Git Bash 启动配置已检查;新终端读取 PATH/mintty 配置,当前父终端不受子脚本 export 影响')
+PY_GIT_BASH
 }
 
 # 把 worker 地址显式写进 settings(claude-mem 自身的默认是 37700 + uid%100,
@@ -308,6 +387,18 @@ merge_cfg() {
     rm -f "$tmp"; echo "WARN: $url 下载失败,保留现有 $dest" >&2; return 1
   fi
   fill_template_placeholders "$tmp"
+  # mintty 首次配置优先原生 scrollback/拖选;已有 tuiMode 在下方合并时保留。
+  if [ "$dest" = "$SETTINGS" ] && [ "$IS_WIN" = 1 ] && [ "${TERM_PROGRAM:-}" = mintty ]; then
+    python3 - "$tmp" <<'PY_MINTTY_MODE'
+import json, sys
+p = sys.argv[1]
+d = json.load(open(p, encoding='utf-8'))
+d['tuiMode'] = 'regular'
+with open(p, 'w', encoding='utf-8') as f:
+    json.dump(d, f, indent=2, ensure_ascii=False)
+    f.write('\n')
+PY_MINTTY_MODE
+  fi
   if [ "$mode" = mcp ]; then
     python3 - "$tmp" "$(npath "$HOME")" "$(nbin "$BUN_BIN")" "$(nbin "$CG_BIN")" "$(npath "$MCP_CJS")" <<'PYEOF'
 import sys
@@ -362,6 +453,10 @@ try:
 except Exception as e:
     print(f"WARN: {dest} 解析失败({e}),保留原文件不合并", file=sys.stderr)
     sys.exit(1)
+
+# UI 模式是用户/终端偏好,重跑不能把已验证的 regular 又覆盖成 fullscreen。
+if 'tuiMode' in cur:
+    new['tuiMode'] = cur['tuiMode']
 
 UNION_KEYS = ('packages', 'enabledModels')   # 列表型:并集而非整表替换,别把本机改动冲掉
 
@@ -525,18 +620,32 @@ if ! command -v npx >/dev/null 2>&1; then
 fi
 
 # ---- 1.2 依赖: bun ----
+# 已安装但没进当前 PATH 时直接复用,也尊重自定义 BUN_INSTALL。
+if [ "$IS_WIN" = 1 ] && [ -n "${BUN_INSTALL:-}" ]; then
+  BUN_INSTALL="$(cygpath -u "$BUN_INSTALL")"; export BUN_INSTALL
+fi
+if [ -x "${BUN_INSTALL:-$HOME/.bun}/bin/bun$BIN_EXT" ]; then
+  export PATH="${BUN_INSTALL:-$HOME/.bun}/bin:$PATH"
+fi
 if ! command -v bun >/dev/null 2>&1; then
   echo "未检测到 bun(claude-mem 的 MCP server 依赖 bun:sqlite,node 运行会崩)。"
   if ask "是否安装 bun？" Y; then
     curl -fsSL --connect-timeout 8 -m 60 https://bun.sh/install | bash
-    export PATH="$HOME/.bun/bin:$PATH"
+    export PATH="${BUN_INSTALL:-$HOME/.bun}/bin:$PATH"
   else
     echo "跳过 bun(claude-mem MCP 工具将无法运行)"
   fi
 fi
 # 只写真实存在的绝对路径;都没有时退化为裸命令名(交给运行时 PATH),别把猜测路径写进 MCP 配置
-BUN_BIN="$(command -v bun 2>/dev/null || true)"; [ -n "$BUN_BIN" ] || BUN_BIN="$HOME/.bun/bin/bun$BIN_EXT"
-[ -x "$BUN_BIN" ] || BUN_BIN=bun
+BUN_BIN="$(command -v bun 2>/dev/null || true)"; [ -n "$BUN_BIN" ] || BUN_BIN="${BUN_INSTALL:-$HOME/.bun}/bin/bun$BIN_EXT"
+if [ -x "$BUN_BIN" ]; then
+  "$BUN_BIN" --version && "$BUN_BIN" -e 'const {Database}=require("bun:sqlite"); const db=new Database(":memory:"); if(db.query("SELECT 1 AS ok").get().ok!==1) process.exit(1); db.close();' || {
+    echo "ERROR: Bun 不能执行或 bun:sqlite 不可用;请修复 Bun 后重跑" >&2; exit 1;
+  }
+  ensure_git_bash_startup
+else
+  BUN_BIN=bun
+fi
 
 # ---- 1.3 依赖: uv(可选;strictdoc / .sdoc 校验用)----
 UVP="$HOME/.local/bin/uv$BIN_EXT"
