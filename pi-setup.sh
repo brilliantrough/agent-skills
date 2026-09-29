@@ -816,12 +816,12 @@ PYEOF
     fi
     cm_ok=1
   else
-    echo "WARN: 下载/解包发布包失败（$CM_URL）——网络问题?还是开发机还没 --publish?" >&2
+    echo "WARN: 下载/解包发布包失败（${CM_URL}）——网络问题?还是开发机还没 --publish?" >&2
   fi
   rm -rf "$cm_tmp"
   if [ "$cm_ok" = 1 ] && [ -d "$CM_DIR" ]; then
     if cm_registered; then
-      echo "已登记: $CM_DIR（改动重启 Pi 生效）"
+      echo "已登记: ${CM_DIR}（改动重启 Pi 生效）"
     elif ask "把 $CM_DIR 登记进 Pi 包列表?" Y; then
       "$PI_BIN" install "$CM_DIR" < /dev/null || echo "WARN: pi install $CM_DIR 失败" >&2
     fi
