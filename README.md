@@ -158,6 +158,22 @@ OpenCode 为主；Pi 与 OpenCode 共享 `~/.claude-mem/settings.json` 与 `~/.c
 - **本仓库开发用的类型软链**：跳过（`ln -s` 需开发者模式，否则退化成整目录拷贝）
 - **配置目录**：与 Linux 一致（Git Bash 的 `$HOME` 即 `%USERPROFILE%`）
 
+以下首次安装与重复执行的终端适配**仅限 `pi-setup.sh`**；不修改 Codex/OpenCode 安装脚本的行为：
+
+| 范围 | 行为 |
+| --- | --- |
+| Pi setup 的 Bun | 优先复用 `BUN_INSTALL` 或 `~/.bun` 中已有的 Bun；实际执行版本检查与 `bun:sqlite` 内存查询，不能运行就报错，不把“命令存在”当作成功 |
+| Git Bash 启动文件 | Bun 可用后询问补齐（`-y` 默认执行）：缺 `.bashrc` 就创建；已有文件只追加/更新带标记的受管块，改前备份；不覆盖代理、别名等原文，不穿透符号链接 |
+| 登录加载链 | 使用现有 `.bash_profile` / `.bash_login` / `.profile` 中优先级最高的文件；均不存在才创建 `.bash_profile`，不会遮蔽已有 `.profile`；已经加载 `.bashrc` 时不重复加载 |
+| Bun PATH | 持久化实际可执行文件所在目录，支持空格/中文/自定义安装位置；受管块不重复添加 PATH，重复执行不产生无效改写或备份 |
+| mintty 复制粘贴 | 仅 `TERM_PROGRAM=mintty` 时补缺失的 `CtrlShiftShortcuts=yes`、`CopyOnSelect=yes`；已有显式值与 `KeyFunctions` 保留。不重映射 Ctrl+C/V，也不启用 `CtrlExchangeShift` 或 OSC 52 权限 |
+| Pi 滚轮 | Windows mintty 首次设置默认 `tuiMode: regular`，使用终端原生 scrollback/拖选；已有 `tuiMode` 在重跑时保留（包括显式 fullscreen）。侧栏/分栏仍需自行选择 fullscreen，脚本不修改 Pi 的滚轮实现 |
+
+- 改启动文件或 `.minttyrc` 后**新开 Git Bash 窗口**；改 Pi 的模式后**重启 Pi**。子安装脚本的 `export` 不会反向修改当前父终端。
+- 发现 `CtrlExchangeShift` 已启用时，不自动补 `CtrlShiftShortcuts`，避免把 Ctrl+W/Ctrl+R 等快捷键切换成关闭窗口/重置终端。
+- Windows Terminal、VS Code、Linux、macOS、WSL 不会被这段 mintty 配置逻辑接管。
+- 隔离验证（不下载/升级包，不修改真实 HOME）：`python tests/pi-setup-windows-git-bash.py`。Windows 可加 `BASH="$(cygpath -m /bin/bash.exe)" BUN_TEST_BIN="$(cygpath -m "${BUN_INSTALL:-$HOME/.bun}/bin/bun.exe")"` 验证真实 Bun、SQLite 与原生子进程启动；未提供 Bun 或系统不允许创建符号链接时会明确报告对应测试跳过。
+
 宿主成熟度（脚本不改变）：
 
 | 宿主 | 官方立场 |
@@ -478,7 +494,7 @@ npx skills update -g                                     # 刷新 lock 里登记
 | `~/.config/opencode/opencode.json` | 已存在 provider 保留本地 `options`（apiKey/网关），只按模板覆盖 `models`；模板新增 provider 整块加入；非 provider 字段仅本地缺键时补入 |
 | `~/.claude-mem/settings.json` | 非敏感字段跟模板下发（含 `CLAUDE_MEM_*_MODEL` 模型名）；`CLAUDE_MEM_PROVIDER` 强制 `openrouter`；`api key` / `base url` 等敏感键与 `<占位符>` 值保留本地；本地独有键保留 |
 | `~/.config/cortexkit/magic-context.jsonc` | 同 settings（含 `historian.pi` / `dreamer.pi` 块，与 opencode 共用） |
-| `~/.pi/agent/{settings,models}.json`、`~/.agents/mcp.json` | 同 settings（pi-setup.sh）；mcp.json 的本地命令路径在合并前按本机替换 |
+| `~/.pi/agent/{settings,models}.json`、`~/.agents/mcp.json` | 同 settings（pi-setup.sh），但已有 `tuiMode` 保留本地选择；mcp.json 的本地命令路径在合并前按本机替换 |
 | `~/.pi/agent/agents/*.md`、`extensions/claude-mem.ts` | 整文件部署：内容有差异才写，原文件存 `.bak-YYYYmmddHHMMSS` |
 
 有改动先把原文件存为时间戳 `.bak-YYYYmmddHHMMSS`；合并结果与本地一致则不写。magic-context 的合并会把 JSONC 规整为 JSON（注释丢失，原样保留在 `.bak` 里）。

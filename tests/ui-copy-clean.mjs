@@ -16,9 +16,9 @@ import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync } from "nod
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { createRequire } from "node:module";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const root = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
+const root = fileURLToPath(new URL("..", import.meta.url));
 const require = createRequire(join(root, "package.json"));
 const piTui = pathToFileURL(
 	join(require.resolve("@earendil-works/pi-tui/package.json").replace(/package\.json$/, ""), "dist/index.js"),
@@ -31,12 +31,12 @@ process.on("exit", () => rmSync(dir, { recursive: true, force: true }));
 
 function load(rel) {
 	const source = readFileSync(join(root, rel), "utf8")
-		.replace(/^import \{[^}]*\} from "@earendil-works\/pi-coding-agent";\n/gm, "")
+		.replace(/^import \{[^}]*\} from "@earendil-works\/pi-coding-agent";\r?\n/gm, "")
 		.replace(/from "@earendil-works\/pi-tui"/g, `from "${piTui}"`)
 		.replace(/getAgentDir\(\)/g, "process.env.AGENT_DIR");
 	const file = join(dir, rel.split("/").pop().replace(/\.ts$/, "") + ".ts");
 	writeFileSync(file, source);
-	return import(`file://${file}`);
+	return import(pathToFileURL(file).href);
 }
 
 const { cleanCopiedText, clearCopySurfaces, composerSurfaceRows, registerCopySurface, installCopyCleanup } =
@@ -62,8 +62,10 @@ async function loadEditorClosure(entry) {
 		writeFileSync(
 			join(closureDir, basename(file)),
 			original
+				// Node 会保留 inline type 的空导入;临时模块改为纯类型导入,不加载真实 Pi host。
+				.replace(/^import \{ type Theme \} from ("@earendil-works\/pi-coding-agent");$/gm, 'import type { Theme } from $1;')
 				.replace(
-					/^import \{ getAgentDir \} from "@earendil-works\/pi-coding-agent";\n/gm,
+					/^import \{ getAgentDir \} from "@earendil-works\/pi-coding-agent";\r?\n/gm,
 					"const getAgentDir = () => process.env.AGENT_DIR;\n",
 				)
 				.replace(
