@@ -6,8 +6,8 @@
 //   node release.mjs <clone 目录> --publish    确保包是新的，然后 gh release create
 //
 // 两个目标（都保持与 npm 包相同的相对布局：宿主按 dirname(import.meta.url)/../../.. 找 server.bundle.mjs 与 hooks/）：
-//   pi        pi-context-mode-vendor.tar.gz        扩展 import 闭包 + server.bundle.mjs + hooks/auto-injection.mjs + skills/
-//   opencode  opencode-context-mode-vendor.tar.gz  esbuild 打好的插件（依赖全内联）+ hooks 闭包 + skills/ + entry.js
+//   pi        pi-context-mode-vendor.tar.gz        扩展 import 闭包 + server.bundle.mjs + hooks/auto-injection.mjs + skills/ + 抓取依赖
+//   opencode  opencode-context-mode-vendor.tar.gz  esbuild 插件 + hooks 闭包 + skills/ + entry.js + 抓取依赖
 //
 // 资产名固定，打包可重现（tar 固定 mtime/owner 并按名排序）；包内 VENDORED.json 记录上游版本与文件哈希，
 // 目标机靠比对它判断要不要替换目录。
@@ -88,11 +88,11 @@ function need(paths) {
   return out;
 }
 
-function skillFiles() {
-  const skills = path.join(clone, "skills");
+function treeFiles(rel) {
+  const root = path.join(clone, rel);
   const out = [];
-  for (const e of fs.readdirSync(skills, { withFileTypes: true, recursive: true })) {
-    if (e.isFile()) out.push(path.join(e.parentPath ?? skills, e.name));
+  for (const e of fs.readdirSync(root, { withFileTypes: true, recursive: true })) {
+    if (e.isFile()) out.push(path.join(e.parentPath ?? root, e.name));
   }
   return out;
 }
@@ -104,7 +104,7 @@ function collect(absFiles) {
   return m;
 }
 
-/** esbuild 打包 OpenCode 插件入口（平台内联，只留原生 sqlite 外部；结果当生成内容处理） */
+/** esbuild 打包 OpenCode 插件入口；抓取子进程依赖另带，原生 sqlite 留外部 */
 function bundleOpencodePlugin() {
   const esbuild = path.join(clone, "node_modules/.bin/esbuild");
   if (!fs.existsSync(esbuild)) {
@@ -130,6 +130,11 @@ function bundleOpencodePlugin() {
 
 /** 目标定义：files = clone 里的文件；generated = 打包时生成的内容 */
 function buildTargets() {
+  // 抓取子进程用 require.resolve() 定位依赖；两份包都携带运行文件与许可证。
+  const fetchFiles = ["turndown", "turndown-plugin-gfm", "@mixmark-io/domino"].flatMap((pkg) => {
+    const root = `node_modules/${pkg}`;
+    return [...need([`${root}/package.json`, `${root}/LICENSE`]), ...treeFiles(`${root}/lib`)];
+  });
   const vendorJson = (files, generated) => JSON.stringify({
     upstream,
     files: Object.fromEntries([...files].map(([rel, abs]) => [rel, sha(fs.readFileSync(abs))]).sort()),
@@ -141,7 +146,8 @@ function buildTargets() {
   const piFiles = collect([
     ...importClosure(piEntry),
     ...need(["server.bundle.mjs", "hooks/auto-injection.mjs", "LICENSE"]),
-    ...skillFiles(),
+    ...treeFiles("skills"),
+    ...fetchFiles,
   ]);
   const piGenerated = new Map();
   piGenerated.set("package.json", JSON.stringify({
@@ -162,7 +168,7 @@ function buildTargets() {
     "hooks/core/routing.mjs", "hooks/core/tool-naming.mjs", "hooks/core/mcp-ready.mjs",
     "hooks/routing-block.mjs", "hooks/auto-injection.mjs", "hooks/security.bundle.mjs",
   ];
-  const ocFiles = collect([...need([...ocHooks, "LICENSE"]), ...skillFiles()]);
+  const ocFiles = collect([...need([...ocHooks, "LICENSE"]), ...treeFiles("skills"), ...fetchFiles]);
   const ocGenerated = new Map();
   ocGenerated.set(ocEntry, bundleOpencodePlugin());
   // 入口 shim：OpenCode 只扫描 plugins/*.js 这一层，子目录不会被自动加载（实测）

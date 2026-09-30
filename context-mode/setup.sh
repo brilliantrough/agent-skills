@@ -89,14 +89,14 @@ bun run build
 # ── 4. C 层：改名（构建后） ────────────────────────────────────────────────
 node "$HERE/rename-ctx-tools.mjs" "$REPO" "$PREFIX"
 
-# ── 5. D 层：打包（--publish 才发 release） ───────────────────────────────
+# ── 5. D 层：打包 ─────────────────────────────────────────────────────────
 node "$HERE/release.mjs" "$REPO"
+
+# ── 6. 体检：包内工具注册 + 两宿主实际抓取、转换与检索；通过后才发布 ────────
+node "$HERE/verify.mjs" "$REPO"
 if [[ "$DO_PUBLISH" == "1" ]]; then
   node "$HERE/release.mjs" "$REPO" --publish
 fi
-
-# ── 6. 体检（会解开 tar 包并拉起包内 MCP 子进程问一次工具表） ──────────────
-node "$HERE/verify.mjs" "$REPO"
 
 # ── 7. 目标机安装提示；release 副本与 clone 路径不能同时登记 ─────────────────
 python3 - "$AGENT_DIR/settings.json" "$AGENT_DIR" <<'PY'

@@ -6,7 +6,9 @@ import { readFileSync, existsSync, readdirSync, statSync, mkdtempSync } from "no
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
-import { spawn, execFileSync } from "node:child_process";
+import { spawn, execFile, execFileSync } from "node:child_process";
+import { createServer } from "node:http";
+import { promisify } from "node:util";
 
 const REPO = process.argv[2];
 if (!REPO) {
@@ -112,6 +114,19 @@ if (unpackOk) {
   check("包内有 LICENSE（Elastic-2.0 必须随产物分发）", existsSync(join(unpacked, "LICENSE")));
 }
 
+// ── 运行期：抓取本地 HTML，覆盖沙箱依赖、GFM 转换与索引检索 ────────────────
+const fetchServer = createServer((_req, res) => {
+  res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+  res.end("<h1>Fetch package probe</h1><table><thead><tr><th>Marker</th></tr></thead><tbody><tr><td>dependencyclosure</td></tr></tbody></table><p><del>oldvalue</del></p>");
+});
+await new Promise((res) => fetchServer.listen(0, "127.0.0.1", res));
+fetchServer.unref();
+const fetchUrl = `http://127.0.0.1:${fetchServer.address().port}`;
+const fetchArgs = { requests: [{ url: `${fetchUrl}/a`, source: "fork-fetch-probe" }, { url: `${fetchUrl}/b`, source: "fork-fetch-probe" }], concurrency: 2, force: true };
+const searchArgs = { queries: ["dependencyclosure"], source: "fork-fetch-probe", limit: 1 };
+const probeEnv = (root) => ({ ...process.env, HOME: root, XDG_CONFIG_HOME: join(root, "config"), XDG_DATA_HOME: join(root, "data"), CONTEXT_MODE_DIR: join(root, "state"), PWD: root, NODE_PATH: "", CTX_FETCH_STRICT: "0" });
+const hasConvertedContent = (text) => text.includes("dependencyclosure") && text.includes("~oldvalue~") && /\|.*Marker.*\|/.test(text);
+
 // ── 运行期：拉起包内那份 server.bundle.mjs（即 Pi 会在目标机上 spawn 的东西） ──
 const bundlePath = join(unpacked, "server.bundle.mjs");
 if (!unpackOk || !existsSync(bundlePath)) {
@@ -119,7 +134,7 @@ if (!unpackOk || !existsSync(bundlePath)) {
 } else {
   const child = spawn(process.execPath, [bundlePath], {
     cwd: unpacked,
-    env: { ...process.env, CONTEXT_MODE_DIR: mkdtempSync(join(tmpdir(), "cm-verify-")) },
+    env: probeEnv(unpacked),
     stdio: ["pipe", "pipe", "pipe"],
   });
   let buf = "";
@@ -138,9 +153,10 @@ if (!unpackOk || !existsSync(bundlePath)) {
     }
   });
   const rpc = (id, method, params) => new Promise((res, rej) => {
-    waiters.set(id, res);
+    const timer = setTimeout(() => { if (waiters.delete(id)) rej(new Error(`${method} 超时`)); }, 20000);
+    timer.unref();
+    waiters.set(id, (msg) => { clearTimeout(timer); res(msg); });
     child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id, method, params })}\n`);
-    setTimeout(() => { if (waiters.delete(id)) rej(new Error(`${method} 超时`)); }, 20000);
   });
   try {
     await rpc(1, "initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "verify-fork", version: "1.0.0" } });
@@ -155,6 +171,12 @@ if (!unpackOk || !existsSync(bundlePath)) {
     const noPointer = tools.filter((t) => !/Full guidance: skill/.test(t.description ?? "")).map((t) => t.name);
     check("每个描述都指向 skill", noPointer.length === 0, `缺指针：${noPointer.join(" ")}`);
     check("upgrade 工具标了 FORK", /FORK: do not call/.test(tools.find((t) => t.name === `${PREFIX}upgrade`)?.description ?? ""));
+    const fetched = await rpc(3, "tools/call", { name: `${PREFIX}fetch_and_index`, arguments: fetchArgs });
+    const fetchText = fetched.result?.content?.map((c) => c.text ?? "").join("\n") ?? "";
+    check("Pi 包实际抓取两个 HTML（非缓存）", !fetched.error && !fetched.result?.isError && fetchText.includes("ok=2 cache=0 err=0"), fetchText || JSON.stringify(fetched));
+    const searched = await rpc(4, "tools/call", { name: `${PREFIX}search`, arguments: searchArgs });
+    const searchText = searched.result?.content?.map((c) => c.text ?? "").join("\n") ?? "";
+    check("Pi 包能检索 HTML 表格与删除线", !searched.error && !searched.result?.isError && hasConvertedContent(searchText), searchText || JSON.stringify(searched));
   } catch (e) {
     check("MCP 子进程 tools/list", false, String(e.message ?? e));
   } finally {
@@ -188,19 +210,30 @@ if (ocOk) {
   const probe = [
     `const m = await import(${JSON.stringify(join(ocUnpacked, "build/adapters/opencode/plugin.js"))});`,
     `const hooks = await m.ContextModePlugin({ directory: ${JSON.stringify(ocUnpacked)}, client: { app: { log: async () => {} } } });`,
-    `console.log(JSON.stringify({ hooks: Object.keys(hooks).sort(), tools: Object.keys(hooks.tool ?? {}).sort() }));`,
+    `const toolCtx = { sessionID: "fork-fetch-probe", directory: ${JSON.stringify(ocUnpacked)} };`,
+    `let fetched, searched, error;`,
+    `try {`,
+    `  fetched = await hooks.tool[${JSON.stringify(PREFIX + "fetch_and_index")}].execute(${JSON.stringify(fetchArgs)}, toolCtx);`,
+    `  searched = await hooks.tool[${JSON.stringify(PREFIX + "search")}].execute(${JSON.stringify(searchArgs)}, toolCtx);`,
+    `} catch (e) { error = e.message; }`,
+    `console.log(JSON.stringify({ hooks: Object.keys(hooks).sort(), tools: Object.keys(hooks.tool ?? {}).sort(), fetched, searched, error }));`,
+    `process.exit(0);`,
   ].join("\n");
   try {
-    const out = execFileSync("bun", ["-e", probe], { cwd: ocUnpacked, stdio: ["pipe", "pipe", "pipe"], timeout: 120000 }).toString();
+    const { stdout: out } = await promisify(execFile)("bun", ["--no-install", "-e", probe], { cwd: ocUnpacked, env: probeEnv(ocUnpacked), timeout: 120000 });
     const info = JSON.parse(out.trim().split("\n").pop());
     const want = TOOLS.map((t) => PREFIX + t).sort();
     check(`OpenCode 插件注册 11 个 ${PREFIX}* 工具`, JSON.stringify(info.tools) === JSON.stringify(want), `实际：${info.tools.join(" ")}`);
     check("OpenCode 插件返回了路由 hook", ["tool", "tool.execute.before", "chat.message"].every((k) => info.hooks.includes(k)), `实际：${info.hooks.join(" ")}`);
+    check("OpenCode 包实际抓取两个 HTML（非缓存）", !info.error && info.fetched?.output?.includes("ok=2 cache=0 err=0"), info.error ?? info.fetched?.output ?? "无返回");
+    check("OpenCode 包能检索 HTML 表格与删除线", !info.error && hasConvertedContent(info.searched?.output ?? ""), info.error ?? info.searched?.output ?? "无返回");
   } catch (e) {
     const tail = String(e.stdout ?? "").trim().split("\n").slice(-3).join(" / ") || String(e.message ?? e);
     check("OpenCode 插件能在 bun 下加载", false, tail);
   }
 }
+
+fetchServer.close();
 
 // ── 结论 ────────────────────────────────────────────────────────────────────
 const bad = checks.filter((c) => !c.ok);
