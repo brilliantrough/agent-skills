@@ -7,7 +7,7 @@ description: Write and edit human-facing project technical text for scanning, wh
 
 ## One job
 
-Make project technical records easy to scan and use: **facts first, findability second, brevity third, natural wording fourth**. Write like useful slide notes, not an essay or a slogan deck. Complete information does not require complete sentences.
+Make project technical records easy to scan and use: **facts first, findability second, brevity third, natural wording fourth**. Preserve meaning with the fewest words: **phrases by default, full sentences as needed, paragraphs only when they clarify relationships**. Write like useful slide notes, not an essay or a slogan deck.
 
 Apply this style when writing the original text, not only when asked to polish it. It works alongside the active task or memory skill; it does not create an extra report, approval step, or document.
 
@@ -25,14 +25,14 @@ Put the useful conclusion, status, or next action first. Use headings that tell 
 
 | Content | Default form |
 |---|---|
-| Independent facts, constraints, findings | Bullets; one point per item |
-| Steps, priority, chronology | Numbered list; actions in order |
-| Alternatives or changes on shared dimensions | Comparison table; one dimension per row |
+| Independent facts, constraints, findings | Bullets; one point per item, e.g. `对象：结论／条件` |
+| Steps, priority, chronology | Numbered list; short actions in order |
+| Alternatives or changes on shared dimensions | Comparison table; one dimension per row, short differences in cells |
 | Parameters, states, evidence | Compact lookup table when columns help retrieval |
-| Causal chain, mechanism, derivation | Short connected paragraph when splitting would hide the logic |
+| Causal chain, mechanism, derivation | Short paragraph only when phrases or lists would obscure the relationships |
 | Commands, config, literal errors | Code block; explanation outside it |
 
-- Do not force everything into a list or table. A clear sentence needs no wrapper.
+- Use a plain phrase or sentence when no list or table is needed.
 - Use tables for lookup or comparison, not as boxes for paragraphs. Move long rationale below the table or into the relevant subsection; keep the essential condition beside the claim.
 - If a list item contains several independent points, split it. If it needs deep nesting, regroup under a concrete heading. Keep qualifications with the point they qualify.
 - Avoid headings with no content, repeated introductions and conclusions, and multiple formats repeating the same information. A short overview can point to necessary detail instead of duplicating it.
@@ -58,7 +58,7 @@ Before returning or saving the text:
 
 - Compare against the source: same facts, conditions, scope, uncertainty, and normative force? No new claims, missing caveats, or swapped actors?
 - Scan only the headings, first words of bullets, and table headers: can a reader find the conclusion, differences, and actions?
-- Read the longest bullet and table cell: split or relocate it if it contains a paragraph in disguise. Keep connected prose where it explains more clearly.
+- Read the longest bullet and table cell: one point, shortest wording that preserves meaning? Split independent points; adding a bullet marker or packing text into one line does not make a paragraph concise.
 - Keep raw quotations, code, configuration, and machine-readable structure intact. In StrictDoc, edit prose fields without changing UIDs, grammar, relations, statuses, or delimiters merely for style.
 - Use the document's existing format checks. After `.sdoc` or StrictDoc config changes, run `strictdoc export .` from the docs root and inspect the relevant exported content. Export success proves syntax, not writing quality.
 
