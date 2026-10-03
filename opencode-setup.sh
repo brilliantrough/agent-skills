@@ -513,7 +513,6 @@ if [ ! -f "$BUNDLED" ]; then
 else
   mkdir -p "$PLUGINS"
   w_tmp="$(mktemp)"
-  w_tmp="$(mktemp)"
   if ! curl -fsSL --connect-timeout 8 -m 60 -o "$w_tmp" "$SELF_RAW/opencode/plugins/claude-mem-wrapper.js"; then
     rm -f "$w_tmp"; echo "WARN: claude-mem-wrapper.js 下载失败,保留现有文件(检查代理)" >&2
   elif cmp -s "$w_tmp" "$PLUGINS/claude-mem-wrapper.js"; then rm -f "$w_tmp"
@@ -974,6 +973,7 @@ for f in package.json index.mjs; do
   fi
 done
 if [ -f "$LATER_DIR/index.mjs" ] && \
+   ! grep -qs 'tui-plugins/later' "$CFG/tui.jsonc" "$CFG/tui.json" 2>/dev/null && \
    ask "在 $TUI_CFG 添加 later(延迟发送 prompt)TUI 插件条目?" Y; then
   ensure_tui_plugin "./tui-plugins/later" 'tui-plugins/later'
 fi
@@ -993,11 +993,11 @@ else
 fi
 
 # ---- 5.4 TUI 按键(Enter 发送、Shift+Enter 换行;不绑定 Ctrl+Enter)----
-# 用户确认后仅更新三个相关 action,其它按键和插件保留;变化时先展示差异并备份。
-if ask "统一为 Enter 发送、Shift+Enter 换行,取消旧 Ctrl+Enter/Ctrl+J 发送绑定(仅更新 $TUI_CFG 的三个相关按键)?" Y; then
-python3 - "$TUI_CFG" <<'PYEOF'
+# 先 fetch 式检查差异,有变化才展示并询问;无变化只报 unchanged。
+tui_keys_py() {  # $1 = check(只报差异不写) | apply(备份后写入)
+python3 - "$TUI_CFG" "$1" <<'PYEOF'
 import json, os, re, shutil, sys
-path = sys.argv[1]
+path, mode = sys.argv[1], sys.argv[2]
 def load(p):  # JSONC 感知:去注释与尾逗号(字符串内的 // 不动)
     try:
         t = open(p, encoding='utf-8').read()
@@ -1030,8 +1030,10 @@ changed = {k: v for k, v in want.items() if kb.get(k) != v}
 if not changed:
     print(f"unchanged: {path}(按键已一致)")
 else:
-    for k, v in changed.items():
-        print(f"keybinds.{k}: {kb.get(k)!r} -> {v!r}")
+    if mode == "check":
+        for k, v in changed.items():
+            print(f"keybinds.{k}: {kb.get(k)!r} -> {v!r}")
+        sys.exit(3)
     if os.path.exists(path):
         shutil.copy2(path, path + ".bak")
     kb.update(changed)
@@ -1041,6 +1043,17 @@ else:
         f.write("\n")
     print(f"updated: keybinds {', '.join(changed)} -> {path}")
 PYEOF
+}
+kb_rc=0; kb_out="$(tui_keys_py check)" || kb_rc=$?
+if [ "$kb_rc" -eq 3 ]; then
+  printf '%s\n' "$kb_out"
+  if ask "统一为 Enter 发送、Shift+Enter 换行,取消旧 Ctrl+Enter/Ctrl+J 发送绑定(仅更新 $TUI_CFG 的三个相关按键)?" Y; then
+    tui_keys_py apply
+  else
+    echo "保留原按键: $TUI_CFG"
+  fi
+else
+  printf '%s\n' "$kb_out"
 fi
 
 # 含密钥的配置统一 600(与 pi/codex 两侧一致;含本机路径的脚本文件不下调)
