@@ -50,6 +50,7 @@ scp -r ~/.agents/skills/personal-ui-taste USER@HOST:~/.agents/skills/
 
 - [SKILL.md](SKILL.md)：入口、通用品味、场景索引与工作方式。
 - [patterns.md](patterns.md)：S01 的图表、浮层、筛选、状态时间轴、响应式模式和踩坑。
+- [themes/README.md](themes/README.md)：美术风格层——皮肤索引、场景倾向、通用美术偏好与反感清单；确定界面结构后在此选皮肤。
 - [evolution.md](evolution.md)：按场景增删改查、处理冲突、记录证据与版本。
 - [scenarios/preview-workbench.md](scenarios/preview-workbench.md)：S02 的主题配对、字体、矩形面板、按钮、预览卡片与稀疏状态。
 - [scenarios/research-charts.md](scenarios/research-charts.md)：S03 的数据形态、曲线、比较维度和参考线。
