@@ -2,7 +2,7 @@
 name: personal-ui-taste
 description: "个人前端审美、功能驱动的信息组织与持续演化的 UI 设计指南。Use when designing, building, polishing or reviewing this user's frontend UI, dashboards, charts, forms or admin panels; choosing task-fit interactions such as joint rankings, rollups and drill-down; following 我的品味/个人审美; or recording approved feedback. Applies scoped preferences and interaction patterns across projects. Not for backend-only work."
 metadata:
-  version: "1.16.0"
+  version: "1.17.0"
   updated: "2026-10-04"
 ---
 
@@ -131,6 +131,7 @@ metadata:
 内容呈现与美术风格分层：本文件与 scenarios/ 管"内容怎样组织"（结构、信息组织、交互模式），[themes/](themes/README.md) 管"界面看起来怎样"（字体、色板、圆角、阴影、特效）。绘制流程：先按场景定结构，再按场景倾向选皮肤——默认 modern-saas（工作型界面），科研工作台可选 bespoke，预览画廊可选 bento，其余见主题索引。
 
 - 同一产品只用一套主题；跨页一致优先于单页出彩。
+- 落地方式：token 化 CSS 变量；默认只落地所选一套，运行时切换器只用于选择期对比、多用户页面或明暗双主题（[themes/README.md](themes/README.md#落地方式与切换器)）。
 - 通用美术偏好与反感清单（渐变背景、刺眼高亮、无边界按钮等否决项）在 themes/README.md，适用于所有主题与未列名的新设计。
 - 新美术反馈按 evolution.md 记录；未经用户目验的好看方案只记 Candidate。
 
