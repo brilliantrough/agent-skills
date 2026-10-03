@@ -12,6 +12,14 @@
 
 ## 快速安装
 
+**Windows 首次使用**：先安装 [Git for Windows](https://git-scm.com/download/win)（自带 Git Bash；无需安装 `gh`）。若有 `winget`，也可以在 PowerShell 中运行：
+
+```powershell
+winget install --id Git.Git -e --source winget
+```
+
+安装完成后，从开始菜单打开 **Git Bash**，在其中运行下面的安装命令。配置完成后，若 `pi` 或 `opencode` 已在其他终端的 PATH 中，也可从 PowerShell、Windows Terminal 等终端直接启动；无需每次手动打开 Git Bash，但请保留 Git for Windows，供 Bash 命令与插件使用。
+
 ### 默认安装（`-y`，幂等）
 
 仅问一轮凭据：统一网关 + 5 个 key，见[首次部署](#首次部署只需要网关--5-个-key)。
@@ -216,7 +224,7 @@ ponytail for experiments：规模随证据收缩，完整性满足论点。
 
 ## Windows（Git Bash）
 
-同一份 `*-setup.sh`、同一组顶部命令，在 **Git Bash** 运行；WSL 按 Linux 处理。
+同一份 `*-setup.sh`、同一组顶部命令，在 **Git Bash** 运行；WSL 按 Linux 处理。Windows 不保证自带 Git：首次安装请按[快速安装](#快速安装)先安装 Git for Windows，然后新开 Git Bash。不要在 PowerShell 中直接运行 `bash` 来启动本脚本：部分电脑上的 `bash.exe` 指向 WSL，而不是 Git Bash。
 
 仅需预装 **Git for Windows**（含 bash / curl / git / cygpath），其余缺件由脚本安装或提示：
 
