@@ -1,0 +1,2 @@
+# Bash 脚本必须在 Windows 检出时保持 LF，否则 Git Bash 执行报错
+*.sh text eol=lf

@@ -434,6 +434,11 @@ fi
 resolve_python3 || { echo "ERROR: 没有可用的 Python 3(配置写入依赖它)。可手工装(winget install Python.Python.3.12 / apt install python3)或允许脚本用 uv 装后重跑。" >&2; exit 1; }
 
 # ---- 1.1 依赖: npx(fnm + Node)----
+if ! command -v npx >/dev/null 2>&1 && command -v fnm >/dev/null 2>&1; then
+  # Git Bash 不加载 PowerShell 的 fnm 初始化；复用已有 default Node，避免重复安装。
+  eval "$(fnm env --shell bash)"
+  fnm use default || true
+fi
 if ! command -v npx >/dev/null 2>&1; then
   echo "未检测到 npx(claude-mem 官方安装器与 skills 安装需要 Node)。"
   if ask "是否安装 fnm + Node LTS？" Y; then
@@ -796,9 +801,17 @@ CG_BIN="$(command -v codegraph 2>/dev/null || true)"; [ -n "$CG_BIN" ] || CG_BIN
 if [ -x "$CG_BIN" ]; then
   if ! grep -qs '"codegraph"' "$CFG/opencode.json" "$CFG/opencode.jsonc" 2>/dev/null && \
      ask "在 $CFG/opencode.json 添加 codegraph MCP 条目?" Y; then
-    python3 - "$CFG/opencode.json" "$(nbin "$CG_BIN")" <<'PYEOF'
+    CG_NODE=""; CG_JS=""
+    if [ "$IS_WIN" = 1 ] && command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+      _cg_js="$(npm root -g 2>/dev/null)/@colbymchenry/codegraph/npm-shim.js"
+      if [ -f "$_cg_js" ]; then
+        CG_NODE="$(nbin "$(realpath "$(command -v node)")")"
+        CG_JS="$(npath "$(realpath "$_cg_js")")"
+      fi
+    fi
+    python3 - "$CFG/opencode.json" "$(nbin "$CG_BIN")" "$CG_NODE" "$CG_JS" <<'PYEOF'
 import json, sys
-path, bin_ = sys.argv[1], sys.argv[2]
+path, bin_, node, shim = sys.argv[1:5]
 try:
     with open(path) as f:
         text = f.read()
@@ -808,7 +821,8 @@ except FileNotFoundError:
 cfg.setdefault("mcp", {})
 if "codegraph" in cfg["mcp"]:
     sys.exit(0)
-cfg["mcp"]["codegraph"] = {"type": "local", "command": [bin_, "serve", "--mcp"], "enabled": True}
+cmd = [node, shim] if node and shim else [bin_]
+cfg["mcp"]["codegraph"] = {"type": "local", "command": cmd + ["serve", "--mcp"], "enabled": True}
 with open(path, "w") as f:
     json.dump(cfg, f, indent=2, ensure_ascii=False)
     f.write("\n")
@@ -1207,7 +1221,9 @@ if [ -x "$UV_BIN" ]; then
   if [ -z "$uv_latest" ]; then
     echo "跳过 uv 自升级:查不到最新版本(检查网络/代理)"
   elif [ "$uv_latest" != "$uv_cur" ]; then
-    if ask "uv ${uv_cur:-未知} → $uv_latest,升级(uv self update)?" Y; then
+    if [ "$IS_WIN" = 1 ] && [[ "$UV_BIN" == */Python*/Scripts/uv* ]]; then
+      echo "uv 由 Python 环境安装(${uv_cur:-未知}),请用原安装方式升级;跳过 uv self update"
+    elif ask "uv ${uv_cur:-未知} → $uv_latest,升级(uv self update)?" Y; then
       "$UV_BIN" self update || echo "WARN: uv 自升级失败(系统包管理器装的请用系统方式升级)" >&2
     fi
   else
