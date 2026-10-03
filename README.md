@@ -783,19 +783,24 @@ npm 条目在 OpenCode 重启时自动安装；配置改动也需重启生效。
 
 ### Skills
 
+本仓库 skill 由三个 setup 脚本统一调用的 `skills-sync.sh`（仓库根）分组同步，**重跑 setup 即更新**：
+
+| 组 | 策略 |
+|---|---|
+| base（品味/流程，19） | 每次随仓库刷新；本地有未回流改动先整目录备份到 `~/.local/share/agent-skills/.backups/` 再覆盖（回流后删备份） |
+| accel（算力平台模板，7） | 缺才装；本机特化后永不覆盖 |
+| kb（公共知识，1） | 每次随仓库刷新，不备份 |
+
+布局：符号链接可用的平台实体在 `~/.local/share/agent-skills/<组>/<名>`，`~/.agents/skills/<名>`（及 `~/.claude/skills/<名>`）是指向实体的链接；不可用的平台（部分 Windows）实体直落 `~/.agents/skills`。
+
+第三方源（mattpocock/drawio/find-skills 等）照旧：
+
 ```bash
-npx skills add brilliantrough/agent-skills --all -g -y   # 刷新已装 + 装入仓库新增的 skill
-npx skills update -g                                     # 刷新 lock 里登记的第三方源(mattpocock/drawio/find-skills)
+npx skills update -g   # 只遍历 ~/.agents/.skill-lock.json,不装新增 skill
 ```
 
-| 命令 / 来源 | 行为 |
-|---|---|
-| `add --all` | 幂等；已登记 skill 有变化才覆盖，并安装仓库新增 skill |
-| `update -g` | 只遍历 `~/.agents/.skill-lock.json`，按内容哈希刷新；**不装新增 skill**，上游新增至多提示 `To install: npx skills add …` |
-| 手工拷贝的副本 | 不在 lock 中，`npx skills ls -g` 显示 `Source: local`；两个命令都不碰 |
-
-- 两个 setup 脚本按 `add --all` → `update -g` 执行
-- 手工副本用 `add` 纳入跟踪时，会被仓库内容覆盖；服务器上的演化更新先回流仓库
+- 手工拷贝的副本不在 lock 中，`npx skills ls -g` 显示 `Source: local`，update 不碰
+- 本仓库 skill 不再走 `npx skills add`：它无条件覆盖且无分组策略
 
 ### 插件本体（不含配置）
 
@@ -845,6 +850,8 @@ npx skills update -g                                     # 刷新 lock 里登记
 ```bash
 npx skills add brilliantrough/agent-skills@tdd -g -y
 ```
+
+适合临时试用；注意下次重跑 setup 时本仓库 skill 会按 skills-sync.sh 的分组策略接管（base/kb 与仓库对齐，本地改动备份到 `.backups`）。
 
 ## License
 

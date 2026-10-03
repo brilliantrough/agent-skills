@@ -618,20 +618,15 @@ else
   else warn '缺少 CodeGraph,跳过 MCP 注册'; fi
 fi
 
-# ---- 5. skills:仅安装缺失项,已共享给 OpenCode 的内容不覆盖 ----
-missing=()
-for s in grilling domain-modeling tdd diagnosing-bugs code-review load-mem save-mem migrate-mem readable-docs plan-brief steady-do quick-do personal-ui-taste exp-discuss exp-campaign exp-batch exp-probe; do
-  if [ ! -f "$HOME/.agents/skills/$s/SKILL.md" ] && [ ! -f "$CFG/skills/$s/SKILL.md" ]; then
-    missing+=("$s")
-  fi
-done
-if [ "${#missing[@]}" = 0 ]; then
-  echo 'unchanged: skills 已存在,复用原内容'
-elif command -v npx >/dev/null; then
-  if ask "安装缺失 skills: ${missing[*]}?" Y; then
-    npx -y skills@latest add brilliantrough/agent-skills --skill "${missing[@]}" --agent codex -g -y || warn 'skills 安装失败'
-  fi
-else warn '缺少 npx,跳过 skills'; fi
+# ---- 5. skills:与 pi/opencode 同一同步器(base 组随仓库刷新;本地漂移自动备份到 ~/.local/share/agent-skills/.backups)----
+SELF_RAW="https://raw.githubusercontent.com/brilliantrough/agent-skills/main"
+_ss="$(mktemp --suffix=.sh 2>/dev/null || mktemp)"
+if curl -fsSL --connect-timeout 8 -m 60 -o "$_ss" "$SELF_RAW/skills-sync.sh"; then
+  bash "$_ss" base || warn 'skills 同步未完全成功'
+else
+  warn 'skills-sync.sh 下载失败,跳过 skills 同步'
+fi
+rm -f "$_ss"
 
 echo '== 配置步骤结束 =='
 echo '1. 在 Codex /hooks 审阅并信任插件 hooks,然后重开会话;更新 hooks 后可能需要重新信任。'
