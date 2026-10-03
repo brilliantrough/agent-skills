@@ -2,7 +2,7 @@
 name: personal-ui-taste
 description: "个人前端审美、功能驱动的信息组织与持续演化的 UI 设计指南。Use when designing, building, polishing or reviewing this user's frontend UI, dashboards, charts, forms or admin panels; choosing task-fit interactions such as joint rankings, rollups and drill-down; following 我的品味/个人审美; or recording approved feedback. Applies scoped preferences and interaction patterns across projects. Not for backend-only work."
 metadata:
-  version: "1.15.0"
+  version: "1.16.0"
   updated: "2026-10-04"
 ---
 
@@ -135,6 +135,14 @@ metadata:
 - 新美术反馈按 evolution.md 记录；未经用户目验的好看方案只记 Candidate。
 
 ## 工作方式
+
+**先定询问分寸（grilling）**：与 quick-do/steady-do/plan-brief 同一理念——开工前做简单合理的确认，但网页场景不过度询问，守住不打断明确任务的分寸。
+
+| 任务形态 | 询问策略 |
+| --- | --- |
+| 平地起高楼（新页面/新产品，无既有结构与风格约束） | 询问两类：① 内容基本面——页面要回答什么问题、给谁用、必须有的元素（只问缺失的，不盘问已说的）；② 风格选择——按 [themes/README.md](themes/README.md#风格选择询问模板) 列出各主题特点让用户挑 |
+| 用户指明具体改动（大多数增删改） | 不询问，直接做；做完一句话说明改了什么、用了哪个皮肤 |
+| 介于中间 | 只问一个最有价值的问题，其余按默认品味落地 |
 
 1. **理解现状**：先明确用户要完成的判断与操作，再读实际页面、数据关系、共享样式和交互流。按问题查信息组织、筛选含义、inherited font、命中层或浮层定位，不只检查外观。
 2. **最小落地**：复用既有技术栈、原生控件、CSS/SVG 或已安装图表库。只为外观不另建组件体系、不换框架、不新增依赖。
