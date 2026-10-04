@@ -783,7 +783,7 @@ npm 条目在 OpenCode 重启时自动安装；配置改动也需重启生效。
 
 ### Skills
 
-本仓库 skill 由三个 setup 脚本统一调用的 `skills-sync.sh`（仓库根）分组同步，**重跑 setup 即更新**：
+本仓库 skill 由三个 setup 脚本统一调用的 `skills-sync.sh`（仓库根）分组同步，**重跑 setup 即更新**。分组即仓库 `skills/{base,accel,kb}/` 目录，新增 skill 放入对应组目录即可，无名单维护：
 
 | 组 | 策略 |
 |---|---|
@@ -791,7 +791,7 @@ npm 条目在 OpenCode 重启时自动安装；配置改动也需重启生效。
 | accel（算力平台模板，7） | 缺才装；本机特化后永不覆盖 |
 | kb（公共知识，1） | 每次随仓库刷新，不备份 |
 
-布局：符号链接可用的平台实体在 `~/.local/share/agent-skills/<组>/<名>`，`~/.agents/skills/<名>`（及 `~/.claude/skills/<名>`）是指向实体的链接；不可用的平台（部分 Windows）实体直落 `~/.agents/skills`。
+客户端不分组：实体直落 `~/.agents/skills/<名>`，装了 Claude Code 的机器同步 `~/.claude/skills/<名>`（有差异才写）。
 
 第三方源（mattpocock/drawio/find-skills 等）照旧：
 

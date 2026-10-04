@@ -1120,15 +1120,14 @@ if [ "$PI_OK" -eq 1 ]; then
 fi
 
 # ---- 7. skills 本体 ----
-# 分组策略与名单集中在仓库根 skills-sync.sh:base/kb 每次随仓库刷新(base 本地有未回流改动先备份到
-# ~/.local/share/agent-skills/.backups);accel 缺才装(本机特化不覆盖)。实体与入口:符号链接可用的平台
-# 实体在 ~/.local/share/agent-skills/<组>/<名>,~/.agents/skills/<名> 为链接;否则实体直落 ~/.agents/skills。
+# 分组 = 仓库 skills/{base,accel,kb}/ 目录,策略由 skills-sync.sh 执行:base/kb 每次随仓库刷新
+# (base 本地有未回流改动先备份到 ~/.local/share/agent-skills/.backups);accel 缺才装(本机特化不覆盖)。
+# 客户端实体直落 ~/.agents/skills/<名>(装了 Claude Code 时同步 ~/.claude/skills/<名>)。
 # 第三方源 skill(mattpocock/drawio/find-skills 等)照旧 npx update,不受影响。
 SELF_RAW="https://raw.githubusercontent.com/brilliantrough/agent-skills/main"
 _ss="$(mktemp --suffix=.sh 2>/dev/null || mktemp)"
 if curl -fsSL --connect-timeout 8 -m 60 -o "$_ss" "$SELF_RAW/skills-sync.sh"; then
-  eval "$(grep -E '^(BASE|ACCEL|KNOWLEDGE)_SKILLS="' "$_ss")"
-  if ask "安装/更新 skills(全部 $(( $(echo $BASE_SKILLS $ACCEL_SKILLS $KNOWLEDGE_SKILLS | wc -w) )) 个 = 基础 $(echo $BASE_SKILLS | wc -w) + 算力平台模板 $(echo $ACCEL_SKILLS | wc -w) + 知识库 $(echo $KNOWLEDGE_SKILLS | wc -w);选 N 只装基础组(个人工作站选这个);pi 原生读 ~/.agents/skills" N; then
+  if ask "安装/更新 skills(base+accel+kb 三组;base 每次刷新·漂移自动备份,accel 缺才装;选 N 只装 base 组,个人工作站选这个);pi 原生读 ~/.agents/skills" N; then
     bash "$_ss" all || echo "WARN: skills 同步未完全成功" >&2
   else
     bash "$_ss" base || echo "WARN: skills 同步未完全成功" >&2
