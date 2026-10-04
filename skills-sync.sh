@@ -7,8 +7,9 @@
 # 备份:~/.local/share/agent-skills/.backups/<组>/<名>.bak-<时间戳>(回流仓库后自行删除)。
 #
 # 用法:skills-sync.sh [all|base]   all = 全部组;base = 仅基础组(个人工作站)
-# 源:SKILLS_SRC 指定仓库 skills/ 目录;默认 ~/Linewrite/skills/agent-skills/skills;
-#   没有则从 GitHub 拉 main tarball 到 ~/.cache/agent-skills-src(无需 git)。
+# 源:SKILLS_SRC 指定仓库 skills/ 目录;默认 ~/Linewrite/skills/agent-skills/skills(本地克隆);
+#   没有克隆则从 GitHub 拉 main tarball 到 ~/.cache/agent-skills-src(无需 git)。
+#   克隆即源——要带上远端新提交,须先在克隆里 git pull;脚本不自动拉取。
 set -euo pipefail
 
 SCOPE="${1:-all}"
@@ -23,6 +24,10 @@ if [ ! -d "$SRC" ]; then
     https://codeload.github.com/brilliantrough/agent-skills/tar.gz/refs/heads/main
   rm -rf "$cache/agent-skills-main"; tar -xzf "$cache/src.tgz" -C "$cache"; rm -f "$cache/src.tgz"
   SRC="$cache/agent-skills-main/skills"
+  echo "源:GitHub main tarball(本机无克隆)"
+else
+  _h=$(git -C "$(dirname "$SRC")" rev-parse --short HEAD 2>/dev/null || true)
+  echo "源:本地克隆 $SRC${_h:+ (HEAD $_h)}——克隆即源,远端新版要先 git pull"
 fi
 [ -d "$SRC" ] || { echo "ERROR: 找不到 skills 源目录 $SRC" >&2; exit 1; }
 
