@@ -8,7 +8,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 字体 | IBM Plex Sans（Google Fonts）；数字 tabular-nums 加粗 |
+| 字体 | IBM Plex Sans；明确中文配对，交付沿用项目方案或 Fontsource；数字 tabular-nums 加粗 |
 | 表面 | canvas `#edf1f4` + 26px 蓝图网格线 `rgba(29,45,66,.045)`；panel `#ffffff`；control `#eef2f5` |
 | 文本 | primary `#1d2733`；secondary `#5c6b7a` |
 | 边界 | `#dde5ec`；强 `#c2cfda` |

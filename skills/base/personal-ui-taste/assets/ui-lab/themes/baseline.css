@@ -1,0 +1,19 @@
+/* Historical baseline: visual comparison only. */
+:root {
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", sans-serif;
+  --canvas: #f7f8fa; --panel: #fff; --control: #f3f4f6;
+  --text: #252b35; --text-2: #626c7b;
+  --border: #e9ecf1; --border-strong: #d6dbe4;
+  --accent: #3b63dc; --accent-fg: #fff; --accent-hover: #3457c4; --selected: #edf2ff;
+  --hover-bg: rgba(37, 43, 53, .045);
+  --c1: #3b63dc; --c2: #7c5cd6; --c3: #2ba88a; --c4: #e0913d; --c5: #d65c7a;
+  --ok: #2fa36b; --warn: #d99a2b; --bad: #d95f5f;
+  --ok-bg: #e5f4ec; --ok-fg: #1e7a4d; --warn-bg: #faf1de; --warn-fg: #a06d14;
+  --bad-bg: #fae7e7; --bad-fg: #b23434; --info-bg: #edf2ff; --info-fg: #3b63dc;
+  --r-sm: 8px; --r-md: 10px; --r-lg: 14px;
+  --sh-1: 0 1px 2px rgba(30, 36, 48, .06); --sh-2: 0 3px 10px rgba(30, 36, 48, .08);
+  --sh-pop: 0 8px 28px rgba(30, 36, 48, .14);
+  --focus-ring: 0 0 0 3px rgba(59, 99, 220, .16);
+  --t-fast: 140ms ease; --t-med: 220ms ease;
+  --gap: 12px; --pad: 16px; --bar-zoom: 1.04;
+}

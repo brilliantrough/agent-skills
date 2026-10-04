@@ -1,14 +1,14 @@
-# Modern SaaS 亮蓝 · 工作型界面默认主题
+# Modern SaaS 亮蓝 · 鲜明工作台主题
 
 - 来源：UI/UX Pro Max 色板（SaaS/Analytics 家族）+ Linear/Vercel 产品气质；2026-10-04 用户对比验收 Confirmed。
 - 气质：深色侧栏 + 亮色内容区的现代 SaaS 管理台；电光蓝强调、细腻微光，不张扬。
-- 默认适用：S01 信息密集界面、S04 分析排查工作台、一切管理台/仪表盘；也是未指定场景时的默认主题。
+- 适用：喜欢亮蓝与深色侧栏时的 S01/S04 工作台；与 shadcn-neutral 等并列选择，不是全部页面的默认约束。
 
 ## Tokens
 
 | 项 | 值 |
 | --- | --- |
-| 字体 | Inter（Google Fonts）；数字 tabular-nums |
+| 字体 | Inter；明确中文配对，交付沿用项目方案或 Fontsource；数字 tabular-nums |
 | 表面 | canvas `#f6f7f9`；panel `#ffffff`；control `#f1f2f5` |
 | 文本 | primary `#0f172a`；secondary `#5b6472` |
 | 边界 | `#e7e9ef`；强 `#d3d8e2` |
@@ -26,6 +26,7 @@
 - **主按钮**：accent 底 + `0 1px 2px rgba(46,107,240,.35)`，hover 加 `0 2px 10px rgba(46,107,240,.45)`。
 - **状态灯带（标杆处理，用户全场最佳）**：颜色亮而鲜艳，hover `scaleY(1.25)` + `0 0 6px currentColor` 同色系辉光。
 - **焦点曲线**：高亮系列 `drop-shadow(0 0 4px rgba(46,107,240,.35))`。
+- **共用精修**：按 [视觉做法](../references/visual-craft.md)补齐主次按钮、菜单状态和字体/图标尺度；亮蓝与灯带辉光保留，不把主色铺到所有标签与次要动作。
 
 ## 用户反馈记录
 

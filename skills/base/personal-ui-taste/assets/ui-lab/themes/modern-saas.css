@@ -1,0 +1,42 @@
+/* Modern SaaS: dark navigation, bright blue actions, vivid status signals. */
+:root {
+  --font: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --canvas: #f6f7f9; --panel: #ffffff; --control: #f1f2f5;
+  --text: #0f172a; --text-2: #5b6472;
+  --border: #e7e9ef; --border-strong: #d3d8e2;
+  --accent: #2e6bf0; --accent-fg: #fff; --accent-hover: #1f5be0;
+  --accent-sh: 0 1px 2px rgba(46, 107, 240, .35), 0 0 0 1px rgba(46, 107, 240, .12);
+  --selected: #eaf1ff;
+  --hover-bg: rgba(15, 23, 42, .05);
+  --c1: #2e6bf0; --c2: #8b5cf6; --c3: #06b6d4; --c4: #f59e0b; --c5: #f43f5e;
+  --ok: #22c55e; --warn: #f59e0b; --bad: #ef4444;
+  --ok-bg: #e2f5e9; --ok-fg: #127a3a; --warn-bg: #fdf0dc; --warn-fg: #a05a06;
+  --bad-bg: #fce5e5; --bad-fg: #b31d1d; --info-bg: #eaf1ff; --info-fg: #2e6bf0;
+  --r-sm: 8px; --r-md: 10px; --r-lg: 14px;
+  --sh-1: 0 1px 2px rgba(16, 24, 40, .05); --sh-2: 0 4px 14px rgba(16, 24, 40, .08);
+  --sh-pop: 0 12px 32px rgba(16, 24, 40, .16);
+  --focus-ring: 0 0 0 3px rgba(46, 107, 240, .18);
+  --t-fast: 150ms cubic-bezier(.4, 0, .2, 1); --t-med: 240ms cubic-bezier(.4, 0, .2, 1);
+  --gap: 12px; --pad: 18px; --bar-zoom: 1.05;
+  --side-bg: #0d1220; --top-bg: rgba(255, 255, 255, .82);
+}
+/* 深色侧栏：亮蓝活跃指示 + 柔和扫入 */
+.side { border-right: 1px solid #1c2438; }
+.side .brand { color: #e8ecf5; }
+.side .brand-dot { box-shadow: 0 0 10px rgba(46, 107, 240, .8); }
+.nav-item { color: #8b94a9; }
+.nav-item:hover { color: #dbe1ec; background: rgba(255, 255, 255, .06); }
+.nav-item.is-active { color: #fff; background: linear-gradient(90deg, rgba(46, 107, 240, .28), rgba(46, 107, 240, .10)); font-weight: 600; }
+.nav-item.is-active::before { content: ""; position: absolute; left: 0; top: 6px; bottom: 6px; width: 2.5px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 8px rgba(46, 107, 240, .9); }
+.side-foot, .side .nav-caption, .side .workspace small { color: #a0abc1; }
+.side .workspace, .side .profile { color: #edf1fa; border-color: #283248; }
+.side .avatar { background: #29344b; color: #e7edfa; }
+/* 顶栏毛玻璃 */
+.top { backdrop-filter: blur(10px); }
+/* 主按钮微光 */
+.btn.primary:hover { box-shadow: 0 2px 10px rgba(46, 107, 240, .45); }
+/* 悬浮曲线加辉光 */
+.series.is-focus .line-path { filter: drop-shadow(0 0 4px rgba(46, 107, 240, .35)); }
+.strip .seg { --strip-op: 1; color: var(--ok); --strip-glow: 0 0 8px currentColor; }
+.strip .seg.warn { color: var(--warn); }
+.strip .seg.bad { color: var(--bad); }

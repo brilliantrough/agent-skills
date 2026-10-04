@@ -1,0 +1,41 @@
+/* Elevation study: technique sample, not a recommended theme. */
+:root {
+  --font: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --canvas: #eceef1; --panel: #ffffff; --control: #f0f2f4;
+  --text: #1c2330; --text-2: #5d6675;
+  --border: transparent; --border-strong: transparent;
+  --accent: #405cf5; --accent-fg: #fff; --accent-hover: #2f4ae0; --selected: #e9edfe;
+  --hover-bg: rgba(28, 35, 48, .05);
+  --c1: #405cf5; --c2: #845ef7; --c3: #12b0a0; --c4: #f08c00; --c5: #e64980;
+  --ok: #2b8a3e; --warn: #d9480f; --bad: #c92a2a;
+  --ok-bg: #dff2e2; --ok-fg: #1f6e2f; --warn-bg: #fce8dd; --warn-fg: #a8370b;
+  --bad-bg: #f9e0e0; --bad-fg: #a61e1e; --info-bg: #e9edfe; --info-fg: #405cf5;
+  --r-sm: 8px; --r-md: 12px; --r-lg: 16px;
+  /* 海拔四级：e1 平铺 → e2 面板 → e3 悬浮 → e4 浮层 */
+  --e1: 0 1px 2px rgba(23, 28, 38, .07);
+  --e2: 0 4px 8px rgba(23, 28, 38, .08), 0 1px 2px rgba(23, 28, 38, .05);
+  --e3: 0 12px 24px rgba(23, 28, 38, .12), 0 3px 6px rgba(23, 28, 38, .06);
+  --e4: 0 24px 48px rgba(23, 28, 38, .18), 0 6px 12px rgba(23, 28, 38, .08);
+  --sh-1: var(--e1); --sh-2: var(--e3); --sh-pop: var(--e4);
+  --focus-ring: 0 0 0 3px rgba(64, 92, 245, .2);
+  --t-fast: 150ms ease; --t-med: 260ms cubic-bezier(.2, .8, .3, 1);
+  --gap: 14px; --pad: 18px; --bar-zoom: 1.05;
+  --card-lift: translateY(-4px);
+}
+/* 海拔规则：面板 e1、悬浮升 e3、浮层 e4、顶栏 blur 分层 */
+.panel, .kpi { border: 0; box-shadow: var(--e1); }
+.panel:hover, .kpi:hover { box-shadow: var(--e2); }
+.card:hover { box-shadow: var(--e3); }
+.side { border: 0; box-shadow: var(--e1); z-index: 21; }
+.top { border: 0; background: rgba(255, 255, 255, .85); backdrop-filter: blur(8px); box-shadow: var(--e1); }
+/* Keep visible button boundaries. */
+.btn { border: 1px solid #dfe3e9; box-shadow: var(--e1); }
+.btn:hover { box-shadow: var(--e2); }
+.btn:active { box-shadow: var(--e1); }
+.seg, .search, .inp { box-shadow: inset 0 1px 2px rgba(23, 28, 38, .07); }
+.legend-chip { border: 0; box-shadow: var(--e1); }
+.tbl th { background: #f4f6f8; }
+.sort-item { border: 0; box-shadow: var(--e1); }
+.sort-item.is-drag { box-shadow: var(--e4); }
+.card { border: 0; box-shadow: var(--e1); }
+.badge { box-shadow: inset 0 0 0 1px rgba(23, 28, 38, .04); }

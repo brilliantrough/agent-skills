@@ -1,0 +1,33 @@
+/* Glass: flat canvas, translucent surfaces, solid controls. */
+:root {
+  --font: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --canvas: #dfe6f5; --panel: rgba(255, 255, 255, .62); --control: rgba(255, 255, 255, .55);
+  --text: #17203a; --text-2: #4d5878;
+  --border: rgba(255, 255, 255, .65); --border-strong: rgba(255, 255, 255, .9);
+  --accent: #006bd6; --accent-fg: #fff; --accent-hover: #005bb6;
+  --accent-sh: 0 4px 16px rgba(0, 128, 255, .4);
+  --selected: rgba(0, 128, 255, .12);
+  --hover-bg: rgba(255, 255, 255, .5);
+  --c1: #0080ff; --c2: #8b5cf6; --c3: #00c2b8; --c4: #f59e0b; --c5: #ff4d8d;
+  --ok: #0d9d63; --warn: #d08a00; --bad: #e0425e;
+  --ok-bg: rgba(13, 157, 99, .14); --ok-fg: #087a4c; --warn-bg: rgba(208, 138, 0, .15); --warn-fg: #96660a;
+  --bad-bg: rgba(224, 66, 94, .13); --bad-fg: #b02a44; --info-bg: rgba(0, 128, 255, .12); --info-fg: #006fe0;
+  --r-sm: 10px; --r-md: 14px; --r-lg: 20px;
+  --sh-1: 0 2px 8px rgba(40, 55, 100, .08); --sh-2: 0 10px 28px rgba(40, 55, 100, .14);
+  --sh-pop: 0 18px 48px rgba(40, 55, 100, .22);
+  --focus-ring: 0 0 0 3px rgba(0, 128, 255, .25);
+  --t-fast: 160ms ease; --t-med: 260ms ease;
+  --gap: 14px; --pad: 18px; --bar-zoom: 1.05;
+  --pop-bg: rgba(255, 255, 255, .8); --pop-blur: blur(16px);
+  --strip-glow: 0 0 8px currentColor;
+}
+/* 玻璃面板 */
+.panel, .kpi, .card, .sort-item, .legend-chip { backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: var(--sh-1); }
+.side { background: rgba(255, 255, 255, .45); backdrop-filter: blur(18px); border-right-color: rgba(255, 255, 255, .6); }
+.top { background: rgba(255, 255, 255, .5); backdrop-filter: blur(18px); border-bottom-color: rgba(255, 255, 255, .6); }
+.btn { background: rgba(255, 255, 255, .6); border-color: rgba(255, 255, 255, .8); }
+.btn.primary { background: var(--accent); border-color: transparent; }
+.btn.primary:hover { background: var(--accent-hover); }
+.tbl th { background: rgba(255, 255, 255, .5); }
+.inp:focus, .search:focus-within { background: rgba(255, 255, 255, .85); }
+.series.is-focus .line-path { filter: drop-shadow(0 0 5px rgba(0, 128, 255, .5)); }

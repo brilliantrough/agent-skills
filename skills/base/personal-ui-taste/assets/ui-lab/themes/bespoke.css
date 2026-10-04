@@ -1,0 +1,52 @@
+/* Observatory: measured typography, grid canvas, instrument panels. */
+:root {
+  --font: "IBM Plex Sans", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --canvas: #edf1f4; --panel: #ffffff; --control: #eef2f5;
+  --text: #1d2733; --text-2: #5c6b7a;
+  --border: #dde5ec; --border-strong: #c2cfda;
+  --accent: #086fc7; --accent-fg: #fff; --accent-hover: #065eaa;
+  --accent-sh: 0 2px 8px rgba(11, 132, 243, .3);
+  --selected: #e3f0fd;
+  --hover-bg: rgba(29, 39, 51, .05);
+  --c1: #0b84f3; --c2: #6c5ce7; --c3: #00a8a8; --c4: #e8963c; --c5: #d6517a;
+  --ok: #1f9d63; --warn: #cf8a1a; --bad: #d64550;
+  --ok-bg: #def1e7; --ok-fg: #177a4c; --warn-bg: #f8ecd6; --warn-fg: #9c6a0e;
+  --bad-bg: #f9e2e4; --bad-fg: #b02a35; --info-bg: #e3f0fd; --info-fg: #0b84f3;
+  --r-sm: 6px; --r-md: 9px; --r-lg: 12px;
+  --sh-1: 0 1px 2px rgba(29, 45, 66, .07); --sh-2: 0 5px 16px rgba(29, 45, 66, .1);
+  --sh-pop: 0 14px 38px rgba(29, 45, 66, .17);
+  --focus-ring: 0 0 0 3px rgba(11, 132, 243, .2);
+  --t-fast: 140ms ease; --t-med: 220ms ease;
+  --gap: 12px; --pad: 18px; --bar-zoom: 1.05;
+  --side-w: 232px;
+}
+/* 蓝图网格画布：仪器的背景纸 */
+body {
+  background-image:
+    linear-gradient(rgba(29, 45, 66, .045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(29, 45, 66, .045) 1px, transparent 1px);
+  background-size: 26px 26px;
+}
+/* 面板顶部 2px 主色规线：仪器铭牌感 */
+.panel { border-top: 2px solid var(--accent); border-radius: 4px 4px var(--r-md) var(--r-md); }
+.kpi { border-left: 3px solid var(--accent); }
+.kpi-v { font-size: 26px; font-weight: 700; }
+/* 导航：编号仪器条目 + 左侧 3px 指示条 */
+.nav-item { border-radius: 4px; }
+.nav-item.is-active { background: var(--selected); color: var(--accent); }
+.nav-item.is-active::before { content: ""; position: absolute; left: -10px; top: 4px; bottom: 4px; width: 3px; background: var(--accent); }
+.side { padding-left: 16px; }
+/* memorable：灯带的辉光与刻度尺 */
+.strip { height: 26px; padding: 3px; background: var(--control); border-radius: 6px; border: 1px solid var(--border); }
+.strip .seg { border-radius: 1.5px; }
+.strip .seg.ok { box-shadow: 0 0 5px rgba(31, 157, 99, .45); }
+.strip .seg.warn { box-shadow: 0 0 6px rgba(207, 138, 26, .6); }
+.strip .seg.bad { box-shadow: 0 0 7px rgba(214, 69, 80, .7); }
+/* 数字是仪器读数：加大、收紧 */
+.tbl .num, .tip-row b { font-weight: 600; }
+/* 主按钮：实体按键感 */
+.btn.primary { box-shadow: var(--accent-sh), inset 0 1px 0 rgba(255, 255, 255, .25); }
+.btn.primary:active { box-shadow: inset 0 2px 4px rgba(0, 0, 0, .2); transform: translateY(1px); }
+/* 图例chip做成拨杆 */
+.legend-chip { border-radius: 4px; }
+.legend-chip.is-focus { box-shadow: inset 0 0 0 1.5px var(--accent); }

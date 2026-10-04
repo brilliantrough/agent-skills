@@ -48,13 +48,17 @@ scp -r ~/.agents/skills/personal-ui-taste USER@HOST:~/.agents/skills/
 
 ## 文件
 
+- [assets/ui-lab/index.html](assets/ui-lab/index.html)：直接打开的离线实验室，默认 shadcn-neutral；七套主题与两个对照，可交互比较。
+- [assets/ui-lab/README.md](assets/ui-lab/README.md)：组件 → CSS/JS 索引、token 约定、复用边界；素材版本与许可证见同目录 `SOURCES.md`。
 - [SKILL.md](SKILL.md)：入口、通用品味、场景索引与工作方式。
 - [patterns.md](patterns.md)：S01 的图表、浮层、筛选、状态时间轴、响应式模式和踩坑。
 - [themes/README.md](themes/README.md)：美术风格层——皮肤索引、场景倾向、通用美术偏好与反感清单；确定界面结构后在此选皮肤。
+- [themes/shadcn-neutral.md](themes/shadcn-neutral.md)：用户强烈认可的现代简洁方向，与亮蓝等既有主题并列选择；具体实现按项目目验。
 - [evolution.md](evolution.md)：按场景增删改查、处理冲突、记录证据与版本。
 - [scenarios/preview-workbench.md](scenarios/preview-workbench.md)：S02 的主题配对、字体、矩形面板、按钮、预览卡片与稀疏状态。
 - [scenarios/research-charts.md](scenarios/research-charts.md)：S03 的数据形态、曲线、比较维度和参考线。
 - [scenarios/analytical-workbench.md](scenarios/analytical-workbench.md)：S04 的关系问题、联合排行、维度汇总、分层展开和语义筛选。
 - [references/data-and-runtime.md](references/data-and-runtime.md)：分析界面的指标合并、快照采集、时间/留存边界和运行恢复约定，按任务选读。
+- [references/visual-craft.md](references/visual-craft.md)：六个参考源的组件、配色、摘要卡、图标、字体与标签做法，供各主题共同吸收。
 
 不需要提前设计所有未来场景：明确反馈 → 当前场景落地 → 认可后沉淀 → 在下一项目复用。

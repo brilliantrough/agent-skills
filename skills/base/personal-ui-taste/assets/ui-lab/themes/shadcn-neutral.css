@@ -1,0 +1,31 @@
+/* Shadcn-inspired neutral reference; semantic roles map to base.css components. */
+:root {
+  --font: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --canvas: #fafafa; --panel: #fff; --control: #f4f4f5;
+  --text: #18181b; --text-2: #66666f;
+  --border: #e4e4e7; --border-strong: #a1a1aa; --control-bd: #d4d4d8;
+  --accent: #18181b; --accent-fg: #fafafa; --accent-hover: #303036;
+  --selected: #f0f0f2; --hover-bg: #f4f4f5;
+  --c1: #3e63dd; --c2: #8e4ec6; --c3: #12a594; --c4: #e2a336; --c5: #e54666;
+  --ok: #30a46c; --warn: #f5a524; --bad: #e5484d;
+  --ok-bg: #e6f6eb; --ok-fg: #18794e;
+  --warn-bg: #fff4d5; --warn-fg: #925f16;
+  --bad-bg: #ffefef; --bad-fg: #b4232c;
+  --info-bg: #edf2fe; --info-fg: #3358c8;
+  --r-sm: 6px; --r-md: 10px; --r-lg: 12px;
+  --sh-1: 0 1px 2px #18181b08; --sh-2: 0 3px 10px #18181b0c;
+  --sh-pop: 0 10px 32px #18181b18, 0 2px 6px #18181b0a;
+  --focus-ring: 0 0 0 3px #18181b20;
+  --t-fast: 140ms ease; --t-med: 220ms ease;
+  --gap: 18px; --pad: 28px; --press-y: 0; --bar-zoom: 1;
+  --side-bg: #f7f7f8; --top-bg: #fffffff2;
+}
+.side { border-color: var(--border); }
+.brand-dot { background: var(--text); border-radius: 5px; }
+.nav-item.is-active { color: var(--text); background: #eaeaed; }
+.btn.primary { box-shadow: 0 1px 2px #18181b18; }
+.kpi, .panel { box-shadow: var(--sh-1); }
+.strip .seg { --strip-op: 1; }
+.strip .seg:hover { transform: scaleY(1.12); }
+.inp { background: var(--panel); }
+.tbl th { background: #fafafa; }

@@ -1,0 +1,35 @@
+/* Swiss: alignment, hairlines and square geometry. */
+:root {
+  --font: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --canvas: #ffffff; --panel: #ffffff; --control: #f4f4f5;
+  --text: #111114; --text-2: #5f6368;
+  --border: #e4e4e6; --border-strong: #111114;
+  --accent: #2547f4; --accent-fg: #fff; --accent-hover: #1a38c8; --selected: #eef1fe;
+  --hover-bg: #f4f4f5;
+  --c1: #2547f4; --c2: #111114; --c3: #8a8f98; --c4: #c9ced6; --c5: #5f6368;
+  --ok: #0a7d4f; --warn: #b57708; --bad: #c92a2a;
+  --ok-bg: #e3f2ea; --ok-fg: #0a7d4f; --warn-bg: #f8eed7; --warn-fg: #8f5e06;
+  --bad-bg: #f9e3e3; --bad-fg: #a61e1e; --info-bg: #eef1fe; --info-fg: #2547f4;
+  --r-sm: 2px; --r-md: 3px; --r-lg: 4px;
+  --sh-1: none; --sh-2: none; --sh-pop: 0 4px 24px rgba(17, 17, 20, .12);
+  --focus-ring: 0 0 0 2px rgba(37, 71, 244, .25);
+  --t-fast: 120ms ease; --t-med: 200ms ease;
+  --gap: 16px; --pad: 20px; --bar-zoom: 1.02;
+  --side-w: 216px;
+}
+/* 层级全靠网格与发丝线：面板去阴影，顶栏加粗黑线 */
+.top { border-bottom: 2px solid var(--text); }
+.side { border-right: 1px solid var(--border-strong); }
+.panel, .kpi { border-color: var(--border); }
+.panel, .kpi { box-shadow: none; }
+/* 导航：左侧 3px 黑块指示，不用底色 */
+.nav-item { border-radius: 0; }
+.nav-item.is-active { background: transparent; color: var(--text); }
+.nav-item.is-active::before { content: ""; position: absolute; left: -10px; top: 0; bottom: 0; width: 3px; background: var(--accent); }
+.side { padding-left: 18px; }
+/* 分段选择：方角 + 黑边活动项 */
+.seg-item.is-on { background: var(--text); color: #fff; box-shadow: none; }
+/* 状态灯带：直角实色 */
+.strip .seg { border-radius: 0; }
+.badge { border-radius: 2px; }
+.brand-dot { border-radius: 0; }
