@@ -369,14 +369,14 @@ skills 共享，更新也影响 OpenCode。claude-mem runtime 按官方文档更
 
 | 项目 | 默认值 |
 |---|---|
-| `modelThinkingLevels` | `codex-newapi/gpt-6-astra`、`codex-newapi/gpt-6-sol` 用 `xhigh`；其余全局 `high` |
+| `modelThinkingLevels` | `codex-newapi/gpt-6-astra`、`codex-newapi/gpt-6.1-sol` 用 `xhigh`；其余全局 `high` |
 | agent 级 `retry` | `maxRetries:8`、`baseDelayMs:4000`；原生指数退避，不开 provider 内层重试 |
 | 退避间隔 | 4/8/16/32/64/128/256/512 秒，累计 17 分钟；含首发最多 9 次请求 |
 
 **自动命名**
 
 - `pi-autoname@0.6.8`；配置 `~/.pi/agent/pi-autoname.json`
-- 任务结束后用 `codex-newapi/gpt-6-sol` 命名；冷却 1440 分钟，尊重手工名称；`/autoname` 手动触发
+- 任务结束后用 `codex-newapi/gpt-6.1-sol` 命名；冷却 1440 分钟，尊重手工名称；`/autoname` 手动触发
 - 最近对话片段发送给命名模型；失败回退当前会话模型 / 文本提取
 - 配置路径固定 `~/.pi/agent`；自定义 `PI_CODING_AGENT_DIR` 时跳过
 
