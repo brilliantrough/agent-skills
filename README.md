@@ -783,7 +783,7 @@ npm 条目在 OpenCode 重启时自动安装；配置改动也需重启生效。
 
 ### Skills
 
-本仓库 skill 由三个 setup 脚本统一调用的 `skills-sync.sh`（仓库根）分组同步，**重跑 setup 即更新**。分组即仓库 `skills/{base,accel,kb}/` 目录，新增 skill 放入对应组目录即可，无名单维护：
+本仓库 skill 由三个 setup 脚本统一调用的 `skills-sync.sh`（仓库根）分组同步，**重跑 setup 即更新**。同步源：本机无仓库克隆时自动取 GitHub `main` tarball；有克隆时**以本地克隆为源，先 `git pull` 才会带上远端新版**。分组即仓库 `skills/{base,accel,kb}/` 目录，新增 skill 放入对应组目录即可，无名单维护：
 
 | 组 | 策略 |
 |---|---|
