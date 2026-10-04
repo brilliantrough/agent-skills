@@ -7,45 +7,36 @@
 # 备份:~/.local/share/agent-skills/.backups/<组>/<名>.bak-<时间戳>(回流仓库后自行删除)。
 #
 # 用法:skills-sync.sh [all|base]   all = 全部组;base = 仅基础组(个人工作站)
-# 源:SKILLS_SRC 指定仓库 skills/ 目录;默认 ~/Linewrite/skills/agent-skills/skills(本地克隆);
-#   没有克隆则从 GitHub 拉 main tarball 到 ~/.cache/agent-skills-src(无需 git)。
-#   克隆即源——要带上远端新提交,须先在克隆里 git pull;脚本不自动拉取。
+# 源:始终从 GitHub 拉取 main tarball 到 ~/.cache/agent-skills-src 后安装(不读本地克隆,不依赖 git)。
 set -euo pipefail
 
 SCOPE="${1:-all}"
 case "$SCOPE" in all) SYNC_GROUPS="base accel kb" ;; base) SYNC_GROUPS="base" ;; *) echo "用法: $0 [all|base]" >&2; exit 2 ;; esac
 
-SRC="${SKILLS_SRC:-$HOME/Linewrite/skills/agent-skills/skills}"
-if [ ! -d "$SRC" ]; then
-  cache="$HOME/.cache/agent-skills-src"
-  mkdir -p "$cache"
-  echo "本地无仓库克隆,拉取 main tarball -> $cache"
-  curl -fsSL --connect-timeout 10 -m 120 -o "$cache/src.tgz" \
-    https://codeload.github.com/brilliantrough/agent-skills/tar.gz/refs/heads/main
-  rm -rf "$cache/agent-skills-main"; tar -xzf "$cache/src.tgz" -C "$cache"; rm -f "$cache/src.tgz"
-  SRC="$cache/agent-skills-main/skills"
-  echo "源:GitHub main tarball(本机无克隆)"
-else
-  _h=$(git -C "$(dirname "$SRC")" rev-parse --short HEAD 2>/dev/null || true)
-  echo "源:本地克隆 $SRC${_h:+ (HEAD $_h)}——克隆即源,远端新版要先 git pull"
-fi
-[ -d "$SRC" ] || { echo "ERROR: 找不到 skills 源目录 $SRC" >&2; exit 1; }
+cache="$HOME/.cache/agent-skills-src"
+mkdir -p "$cache"
+echo "拉取 GitHub main tarball -> $cache"
+curl -fsSL --connect-timeout 10 -m 120 -o "$cache/src.tgz" \
+  https://codeload.github.com/brilliantrough/agent-skills/tar.gz/refs/heads/main
+rm -rf "$cache/agent-skills-main"; tar -xzf "$cache/src.tgz" -C "$cache"; rm -f "$cache/src.tgz"
+SRC="$cache/agent-skills-main/skills"
+[ -d "$SRC" ] || { echo "ERROR: 源目录不完整 $SRC" >&2; exit 1; }
 
 LIVE="$HOME/.agents/skills"
 BACKUPS="$HOME/.local/share/agent-skills/.backups"
 TS="$(date +%Y%m%d%H%M%S)"
 N_INST=0; N_UPD=0; N_KEEP=0; N_SAME=0
 
-# 漂移比对忽略行尾差异(Windows 工作副本 CRLF vs tarball/npx 安装的 LF;BSD diff 不支持时退回逐字节)
+# 漂移比对忽略行尾差异(历史 CRLF 安装 vs tarball 的 LF;BSD diff 不支持时退回逐字节)
 DIFF_RQ=(diff -rq)
 if diff --strip-trailing-cr /dev/null /dev/null >/dev/null 2>&1; then DIFF_RQ=(diff -rq --strip-trailing-cr); fi
 
-copy_sync() {  # 整目录替换(先建临时再换名;dest 是符号链接只删链接不递归)
+copy_sync() {  # 整目录替换(先建临时再换名,避免半拷状态)
   local src="$1" dest="$2" tmp
   mkdir -p "$(dirname "$dest")"
   tmp="$dest.new-$$"; rm -rf "$tmp"
   cp -a "$src" "$tmp"
-  if [ -L "$dest" ]; then rm -f "$dest"; else rm -rf "$dest"; fi
+  rm -rf "$dest"
   mv "$tmp" "$dest"
 }
 
