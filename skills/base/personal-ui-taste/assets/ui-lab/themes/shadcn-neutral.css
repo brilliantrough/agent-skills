@@ -21,10 +21,9 @@
   --side-bg: #fafafa; --top-bg: #fffffff2;
 }
 /* 个人圆润变体：整行胶囊导航，状态变化不改命中区尺寸。 */
-.nav-item { background: var(--panel); border-color: var(--border); }
-.nav-item:hover { background: var(--hover-bg); border-color: #d4d4d8; box-shadow: 0 2px 6px #18181b0a; }
-.nav-item.is-active { background: var(--selected); border-color: #d4d4d8; }
-.nav-item:active { box-shadow: inset 0 1px 2px #18181b0c; }
+.nav-item { background: transparent; }
+.nav-item, .nav-item:hover, .nav-item.is-active { border-color: transparent; box-shadow: none; }
+.nav-item.is-active { background: var(--selected); }
 .seg { border-radius: 999px; padding: 4px; }
 .seg-item { border-radius: 999px; }
 .msel-pop { border-radius: 14px; padding: 7px; }
