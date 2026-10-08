@@ -1108,8 +1108,7 @@ if [ "$mcc_rc" = 1 ] && [ ! -f "$MC_CFG" ]; then
       "model": "anthropic-newapi/deepseek-flash"
     },
     "pi": {
-      "model": "anthropic-newapi/deepseek-flash",
-      "thinking_level": "medium"
+      "model": "anthropic-newapi/deepseek-flash"
     }
   },
   "embedding": {
