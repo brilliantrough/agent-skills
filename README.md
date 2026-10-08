@@ -261,6 +261,7 @@ PS：上游 `install.ps1` / winget 面向零前提用户；本项目约定 Git B
 | mintty 复制粘贴 | 仅 `TERM_PROGRAM=mintty` 时补缺失的 `CtrlShiftShortcuts=yes`、`CopyOnSelect=yes`；已有显式值与 `KeyFunctions` 保留。不重映射 Ctrl+C/V，也不启用 `CtrlExchangeShift` 或 OSC 52 权限 |
 | Pi 滚轮 | Windows mintty 首次设置默认 `tuiMode: regular`，使用终端原生 scrollback/拖选；已有 `tuiMode` 在重跑时保留（包括显式 fullscreen）。侧栏/分栏仍需自行选择 fullscreen，脚本不修改 Pi 的滚轮实现 |
 
+- Pi >= 0.99.0 的 fullscreen 滚轮使用原生 `fullscreenWheelScrollLines: 3`（每次 3 行，Alt+滚轮 15 行）；可在 `/settings` 调整。regular 模式仍由终端控制，不打滚轮补丁。
 - 改启动文件或 `.minttyrc` 后**新开 Git Bash 窗口**；改 Pi 的模式后**重启 Pi**。子安装脚本的 `export` 不会反向修改当前父终端。
 - 发现 `CtrlExchangeShift` 已启用时，不自动补 `CtrlShiftShortcuts`，避免把 Ctrl+W/Ctrl+R 等快捷键切换成关闭窗口/重置终端。
 - Windows Terminal、VS Code、Linux、macOS、WSL 不会被这段 mintty 配置逻辑接管。

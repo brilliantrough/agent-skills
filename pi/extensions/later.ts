@@ -24,7 +24,7 @@ export default function (pi: ExtensionAPI) {
   const pending = new Map<number, { id: number; at: number; timer: NodeJS.Timeout }>();
   let lastCtx: any;
 
-  function status(ctx: any) {
+  function status(ctx?: any) {
     if (ctx) lastCtx = ctx;
     const c = ctx ?? lastCtx;
     if (pending.size === 0) return c?.ui?.setStatus?.("later", undefined);
@@ -122,13 +122,13 @@ export default function (pi: ExtensionAPI) {
 
       if (action === "list") {
         const lines = listLines();
-        return { content: [{ type: "text", text: lines.length ? lines.join("\n") : "没有待发送的排程" }] };
+        return { content: [{ type: "text", text: lines.length ? lines.join("\n") : "没有待发送的排程" }], details: undefined };
       }
 
       if (action === "cancel") {
         const targets = cancel(params?.all ? "all" : [Number(params?.id)]);
         if (targets.length === 0) throw new Error("没有匹配的排程(用 action=list 查看现有 id)");
-        return { content: [{ type: "text", text: `已取消 ${targets.map((id) => `#${id}`).join(" ")}` }] };
+        return { content: [{ type: "text", text: `已取消 ${targets.map((id) => `#${id}`).join(" ")}` }], details: undefined };
       }
 
       const ms = typeof params?.delay === "string" ? parseDelay(params.delay) : undefined;

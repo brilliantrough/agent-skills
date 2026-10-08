@@ -3,7 +3,6 @@ import { WrappedPolishedEditor } from "./editor/ui.js";
 import { loadConfig } from "./editor/config.js";
 import { installCopyCleanup } from "./editor/copy-clean.js";
 import { installUserMessageStyle } from "./editor/user-message.js";
-import { installWheelScrollLines } from "./wheel.js";
 import { installClearSelectionOnRelease } from "./selection.js";
 import { installTmuxMouseMotion } from "./tmux-motion.js";
 import { installMessageActions, installMessageActionsViewportHook } from "./message-actions.js";
@@ -55,7 +54,6 @@ export function installComposer(pi: ExtensionAPI) {
     let submitIsCtrlJ = false;
     ctx.ui.setEditorComponent((tui, theme, keys) => {
       submitIsCtrlJ = keys.matches(CTRL_J, "tui.input.submit");
-      installWheelScrollLines(tui);
       installClearSelectionOnRelease(tui);
       installTmuxMouseMotion(tui);
       installCopyCleanup(tui);
