@@ -24,6 +24,7 @@
 | [Markdown Badges](https://github.com/ileriayo/markdown-badges) | 图标加短标签的构成；本例为原生 HTML/CSS，未使用 Shields.io 图片 |
 | [Fontsource](https://github.com/fontsource/fontsource) | 本地字体交付；仅携带实际使用的字重和子集 |
 | [code.claude.com/docs](https://code.claude.com/docs) | paper-cream 主题的暖白纸面、暖灰文字、陶土强调与衬线标题；取线上实测的色值与字体角色，页面结构仍是本仓实现 |
-| [nextlevelbuilder/ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill)、[alchaincyf/huashu-design](https://github.com/alchaincyf/huashu-design) | 风格与配色目录、设计哲学与动画/视觉 QA 参考；两者均按独立 skill 安装在机器上，本目录不含其代码 |
+| [nextlevelbuilder/ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill)、[alchaincyf/huashu-design](https://github.com/alchaincyf/huashu-design) | 页面模式、内容立意、关键帧构图、叙事/动画与视觉 QA 方法；可按独立 skill 使用，本目录不含其代码 |
+| [Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill) | §10 正向模式词汇与改造审查；设计探索采用非对称开篇、对象连续性和滚动章节思路，原生实现为本仓原创 |
 
 其余主题的初始方向与参考链接见 [主题目录](../../themes/README.md)。旧 baseline 和 layered 仅供对照。素材许可不等于参考网站的全部代码、品牌和插画可直接复制。

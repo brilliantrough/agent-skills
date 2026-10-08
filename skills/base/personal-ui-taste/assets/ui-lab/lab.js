@@ -44,7 +44,7 @@ setHTML(document.body, `
 <a class="skip-link" href="#overview">跳到工作台内容</a>
 <div class="lab-bar" aria-label="实验室主题切换">
   <a class="lab-title" href="#overview" style="text-decoration:none">${icon("palette")}<span>UI Taste Lab</span></a>
-  <a class="lab-version" href="structures.html">结构对比</a><a class="lab-version" href="#motion">体验动效</a>
+  <a class="lab-version" href="structures.html">结构对比</a><a class="lab-version" href="design-exploration.html">设计探索</a><a class="lab-version" href="#motion">体验动效</a>
    <div class="lab-theme"><button class="btn icon-btn" id="prevTheme" aria-label="上一个主题" title="上一个主题">${icon("left")}</button>
   <select class="inp" id="themeSelect" aria-label="选择主题">${THEMES.map(t=>`<option value="${t[0]}">${t[1]}</option>`).join("")}</select>
    <button class="btn icon-btn" id="nextTheme" aria-label="下一个主题" title="下一个主题">${icon("arrow")}</button></div>

@@ -1,6 +1,6 @@
 # personal-ui-taste
 
-可迁移、可持续演化的个人UI设计 skill：保存喜欢什么、拒绝什么、功能怎样对应信息组织，以及真实交互问题的解决办法。
+可迁移、持续演化的 UI 设计伙伴：从内容推导结构、叙事与动效，主动提出更直观、更好看的形式，用有范围的个人反馈校准。旧样板是参考，不是设计上限。
 
 ## 安装与调用
 
@@ -49,11 +49,14 @@ scp -r ~/.agents/skills/personal-ui-taste USER@HOST:~/.agents/skills/
 ## 文件
 
 - [assets/ui-lab/index.html](assets/ui-lab/index.html)：直接打开的离线实验室，默认 shadcn-neutral；八套主题与两个对照，可交互比较。
-- [assets/ui-lab/structures.html](assets/ui-lab/structures.html)：结构菜单——同一份内容 × 四种骨架（侧栏 / 文档流 / 工作台 / 主列表+详情），可叠加切主题。
+- [assets/ui-lab/structures.html](assets/ui-lab/structures.html)：四种工作型骨架样本，可叠加切主题；不是结构全集。
+- [assets/ui-lab/design-exploration.html](assets/ui-lab/design-exploration.html)：内容驱动的构图与动效候选——非对称开篇、同对象重排、滚动章节、原生详情；中性/米色可对比。
 - [assets/ui-lab/README.md](assets/ui-lab/README.md)：组件 → CSS/JS 索引、token 约定、复用边界；素材版本与许可证见同目录 `SOURCES.md`。
-- [SKILL.md](SKILL.md)：入口、通用品味、场景索引与工作方式。
-- [references/design-philosophy.md](references/design-philosophy.md)：设计判断层——六步顺序、三拨盘、真系统 vs 审美方向、反 AI 味清单与八维审查协议。
-- [references/style-menu.md](references/style-menu.md)：想不出风格时用——三个方向的出法、色彩推导三步、四种页面骨架与十六种风格条目。
+- [SKILL.md](SKILL.md)：主动设计流程——读题、查证、推荐、设计、实证；已确认场景只做索引。
+- [references/preferences.md](references/preferences.md)：T01–T15、症状索引与工作控件起点；明确反馈按范围保留。
+- [references/design-philosophy.md](references/design-philosophy.md)：内容立意、设计机会、按需三拨盘、概念与反 AI 味审查、外部方法分工。
+- [references/style-menu.md](references/style-menu.md)：内容 → 正向设计模式、叙事构图、外部检索、工作骨架与风格参考。
+- [references/motion.md](references/motion.md)：操作反馈、对象连续性、比较与滚动叙事，及减少动态效果退化。
 - [patterns.md](patterns.md)：S01 的图表、浮层、筛选、状态时间轴、响应式模式和踩坑。
 - [themes/README.md](themes/README.md)：美术风格层——皮肤索引、场景倾向、通用美术偏好与反感清单；确定界面结构后在此选皮肤。
 - [themes/shadcn-neutral.md](themes/shadcn-neutral.md)：用户强烈认可的现代简洁方向，与亮蓝等既有主题并列选择；具体实现按项目目验。
@@ -69,11 +72,11 @@ scp -r ~/.agents/skills/personal-ui-taste USER@HOST:~/.agents/skills/
 
 ## 配合的第三方 skill
 
-两套风格与动效的“素材库”按独立 skill 安装（MIT，不由本仓分发）；本 skill 只负责判断与个人偏好：
+第三方是**设计方法来源**，不只是素材库（MIT，不由本仓分发）。按任务读方法并核对适配，不把个人工作台偏好推广为其他场景的禁令：
 
 ```bash
-npx skills add https://github.com/nextlevelbuilder/ui-ux-pro-max-skill --skill ui-ux-pro-max -g -y   # 79 风格/192 配色/字体配对/UX 规则检索
-npx skills add https://github.com/alchaincyf/huashu-design -g -y                                     # 动效理论、GSAP 配方、视觉 QA 脚本
+npx skills add https://github.com/nextlevelbuilder/ui-ux-pro-max-skill --skill ui-ux-pro-max -g -y   # 页面结构、产品模式、UX/图表/动效与风格检索
+npx skills add https://github.com/alchaincyf/huashu-design -g -y                                     # 高保真原型、构图/叙事、动画与视觉 QA
 ```
 
-分工与冲突口径见 [设计哲学](references/design-philosophy.md) 文末。
+另从 [taste-skill](https://github.com/Leonxlnx/taste-skill) 提取正向模式词汇、反默认与改造方法，不复制其代码或整套落地页禁令；可读取已装实例或临时克隆上游。分工与范围口径见 [设计哲学](references/design-philosophy.md) 文末。

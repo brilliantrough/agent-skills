@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>设计探索 · 从任务列表到队列故事</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="fonts/fonts.css">
+  <link rel="stylesheet" href="base.css">
+  <link id="themeCss" rel="stylesheet" href="themes/shadcn-neutral.css">
+  <link rel="stylesheet" href="design-exploration.css">
+  <script src="common.js" defer></script>
+  <script src="design-exploration.js" defer></script>
+</head>
+<body class="exploration">
+  <a class="skip-link" href="#content">跳到内容</a>
+  <header class="explore-head">
+    <a class="lab-link" href="index.html">UI Taste Lab <span>／设计探索</span></a>
+    <nav class="explore-nav" aria-label="本页章节">
+      <a class="nav-item" href="#form">换形式</a>
+      <a class="nav-item" href="#journey">讲过程</a>
+      <a class="nav-item" href="#craft">做细节</a>
+    </nav>
+    <label class="theme-picker">主题
+      <select id="themeSelect"><option value="shadcn-neutral">简洁中性</option><option value="paper-cream">暖白纸面</option></select>
+    </label>
+  </header>
+
+  <main id="content">
+    <section class="hero explore-wrap" aria-labelledby="heroTitle">
+      <div class="hero-copy">
+        <p class="eyebrow">内容 → 构图 → 交互</p>
+        <h1 id="heroTitle">先看到全貌，<br>再读懂过程。</h1>
+        <p class="hero-lead">同一组任务，不必始终是一张表。先用关系建立直觉，再用章节解释过程，最后回到精确明细。</p>
+        <a class="btn primary" href="#form">比较两种表达 <span aria-hidden="true">↓</span></a>
+        <p class="candidate-note">候选设计 · 32 条固定演示任务，非生产数据</p>
+      </div>
+      <figure class="hero-visual">
+        <figcaption>队列快照 <span>当前数量，不代表性能结论</span></figcaption>
+        <div class="queue-summary" aria-label="任务分布">
+          <div><span>等待</span><strong class="num">18</strong><small>尚未开始</small></div>
+          <div><span>运行</span><strong class="num">8</strong><small>正在处理</small></div>
+          <div><span>完成</span><strong class="num">6</strong><small>结果可查看</small></div>
+        </div>
+        <div class="distribution" aria-hidden="true"><span></span><span></span><span></span></div>
+        <p class="visual-question">接下来要问的不是“总量多少”，<br>而是“任务在哪里等待”。</p>
+      </figure>
+    </section>
+
+    <section id="form" class="chapter explore-wrap" aria-labelledby="formTitle">
+      <div class="chapter-intro">
+        <p class="eyebrow">01 ／结构先于皮肤</p>
+        <h2 id="formTitle">数据不变，<br>入口可以变。</h2>
+        <p>表格适合精确扫读；流程补上先后关系。点击切换，观察同一对象如何移动，而不是看整屏淡出重来。</p>
+        <p class="method-note">适合：解释任务路径。<br>不替代：高频编辑与完整任务列表。</p>
+      </div>
+      <div class="form-demo">
+        <div class="demo-toolbar">
+          <div><h3>32 条任务的当前分布</h3><p>点击任一阶段查看说明</p></div>
+          <div class="seg" role="group" aria-label="表达方式">
+            <button class="seg-item is-on" data-view="list" aria-pressed="true">列表</button>
+            <button class="seg-item" data-view="flow" aria-pressed="false">流程</button>
+          </div>
+        </div>
+        <div id="queueItems" class="queue-items" data-view="list" aria-label="队列阶段">
+          <button class="queue-stage is-current" data-stage="0" aria-pressed="true"><span class="stage-order">01</span><span class="stage-name">等待处理</span><strong class="num">18</strong><span class="stage-desc">先确认优先级与可用资源</span></button>
+          <button class="queue-stage" data-stage="1" aria-pressed="false"><span class="stage-order">02</span><span class="stage-name">正在运行</span><strong class="num">8</strong><span class="stage-desc">查看进度、日志与异常</span></button>
+          <button class="queue-stage" data-stage="2" aria-pressed="false"><span class="stage-order">03</span><span class="stage-name">已经完成</span><strong class="num">6</strong><span class="stage-desc">核对结果，继续归档或比较</span></button>
+        </div>
+        <div id="stageDetail" class="stage-detail" aria-live="polite" aria-atomic="true">
+          <span>选中阶段</span><h3 id="stageTitle">等待处理 · 18 条</h3><p id="stageBody">先核对资源与优先级，再决定要启动哪一项。快照只说明数量，不足以推断等待是否异常。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="journey" class="journey explore-wrap" aria-labelledby="journeyTitle">
+      <header class="section-heading"><p class="eyebrow">02 ／构图随论点变化</p><h2 id="journeyTitle">一个主题，三段过程。</h2><p>自然滚动，左侧示意跟随当前章节。每段只解释一件事，不锁住滚轮，也不把正文藏到动画之后。</p></header>
+      <div class="journey-grid">
+        <aside class="scene-preview" aria-label="过程示意">
+          <p class="scene-caption">阅读到哪一步，焦点就到哪一步</p>
+          <div class="scene-track" role="group" aria-label="选择过程阶段">
+            <button class="scene-dot is-current" data-scene="0" aria-pressed="true"><span>01</span>等待</button>
+            <span class="scene-line" aria-hidden="true"></span>
+            <button class="scene-dot" data-scene="1" aria-pressed="false"><span>02</span>运行</button>
+            <span class="scene-line" aria-hidden="true"></span>
+            <button class="scene-dot" data-scene="2" aria-pressed="false"><span>03</span>完成</button>
+          </div>
+          <div id="sceneReadout" class="scene-readout"><span id="sceneLabel">先确认条件</span><strong id="sceneCount" class="num">18</strong><p id="sceneBody">等待处理的任务</p></div>
+          <p class="scene-foot">可点阶段检查示意；滚动继续后随章节更新。</p>
+        </aside>
+        <div class="story-scenes">
+          <article class="story-scene" data-scene="0">
+            <p class="scene-index">第一段 ／准备</p><h3>等待不是一个<br>没有解释的数字。</h3>
+            <p>让数量旁边有可追查的条件：资源是否可用、优先级是否合适、依赖是否满足。用户知道下一步该查什么。</p>
+            <div class="evidence-row"><span>当前证据</span><b>18 条等待</b><span>还需核对等待时长与原因</span></div>
+          </article>
+          <article class="story-scene" data-scene="1">
+            <p class="scene-index">第二段 ／执行</p><h3>把变化放在<br>它发生的地方。</h3>
+            <p>进度、日志与异常就近展开，不让整个工作台反复进场。解释页面可沿过程移动焦点，高频操作仍保留直接路径。</p>
+            <div class="evidence-row"><span>当前证据</span><b>8 条运行</b><span>不以动画速度暗示任务速度</span></div>
+          </article>
+          <article class="story-scene" data-scene="2">
+            <p class="scene-index">第三段 ／结果</p><h3>结束以后，<br>还要能继续判断。</h3>
+            <p>完成只是状态，不代表结果正确。把查看、比较与归档放在结果旁边，让这一段成为下一次操作的起点。</p>
+            <div class="evidence-row"><span>当前证据</span><b>6 条完成</b><span>结果质量需另外核验</span></div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="craft" class="craft explore-wrap" aria-labelledby="craftTitle">
+      <div class="craft-copy"><p class="eyebrow">03 ／细节为动作服务</p><h2 id="craftTitle">不必每一块惊艳。<br>让关键动作完整。</h2><p>列表重排保留对象，过程切换保留阅读线索，弹层从明确的操作出现。圆角、留白和动效一起服务理解，而不是各自表演。</p><button id="openDetail" class="btn primary">查看所选阶段</button></div>
+      <div class="design-notes">
+        <details open><summary>为什么不是再加一套主题？</summary><p>这页中性与米色只改变表面；真正的新选择是任务怎样成为主角、每个区块如何组织论点。</p></details>
+        <details><summary>哪里可以带回真实产品？</summary><p>流程解释用于引导与报告；列表/详情联动用于业务操作。可以保留原表格，不必为采用一种新形式把整页推翻。</p></details>
+        <details><summary>减少动态效果时会怎样？</summary><p>布局即时切换、示意直接更新、弹层即时出现。正文和全部演示数据始终可读，静态画面本身成立。</p></details>
+      </div>
+    </section>
+    <footer class="explore-foot explore-wrap"><p>这是内容驱动设计的候选示例，不是新的固定模板。</p><a href="structures.html">回到工作型结构样本 →</a></footer>
+  </main>
+
+  <dialog id="detailDialog" aria-labelledby="dialogTitle" aria-describedby="dialogBody">
+    <form method="dialog"><header><span>阶段详情 · 固定演示快照</span><button class="btn ghost" aria-label="关闭详情">关闭</button></header><h2 id="dialogTitle">等待处理 · 18 条</h2><p id="dialogBody">先核对资源与优先级，再决定要启动哪一项。快照只说明数量，不足以推断等待是否异常。</p><p class="dialog-note">这不是提交操作，不修改任何任务。</p><button class="btn primary">返回页面</button></form>
+  </dialog>
+  <noscript><p class="no-script">JavaScript 未启用：正文与快照可读；布局切换、过程联动与弹层体验不可用。</p></noscript>
+</body>
+</html>
