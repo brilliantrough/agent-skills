@@ -1,8 +1,8 @@
 ---
 name: personal-ui-taste
-description: "个人前端审美、功能驱动的信息组织与持续演化的 UI 设计指南。Use when designing, building, polishing or reviewing this user's frontend UI, dashboards, charts, forms or admin panels; choosing task-fit interactions such as joint rankings, rollups and drill-down; following 我的品味/个人审美; or recording approved feedback. Applies scoped preferences and interaction patterns across projects. Not for backend-only work."
+description: "个人前端审美、功能驱动的信息组织与持续演化的 UI 设计指南。Use when designing, building, polishing or reviewing this user's frontend UI, dashboards, charts, forms or admin panels; choosing a page structure or visual style, running an anti-AI-slop pass, or following 我的品味/个人审美; also when reviewing whether an interface is merely workable or actually good. Applies scoped preferences, structure menus and interaction patterns across projects. Not for backend-only work."
 metadata:
-  version: "1.20.0"
+  version: "2.0.0"
   updated: "2026-10-08"
 ---
 
@@ -17,10 +17,13 @@ metadata:
 ## 使用与阅读
 
 - 每次先读本文件：它是通用偏好与场景索引的入口，具体场景只加载对应的规则。
+- **设计判断先于外观**：新页面、改造或审查时读 [设计哲学与判定](references/design-philosophy.md)——六步顺序、三拨盘（变异/动效/密度）、真系统 vs 审美方向、反 AI 味清单与审查协议。
+- **想不出风格或结构时读 [风格菜单](references/style-menu.md)**：三个方向的出法、色彩推导三步、四种页面骨架、十六种风格条目与全量查询入口。
 - 涉及多系列图表或 tooltip 时，必读 [patterns.md](patterns.md) §1 的焦点联动与验收要求；筛选、状态历史、响应式等按需读对应章节。
-- 确定界面结构后选美术皮肤：读 [themes/README.md](themes/README.md)；新页面先问，shadcn-neutral 优先推荐，亮蓝是可选风格。
+- 确定界面结构后选美术皮肤：读 [themes/README.md](themes/README.md)；新页面先问，shadcn-neutral 优先推荐，paper-cream、亮蓝等为可选风格。
 - 设计或精修组件时读 [视觉做法与参考源](references/visual-craft.md)：shadcn 组件、Radix 色阶、摘要卡、品牌图标、字体与标签；各主题共同吸收，按项目选用。
-- 需要具体实现时读 [UI lab 组件索引](assets/ui-lab/README.md)，再按组件读取 `base.css`、`lab.js` 与所选主题 CSS；可离线打开 [实验室](assets/ui-lab/index.html) 对比。示例随 skill 分发，取所需实现，不整页照搬。
+- 需要具体实现时读 [UI lab 组件索引](assets/ui-lab/README.md)，再按组件读取 `base.css`、`lab.js` 与所选主题 CSS；可离线打开 [实验室](assets/ui-lab/index.html) 对比，换结构看 [结构菜单](assets/ui-lab/structures.html)。示例随 skill 分发，取所需实现，不整页照搬。
+- 需要更全的风格/配色目录、动画配方或视觉 QA 脚本时，调用已安装的第三方 skill：`ui-ux-pro-max`（79 风格/192 配色/字体配对检索）与 `huashu-design`（动效理论、GSAP 配方、`scripts/verify.py`）。判断口径以本 skill 为准，见设计哲学文末分工表。
 - 涉及谁使用了什么资源、消耗归因、联合排行或多维排查时，读 [S04 分析排查工作台](scenarios/analytical-workbench.md)。需要处理指标汇总、快照采集、历史留存或重启恢复时，按需读 [数据与运行约定](references/data-and-runtime.md)。
 - 用户给出新审美反馈、认可新方案或要求记住时，读 [evolution.md](evolution.md)，更新实际加载的这份 skill。
 - 安装、显式调用、跨服务器迁移见 [README.md](README.md)。所有设计知识随目录携带。
@@ -48,6 +51,16 @@ metadata:
 | 汇总比例、峰值、去重数或直接相加后对不上 | [数据与运行约定](references/data-and-runtime.md) §1：指标合并条件 |
 | 快照轮询、缺测、滚动窗口、重启后的历史数字不可信 | 数据与运行约定 §2–§3：采集差分、时间边界与质量状态 |
 | 页面已好，但历史留存、进程重启或升级恢复没验证 | 数据与运行约定 §4–§5：持久化和运行方式 |
+
+## 先定决策，再选皮肤
+
+外观之前先回答三个问题，细节见 [设计哲学与判定](references/design-philosophy.md)：
+
+1. **读题**：内容给谁看、要完成什么判断、有没有既有品牌/设计系统/截图。有上下文就从那里长；没有就按 [风格菜单](references/style-menu.md) 给三个真实差异的方向。
+2. **三拨盘**：变异（对称→破格）、动效（静态→电影级）、密度（画廊→驾驶舱）。拨盘的作用是否决——密度高的看板不上大留白，动效低的产品不上滚动劫持。
+3. **结构**：同一份内容可以排成侧栏、文档流、工作台或主列表+详情（[四种骨架对比](assets/ui-lab/structures.html)）。内容决定骨架，不是先摆卡片再想内容。
+
+**反 AI 味**是硬约束：不编数据、不手画产品图、不用万能的紫渐变与圆角卡片+左侧彩条、不靠超大标题喊层级；破例需要品牌本身就这么用。**审查**时按八个维度走（排版/色彩与表面/布局/交互状态/内容/组件/图标/代码）并专门去点空态、加载、失败、禁用、窄屏、长名称。两份口径都在设计哲学一文里。
 
 ## 先确定界面要帮助完成什么
 
@@ -90,7 +103,8 @@ metadata:
 | 例子 | 位置 | 内容 |
 | --- | --- | --- |
 | 实验指标看板（脱敏） | [research-dashboard.md](examples/research-dashboard.md) | S03 的完整落地实例：数据模型、页面结构、形态→画法对照表、踩坑清单。数据集/方法/平台名均已泛化 |
-| 可运行组件实验室 | [assets/ui-lab/](assets/ui-lab/README.md) | 七套主题与两个对照；导航、表单、图表焦点、状态灯带、列表、表格、标签与卡片的源码参考 |
+| 可运行组件实验室 | [assets/ui-lab/](assets/ui-lab/README.md) | 八套主题与两个对照；导航、表单、图表焦点、状态灯带、列表、表格、标签与卡片的源码参考 |
+| 结构菜单 | [assets/ui-lab/structures.html](assets/ui-lab/structures.html) | 同一份内容 × 四种骨架（侧栏 / 文档流 / 工作台 / 主列表+详情），可叠加切主题，用来分离“结构”与“皮肤” |
 
 `examples/` 承载结构与决策，`assets/ui-lab/` 携带可运行实现；均使用通用演示数据。样式数值是起点，按项目适配；新例子抹去本地项目信息，保持任何人可读。
 
@@ -132,7 +146,7 @@ metadata:
 
 ## 美术风格层（皮肤）
 
-本文件与 scenarios/ 管内容组织，[themes/](themes/README.md) 管外观，[视觉做法](references/visual-craft.md) 衔接组件与素材。新页面按任务定结构，再询问主题：shadcn-neutral 优先推荐，modern-saas、bespoke、bento 等并存；选定后沿用。骨架可因更好的操作路径升级，不为套参考页面而硬换布局。
+本文件与 scenarios/ 管内容组织，[themes/](themes/README.md) 管外观，[视觉做法](references/visual-craft.md) 衔接组件与素材。新页面按任务定结构，再询问主题：shadcn-neutral 优先推荐，paper-cream（暖白纸面）、modern-saas、bespoke、bento 等并存；选定后沿用。骨架可因更好的操作路径升级，不为套参考页面而硬换布局。
 
 - 同一产品只用一套主题；跨页一致优先于单页出彩。
 - 落地方式：token 化 CSS 变量；默认只落地所选一套，运行时切换器只用于选择期对比、多用户页面或明暗双主题（[themes/README.md](themes/README.md#落地方式与切换器)）。
@@ -145,7 +159,7 @@ metadata:
 
 | 任务形态 | 询问策略 |
 | --- | --- |
-| 平地起高楼（新页面/新产品，无既有结构与风格约束） | 询问两类：① 内容基本面——页面要回答什么问题、给谁用、必须有的元素（只问缺失的，不盘问已说的）；② 风格选择——按 [themes/README.md](themes/README.md#风格选择询问模板) 列出各主题特点让用户挑 |
+| 平地起高楼（新页面/新产品，无既有结构与风格约束） | 询问两类：① 内容基本面——页面要回答什么问题、给谁用、必须有的元素（只问缺失的，不盘问已说的）；② 方向选择——按 [风格菜单](references/style-menu.md) 给 3 个真实差异的方向（跨材质/密度/排版，不是同色三变体），并说明各自会怎么排 |
 | 用户指明具体改动（大多数增删改） | 不询问，直接做；做完一句话说明改了什么、用了哪个皮肤 |
 | 介于中间 | 只问一个最有价值的问题，其余按默认品味落地 |
 

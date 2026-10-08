@@ -24,7 +24,7 @@
 
 ## 侧栏与页面骨架（2026-10-08 实测 ui.shadcn.com/docs）
 
-用户 2026-10-08 指定左导航照线上 docs 侧栏做。下表是从线上 DOM 与 computed style 量到的值，不是印象描述；[UI lab](../../assets/ui-lab/README.md) 已按它实现，九套主题共享这个骨架。
+用户 2026-10-08 指定左导航照线上 docs 侧栏做。下表是从线上 DOM 与 computed style 量到的值，不是印象描述；[UI lab](../assets/ui-lab/README.md) 已按它实现，各主题共享这个骨架。
 
 | 项 | 实测值 |
 | --- | --- |

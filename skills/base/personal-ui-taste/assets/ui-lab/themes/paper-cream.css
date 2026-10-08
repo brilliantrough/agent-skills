@@ -1,0 +1,35 @@
+/* Paper Cream: 暖白纸面 + 陶土强调 + 衬线标题。取值来自 code.claude.com/docs 线上实测（2026-10-08）。 */
+:root {
+  --font: Inter, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-display: "Noto Serif SC", "Songti SC", "Noto Serif CJK SC", Georgia, serif;
+  --canvas: #faf9f5; --panel: #ffffff; --control: #f5f4ed;
+  --text: #141413; --text-2: #73726c;
+  --border: #e8e6dc; --border-strong: #d8d5c8;
+  --accent: #c96442; --accent-fg: #fffcf9; --accent-hover: #b0532f;
+  --accent-sh: 0 1px 2px rgba(20, 20, 19, .07);
+  --selected: #f0eee6; --hover-bg: #f5f4ed;
+  --c1: #c96442; --c2: #1b67b2; --c3: #6b7b3c; --c4: #c99a3c; --c5: #7c6aa8;
+  --ok: #4f7a48; --warn: #b0821c; --bad: #b0453a;
+  --ok-bg: #e8efe3; --ok-fg: #3f6238; --warn-bg: #f6eed8; --warn-fg: #7f5f12;
+  --bad-bg: #f7e5e1; --bad-fg: #8e362c; --info-bg: #e8eef7; --info-fg: #1b67b2;
+  --r-sm: 5px; --r-md: 8px; --r-lg: 12px;
+  --sh-1: 0 1px 2px rgba(20, 20, 19, .05); --sh-2: 0 4px 14px rgba(20, 20, 19, .07);
+  --sh-pop: 0 14px 36px rgba(20, 20, 19, .13);
+  --focus-ring: 0 0 0 3px rgba(201, 100, 66, .18);
+  --t-fast: 130ms ease; --t-med: 210ms ease;
+  --gap: 18px; --pad: 28px; --press-y: 0; --bar-zoom: 1;
+  --side-bg: #faf9f5; --side-line: #e8e6dc; --top-bg: #faf9f5f2; --thead: #f5f4ed;
+}
+/* 纸面签名：标题与数字用衬线，正文仍是无衬线。字号交给各自骨架，主题只管字形。 */
+.page-heading h1 { font-family: var(--font-display); font-weight: 500; font-size: 32px; letter-spacing: -.005em; }
+.lead h1 { font-family: var(--font-display); font-weight: 500; letter-spacing: -.005em; }
+.panel h2, .card-body h3, .specimen h3, .summary-title, .type-sample h3, dialog h2, .detail h2 { font-family: var(--font-display); font-weight: 600; }
+.kpi-v, .type-numbers, .summary-ring text { font-family: var(--font-display); font-weight: 500; }
+.type-sample h3 { font-size: 24px; }
+/* 导航与选中：与画布同色，浅底药丸表示选中，描边同色避免切换跳动。 */
+.nav-item.is-active { border-color: var(--hover-bg); }
+/* 层级靠发丝线与暖灰，不靠阴影；主按钮是扁平陶土实底。 */
+.kpi, .panel { box-shadow: none; }
+.btn.primary { box-shadow: none; }
+.btn.primary:active { transform: none; }
+.legend-chip.is-focus { background: var(--selected); }

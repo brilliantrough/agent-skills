@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UI Taste Lab · 结构菜单</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="fonts/fonts.css">
+  <link rel="stylesheet" href="base.css">
+  <link id="themeCss" rel="stylesheet" href="themes/paper-cream.css">
+  <link rel="stylesheet" href="structures.css">
+  <script src="structures.js" defer></script>
+</head>
+<body>
+<noscript>此页需要 JavaScript 切换结构；静态说明见 README.md。</noscript>
+
+<header class="lab-bar">
+  <span class="lab-title"><span class="lab-version" style="border:0;padding:0;margin-right:8px">结构菜单</span>Orbit · 实验指标</span>
+  <div class="seg" id="structureSeg" role="tablist" aria-label="页面结构">
+    <button class="seg-item" role="tab" data-structure="sidebar">侧栏 + 主栏</button>
+    <button class="seg-item" role="tab" data-structure="doc">顶栏 + 文档流</button>
+    <button class="seg-item" role="tab" data-structure="workbench">工具条 + 工作台</button>
+    <button class="seg-item" role="tab" data-structure="master">主列表 + 详情</button>
+  </div>
+  <div class="lab-theme">
+    <label for="themeSelect">主题</label>
+    <select class="inp" id="themeSelect" aria-label="选择主题"></select>
+  </div>
+</header>
+
+<div class="shell">
+  <aside class="rail" aria-label="导航与运行列表">
+    <div class="brand"><span class="brand-dot">O</span><span class="brand-name">Orbit</span></div>
+    <nav class="nav" aria-label="工作台导航">
+      <div class="nav-group">
+        <p class="nav-label">工作区</p>
+        <a class="nav-item is-active" href="#lead" aria-current="location">实验指标</a>
+        <a class="nav-item" href="#chart">曲线</a>
+        <a class="nav-item" href="#runs">运行记录</a>
+      </div>
+    </nav>
+    <div class="rail-runs">
+      <p class="nav-label">最近运行</p>
+      <button class="run-row is-active" type="button" data-run="0"><b>exp-0912-swa</b><small>eval_loss 1.208 · 6.2h</small></button>
+      <button class="run-row" type="button" data-run="1"><b>exp-0910-moe</b><small>eval_loss 1.226 · 11.4h</small></button>
+      <button class="run-row" type="button" data-run="2"><b>exp-0908-base</b><small>eval_loss 1.301 · 8.1h</small></button>
+      <button class="run-row" type="button" data-run="3"><b>exp-0905-dpo</b><small>eval_loss 1.244 · 3.7h</small></button>
+      <button class="run-row" type="button" data-run="4"><b>exp-0902-sft</b><small>eval_loss 1.352 · 9.5h</small></button>
+    </div>
+    <div class="rail-foot">
+      <div class="strip" aria-label="最近 72 小时状态"></div>
+      <div class="status-caption"><span>最近 72 小时</span><span><span class="dot ok"></span> worker 已连接</span></div>
+    </div>
+  </aside>
+
+  <main class="page">
+    <header class="lead" id="lead">
+      <h1>实验指标与运行记录</h1>
+      <p>同一份内容，四种骨架：切换结构看排列，切换主题看皮肤。骨架变的只是导航位置、测度宽度与面板分栏，数据与组件不变。</p>
+    </header>
+
+    <div class="toolbar" role="group" aria-label="筛选">
+      <div class="seg sm" id="dsSeg" aria-label="数据集">
+        <button class="seg-item is-on" type="button">c4-zh</button>
+        <button class="seg-item" type="button">fineweb</button>
+        <button class="seg-item" type="button">wiki-zh</button>
+      </div>
+      <div class="seg sm" id="rangeSeg" aria-label="时间范围">
+        <button class="seg-item is-on" type="button">24h</button>
+        <button class="seg-item" type="button">7d</button>
+        <button class="seg-item" type="button">30d</button>
+      </div>
+      <label class="search"><input id="q" type="search" placeholder="搜索实验编号" aria-label="搜索实验编号"></label>
+      <button class="btn primary" type="button">新建运行</button>
+    </div>
+
+    <section class="kpis" aria-label="关键指标">
+      <div class="kpi"><div class="kpi-k">eval_loss</div><div class="kpi-v">1.208</div><div class="kpi-d up">较上轮 −0.012</div></div>
+      <div class="kpi"><div class="kpi-k">吞吐</div><div class="kpi-v">1.24k</div><div class="kpi-d">samples/s · 8×H800</div></div>
+      <div class="kpi"><div class="kpi-k">队列</div><div class="kpi-v">6</div><div class="kpi-d">2 运行中 · 1 排队</div></div>
+      <div class="kpi"><div class="kpi-k">费用</div><div class="kpi-v">¥1,860</div><div class="kpi-d">今日 37.2 GPU·h</div></div>
+    </section>
+
+    <section class="panel block" id="chart">
+      <header>
+        <h2>eval_loss 曲线</h2>
+        <span class="hint">3 个数据集 · 折线是主视图</span>
+        <div class="legend">
+          <span class="legend-chip is-focus"><i style="background:var(--c1)"></i>c4-zh</span>
+          <span class="legend-chip"><i style="background:var(--c2)"></i>fineweb</span>
+          <span class="legend-chip"><i style="background:var(--c3)"></i>wiki-zh</span>
+        </div>
+      </header>
+      <svg class="linechart" viewBox="0 0 640 200" role="img" aria-label="三个数据集的 eval_loss 曲线">
+        <line class="grid-ln" x1="0" y1="50" x2="640" y2="50"></line>
+        <line class="grid-ln" x1="0" y1="100" x2="640" y2="100"></line>
+        <line class="grid-ln" x1="0" y1="150" x2="640" y2="150"></line>
+        <path class="line-path" stroke="var(--c1)" d="M0 150 C 90 120, 150 96, 220 84 S 380 60, 470 52 S 590 44, 640 42"></path>
+        <path class="line-path" stroke="var(--c2)" d="M0 168 C 100 150, 170 132, 250 118 S 400 92, 480 84 S 600 76, 640 74"></path>
+        <path class="line-path" stroke="var(--c3)" d="M0 180 C 110 172, 190 160, 270 148 S 420 126, 500 118 S 610 110, 640 108"></path>
+      </svg>
+      <p class="chart-note">曲线读取真实数据形态；本页为固定演示数据，不做实时请求。</p>
+    </section>
+
+    <section class="panel block" id="runs">
+      <header><h2>运行记录</h2><span class="hint">5 条 · 演示数据</span></header>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th scope="col">实验</th><th scope="col">状态</th><th scope="col">资源</th><th scope="col" class="num">时长</th><th scope="col" class="num">费用</th></tr></thead>
+          <tbody>
+            <tr><td>exp-0912-swa</td><td><span class="badge ok">已完成</span></td><td>6×A100</td><td class="num">6.2h</td><td class="num">¥ 1,860</td></tr>
+            <tr><td>exp-0910-moe</td><td><span class="badge ok">已完成</span></td><td>8×H800</td><td class="num">11.4h</td><td class="num">¥ 5,472</td></tr>
+            <tr><td>exp-0908-base</td><td><span class="badge warn">排队中</span></td><td>2×L40S</td><td class="num">3.1h</td><td class="num">¥ 93</td></tr>
+            <tr><td>exp-0905-dpo</td><td><span class="badge ok">已完成</span></td><td>4×A100</td><td class="num">3.7h</td><td class="num">¥ 740</td></tr>
+            <tr><td>exp-0902-sft</td><td><span class="badge bad">失败</span></td><td>6×4090</td><td class="num">9.5h</td><td class="num">¥ 1,140</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <aside class="detail" aria-label="运行详情">
+    <h2 id="detailTitle">exp-0912-swa</h2>
+    <p class="hint" id="detailMeta">c4-zh · 6×A100 · 6.2h</p>
+    <dl class="detail-list">
+      <dt>状态</dt><dd><span class="badge ok">已完成</span></dd>
+      <dt>eval_loss</dt><dd class="num">1.208</dd>
+      <dt>费用</dt><dd class="num">¥ 1,860</dd>
+      <dt>节点</dt><dd>gpu-01</dd>
+      <dt>备注</dt><dd>SWA 收尾，曲线在 step 4200 后趋于平坦。</dd>
+    </dl>
+    <button class="btn" type="button">导出 CSV</button>
+  </aside>
+</div>
+
+<p class="footnote">四种骨架共用同一份 tokens 与组件：换结构不改数据，换主题不改排列。实验室主页面见 <a href="index.html">index.html</a>，来源与许可见 <a href="SOURCES.md">SOURCES.md</a>。</p>
+</body>
+</html>

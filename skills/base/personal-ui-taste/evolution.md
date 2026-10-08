@@ -239,3 +239,12 @@
 - 变更：base.css 侧栏去 border-right 改透明并新增 --side-line 渐变分隔线、导航去图标与计数、分组标题改 .nav-label、条目改 30px / 圆角 8px / 贴合文字 / 选中与 hover 同浅底；body 与顶栏底色改 --side-bg、.main 改白色圆角面板（overflow: clip 保 sticky）；窄屏改为隐藏侧栏（对齐线上 hidden lg:flex）；aurora-glass、bento、modern-saas、swiss 中硬编码的 .side 边框与 .nav-caption 选择器同步清理
 - 变化与原因：实验室此前是“白侧栏 + 灰画布 + border-right + 带图标计数条目”，与线上口径不同；骨架为九主题共享，横向对比基线随之更新
 - 边界：shadcn-neutral 的 tokens 已接近线上值（±1 灰阶）故未逐项改写；swiss 全白世界下 inset 面板不可见、aurora-glass 的分隔线为白色不可见，属主题自身取舍，未强行统一
+
+### 2026-10-08 · 设计哲学层、风格/结构菜单与米色主题（v2.0.0）
+
+- 状态：Confirmed（用户对四项方案选择的确认）；文档与实现待用户目验
+- 证据：用户指出“当前这些其实把框架定的过于死板了……从设计哲学的角度思考可以进行怎样的 UI 设计”，并要求调研三个第三方仓库（ui-ux-pro-max-skill、huashu-design、taste-skill）与 code.claude.com/docs 的观感，指定用米色做一套主题。Agent 克隆三个仓库并读其 SKILL.md 与关键 references；用真实 Chrome 抓 code.claude.com/docs 的 computed style 得线上实测值（canvas #faf9f5 / 米面 #f5f4ed / 线 #e8e6dc / 正文 #141413 / 次文 #73726c / 陶土 #c96442 / 辅助蓝 #1b67b2，标题衬线 + 正文无衬线，正文测宽 689px）
+- 决策：混合落地——数据类整装引用（`npx skills add` 装 `ui-ux-pro-max` 与 `huashu-design`），与我们的审查层重叠最大的 taste-skill 只提取判定逻辑；personal-ui-taste 单体进化、内部分层；米色主题按 Claude 原味（含衬线标题）做；动效与视觉 QA 脚本放第二波
+- 变更：新增 [references/design-philosophy.md](references/design-philosophy.md)（六步顺序、三拨盘、真系统 vs 审美方向、反 AI 味清单、八维审查协议、与外部 skill 的分工）与 [references/style-menu.md](references/style-menu.md)（三个方向的出法、色彩推导三步、四种骨架、十六种风格条目）；新增 paper-cream 主题（CSS + 文档 + 随包思源宋体变量切片 ×101）；新增 [assets/ui-lab/structures.html](assets/ui-lab/structures.html) 结构菜单页（同内容 × 四骨架 × 可叠主题）；SKILL.md 加入“先定决策，再选皮肤”一节与外部 skill 引用
+- 变化与原因：此前 skill 只有场景规则与皮肤库，缺“该做成什么样”的判定层，导致默认落到侧栏+卡片+曲线的单一形式；反 AI 味与审查清单过去散在 themes/README 的“反感清单”里，覆盖面不够
+- 边界：思源宋体使 ui-lab 字体体积由 4.8MB 增至 11MB；结构菜单是新增演示页，不替换现有实验室；外部 skill 的规则与本 skill 冲突时以本 skill 为准（记在分工表里）

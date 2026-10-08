@@ -1,0 +1,88 @@
+/* 结构菜单：同一份内容 × 四种骨架。只排列布局，不定义 tokens（皮肤来自 themes/*.css）。 */
+body { display: flex; flex-direction: column; min-height: 100vh; }
+.lab-bar { position: static; }
+.lab-bar .seg-item { font-size: 12px; padding: 5px 11px; }
+.lab-title { font-weight: 600; }
+
+.shell { display: grid; gap: 0; min-height: 0; flex: 1; }
+.rail { display: flex; flex-direction: column; gap: 12px; padding: 18px 16px; min-width: 0; }
+.rail-runs { display: none; flex-direction: column; gap: 2px; }
+.run-row { text-align: left; padding: 8px; border-radius: 6px; display: block; }
+.run-row b { display: block; font-size: 12.5px; font-weight: 600; }
+.run-row small { color: var(--text-2); font-size: 11.5px; }
+.run-row:hover { background: var(--hover-bg); }
+.run-row.is-active { background: var(--selected); }
+.rail-foot { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
+
+.page { display: flex; flex-direction: column; gap: 22px; padding: 24px 28px 40px; min-width: 0; }
+.lead h1 { font-size: 26px; font-weight: 650; line-height: 1.3; }
+.lead p { color: var(--text-2); margin-top: 6px; max-width: 68ch; }
+.toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.toolbar .search { flex: 1; min-width: 180px; max-width: 320px; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--gap); }
+.block { min-width: 0; }
+.linechart { width: 100%; height: auto; }
+.chart-note { color: var(--text-2); font-size: 11.5px; margin-top: 8px; }
+.detail { display: none; flex-direction: column; gap: 10px; padding: 24px 24px 32px; border-left: 1px solid var(--border); min-width: 0; }
+.detail h2 { font-size: 15px; font-weight: 650; }
+.detail-list { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 12.5px; margin: 6px 0 4px; }
+.detail-list dt { color: var(--text-2); }
+.detail-list dd { min-width: 0; }
+.footnote { padding: 14px 28px 22px; color: var(--text-2); font-size: 12px; border-top: 1px solid var(--border); }
+
+/* ---------- 1. 侧栏 + 主栏（现状基线） ---------- */
+[data-structure="sidebar"] .shell { grid-template-columns: 236px minmax(0, 1fr); }
+[data-structure="sidebar"] .rail { border-right: 1px solid var(--border); }
+
+/* ---------- 2. 顶栏 + 文档流 ---------- */
+[data-structure="doc"] .shell { grid-template-columns: minmax(0, 1fr); }
+[data-structure="doc"] .rail { flex-direction: row; align-items: center; gap: 18px; padding: 12px 28px; border-bottom: 1px solid var(--border); }
+[data-structure="doc"] .rail-foot { margin: 0 0 0 auto; flex-direction: row; align-items: center; gap: 10px; }
+[data-structure="doc"] .rail-foot .strip { width: 160px; height: 16px; }
+[data-structure="doc"] .rail .nav { flex-direction: row; gap: 4px; }
+[data-structure="doc"] .rail .nav-group { flex-direction: row; padding: 0; gap: 2px; }
+[data-structure="doc"] .rail .nav-label { display: none; }
+[data-structure="doc"] .page { max-width: 760px; margin: 0 auto; padding: 32px 24px 48px; gap: 28px; }
+[data-structure="doc"] .lead h1 { font-size: 30px; }
+[data-structure="doc"] .lead p { max-width: 64ch; }
+[data-structure="doc"] .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; }
+[data-structure="doc"] .kpi { background: none; border: 0; border-left: 1px solid var(--border); border-radius: 0; padding: 0 0 0 14px; }
+[data-structure="doc"] .kpi:first-child { border-left: 0; padding-left: 0; }
+[data-structure="doc"] .panel.block { background: none; border: 0; border-top: 1px solid var(--border); border-radius: 0; padding: 20px 0 0; }
+
+/* ---------- 3. 工具条 + 工作台 ---------- */
+[data-structure="workbench"] .shell { grid-template-columns: minmax(0, 1fr); }
+[data-structure="workbench"] .rail { display: none; }
+[data-structure="workbench"] .page { padding: 0 0 32px; gap: 0; }
+[data-structure="workbench"] .lead { padding: 18px var(--pad) 0; }
+[data-structure="workbench"] .lead h1 { font-size: 20px; }
+[data-structure="workbench"] .toolbar { position: sticky; top: 0; z-index: 5; background: var(--top-bg, var(--panel)); padding: 12px var(--pad); border-bottom: 1px solid var(--border); }
+[data-structure="workbench"] .kpis { padding: var(--pad) var(--pad) 0; }
+[data-structure="workbench"] .block { margin: var(--gap) var(--pad) 0; }
+[data-structure="workbench"] .page { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--gap); padding: var(--gap) var(--pad) 32px; }
+[data-structure="workbench"] .lead, [data-structure="workbench"] .toolbar, [data-structure="workbench"] .kpis { grid-column: 1 / -1; padding-left: 0; padding-right: 0; }
+[data-structure="workbench"] #chart { grid-column: span 7; margin: 0; }
+[data-structure="workbench"] #runs { grid-column: span 5; margin: 0; }
+[data-structure="workbench"] .toolbar { margin: 0 calc(var(--pad) * -1); padding-left: var(--pad); padding-right: var(--pad); }
+
+/* ---------- 4. 主列表 + 详情 ---------- */
+[data-structure="master"] .shell { grid-template-columns: 260px minmax(0, 1fr) 320px; }
+[data-structure="master"] .rail { border-right: 1px solid var(--border); }
+[data-structure="master"] .rail .nav-group { display: none; }
+[data-structure="master"] .rail-runs { display: flex; }
+[data-structure="master"] .detail { display: flex; }
+[data-structure="master"] #runs { display: none; }
+[data-structure="master"] .page { padding: 22px 24px 32px; }
+
+@media (max-width: 1180px) {
+  [data-structure="master"] .shell { grid-template-columns: 240px minmax(0, 1fr); }
+  [data-structure="master"] .detail { display: none; }
+  [data-structure="workbench"] #chart, [data-structure="workbench"] #runs { grid-column: 1 / -1; }
+}
+@media (max-width: 860px) {
+  [data-structure] .shell { grid-template-columns: minmax(0, 1fr); }
+  [data-structure] .rail { display: none; }
+  [data-structure="doc"] .rail { display: flex; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .page { padding: 18px 16px 32px; }
+}
