@@ -248,3 +248,13 @@
 - 变更：新增 [references/design-philosophy.md](references/design-philosophy.md)（六步顺序、三拨盘、真系统 vs 审美方向、反 AI 味清单、八维审查协议、与外部 skill 的分工）与 [references/style-menu.md](references/style-menu.md)（三个方向的出法、色彩推导三步、四种骨架、十六种风格条目）；新增 paper-cream 主题（CSS + 文档 + 随包思源宋体变量切片 ×101）；新增 [assets/ui-lab/structures.html](assets/ui-lab/structures.html) 结构菜单页（同内容 × 四骨架 × 可叠主题）；SKILL.md 加入“先定决策，再选皮肤”一节与外部 skill 引用
 - 变化与原因：此前 skill 只有场景规则与皮肤库，缺“该做成什么样”的判定层，导致默认落到侧栏+卡片+曲线的单一形式；反 AI 味与审查清单过去散在 themes/README 的“反感清单”里，覆盖面不够
 - 边界：思源宋体使 ui-lab 字体体积由 4.8MB 增至 11MB；结构菜单是新增演示页，不替换现有实验室；外部 skill 的规则与本 skill 冲突时以本 skill 为准（记在分工表里）
+
+### 2026-10-08 · 样板去装饰、浅色 SaaS 与可体验动效 · v2.1.0
+
+- 状态：Confirmed（用户拒绝当前黑底样板、重申 shadcn 的简洁优雅方向）；替代实现 Candidate，待目验
+- 证据：用户说 Modern SaaS“全是黑的”，样板还没有 shadcn 的简洁、优雅、现代感；要求用 taste-skill 审查，并追问动效在哪里体现
+- 审查：按 taste-skill 的 redesign 审查维度检查源码与真实截图；主 skill 自限于落地页/作品集，不把其中字体、纹理和破格排版指令照搬到数据工作台。新版大片黑底来自 `--side-bg` 被当全页底色，透明主区借到了导航色
+- 变化：区分画布/侧栏/主区角色；Modern SaaS 改浅色亮蓝，保留此前局部认可的鲜明灯带；shadcn/纸面/亮蓝的总览改开放式读数，删无数据意义的小波形；队列去逐行套框，同指标分类柱共用一色；纸面衬线仅用于展示标题
+- 交互：新增 [动效体验](assets/ui-lab/index.html#motion) 与 [动效口径](references/motion.md)，菜单/弹层 160ms、内容切换 180ms，减少动态效果时即时切换；结构页补实筛选、搜索、空态、完整详情与导出，窄屏可由表格选运行查看下方详情
+- 规则：新增 T13；工作型拨盘基线收敛为 3/3/6；“反 AI 味”由僵硬禁令改为按任务审查，中性字体/平色/普通网格不因常见而被否决
+- 边界：本次仅产品短反馈，不补宣传片级编排或新增视觉 QA 工具；运行、截图与静态检查不代表用户已认可替代设计

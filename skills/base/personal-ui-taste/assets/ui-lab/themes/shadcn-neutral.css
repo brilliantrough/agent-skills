@@ -17,14 +17,17 @@
   --sh-pop: 0 10px 32px #18181b18, 0 2px 6px #18181b0a;
   --focus-ring: 0 0 0 3px #18181b20;
   --t-fast: 140ms ease; --t-med: 220ms ease;
-  --gap: 18px; --pad: 28px; --press-y: 0; --bar-zoom: 1;
+  --gap: 24px; --pad: 32px; --press-y: 0; --bar-zoom: 1;
   --side-bg: #fafafa; --top-bg: #fffffff2;
 }
 /* 侧栏按 shadcn docs 口径：条目 30px/12.8px/圆角 8px，选中与 hover 同为浅底，描边同色避免切换跳动（见 themes/shadcn-neutral.md） */
 .nav-item.is-active { border-color: var(--hover-bg); }
 .btn.primary { box-shadow: 0 1px 2px #18181b18; }
-.kpi, .panel { box-shadow: var(--sh-1); }
-.strip .seg { --strip-op: 1; }
-.strip .seg:hover { transform: scaleY(1.12); }
+.kpi { background: transparent; border: 0; border-radius: 0; box-shadow: none; padding: 4px 20px; }
+.kpi + .kpi { border-left: 1px solid var(--border); }
+.page-heading h1 { letter-spacing: -.035em; font-size: 28px; font-weight: 600; }
+.page-heading p { max-width: 64ch; }
 .inp { background: var(--panel); }
 .tbl th { background: #fafafa; }
+.strip .seg { --strip-op: 1; }
+.strip .seg:hover { transform: scaleY(1.12); }

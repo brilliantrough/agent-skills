@@ -2,7 +2,7 @@
 name: personal-ui-taste
 description: "个人前端审美、功能驱动的信息组织与持续演化的 UI 设计指南。Use when designing, building, polishing or reviewing this user's frontend UI, dashboards, charts, forms or admin panels; choosing a page structure or visual style, running an anti-AI-slop pass, or following 我的品味/个人审美; also when reviewing whether an interface is merely workable or actually good. Applies scoped preferences, structure menus and interaction patterns across projects. Not for backend-only work."
 metadata:
-  version: "2.0.0"
+  version: "2.1.0"
   updated: "2026-10-08"
 ---
 
@@ -21,6 +21,7 @@ metadata:
 - **想不出风格或结构时读 [风格菜单](references/style-menu.md)**：三个方向的出法、色彩推导三步、四种页面骨架、十六种风格条目与全量查询入口。
 - 涉及多系列图表或 tooltip 时，必读 [patterns.md](patterns.md) §1 的焦点联动与验收要求；筛选、状态历史、响应式等按需读对应章节。
 - 确定界面结构后选美术皮肤：读 [themes/README.md](themes/README.md)；新页面先问，shadcn-neutral 优先推荐，paper-cream、亮蓝等为可选风格。
+- 工作界面动效读 [短反馈与体验入口](references/motion.md)：菜单、弹层、内容切换与按需展开；不把宣传短片的编排默认套到产品操作。
 - 设计或精修组件时读 [视觉做法与参考源](references/visual-craft.md)：shadcn 组件、Radix 色阶、摘要卡、品牌图标、字体与标签；各主题共同吸收，按项目选用。
 - 需要具体实现时读 [UI lab 组件索引](assets/ui-lab/README.md)，再按组件读取 `base.css`、`lab.js` 与所选主题 CSS；可离线打开 [实验室](assets/ui-lab/index.html) 对比，换结构看 [结构菜单](assets/ui-lab/structures.html)。示例随 skill 分发，取所需实现，不整页照搬。
 - 需要更全的风格/配色目录、动画配方或视觉 QA 脚本时，调用已安装的第三方 skill：`ui-ux-pro-max`（79 风格/192 配色/字体配对检索）与 `huashu-design`（动效理论、GSAP 配方、`scripts/verify.py`）。判断口径以本 skill 为准，见设计哲学文末分工表。
@@ -60,7 +61,7 @@ metadata:
 2. **三拨盘**：变异（对称→破格）、动效（静态→电影级）、密度（画廊→驾驶舱）。拨盘的作用是否决——密度高的看板不上大留白，动效低的产品不上滚动劫持。
 3. **结构**：同一份内容可以排成侧栏、文档流、工作台或主列表+详情（[四种骨架对比](assets/ui-lab/structures.html)）。内容决定骨架，不是先摆卡片再想内容。
 
-**反 AI 味**是硬约束：不编数据、不手画产品图、不用万能的紫渐变与圆角卡片+左侧彩条、不靠超大标题喊层级；破例需要品牌本身就这么用。**审查**时按八个维度走（排版/色彩与表面/布局/交互状态/内容/组件/图标/代码）并专门去点空态、加载、失败、禁用、窄屏、长名称。两份口径都在设计哲学一文里。
+**反 AI 味**先审原因：不编真实数据、不用装饰假波形；每个容器和颜色有任务，不靠通用渐变与超大标题填场。中性字体、平色、常规网格并不是错，别把第三方禁令变成个人品味。**审查**时按八个维度走（排版/色彩与表面/布局/交互状态/内容/组件/图标/代码）并专门去点空态、加载、失败、禁用、窄屏、长名称。两份口径都在设计哲学一文里。
 
 ## 先确定界面要帮助完成什么
 
@@ -85,6 +86,7 @@ metadata:
 | T09 | 预览型工作台、卡片与主题 | 冷灰蓝画布、白色面板、蓝紫强调；柔和细边框的大圆角矩形；比例字体、克制按钮与轻浮层，见 S02 | 把内容卡片一律压成密集表格；大矩形做成胶囊；重描边/重阴影 |
 | T10 | 每日时间点选择 | 明确的 24 小时制 `00–23`；新增时间分钟默认 `00`，允许主动选其他分钟 | AM/PM 切换；空值弹出后分钟跟随当前时间；默认值在保存时被误添为时间点 |
 | T11 | 研究指标与曲线看板 | 已认可左侧筛选栏与顶部服务器切换栏；图表偏好明亮的蓝紫青绿、清楚折线；折线为指标对比主视图；视觉验收独立于功能验收 | 拒绝层层卡片与胶囊堆叠的“塑料感”，也拒绝灰暗、沉重的图表配色；拒绝多 run 指标的横排柱状图；不能将拒绝容器风格误解为拒绝亮色图表 |
+| T13 | 现代浅色产品与当前样板 | shadcn 式简洁、优雅、规整；安静的表面与短交互反馈；米色纸面可并存 | 当前 Modern SaaS 的大片黑底与沉重观感；只模仿侧栏、主区仍堆装饰；不据此禁止所有深色场景 |
 | T12 | 多维分析与排查工作台 | 从要追查的关系组织联合排行；需要时同时支持维度合并与分层折叠，继承筛选查看组合趋势/明细 | 各维度单独排行却无法关联；只是隐藏列而未汇总；动作与资源混在同一筛选；不按功能推导界面 |
 
 ## 场景索引

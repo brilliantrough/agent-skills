@@ -5,8 +5,8 @@
 - 八套主题：shadcn-neutral、**paper-cream（暖白纸面）**、modern-saas、bespoke、bento、swiss、aurora-glass、soft-ui
 - 两个对照：旧 baseline、layered 阴影技法；不加入正式风格选项
 - [structures.html](structures.html)：**结构菜单**——同一份内容 × 四种骨架（侧栏+主栏 / 顶栏+文档流 / 工具条+工作台 / 主列表+详情），可叠加切主题，用来区分“结构”与“皮肤”
-- 页面骨架为 inset：页面底用 `--side-bg`，内容区是白色圆角面板（`.main`）；侧栏无 `border-right`，右缘一条上下淡出的 1px 竖线，窄屏隐藏侧栏
-- 默认 shadcn-neutral；顶部选择器或左右按钮切换，保留当前筛选与演示记录
+- 页面骨架为 inset：页面底用 `--canvas`，侧栏单独用 `--side-bg`，内容区是白色圆角面板（`.main`）；侧栏无 `border-right`，右缘一条上下淡出的 1px 竖线，窄屏隐藏侧栏
+- 两页默认 shadcn-neutral；顶部选择器或左右按钮切换，保留当前筛选与演示记录
 - 全部指标为固定演示数据；新建记录、队列顺序与表单只保留在本次页面中，刷新恢复
 - 这是视觉与交互参考，新版各主题细节仍待用户目验；不是完整业务应用，也不覆盖 S04 的汇总、下钻与持久化
 
@@ -24,6 +24,7 @@ React 项目需要 shadcn 时采用官方组件。此处 `shadcn-neutral` 是原
 | 组件 | `base.css` 定位 | `lab.js` 定位 / 页面入口 |
 | --- | --- | --- |
 | 导航、分组标题、节点切换、搜索 | `.side`、`.nav-group`、`.nav-label`、`.nav-item`、`.seg`、`.search` | 页面骨架、`SERVERS`、`runSearch` |
+| 交互动效、短反馈、弹层与展开 | `.motion-preview`、`dialog`、`.msel-pop`、`.toast` | [体验入口](index.html#motion)、`common.js` 的 `revealChange`；两页共用 `THEMES` |
 | 主/次/描边/轻/危险按钮、加载态 | `.btn` 及其变体 | Component specimens、`samplePrimary` |
 | 字段、错误、禁用、键盘焦点 | `.fld`、`.inp`、`:focus-visible` | `invalidSample`、原生 `dialog` |
 | 数据集多选、搜索、移除筛选 | `.msel`、`.filter-tag` | `closeMenu`、`updateDatasets`、`filteredRows` |
@@ -38,22 +39,24 @@ React 项目需要 shadcn 时采用官方组件。此处 `shadcn-neutral` 是原
 
 折线图可悬浮聚焦、点击锁定、再点解除、切换锁定；图外点击或 Esc 清除。键盘左右选时间、上下选系列、Enter 锁定；图例控制系列可见性。这里用小型确定性 SVG 展示交互，业务图表优先复用项目图表库，再接入 T05 的统一焦点。
 
+结构页筛选真实作用于演示记录；数据集也控制曲线可见性，时间和搜索不改固定趋势。点运行更新完整详情，窄屏可由表格选对象，详情在下方；无匹配时可恢复。
+
 ## Token 约定
 
 | 用途 | 变量 |
 | --- | --- |
 | 表面、正文、边界 | `--canvas`、`--panel`、`--control`、`--text`、`--text-2`、`--border` |
-| 骨架 | `--side-bg`（页面与侧栏底色）、`--side-w`（侧栏列宽，默认 288px）、`--side-line`（右缘分隔线色，默认 `--border`） |
-| 主操作 | `--accent`、`--accent-hover`、`--accent-fg`；此处 accent 对应主操作，不是 shadcn 同名的轻选中表面 |
+| 骨架 | `--side-bg`（仅侧栏；主区不从此变量借色）、`--side-w`（侧栏列宽，默认 288px）、`--side-line`（右缘分隔线色，默认 `--border`） |
+| 主操作 | `--accent`、`--accent-button`（可选的高对比按钮色）、`--accent-hover`、`--accent-fg`；此处 accent 对应主操作，不是 shadcn 同名的轻选中表面 |
 | 选中、hover、焦点 | `--selected`、`--hover-bg`、`--focus-ring` |
 | 状态 | `--ok/warn/bad` 及各自 `-bg`、`-fg`；图表另用 `--c1`…`--c5` |
-| 比例与质感 | `--font`、`--font-display`（标题/数字的衬线字体，仅部分主题使用）、`--r-sm/md/lg`、`--sh-1/2/pop`、`--pad`、`--gap`、`--t-fast/med` |
+| 比例与质感 | `--font`、`--font-display`（展示标题字体，仅部分主题使用）、`--r-sm/md/lg`、`--sh-1/2/pop`、`--pad`、`--gap`、`--t-fast/med` |
 
 `base.css` 管共用结构；每个主题 CSS 包含完整变量及少量控件覆盖。产品默认只取所选主题，切换器仅留在有明确多主题需求的页面。
 
 ## 素材与维护
 
-- `fonts/`：Inter、Nunito、IBM Plex Sans 拉丁字形 + Noto Sans SC（思源黑体）与 Noto Serif SC（思源宋体）中文变量切片；切片按 unicode-range 随用随取，浏览器只下载页面用到的字集。宋体切片只服务 paper-cream 的标题与数字
+- `fonts/`：Inter、Nunito、IBM Plex Sans 拉丁字形 + Noto Sans SC（思源黑体）与 Noto Serif SC（思源宋体）中文变量切片；切片按 unicode-range 随用随取，浏览器只下载页面用到的字集。宋体切片只服务 paper-cream 的展示标题
 - `icons.js`：Lucide 操作图标子集；`brands.js`：Simple Icons 四个品牌 SVG
 - [SOURCES.md](SOURCES.md)：来源、版本、许可证与参考范围；更新素材时同步 `licenses/`
 - 本目录是唯一维护源，随整个 skill 分发；仓库外的旧实验室入口只负责跳转

@@ -38,25 +38,13 @@ const setHTML = (el, html) => { el.innerHTML = html; }; // pi-lens-ignore: no-in
 const icon = (n) => `<span class="ic" aria-hidden="true">${ICONS[n] || ""}</span>`;
 const brand = (n) => `<span class="brand-icon" aria-hidden="true">${BRANDS[n]}</span>`;
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const THEMES = [
-  ["shadcn-neutral", "Shadcn Neutral", "中性主操作、精细边界、统一控件比例 · 新实现待目验"],
-  ["modern-saas", "Modern SaaS · 亮蓝", "深色导航、电光蓝、鲜艳状态灯带"],
-  ["bespoke", "Bespoke · 观测站", "蓝图网格、仪器铭牌、IBM Plex 字体"],
-  ["bento", "Bento · 预览卡片", "大圆角表面、紧凑元信息、轻盈预览"],
-  ["swiss", "Swiss · 网格", "直角、发丝线、对齐与字重层次"],
-  ["aurora-glass", "Glass · 平色玻璃", "去渐变，保留透明材质与清楚的文字层次"],
-  ["soft-ui", "Soft UI · 降亮版", "低亮画布、Nunito 圆润字形、柔和层次 · 待复验"],
-  ["paper-cream", "Paper Cream · 暖白纸面", "文档站的暖白纸面、陶土强调、标题衬线 · 新实现待目验"],
-  ["baseline", "旧基线 · 对照", "历史视觉 tokens，在同一骨架上比较"],
-  ["layered", "海拔阴影 · 技法样本", "四级阴影对照，不列入正式主题选择"],
-];
 
 /* ---------- 页面骨架 ---------- */
 setHTML(document.body, `
 <a class="skip-link" href="#overview">跳到工作台内容</a>
 <div class="lab-bar" aria-label="实验室主题切换">
   <a class="lab-title" href="#overview" style="text-decoration:none">${icon("palette")}<span>UI Taste Lab</span></a>
-  <span class="lab-version">同一内容 · 切换风格</span>
+  <a class="lab-version" href="structures.html">结构对比</a><a class="lab-version" href="#motion">体验动效</a>
    <div class="lab-theme"><button class="btn icon-btn" id="prevTheme" aria-label="上一个主题" title="上一个主题">${icon("left")}</button>
   <select class="inp" id="themeSelect" aria-label="选择主题">${THEMES.map(t=>`<option value="${t[0]}">${t[1]}</option>`).join("")}</select>
    <button class="btn icon-btn" id="nextTheme" aria-label="下一个主题" title="下一个主题">${icon("arrow")}</button></div>
@@ -64,7 +52,7 @@ setHTML(document.body, `
 <div class="app">
   <aside class="side">
     <div class="brand"><span class="brand-dot">${icon("layers")}</span><span class="brand-name">Orbit</span></div>
-    <div class="workspace"><span class="avatar">R</span><div>Research workspace<small>个人工作空间 · 演示</small></div></div>
+    <div class="workspace"><span class="avatar">R</span><div>研究工作空间<small>个人空间 · 演示</small></div></div>
     <nav class="nav" aria-label="工作台导航">
       <div class="nav-group">
         <p class="nav-label">工作区</p>
@@ -75,16 +63,17 @@ setHTML(document.body, `
       <div class="nav-group">
         <p class="nav-label">分析</p>
         <a class="nav-item" href="#previews">实验预览</a>
+        <a class="nav-item" href="#motion">交互动效</a>
         <a class="nav-item" href="#components">组件样本</a>
         <a class="nav-item" href="#design">字体与色阶</a>
       </div>
     </nav>
     <div class="side-foot"><span class="dot ok"></span>worker · 已连接</div>
-    <div class="profile"><span class="avatar">A</span><div>Alex Chen<div class="hint">Research team</div></div></div>
+    <div class="profile"><span class="avatar">A</span><div>Alex Chen<div class="hint">研究团队</div></div></div>
   </aside>
   <main class="main">
     <header class="top">
-      <div class="crumb">Workspace &nbsp; / &nbsp; <b>Overview</b></div>
+      <div class="crumb">工作空间 &nbsp; / &nbsp; <b>概览</b></div>
       <label class="search">${icon("search")}<input id="runSearch" aria-label="搜索运行记录" placeholder="搜索运行记录…" type="search" /></label>
       <span class="avatar">AC</span>
     </header>
@@ -94,11 +83,16 @@ setHTML(document.body, `
     <div class="grid">
       <section class="panel span8" id="metrics"><header><h2>训练指标</h2><div class="seg sm" id="metricSeg" aria-label="曲线指标"></div></header><div class="chart-meta"><span id="chartScope">全部节点 · eval_loss</span><span>100–2,400 steps</span></div><div class="chart" id="lineChart"></div><div class="legend" id="legend"></div></section>
       <section class="panel span4"><header><h2>硬件吞吐参考</h2><span class="hint">samples / s</span></header><div class="chart" id="barChart"></div><div class="hint">相同演示负载下的设备吞吐，不代表真实测评。</div></section>
-      <section class="panel span8"><header><h2>Worker uptime</h2><span class="badge ok">稳定运行</span></header><p class="hint" style="margin-bottom:16px">最近 72 小时 · 每小时采样</p><div class="strip" id="strip" tabindex="0" role="group" aria-label="72 小时状态，左右方向键查看"></div><div class="status-caption"><span>72 小时前</span><span>正常 · 降速 · 中断</span><span>现在</span></div></section>
+      <section class="panel span8"><header><h2>Worker 状态</h2><span class="badge ok">稳定运行</span></header><p class="hint" style="margin-bottom:16px">最近 72 小时 · 每小时采样</p><div class="strip" id="strip" tabindex="0" role="group" aria-label="72 小时状态，左右方向键查看"></div><div class="status-caption"><span>72 小时前</span><span>正常 · 降速 · 中断</span><span>现在</span></div></section>
       <section class="panel span4"><header><h2>运行队列</h2></header><ul class="sort" id="sortList"></ul></section>
       <section class="panel span8" id="runs"><header><h2>运行记录</h2><span class="hint">用户 · 实验 · 资源</span></header><div class="badges" id="activeFilters" style="margin-bottom:12px"></div><div class="table-wrap"><table class="tbl" id="tbl" aria-label="实验资源明细"></table></div><div class="table-summary" id="tableSummary" aria-live="polite"></div></section>
       <section class="panel span4"><header><h2>筛选与运行设置</h2></header><form class="form" id="form"></form></section>
       <section class="panel span12" id="previews"><header><h2>实验预览</h2><span class="hint">4 个实验</span></header><div class="cards" id="cards"></div></section>
+      <section class="panel span12" id="motion"><header><h2>交互动效</h2><span class="hint">由操作触发 · 不自动播放</span></header><div class="specimens">
+        <div class="specimen"><h3>内容切换 · 180ms</h3><div class="seg sm" id="motionSeg"><button class="seg-item is-on" aria-pressed="true" data-state="运行中">运行中</button><button class="seg-item" aria-pressed="false" data-state="已完成">已完成</button></div><div class="motion-preview" id="motionPreview"><span class="badge info" id="motionState">运行中</span><p id="motionCopy">任务正在执行，结果将在完成后可用。</p></div></div>
+        <div class="specimen"><h3>弹层与反馈 · 160ms</h3><div class="btn-row"><button class="btn" id="motionDialog">打开详情</button><button class="btn ghost" id="motionToast">显示保存反馈</button></div><p>短距离进入；Esc 或关闭按钮返回原位置。提示不遮挡操作。</p></div>
+        <div class="specimen"><h3>渐进展开 · 180ms</h3><details class="motion-disclosure"><summary>查看执行详情</summary><div><p>gpu-01 · 6×A100<br>运行参数与诊断信息按需出现，平时只保留摘要。</p></div></details><p id="motionPreference">遵循系统“减少动态效果”设置。</p></div>
+      </div></section>
       <section class="panel span12" id="components"><header><h2>组件细节</h2><span class="hint">按钮、字段、标签、摘要</span></header><div class="specimens" id="specimens"></div></section>
       <section class="panel span12" id="design"><header><h2>字体与色阶</h2><span class="hint">比例、层次与状态关系</span></header><div class="specimens" id="designSamples"></div></section>
       <footer class="panel span12 sources"><div class="theme-description" id="themeDescription"></div><p><a href="README.md">组件与源码索引</a> · <a href="SOURCES.md">来源与许可证</a> · <a id="themeSource" href="themes/shadcn-neutral.css">主题 CSS</a></p></footer>
@@ -122,12 +116,16 @@ SERVERS.forEach((s, i) => {
   $("#serverSeg").append(b);
 });
 
-/* ---------- 导航点击 ---------- */
-$$(".nav-item").forEach((a) => (a.onclick = (e) => {
-  $$(".nav-item").forEach((x) => { x.classList.remove("is-active"); x.removeAttribute("aria-current"); });
-  a.classList.add("is-active");
-  a.setAttribute("aria-current", "location");
-}));
+/* ---------- 导航与直接锚点入口 ---------- */
+function updateNav() {
+  $$(".nav-item").forEach(a => {
+    const active = a.getAttribute("href") === (location.hash || "#overview");
+    a.classList.toggle("is-active", active);
+    if (active) a.setAttribute("aria-current", "location"); else a.removeAttribute("aria-current");
+  });
+}
+addEventListener("hashchange", updateNav);
+updateNav();
 
 /* ---------- KPI 卡片 ---------- */
 function renderKpis() {
@@ -136,7 +134,7 @@ const rows = TABLE.filter(r => currentServer === SERVERS[0] || r[6] === currentS
 const cost = rows.reduce((n, r) => n + Number(r[5].replace(/[^\d.]/g, "")), 0);
 [["实验记录", String(rows.length), "当前节点 · 全部数据集", 0], ["运行中", String(rows.filter(r=>r[8] === "运行中").length), "当前节点 · 全部数据集", 1], ["排队中", String(rows.filter(r=>r[8] === "排队中").length), "等待资源分配", 0], ["累计费用", "¥ " + cost.toLocaleString("en-US"), "当前节点 · 演示记录", 0]].forEach(([k, v, d, up]) => {
   const c = ce("div", "kpi");
-  setHTML(c, `<div class="kpi-k">${k}</div><div class="kpi-v">${v}</div><div class="kpi-d ${up ? "up" : ""}">${d}</div><svg class="spark" viewBox="0 0 80 24" preserveAspectRatio="none"><path d="M0 ${14 + up * 4} Q 20 ${6 + up * 6}, 40 ${12 - up * 2} T 80 ${8 - up * 3}"/></svg>`);
+  setHTML(c, `<div class="kpi-k">${k}</div><div class="kpi-v">${v}</div><div class="kpi-d ${up ? "up" : ""}">${d}</div>`);
   $("#kpis").append(c);
 });
 }
@@ -224,7 +222,7 @@ function pointAt(e) {
   const xc = Math.max(0, Math.min(XN - 1, xi));
   let best = null, bd = Infinity;
   // 按纵向距离选最近可见系列
-  SERIES.forEach((s, i) => {
+  SERIES.forEach((_s, i) => {
     if (!visible[i]) return;
     const cy = r.top + (py(seriesData[i][xc]) / LH) * r.height;
     if (Math.abs(e.clientY - cy) < bd) { bd = Math.abs(e.clientY - cy); best = i; }
@@ -246,7 +244,7 @@ svg.addEventListener("keydown", e => {
   const keys = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Enter", " ", "Escape"];
   if (!keys.includes(e.key)) return;
   e.preventDefault();
-  const shown = SERIES.map((s, i) => i).filter(i => visible[i]);
+  const shown = SERIES.map((_s, i) => i).filter(i => visible[i]);
   if (!shown.length) return;
   let si = focused ? SERIES.findIndex(s => s.name === focused.series) : shown[0];
   let xi = focused?.x ?? XN - 1;
@@ -271,11 +269,11 @@ SERIES.forEach((s, i) => {
   ch.onmouseleave = () => { if (!locked) setFocus(null); };
   $("#legend").append(ch);
 });
-function refreshChart() {
+function refreshChart(animate = true) {
   locked = null; setFocus(null);
   const factor = currentMetric === "train_loss" ? .76 : currentMetric === "grad_norm" ? .36 : 1;
   const offset = Math.max(0, SERVERS.indexOf(currentServer)) * .12;
-  seriesData = SERIES.map((s, i) => Array.from({length: XN}, (_, x) =>
+  seriesData = SERIES.map((_s, i) => Array.from({length: XN}, (_, x) =>
     (2.4 - x * .055 - i * .12 + Math.sin(x * (.7 + i * .23)) * .09 + offset) * factor));
   yMin = Math.min(...seriesData.flat()) - .05; yMax = Math.max(...seriesData.flat()) + .05;
   seriesEls.forEach((el, si) => {
@@ -284,6 +282,7 @@ function refreshChart() {
   });
   $$(".y-tick").forEach((el, i) => el.textContent = (yMax - i / 4 * (yMax - yMin)).toFixed(1));
   $("#chartScope").textContent = `${currentServer} · ${currentMetric}`;
+  if (animate) revealChange($("#lineChart"));
 }
 function placeTip(x, y) {
   const tip = $("#tip");
@@ -297,7 +296,7 @@ document.addEventListener("pointerdown", e => {
 document.addEventListener("keydown", e => { if (e.key === "Escape") { locked = null; setFocus(null); } });
 addEventListener("scroll", () => $("#tip").hidden = true, {passive: true});
 addEventListener("resize", () => $("#tip").hidden = true);
-refreshChart();
+refreshChart(false);
 
 /* ---------- 柱状图 ---------- */
 const bsvg = document.createElementNS(svgNS, "svg");
@@ -307,7 +306,7 @@ BARS.forEach(([n, v], i) => {
   const w = (BW - 60) / BARS.length, x = 40 + i * w + 6, h = (v / bMax) * (BH - 56);
   const r = document.createElementNS(svgNS, "rect");
   r.setAttribute("x", x); r.setAttribute("y", BH - 30 - h); r.setAttribute("width", w - 12); r.setAttribute("height", h);
-  r.setAttribute("class", "bar"); r.style.fill = `var(--c${(i % 5) + 1})`;
+  r.setAttribute("class", "bar"); r.style.fill = "var(--c1)";
   const t = document.createElementNS(svgNS, "text");
   t.setAttribute("x", x + (w - 12) / 2); t.setAttribute("y", BH - 12); t.setAttribute("class", "bar-lb"); t.textContent = n;
   const val = document.createElementNS(svgNS, "text");
@@ -374,11 +373,11 @@ setHTML($("#form"), `
   $("#metricSeg").append(b);
 });
 const DS = ["c4-zh", "fineweb", "wiki-zh", "code-parrot"];
-const sel = new Set(DS.map((d, i) => i));
+const sel = new Set(DS.map((_d, i) => i));
 const pop = $(".msel-pop");
 DS.forEach((d, i) => {
   const l = ce("label", "msel-item", `<input type="checkbox" ${sel.has(i) ? "checked" : ""}/>${d}`);
-  $("input", l).onchange = (e) => { e.target.checked ? sel.add(i) : sel.delete(i); updateDatasets(); };
+  $("input", l).onchange = (e) => { if (e.target.checked) sel.add(i); else sel.delete(i); updateDatasets(); };
   pop.append(l);
 });
 function closeMenu(focus = false) { pop.hidden = true; $(".msel-btn").setAttribute("aria-expanded", "false"); if (focus) $(".msel-btn").focus(); }
@@ -418,7 +417,7 @@ function updateDatasets() {
   renderTable();
 }
 $("#runSearch").oninput = renderTable;
-$("#resetFilters").onclick = () => { $("#runSearch").value = ""; DS.forEach((d, i) => sel.add(i)); updateDatasets(); $("#serverSeg button").click(); };
+$("#resetFilters").onclick = () => { $("#runSearch").value = ""; DS.forEach((_d, i) => sel.add(i)); updateDatasets(); $("#serverSeg button").click(); };
 renderTable();
 
 /* ---------- 卡片画廊 ---------- */
@@ -472,10 +471,10 @@ $("#exportBtn").onclick = () => {
   setTimeout(()=>URL.revokeObjectURL(url), 1000);
 };
 $("#samplePrimary").onclick = async e => {
-  const b = e.currentTarget, html = b.innerHTML; b.disabled = true; b.setAttribute("aria-busy", "true");
-  setHTML(b, `${icon("loader")}确认操作`);
+  const b = e.currentTarget, html = b.innerHTML; b.style.minWidth = b.offsetWidth + "px"; b.disabled = true; b.setAttribute("aria-busy", "true");
+  setHTML(b, `<span class="spin">${icon("loader")}</span>确认操作`);
   await new Promise(resolve => setTimeout(resolve, 800));
-  setHTML(b, html); b.disabled = false; b.removeAttribute("aria-busy"); toast("示例操作完成");
+  setHTML(b, html); b.style.minWidth = ""; b.disabled = false; b.removeAttribute("aria-busy"); toast("示例操作完成");
 };
 ["sampleSecondary", "sampleOutline", "sampleGhost"].forEach(id => $("#"+id).onclick = e => toast(`${e.currentTarget.textContent.trim()} · 已触发`));
 const tagHTML = $("#sampleTags").innerHTML;
@@ -484,6 +483,19 @@ $("#sampleDanger").onclick = () => { const tag = $("#sampleTags .filter-tag"); i
 $("#restoreTags").onclick = () => setHTML($("#sampleTags"), tagHTML);
 $("#invalidSample").oninput = e => { const invalid = !/^[a-zA-Z0-9-]+$/.test(e.target.value); e.target.setAttribute("aria-invalid", invalid); $("#sampleError").textContent = invalid ? "使用字母、数字与连字符，不含空格。" : "编号格式正确。"; $("#sampleError").className = invalid ? "error-text" : "field-help"; };
 $("#batchDetail").onclick = () => showDetail("Attention sweep · Batch 07", "过去 24 小时 · 固定演示批次", '<div class="summary-rows"><div><span>已完成</span><b>9</b></div><div><span>运行中</span><b>2</b></div><div><span>待运行</span><b>1</b></div><div><span>总计</span><b>12</b></div></div>');
+
+$("#motionSeg").onclick = e => {
+  const b = e.target.closest("button"); if (!b) return;
+  $$("button", $("#motionSeg")).forEach(x => { x.classList.toggle("is-on", x === b); x.setAttribute("aria-pressed", x === b); });
+  const done = b.dataset.state === "已完成";
+  $("#motionState").textContent = b.dataset.state; $("#motionState").className = "badge " + (done ? "ok" : "info");
+  $("#motionCopy").textContent = done ? "结果已归档，现在可以查看指标与导出记录。" : "任务正在执行，结果将在完成后可用。";
+  revealChange($("#motionPreview"));
+};
+$("#motionDialog").onclick = () => showDetail("执行详情", "固定演示数据 · 按需展开", '<p>gpu-01 · 6×A100<br>查看完成情况后关闭，继续原来的操作。</p>');
+$("#motionToast").onclick = () => toast("设置已保存");
+$(".motion-disclosure").ontoggle = e => { if (e.currentTarget.open) revealChange($("div", e.currentTarget)); };
+$("#motionPreference").textContent = reduced ? "系统已开启减少动态效果：内容即时切换。" : "短反馈，不循环；系统减少动态效果时即时切换。";
 
 /* ---------- Theme selection preserves current controls and data ---------- */
 const themeSelect = $("#themeSelect");
@@ -508,7 +520,7 @@ applyTheme(new URLSearchParams(location.search).get("theme"));
 
 /* Ripple belongs only to themes that call for it. */
 document.addEventListener("pointerdown", (e) => {
-  const b = e.target.closest(".btn"); if (!b || reduced || !["modern-saas", "bespoke"].includes(themeSelect.value)) return;
+  const b = e.target.closest(".btn"); if (!b || matchMedia("(prefers-reduced-motion: reduce)").matches || themeSelect.value !== "bespoke") return;
   const r = b.getBoundingClientRect(), s = ce("i", "ripple");
   s.style.left = e.clientX - r.left + "px"; s.style.top = e.clientY - r.top + "px";
   b.append(s); setTimeout(() => s.remove(), 500);
