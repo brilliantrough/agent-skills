@@ -618,7 +618,7 @@ else
   else warn '缺少 CodeGraph,跳过 MCP 注册'; fi
 fi
 
-# ---- 5. skills:与 pi/opencode 同一同步器(base 组随仓库刷新;本地漂移自动备份到 ~/.local/share/agent-skills/.backups)----
+# ---- 5. skills:共用同步器刷新 base(漂移先备份)、补装外部设计依赖并更新第三方 ----
 SELF_RAW="https://raw.githubusercontent.com/brilliantrough/agent-skills/main"
 _ss="$(mktemp --suffix=.sh 2>/dev/null || mktemp)"
 if curl -fsSL --connect-timeout 8 -m 60 -o "$_ss" "$SELF_RAW/skills-sync.sh"; then
@@ -634,7 +634,7 @@ echo '2. 用 /mcp 检查连接,实际调用 claude-mem 查询和 CodeGraph 工�
 echo "3. claude-mem worker 地址 http://$(mem_worker_url)(端口取自 $SETTINGS,默认 37700)。后端配置: $SETTINGS（本脚本启动时已问过网关地址 + claude-mem 的 API key 并填入;若当时跳过,手工填 <YOUR_*> 占位符;环境变量预填方式:PI_GATEWAY_BASE_URL / PI_CLAUDE_MEM_API_KEY)。如刚运行安装器,填好配置后执行 npx claude-mem@latest start。"
 echo '4. 新项目执行 codegraph init;已有项目索引可复用。'
 echo '5. skills 原样复用;缺少 Magic Context 的 ctx_* 工具时仅 best effort,以 OpenCode 为主。'
-echo '6. 本脚本不升级已有插件/skills;更新方法见 README 的 Codex 一节。'
+echo '6. 本脚本不升级已有插件；skills 已经共用同步器刷新，第三方由 npx skills 更新。'
 if [ "$errors" != 0 ]; then
   echo "WARN: $errors 项未完成,请检查上方输出后重跑" >&2
   exit 1

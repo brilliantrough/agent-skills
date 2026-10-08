@@ -4,7 +4,7 @@
 
 ## 安装与调用
 
-将整个 `personal-ui-taste/` 放到 `~/.agents/skills/` 下，入口必须是：
+推荐重跑套件 setup：同步本 skill，并安装/更新四个外部设计依赖。只手工复制本目录时，还需按文末安装依赖；入口必须是：
 
 ```text
 ~/.agents/skills/personal-ui-taste/SKILL.md
@@ -37,7 +37,7 @@ S04适合联合排行、维度汇总、分层展开等分析交互；其指标�
 
 ## 跨服务器
 
-复制整个目录即可；所有内部引用均为相对路径：
+复制整个目录迁移个人记录；内部引用均为相对路径，外部依赖在目标机重新安装：
 
 ```sh
 # 先确认目标机器存在 ~/.agents/skills，再复制；目标已有同名目录时先比较并合并。
@@ -54,7 +54,8 @@ scp -r ~/.agents/skills/personal-ui-taste USER@HOST:~/.agents/skills/
 - [assets/ui-lab/README.md](assets/ui-lab/README.md)：组件 → CSS/JS 索引、token 约定、复用边界；素材版本与许可证见同目录 `SOURCES.md`。
 - [SKILL.md](SKILL.md)：主动设计流程——读题、查证、推荐、设计、实证；已确认场景只做索引。
 - [references/preferences.md](references/preferences.md)：T01–T15、症状索引与工作控件起点；明确反馈按范围保留。
-- [references/design-philosophy.md](references/design-philosophy.md)：内容立意、设计机会、按需三拨盘、概念与反 AI 味审查、外部方法分工。
+- [references/design-philosophy.md](references/design-philosophy.md)：内容立意、设计机会、按需三拨盘、概念与反 AI 味审查。
+- [references/external-skills.md](references/external-skills.md)：四个外部 skill 的触发、组合工作流、真实安装名、路径与缺失处理。
 - [references/style-menu.md](references/style-menu.md)：内容 → 正向设计模式、叙事构图、外部检索、工作骨架与风格参考。
 - [references/motion.md](references/motion.md)：操作反馈、对象连续性、比较与滚动叙事，及减少动态效果退化。
 - [patterns.md](patterns.md)：S01 的图表、浮层、筛选、状态时间轴、响应式模式和踩坑。
@@ -70,13 +71,10 @@ scp -r ~/.agents/skills/personal-ui-taste USER@HOST:~/.agents/skills/
 
 不需要提前设计所有未来场景：明确反馈 → 当前场景落地 → 认可后沉淀 → 在下一项目复用。
 
-## 配合的第三方 skill
+## 外部依赖与工作流
 
-第三方是**设计方法来源**，不只是素材库（MIT，不由本仓分发）。按任务读方法并核对适配，不把个人工作台偏好推广为其他场景的禁令：
+三个 setup 共用 `skills-sync.sh` → `skills-external.sh`：默认补装 UI/UX Pro Max、Huashu Design、Taste 的新建与改造两个 skill，已登记第三方随上游更新。名单和命令只在套件根脚本维护，不把整个仓库全装进宿主。
 
-```bash
-npx skills add https://github.com/nextlevelbuilder/ui-ux-pro-max-skill --skill ui-ux-pro-max -g -y   # 页面结构、产品模式、UX/图表/动效与风格检索
-npx skills add https://github.com/alchaincyf/huashu-design -g -y                                     # 高保真原型、构图/叙事、动画与视觉 QA
-```
+本 skill 读题与个人校准 → 按任务读取外部 skill 的最新入口/参考/脚本 → 适配实现 → 真实审查 → 用户反馈回到本 skill。完整分工、独立安装命令、执行依赖和缺失处理见 [external-skills.md](references/external-skills.md)。
 
-另从 [taste-skill](https://github.com/Leonxlnx/taste-skill) 提取正向模式词汇、反默认与改造方法，不复制其代码或整套落地页禁令；可读取已装实例或临时克隆上游。分工与范围口径见 [设计哲学](references/design-philosophy.md) 文末。
+第三方副本允许自动覆盖；个人修改保存到本 skill，不直接改上游副本。同名本地/其他源由套件告警、保留并交回确认。安装 skill 不自动安装 GSAP、浏览器环境或上游 hooks。

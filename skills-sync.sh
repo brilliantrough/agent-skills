@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# skills-sync.sh — agent-skills 的 skill 分组同步器(pi/opencode/codex 三个 setup 共用,也可单跑)
+# skills-sync.sh — 本仓分组同步 + 外部依赖(pi/opencode/codex 三个 setup 共用,也可单跑)
 #
 # 分组 = 仓库 skills/ 下的目录(base/ accel/ kb/):新增 skill 只需放入对应组目录,没有名单要维护。
 # 策略:base 每次随仓库刷新(本地有未回流改动先备份);accel 缺才装(本机特化不覆盖);kb 每次刷新。
@@ -80,4 +80,6 @@ for g in $SYNC_GROUPS; do
   done
 done
 
-echo "== skills 同步完成:装 $N_INST,更新 $N_UPD,保留 $N_KEEP,未变 $N_SAME =="
+echo "== 本仓 skills 同步完成:装 $N_INST,更新 $N_UPD,保留 $N_KEEP,未变 $N_SAME =="
+echo "== 外部 skills:补装设计依赖，更新已登记第三方(不含本仓) =="
+bash "$cache/agent-skills-main/skills-external.sh"

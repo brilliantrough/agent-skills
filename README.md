@@ -8,7 +8,7 @@
 | Pi | 与 OpenCode 共享记忆配置 |
 | Codex | best effort；复用 skills 原文，不改工作流 |
 
-[快速安装](#快速安装) · [Skills](#skills18-个) · [首次部署](#首次部署只需要网关--5-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [OpenCode](#opencode-插件配置手工步骤) · [更新](#更新)
+[快速安装](#快速安装) · [Skills](#skills本仓-27-个) · [首次部署](#首次部署只需要网关--5-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [OpenCode](#opencode-插件配置手工步骤) · [更新](#更新)
 
 ## 快速安装
 
@@ -39,10 +39,10 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 **只装 skills，不配插件**
 
 ```bash
-npx skills@latest add brilliantrough/agent-skills --all -g -y
+bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.com/brilliantrough/agent-skills/main/skills-sync.sh)" -- base
 ```
 
-安装位置：`~/.agents/skills/`；重开 agent session 生效。
+`base` 安装基础 19 个，`all` 加算力/知识组到 27 个；两者都默认补装四个外部设计 skill，并更新已登记第三方。需要 curl、git、Node/npx；安装位置 `~/.agents/skills/`，重开会话生效。
 
 **Codex（best effort）**
 
@@ -69,7 +69,9 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/pi-setup.sh)"
 ```
 
-## Skills（18 个）
+## Skills（本仓 27 个）
+
+基础 19 个；算力模板 7 个与公共知识 1 个按需选装。另有四个设计依赖直接来自上游仓库，不复制到本仓。
 
 ### 工程技能
 
@@ -135,7 +137,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 
 | Skill | 用途 |
 |---|---|
-| `personal-ui-taste` | 浅色信息密集界面、多系列图表焦点联动、密集图表就近悬浮、症状索引与反馈演化协议 |
+| `personal-ui-taste` | 内容驱动的设计伙伴：主动推荐结构/叙事/交互，编排外部设计方法，以有范围的个人反馈校准 |
 
 ### 科研实验（自制）
 
@@ -158,12 +160,26 @@ ponytail for experiments：规模随证据收缩，完整性满足论点。
 
 | 类别 | 依赖 |
 |---|---|
-| Matt 的 6 个 skill | 无 |
+| 已提炼的工程 skill | 方法随本仓维护，无执行依赖 |
 | 记忆 skill | Magic Context、claude-mem、`docs/` StrictDoc；缺一层仍可用其余层 |
-| 工作流 / 品味 / 技术写作 | 无硬依赖 |
+| 工作流 / 技术写作 | 无硬依赖 |
+| personal-ui-taste | 四个外部设计 skill；默认安装，按任务读取，缺失时说明降级 |
 
 - `.sdoc` 校验需要 `strictdoc`：脚本末尾检查 `uv`，缺则安装；可选全局安装 `uv tool install strictdoc==0.28.1`，升级用 `uv tool upgrade strictdoc`
 - 项目接入记忆系统：使用 [AGENTS.tail.md](AGENTS.tail.md) 中 `memory-system:start/end` 引导块
+
+### 外部设计依赖
+
+| 仓库 | 精确安装名 | 分工 |
+|---|---|---|
+| [nextlevelbuilder/ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) | `ui-ux-pro-max` | 页面结构、产品模式、UX、图表、动效与风格检索 |
+| [alchaincyf/huashu-design](https://github.com/alchaincyf/huashu-design) | `huashu-design` | 高保真、构图/叙事、动画与视觉 QA |
+| [Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill) | `design-taste-frontend`、`redesign-existing-projects` | 新页面视觉方法、已有页面改造审查 |
+
+- **分发**：三个 setup → [skills-sync.sh](skills-sync.sh) → [skills-external.sh](skills-external.sh)。精确名字补缺，再由 `npx skills@latest update -g <第三方名字>` 更新；不使用整库 `--all`，不把本仓条目交给 npx。
+- **归属**：本仓维护工作流、个人偏好与验证过的适配经验；外部维护完整目录、配方、脚本与资源。新增能力先考虑引用依赖，重复验证后再提炼差异，不逐版拷贝上游。
+- **更新**：第三方副本由上游管理，直接修改可能被覆盖；个人改动回到本仓 skill。同名本地/其他源不自动接管，保留并告警。
+- **使用**：安装后按任务读取实际入口/参考；安装 skill 不自动装浏览器/Python 包/GSAP，也不启用上游 hooks。分工和缺失处理见 [外部设计能力](skills/base/personal-ui-taste/references/external-skills.md)。
 
 ## 首次部署：只需要网关 + 5 个 key
 
@@ -291,7 +307,7 @@ PS：上游 `install.ps1` / winget 面向零前提用户；本项目约定 Git B
 | 本地记忆插件 | 注册 `claude-mem@claude-mem-local`，自带 MCP、skills、hooks |
 | Ponytail | 官方 `ponytail@ponytail`；Node 须在启动 Codex 的 PATH 中 |
 | CodeGraph | 缺则装 CLI，以 `codex mcp add` 注册；保留现有 `mcp_servers.codegraph`，各项目运行 `codegraph init` |
-| skills | 仅安装缺失的本仓库 skills（`--agent codex`）；不覆盖已有共享 skills |
+| skills | 共用同步器刷新 base（漂移先备份），补装四个外部设计 skill、更新已登记第三方 |
 | Magic Context / notify | 不安装；不动原生压缩；缺 `ctx_*` 的记忆技能仅 best effort |
 
 ### 配置与共享资产安全
@@ -326,20 +342,19 @@ npx claude-mem@latest install --ide codex-cli
 codex plugin marketplace add DietrichGebert/ponytail
 codex plugin add ponytail@ponytail
 codex mcp add codegraph -- codegraph serve --mcp
-npx skills@latest add brilliantrough/agent-skills --skill '*' --agent codex -g -y
+bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.com/brilliantrough/agent-skills/main/skills-sync.sh)" -- base
 ```
 
-更新命令（setup 不自动执行）：
+插件更新命令（setup 不自动执行；skills 会自动同步）：
 
 ```bash
 codex plugin marketplace upgrade ponytail
 codex plugin add ponytail@ponytail
 # claude-mem runtime 更新后,重新装入其本地插件快照:
 codex plugin add claude-mem@claude-mem-local
-npx skills@latest update -g
 ```
 
-skills 共享，更新也影响 OpenCode。claude-mem runtime 按官方文档更新，先备份共享配置。
+skills 重跑套件同步器即可；共享目录的更新也影响 OpenCode。claude-mem runtime 按官方文档更新，先备份共享配置。
 
 官方参考：[Codex MCP](https://developers.openai.com/codex/mcp) · [Codex hooks](https://developers.openai.com/codex/hooks) · [claude-mem 安装器](https://github.com/thedotmack/claude-mem/blob/main/src/services/integrations/CodexCliInstaller.ts) · [Ponytail](https://github.com/DietrichGebert/ponytail#codex) · [CodeGraph](https://github.com/colbymchenry/codegraph#quick-start)
 
@@ -800,11 +815,17 @@ npm 条目在 OpenCode 重启时自动安装；配置改动也需重启生效。
 
 客户端不分组：实体直落 `~/.agents/skills/<名>`，装了 Claude Code 的机器同步 `~/.claude/skills/<名>`（有差异才写）。
 
-第三方源（mattpocock/drawio/find-skills 等）照旧：
+第三方由共用同步器末尾的 `skills-external.sh` 处理：默认补装四个设计依赖，再按锁表更新已登记第三方（包括用户另装的 drawio/find-skills 等）。同时排除本仓来源与当前 `skills/{base,accel,kb}` 下的名字，避免旧锁表把本仓 skill 误认成第三方。
 
 ```bash
-npx skills update -g   # 只遍历 ~/.agents/.skill-lock.json,不装新增 skill
+bash skills-external.sh   # 在克隆的套件根单独补装/更新第三方，不动本仓 skill 或插件配置
 ```
+
+`npx skills update` 本身只更新已登记项，不补装缺项或上游新增 skill；依赖补装仍需精确的 `add --skill`。
+
+- 冲突逐个处理，不因一个 Taste 入口冲突而跳过另一个；Claude 同名副本与共享目录不同时，保留并告警，不自动替换
+- 补装失败、检测到冲突或 CLI 返回失败时，同步器返回非零
+- 上游边界（skills@1.7.1）：部分网络检查失败会打印错误却仍退出 0；查看原始输出后重跑，退出 0 不等于已确认全部最新。套件不另造更新引擎
 
 - 手工拷贝的副本不在 lock 中，`npx skills ls -g` 显示 `Source: local`，update 不碰
 - 本仓库 skill 不再走 `npx skills add`：它无条件覆盖且无分组策略

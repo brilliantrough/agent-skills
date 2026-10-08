@@ -28,7 +28,7 @@
 #   5.5 context-mode 插件(GitHub Release 预构建包解到 plugins/context-mode/,入口 entry.js;
 #      skills 装到 skill/;不写 opencode.json 的 plugin 字段)
 #   6. notify 插件(brilliantrough/opencode-notify-hub,GitHub Release 预构建包)
-#   7. skills 本体:本仓库 skill 只装一次(按缺失过滤,已存在不覆盖本机演化)+ 可选 accel 组 + 第三方源 update -g
+#   7. skills:本仓 base/kb 刷新(漂移先备份)、accel 缺才装；补装外部设计依赖、更新第三方
 #   8. uv(缺则装;含自升级与清华 PyPI 镜像)+ strictdoc(用 uv tool 全局安装,.sdoc 校验依赖)
 #
 # 用法:bash opencode-setup.sh [-y|--yes]   (-y 默认安装:不再逐项确认、一律取默认——默认 Y 的照做,默认 N 的跳过
@@ -1166,7 +1166,7 @@ fi
 # 分组 = 仓库 skills/{base,accel,kb}/ 目录,策略由 skills-sync.sh 执行:base/kb 每次随仓库刷新
 # (base 本地有未回流改动先备份到 ~/.local/share/agent-skills/.backups);accel 缺才装(本机特化不覆盖)。
 # 客户端实体直落 ~/.agents/skills/<名>(装了 Claude Code 时同步 ~/.claude/skills/<名>)。
-# 第三方源 skill(mattpocock/drawio/find-skills 等)照旧 npx update,不受影响。
+# 同步器随后用 npx skills 补装外部设计依赖、更新已登记第三方。
 _ss="$(mktemp --suffix=.sh 2>/dev/null || mktemp)"
 if curl -fsSL --connect-timeout 8 -m 60 -o "$_ss" "$SELF_RAW/skills-sync.sh"; then
   if ask "安装/更新 skills(base+accel+kb 三组;base 每次刷新·漂移自动备份,accel 缺才装;选 N 只装 base 组,个人工作站选这个)" N; then
@@ -1178,17 +1178,6 @@ else
   echo "WARN: skills-sync.sh 下载失败,跳过(检查代理)" >&2
 fi
 rm -f "$_ss"
-  # 第三方源例行更新:只更新非本仓库的条目(本仓库条目的版本演进由 skills-sync.sh 负责)
-  THIRD_SKILLS=$(python3 -c '
-import json, os
-try:
-    d = json.load(open(os.path.expanduser("~/.agents/.skill-lock.json")))["skills"]
-except Exception:
-    raise SystemExit
-mine = "brilliantrough/agent-skills"
-print(" ".join(n for n, e in d.items()
-               if mine not in (e.get("source") or "") and mine not in (e.get("sourceUrl") or "")))' 2>/dev/null)
-  [ -n "$THIRD_SKILLS" ] && command -v npx >/dev/null 2>&1 && npx -y skills@latest update -g $THIRD_SKILLS || true
 
 # ---- 8. uv(可选)+ strictdoc(.sdoc 校验依赖)----
 UVP="$HOME/.local/bin/uv$BIN_EXT"
