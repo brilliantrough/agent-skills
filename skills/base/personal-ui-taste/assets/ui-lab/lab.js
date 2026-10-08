@@ -117,15 +117,8 @@ SERVERS.forEach((s, i) => {
 });
 
 /* ---------- 导航与直接锚点入口 ---------- */
-function updateNav() {
-  $$(".nav-item").forEach(a => {
-    const active = a.getAttribute("href") === (location.hash || "#overview");
-    a.classList.toggle("is-active", active);
-    if (active) a.setAttribute("aria-current", "location"); else a.removeAttribute("aria-current");
-  });
-}
-addEventListener("hashchange", updateNav);
-updateNav();
+addEventListener("hashchange", () => updateNav("#overview"));
+updateNav("#overview");
 
 /* ---------- KPI 卡片 ---------- */
 function renderKpis() {

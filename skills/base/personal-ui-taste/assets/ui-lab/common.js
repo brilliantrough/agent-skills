@@ -12,9 +12,17 @@ const THEMES = [
   ["baseline", "旧基线 · 对照", "历史视觉 tokens，不作为默认方向"],
   ["layered", "海拔阴影 · 技法样本", "四级阴影对照，不列入正式主题选择"],
 ];
+function updateNav(fallback) {
+  document.querySelectorAll(".nav-item").forEach(a => {
+    const active = a.getAttribute("href") === (location.hash || fallback);
+    a.classList.toggle("is-active", active);
+    if (active) a.setAttribute("aria-current", "location"); else a.removeAttribute("aria-current");
+  });
+}
 function revealChange(el) {
   el.getAnimations().forEach(a => a.cancel());
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   el.animate([{ opacity: .45, transform: "translateY(4px)" }, { opacity: 1, transform: "translateY(0)" }],
     { duration: 180, easing: "cubic-bezier(.16, 1, .3, 1)" });
 }
+Object.assign(window, { THEMES, updateNav, revealChange });

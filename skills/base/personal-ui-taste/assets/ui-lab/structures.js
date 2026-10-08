@@ -93,3 +93,5 @@ $("#exportRun").onclick = () => {
 applyTheme(params.get("theme"));
 applyStructure(params.get("structure"), false);
 showDetail(0, false); filterRuns();
+addEventListener("hashchange", () => updateNav("#lead"));
+updateNav("#lead");

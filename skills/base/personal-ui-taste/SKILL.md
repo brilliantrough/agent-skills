@@ -2,7 +2,7 @@
 name: personal-ui-taste
 description: "个人前端审美、功能驱动的信息组织与持续演化的 UI 设计指南。Use when designing, building, polishing or reviewing this user's frontend UI, dashboards, charts, forms or admin panels; choosing a page structure or visual style, running an anti-AI-slop pass, or following 我的品味/个人审美; also when reviewing whether an interface is merely workable or actually good. Applies scoped preferences, structure menus and interaction patterns across projects. Not for backend-only work."
 metadata:
-  version: "2.1.0"
+  version: "2.2.0"
   updated: "2026-10-08"
 ---
 
@@ -86,6 +86,7 @@ metadata:
 | T09 | 预览型工作台、卡片与主题 | 冷灰蓝画布、白色面板、蓝紫强调；柔和细边框的大圆角矩形；比例字体、克制按钮与轻浮层，见 S02 | 把内容卡片一律压成密集表格；大矩形做成胶囊；重描边/重阴影 |
 | T10 | 每日时间点选择 | 明确的 24 小时制 `00–23`；新增时间分钟默认 `00`，允许主动选其他分钟 | AM/PM 切换；空值弹出后分钟跟随当前时间；默认值在保存时被误添为时间点 |
 | T11 | 研究指标与曲线看板 | 已认可左侧筛选栏与顶部服务器切换栏；图表偏好明亮的蓝紫青绿、清楚折线；折线为指标对比主视图；视觉验收独立于功能验收 | 拒绝层层卡片与胶囊堆叠的“塑料感”，也拒绝灰暗、沉重的图表配色；拒绝多 run 指标的横排柱状图；不能将拒绝容器风格误解为拒绝亮色图表 |
+| T14 | 现代工作界面的导航与搜索 | 同组导航等宽、整行可点击；圆润边界与胶囊搜索框；容易命中的字号/高度；hover 轻浮、按下微压、选中常驻、键盘焦点清楚 | 为照搬参考把按钮缩成小文字药丸；只有文字附近可点；焦点把圆角改方；不推广为大面板必须胶囊 |
 | T13 | 现代浅色产品与当前样板 | shadcn 式简洁、优雅、规整；安静的表面与短交互反馈；米色纸面可并存 | 当前 Modern SaaS 的大片黑底与沉重观感；只模仿侧栏、主区仍堆装饰；不据此禁止所有深色场景 |
 | T12 | 多维分析与排查工作台 | 从要追查的关系组织联合排行；需要时同时支持维度合并与分层折叠，继承筛选查看组合趋势/明细 | 各维度单独排行却无法关联；只是隐藏列而未汇总；动作与资源混在同一筛选；不按功能推导界面 |
 
@@ -135,6 +136,7 @@ metadata:
 
 ### 具体控件
 
+- **导航/搜索**：按 T14，同组导航整行等宽、常驻导航高约 42px；搜索采用圆润边界。分组和层级保留，不以缩小命中区换取“精致”。
 - **输入/选择器**：柔和灰底、细或透明边框、非等宽字；focus 可变白底配清楚焦点环。选择器有自然的小箭头。
 - **分段选择**：灰色轨道 + 浅色/白色活动项、轻阴影；选中靠底色/字色，不靠厚边框。
 - **多选菜单**：轻浮层、圆角搜索框、整行 hover、清楚的复选选中态和已选数量；原生语义优先。

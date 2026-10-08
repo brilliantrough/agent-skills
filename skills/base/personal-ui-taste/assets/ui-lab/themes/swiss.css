@@ -23,6 +23,7 @@
 .panel, .kpi { box-shadow: none; }
 /* 导航：左侧 3px 黑块指示，不用底色 */
 .nav-item { border-radius: 0; }
+.search { border-radius: var(--r-sm); }
 .nav-item.is-active { background: transparent; color: var(--text); }
 .nav-item.is-active::before { content: ""; position: absolute; left: -10px; top: 0; bottom: 0; width: 3px; background: var(--accent); }
 .side { padding-left: 18px; }
