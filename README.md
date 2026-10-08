@@ -196,7 +196,7 @@ ponytail for experiments：规模随证据收缩，完整性满足论点。
 |---|---|---|
 | magic-context embedding key | openai / 嵌入模型 / 任意分组 | `magic-context.jsonc` → `embedding.api_key` |
 | claude-mem key | openai chat completions / 任意模型 / 建议 coding openai 分组 | `~/.claude-mem/settings.json` → `CLAUDE_MEM_OPENROUTER_API_KEY` |
-| mcphub MCP host | — | `~/.agents/mcp.json`、`opencode.json` → `mcp.mcphub-web.url` |
+| mcphub MCP host | — | Pi `~/.pi/agent/mcp.json`、OpenCode `opencode.json` → mcphub-web `url` |
 
 同一模板的三处 `<YOUR_NEWAPI_API_KEY>` 按 provider 名就近替换，不串位。
 
@@ -392,7 +392,7 @@ skills 共享，更新也影响 OpenCode。claude-mem runtime 按官方文档更
 
 | 包 | 用途 / 说明 |
 |---|---|
-| `pi-mcp-adapter` | MCP |
+| Pi 内置 MCP（>= 0.99.0） | 不需安装 MCP 插件；旧 adapter 先确认迁移 |
 | `@dietrichgebert/ponytail` | 官方自带 pi-extension |
 | `pi-subagents-j0k3r` | subagent |
 | `pi-lens` | 实时诊断、符号检索 |
@@ -410,15 +410,19 @@ skills 共享，更新也影响 OpenCode。claude-mem runtime 按官方文档更
 
 ### MCP 与 subagent
 
-MCP 配置：共享的 `~/.agents/mcp.json`，由 pi-mcp-adapter 读取。
+Pi 原生 MCP（>= 0.99.0）：全局 `~/.pi/agent/mcp.json`，可信项目 `.pi/mcp.json`；自定义 agent 目录遵循 `PI_CODING_AGENT_DIR`。
 
-| MCP | 连接方式 |
+| MCP | 连接方式 / 暴露 |
 |---|---|
-| mcphub-web | 远程 URL |
-| codegraph / claude-mem | 本地命令；部署时替换为本机 `codegraph` / `bun` 绝对路径 |
+| mcphub-web | 远程 URL；4 个常用工具 `direct`，其余 `deferred` |
+| codegraph / claude-mem | 本地命令；`deferred`；部署时替换为本机绝对路径 |
 
-- mcphub-web `directTools`：5 个直连工具——tavily search/extract、firecrawl scrape/search/research_search_github；首调自动 lazyConnect
-- 其余走 `mcp` 网关：`mcp({search/describe/connect})`；内部调用名带 `mcphub-web_` 前缀
+- mcphub-web 直连：tavily search/extract、firecrawl scrape/search；GitHub/开发检索用 `tool_search` 发现服务器当前提供的工具
+- 所有工具名：`mcp__<服务器>__<工具>`，连字符转下划线；`tool_search` 发现并加载工具，`codemode` 批量调用并归约结果
+- `/mcp` 管理服务器、连接与登录；`pi mcp list` 检查连接；原生在会话启动时连接全部启用服务器，不再按首调 lazyConnect
+- 旧机器：setup 先列迁移差异，默认 N；确认后备份、导入共享配置、摘除 adapter 登记并启用原生；拒绝或失败不合并新 MCP/settings 模板
+- 单独迁移：`python3 pi/migrate-mcp.py` 预览，确认后加 `--apply`；旧 `~/.agents/mcp.json`、OAuth 文件和安装目录不改；已有同名原生服务器保留
+- 脚本转换 `env`/`headers` 的旧变量与转义写法；不自动迁移其它 adapter 配置来源、SSE、未知字段、URL/命令路径变量或 OAuth 登录态，遇到这些条件停止并提示
 - subagent 定义：`~/.pi/agent/agents/{explore,general}.md`，对应 OpenCode 的 explore/general
 - frontmatter **必须显式写 `tools`**：默认值引用了不存在的工具
 
@@ -832,7 +836,7 @@ npx skills update -g   # 只遍历 ~/.agents/.skill-lock.json,不装新增 skill
 | `~/.config/opencode/opencode.json` | 已有 provider 保留本地 `options`（apiKey/网关），仅覆盖 `models`；新增 provider 整块加入；其它字段仅补缺键 |
 | `~/.claude-mem/settings.json` | 非敏感字段含 `CLAUDE_MEM_*_MODEL` 随模板；`CLAUDE_MEM_PROVIDER` 强制 `openrouter` |
 | `~/.config/cortexkit/magic-context.jsonc` | 同 settings；含与 OpenCode 共用的 `historian.pi` / `dreamer.pi` 块 |
-| `~/.pi/agent/{settings,models}.json`、`~/.agents/mcp.json` | 同 settings，由 `pi-setup.sh` 处理；已有 `tuiMode` 保留本地选择；mcp.json 本地命令路径在合并前替换 |
+| `~/.pi/agent/{settings,models,mcp}.json` | 同 settings，由 `pi-setup.sh` 处理；已有 `tuiMode` 保留本地选择；mcp.json 本地命令路径在合并前替换；旧共享 MCP 只读迁移，不再部署 |
 | `~/.pi/agent/agents/*.md`、`extensions/claude-mem.ts` | 整文件部署；有差异才写，原文件留时间戳备份 |
 
 **隐私保护边界**

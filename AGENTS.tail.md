@@ -21,14 +21,14 @@ This project uses a three-layer memory system (Magic Context + StrictDoc + claud
 ### Context window (always applies)
 
 - Big output never enters context: bulk commands / multi-file analysis -> `ctxm_batch_execute`, one-off computation -> `ctxm_execute`, reading a file -> `ctxm_execute_file`.
-- Web: never the host built-ins (WebSearch, WebFetch, web_search) — they are weaker or unconfigured here. Use the mcphub-web MCP tools: `tavily_search`/`tavily_extract` for facts/news, `firecrawl_search` for ranked results, `firecrawl_scrape` for a known page (exact names carry a host prefix, e.g. `tavily-mcp-tavily_search`). More sit behind the `mcp` gateway (firecrawl crawl/map/research, context7 docs): `mcp({search})` → describe → connect. `ctxm_fetch_and_index` only for a page you will re-query (how-to lives in the `context-mode` skill).
+- Web: never the host built-ins (WebSearch, WebFetch, web_search) — they are weaker or unconfigured here. Use the mcphub-web MCP tools: `tavily_search`/`tavily_extract` for facts/news, `firecrawl_search` for ranked results, `firecrawl_scrape` for a known page (use the actual exposed name; Pi native names are `mcp__<server>__<tool>` with hyphens replaced by underscores). Discover the remaining tools (firecrawl crawl/map/research, context7 docs) through Pi's `tool_search` and call them directly or via `codemode`; on hosts with an MCP gateway, use its search/describe/call flow. `ctxm_fetch_and_index` only for a page you will re-query (how-to lives in the `context-mode` skill).
 - Magic Context supports recall and durable storage: `ctx_search` can recover earlier decisions before asking the user, `ctx_memory` can preserve useful knowledge, and `ctx_note` can hold reminders. Use alongside StrictDoc and claude-mem, with useful overlap.
 - Native `Read`/`Grep`/`Glob` stay right when you need the exact bytes or will edit the file — never route those through `ctxm_*`.
 
 ### Steering the agent (always applies)
 
 - Steer with prompts, skills and tool descriptions — never with hard blocks. Guidance keeps judgement and variety; deny rules are a last resort for damage, not for preference.
-- Adding an MCP server: keep tool names short (pi-mcp-adapter `toolPrefix: "none"`) and descriptions rich — the description is all the model reads before choosing.
+- Adding an MCP server: use descriptive server/tool names and rich descriptions. Pi native MCP keeps its namespace prefix; use `exposure` / `toolExposure` for direct versus discoverable tools, not adapter-only `toolPrefix` / `directTools`.
 - When a behaviour goes wrong, fix the system that produced it (a line here, a skill, or a fork patch), not just the config of the machine you noticed it on.
 
 ### Code taste (always applies when writing or changing code)

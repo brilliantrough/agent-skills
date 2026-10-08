@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pi-setup.sh — 个人 Pi(pi coding agent)一键配置(mcp-adapter + magic-context + ponytail + subagent + claude-mem 桥 + skills 本体)
+# pi-setup.sh — 个人 Pi(pi coding agent)一键配置(原生 MCP + magic-context + ponytail + subagent + claude-mem 桥 + skills 本体)
 # 仓库: brilliantrough/agent-skills
 #
 # 干什么(交互确认 + 幂等,重复跑安全):
@@ -14,7 +14,7 @@
 #   2. pi 本体与已装包更新:已装 → 默认 Y,逐包 pi update(不用 --all,它会连带升 magic-context)
 #      唯独不碰 magic-context:它与 opencode 侧共享 context.db,升级要迁移 DB、会打断正在跑的
 #      进程,所以是独立一问、默认 N(步骤 3.1),要升请放到两边都没人使用的时段
-#   3. pi 包(pi install,幂等):pi-mcp-adapter / @dietrichgebert/ponytail / pi-subagents-j0k3r /
+#   3. pi 包(pi install,幂等):@dietrichgebert/ponytail / pi-subagents-j0k3r /
 #      pi-lens / @juicesharp/rpiv-ask-user-question / pi-autoname@0.6.8 / @cortexkit/pi-magic-context /
 #      git:github.com/brilliantrough/agent-skills(本仓库自身;含个性化 UI、later、任务耗时扩展、
 #      claude-mem 桥扩展、one-dark 主题——旧版散装部署文件会自动清理;pi install 对已登记
@@ -27,7 +27,8 @@
 #   4. 部署(字段级合并 dot_file 模板,api key/网关等本地敏感值保留;settings/auth/claude-mem/magic-context 下载失败用内嵌兜底,models.json/mcp.json 必须联网或手工维护):
 #      ~/.pi/agent/settings.json(含按模型 thinking、4 秒起步指数退避重试 8 次)、pi-autoname.json(低频命名)、
 #      ~/.pi/agent/models.json、~/.pi/agent/auth.json(占位符初始化,
-#      coding plan 等内置 provider 凭据)、~/.agents/mcp.json(三平台共享)
+#      coding plan 等内置 provider 凭据)、~/.pi/agent/mcp.json(原生 MCP,Pi >= 0.99.0)
+#      旧 adapter 配置先预览,确认后备份迁移;~/.agents/mcp.json 不修改
 #      以及共用配置 ~/.claude-mem/settings.json、~/.config/cortexkit/magic-context.jsonc(含 historian.pi/dreamer.pi)
 #   5. claude-mem 资产(缺失则官方安装器,只为拿 worker/MCP 资产)——先装 runtime,再合并它的配置,
 #      这样安装器写的 settings 会被我们的模板覆盖(api key/网关等本地敏感值保留)
@@ -95,7 +96,7 @@ done
 AGENT_DIR="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
 MODELS="$AGENT_DIR/models.json"
 SETTINGS="$AGENT_DIR/settings.json"
-SHARED_MCP="$HOME/.agents/mcp.json"
+MCP_CONFIG="$AGENT_DIR/mcp.json"
 MC_SETTINGS="$HOME/.claude-mem/settings.json"
 # 本仓库自己作为 Pi 包时的 git checkout(pi install git:... 的落地位置)
 REPO_PI_PKG="$AGENT_DIR/git/github.com/brilliantrough/agent-skills"
@@ -287,7 +288,7 @@ ask_value() { # $1=提示(括号里写协议/分组等说明) $2=输出变量 $3
 # 只在「首次部署」(目标文件缺失或仍是 <YOUR_*> 占位符)时问,重跑不打扰
 needs_gateway_fill() {
   local f
-  for f in "$MODELS" "$SETTINGS" "$MC_SETTINGS" "$SHARED_MCP"; do
+  for f in "$MODELS" "$SETTINGS" "$MC_SETTINGS" "$MCP_CONFIG"; do
     [ -f "$f" ] || return 0
     grep -q '<YOUR_' "$f" 2>/dev/null && return 0
   done
@@ -358,6 +359,7 @@ PYEOF
 }
 
 RAW="https://raw.githubusercontent.com/brilliantrough/dot_file/master"
+SELF_RAW="https://raw.githubusercontent.com/brilliantrough/agent-skills/main"
 # merge_cfg <url> <dest> [mcp] — 拉 dot_file 模板后做「字段级」合并,而非整文件覆盖:
 #   模板中的非敏感字段值优先 → 新默认值能下发到服务器;
 #   隐私内容永不覆盖:敏感键(api key / secret / token / password / credential / bearer / auth /
@@ -764,6 +766,8 @@ except Exception:
 only_mc = sys.argv[2] == "1"
 for p in pkgs:
     s = str(p)
+    if "pi-mcp-adapter" in s:
+        continue
     if ("magic-context" in s) != only_mc:
         continue
     if not only_mc and not s.startswith(("npm:", "git:")):
@@ -791,7 +795,7 @@ fi
 
 # ---- 3. pi 包(pi install 幂等;写 ~/.pi/agent/settings.json 的 packages 数组)----
 if [ "$PI_OK" -eq 1 ]; then
-  pkg_installed() { # $1=完整 spec,如 npm:pi-mcp-adapter
+  pkg_installed() { # $1=完整包 spec
     python3 - "$SETTINGS" "$1" <<'PYEOF'
 import json, sys
 try:
@@ -810,7 +814,6 @@ PYEOF
       echo "跳过: $1"
     fi
   }
-  pi_install npm:pi-mcp-adapter
   pi_install npm:@dietrichgebert/ponytail
   pi_install npm:pi-subagents-j0k3r
   pi_install npm:pi-lens
@@ -941,14 +944,57 @@ fi
 # 凭据先问:下面步骤 4(models/mcp/auth)与步骤 6(claude-mem settings、magic-context)都要用它填占位符
 collect_gateway_values
 if [ "$PI_OK" -eq 1 ]; then
-  merge_cfg "$RAW/pi/settings.json" "$SETTINGS" || true
+  mcp_ready=1
+  if ! python3 - "$("$PI_BIN" --version)" <<'PY_MCP_VERSION'
+import re, sys
+match = re.match(r'(\d+)\.(\d+)\.(\d+)', sys.argv[1])
+sys.exit(0 if match and tuple(map(int, match.groups())) >= (0, 99, 0) else 1)
+PY_MCP_VERSION
+  then
+    mcp_ready=0
+    echo "WARN: 原生 MCP 需要 Pi >= 0.99.0;请升级后重跑,不改现有 MCP/settings" >&2
+  fi
+  mcp_needed=0
+  if [ "$mcp_ready" = 1 ]; then
+    mcp_needed="$(python3 - "$SETTINGS" "$MCP_CONFIG" "$HOME/.agents/mcp.json" <<'PY_MCP_NEEDED'
+import json, pathlib, sys
+p, native, shared = map(pathlib.Path, sys.argv[1:])
+d = json.loads(p.read_text(encoding='utf-8')) if p.exists() else {}
+needed = 'pi-mcp-adapter' in json.dumps([d.get('packages', []), d.get('extensions', [])])
+needed = needed or '-builtin:mcp' in d.get('extensions', [])
+print(int(needed or (shared.exists() and not native.exists())))
+PY_MCP_NEEDED
+)" || mcp_ready=0
+  fi
+  if [ "$mcp_ready" = 1 ] && [ "$mcp_needed" = 1 ]; then
+    _mcp_migrate="$(mktemp)"
+    if curl -fsSL --connect-timeout 8 -m 30 -o "$_mcp_migrate" "$SELF_RAW/pi/migrate-mcp.py" \
+      && PI_CODING_AGENT_DIR="$(npath "$AGENT_DIR")" python3 "$_mcp_migrate"; then
+      if ask "迁移到 Pi 原生 MCP?(备份配置、摘除 adapter 加载登记;旧共享配置不动,重开 Pi 生效)" N; then
+        PI_CODING_AGENT_DIR="$(npath "$AGENT_DIR")" python3 "$_mcp_migrate" --apply || mcp_ready=0
+      else
+        mcp_ready=0
+      fi
+    else
+      mcp_ready=0
+    fi
+    rm -f "$_mcp_migrate"
+  fi
+  if [ "$mcp_ready" = 1 ]; then
+    merge_cfg "$RAW/pi/settings.json" "$SETTINGS" || true
+  else
+    echo "WARN: 原生 MCP 迁移未完成,保留原 settings/MCP,不合并新模板" >&2
+  fi
   if [ "$AGENT_DIR" = "$HOME/.pi/agent" ]; then
     merge_cfg "$RAW/pi/pi-autoname.json" "$AGENT_DIR/pi-autoname.json" || true
   fi
   merge_cfg "$RAW/pi/models.json" "$MODELS" || true
   CG_BIN="$(command -v codegraph 2>/dev/null || true)"; [ -n "$CG_BIN" ] || CG_BIN="$HOME/.local/bin/codegraph$BIN_EXT"
   [ -x "$CG_BIN" ] || CG_BIN=codegraph
-  merge_cfg "$RAW/pi/mcp.json" "$SHARED_MCP" mcp || true
+  if [ "$mcp_ready" = 1 ]; then
+    merge_cfg "$RAW/pi/mcp.json" "$MCP_CONFIG" mcp || true
+    [ ! -f "$MCP_CONFIG" ] || chmod 600 "$MCP_CONFIG"
+  fi
 
   # ---- 4.05 凭据(auth.json,coding plan 等内置 provider)----
   # 只初始化缺失文件(占位符);已有条目的 key 是敏感值,合并时保留本地,不覆盖。
@@ -1124,7 +1170,6 @@ fi
 # (base 本地有未回流改动先备份到 ~/.local/share/agent-skills/.backups);accel 缺才装(本机特化不覆盖)。
 # 客户端实体直落 ~/.agents/skills/<名>(装了 Claude Code 时同步 ~/.claude/skills/<名>)。
 # 第三方源 skill(mattpocock/drawio/find-skills 等)照旧 npx update,不受影响。
-SELF_RAW="https://raw.githubusercontent.com/brilliantrough/agent-skills/main"
 _ss="$(mktemp --suffix=.sh 2>/dev/null || mktemp)"
 if curl -fsSL --connect-timeout 8 -m 60 -o "$_ss" "$SELF_RAW/skills-sync.sh"; then
   if ask "安装/更新 skills(base+accel+kb 三组;base 每次刷新·漂移自动备份,accel 缺才装;选 N 只装 base 组,个人工作站选这个);pi 原生读 ~/.agents/skills" N; then
@@ -1234,7 +1279,7 @@ n=1
 echo "$n. 网关/凭据:脚本启动时已问过「统一网关 + 5 个 api key」并填进各配置(可用环境变量预填、非交互跑:PI_GATEWAY_BASE_URL / PI_GATEWAY_API_KEY / MCPHUB_HOST)"; n=$((n+1))
 echo "   当时跳过了才会剩下占位符(<YOUR_*>):"
 _ph=0
-for _f in "$MODELS" "$AUTH" "$SHARED_MCP" "$MC_SETTINGS" "$MC_CFG" "$HOME/.func"; do
+for _f in "$MODELS" "$AUTH" "$MCP_CONFIG" "$MC_SETTINGS" "$MC_CFG" "$HOME/.func"; do
   if [ -f "$_f" ] && grep -q '<YOUR_' "$_f" 2>/dev/null; then
     echo "   - $_f:$(grep -o '<YOUR_[A-Z_]*>' "$_f" | sort -u | tr '\n' ' ')"; _ph=1
   fi
@@ -1283,6 +1328,7 @@ if [ -x "${CG_BIN:-}" ]; then
   echo "$n. 代码知识图谱(按项目):cd <项目> && codegraph init(建 .codegraph/ 索引;不 init 则 MCP 无内容可查)"; n=$((n+1))
 fi
 echo "$n. 重启 pi(新配置生效;pi 内 /model 可查看已配置模型)"; n=$((n+1))
+echo "   MCP: pi mcp list 检查连接;Pi 内 /mcp 管理服务器,tool_search 发现工具、codemode 批量调用"
 if [ "${mc_blocked:-0}" -eq 1 ]; then
   echo "!! magic-context 版本不一致未处理:清掉 \"$OC_MC_CACHE\" 并重启 opencode 后,重跑本脚本启用 Pi 版记忆"
 fi
