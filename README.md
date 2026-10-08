@@ -418,7 +418,9 @@ Pi 原生 MCP（>= 0.99.0）：全局 `~/.pi/agent/mcp.json`，可信项目 `.pi
 | codegraph / claude-mem | 本地命令；`deferred`；部署时替换为本机绝对路径 |
 
 - mcphub-web 直连：tavily search/extract、firecrawl scrape/search；GitHub/开发检索用 `tool_search` 发现服务器当前提供的工具
-- 所有工具名：`mcp__<服务器>__<工具>`，连字符转下划线；`tool_search` 发现并加载工具，`codemode` 批量调用并归约结果
+- 工具名：Pi 以 `mcp__<服务器>__<工具>` 为基础，非字母/数字/下划线字符转下划线；超过 64 字符或归一化后重名时截短并加哈希。以当前工具表 / `tool_search` 返回名为准，不手拼、不把说明中的 `tavily_search` 等简称当调用别名；不要求跨宿主完全同名
+- 示例：`tavily-mcp-tavily_search` → `mcp__mcphub_web__tavily_mcp_tavily_search`；`firecrawl-mcp-firecrawl_scrape` → `mcp__mcphub_web__firecrawl_mcp_firecrawl_scrape`
+- `tool_search` 发现并加载工具，`codemode` 批量调用并归约结果；`toolExposure` 的键仍写服务器原始工具名，不写 Pi 包装后的名称
 - `/mcp` 管理服务器、连接与登录；`pi mcp list` 检查连接；原生在会话启动时连接全部启用服务器，不再按首调 lazyConnect
 - 旧机器：setup 先列迁移差异，默认 N；确认后备份、导入共享配置、摘除 adapter 登记并启用原生；拒绝或失败不合并新 MCP/settings 模板
 - 单独迁移：`python3 pi/migrate-mcp.py` 预览，确认后加 `--apply`；旧 `~/.agents/mcp.json`、OAuth 文件和安装目录不改；已有同名原生服务器保留
