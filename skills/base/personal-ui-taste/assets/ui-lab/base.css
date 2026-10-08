@@ -2,7 +2,7 @@
 * { box-sizing: border-box; margin: 0; padding: 0; letter-spacing: 0; }
 [hidden] { display: none !important; }
 html, body { height: 100%; }
-body { font-family: var(--font); font-size: 13px; line-height: 1.55; color: var(--text); background: var(--canvas); -webkit-font-smoothing: antialiased; }
+body { font-family: var(--font); font-size: 13px; line-height: 1.55; color: var(--text); background: var(--side-bg, var(--canvas)); -webkit-font-smoothing: antialiased; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 input, select { font: inherit; color: inherit; }
 a { color: inherit; }
@@ -14,22 +14,27 @@ svg { display: block; }
 .ic svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .num, .kpi-v, .tip-row b, .bar-val { font-variant-numeric: tabular-nums; }
 
-.app { display: grid; grid-template-columns: var(--side-w, 216px) minmax(0, 1fr); min-height: calc(100vh - 60px); }
+.app { display: grid; grid-template-columns: var(--side-w, 288px) minmax(0, 1fr); min-height: calc(100vh - 60px); }
 
 /* ---------- 左侧导航 ---------- */
-.side { display: flex; flex-direction: column; background: var(--side-bg, var(--panel)); border-right: 1px solid var(--border); padding: 20px 12px; gap: 24px; position: sticky; top: 60px; height: calc(100vh - 60px); overflow-y: auto; }
-.brand { display: flex; align-items: center; gap: 9px; padding: 4px 8px; font-weight: 650; font-size: 14px; }
+/* 侧栏与页面同底色，右缘一条上下淡出的 1px 竖线代替 border-right。 */
+.side { display: flex; flex-direction: column; padding: 16px 26px 16px 10px; gap: 12px; position: sticky; top: 60px; height: calc(100vh - 60px); overflow-y: auto; }
+.side::after { content: ""; position: absolute; top: 48px; bottom: 0; right: 8px; width: 1px; background: linear-gradient(to bottom, transparent 0%, var(--side-line, var(--border)) 10%, var(--side-line, var(--border)) 90%, transparent 100%); }
+.brand { display: flex; align-items: center; gap: 8px; padding: 4px 8px; font-weight: 600; font-size: 13px; }
 .brand-dot { width: 24px; height: 24px; border-radius: 6px; background: var(--accent); display: grid; place-items: center; color: var(--accent-fg); }
-.nav { display: flex; flex-direction: column; gap: 2px; }
-.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--r-sm); color: var(--text-2); text-decoration: none; position: relative; transition: background var(--t-fast), color var(--t-fast); }
-.nav-item:hover { color: var(--text); background: var(--hover-bg); }
-.nav-item.is-active { color: var(--nav-active-fg, var(--accent)); background: var(--selected); font-weight: 600; }
+.nav { display: flex; flex-direction: column; gap: 8px; }
+.nav-group { display: flex; flex-direction: column; gap: 2px; padding: 0 8px; }
+.nav-label { display: flex; align-items: center; height: 32px; padding: 0 8px; font-size: 12px; font-weight: 500; color: var(--text-2); }
+/* 条目：药丸贴合文字宽度；选中与 hover 同为浅底，靠常驻而非加深色区分。 */
+.nav-item { display: flex; align-self: flex-start; align-items: center; height: 30px; padding: 0 8px; border: 1px solid transparent; border-radius: 8px; color: var(--text); font-size: 12.8px; font-weight: 500; text-decoration: none; position: relative; transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast); }
+.nav-item:hover { background: var(--hover-bg); }
+.nav-item.is-active { background: var(--hover-bg); }
 .side-foot { margin-top: auto; padding: 8px; font-size: 12px; color: var(--text-2); display: flex; align-items: center; gap: 7px; }
 .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
 .dot.ok { background: var(--ok); }
 
 /* ---------- 顶栏 ---------- */
-.main { display: flex; flex-direction: column; min-width: 0; }
+.main { display: flex; flex-direction: column; min-width: 0; background: var(--panel); border-radius: var(--r-lg); margin: 0 8px 8px 0; overflow: clip; }
 .top { display: flex; align-items: center; gap: 12px; padding: 12px var(--pad); background: var(--top-bg, var(--panel)); border-bottom: 1px solid var(--border); position: sticky; top: 60px; z-index: 20; }
 .crumb { font-weight: 500; font-size: 12px; margin-right: auto; color: var(--text-2); }
 .crumb b { color: var(--text); font-weight: 550; }
@@ -186,7 +191,7 @@ svg { display: block; }
 @media (max-width: 1100px) { .span4, .span5, .span7, .span8 { grid-column: span 12; } .kpis, .cards { grid-template-columns: repeat(2, 1fr); } }
 
 /* Lab controls and product heading */
-.lab-bar { height: 60px; padding: 0 20px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 40; background: var(--panel); border-bottom: 1px solid var(--border); }
+.lab-bar { height: 60px; padding: 0 20px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 40; background: var(--side-bg, var(--canvas)); border-bottom: 1px solid var(--border); }
 .lab-title { font-weight: 650; display: flex; align-items: center; gap: 8px; }
 .lab-version { border-left: 1px solid var(--border); padding-left: 12px; color: var(--text-2); font-size: 12px; }
 .lab-theme { margin-left: auto; display: flex; align-items: center; gap: 8px; }
@@ -195,12 +200,11 @@ svg { display: block; }
 .page-heading h1 { font-size: 26px; font-weight: 650; line-height: 1.35; }
 .page-heading p { margin-top: 5px; color: var(--text-2); }
 .overview-toolbar { margin: 20px var(--pad) 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.workspace { padding: 10px; display: flex; align-items: center; gap: 9px; border: 1px solid var(--border); border-radius: var(--r-sm); }
+.workspace { padding: 4px 8px; display: flex; align-items: center; gap: 8px; border-radius: 8px; }
+.workspace > div, .profile > div { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .workspace small { display: block; color: var(--text-2); font-size: 11px; }
 .avatar { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 7px; background: var(--control); color: var(--text); font-size: 11px; font-weight: 650; flex: none; }
-.nav-caption { color: var(--text-2); font-size: 10px; text-transform: uppercase; padding: 0 10px 8px; }
-.nav-count { margin-left: auto; font-size: 11px; font-variant-numeric: tabular-nums; opacity: .75; }
-.profile { border-top: 1px solid var(--border); padding: 14px 8px 0; display: flex; align-items: center; gap: 9px; }
+.profile { border-top: 1px solid var(--border); padding: 12px 8px 0; display: flex; align-items: center; gap: 8px; }
 .status-caption { display: flex; justify-content: space-between; align-items: center; color: var(--text-2); font-size: 11px; margin-top: 9px; }
 .chart-meta { display: flex; flex-wrap: wrap; gap: 12px; color: var(--text-2); font-size: 11px; margin: -4px 0 10px; }
 .axis-label { fill: var(--text-2); font-size: 10px; }
@@ -264,10 +268,9 @@ dialog .close-dialog { position: absolute; right: 14px; top: 14px; }
 .skip-link:focus { top: 12px; }
 @media (max-width: 1250px) { .specimens { grid-template-columns: 1fr; } .specimen + .specimen { border-left: 0; border-top: 1px solid var(--border); padding-left: 0; padding-top: 18px; } }
 @media (max-width: 760px) {
-  .app { grid-template-columns: 64px minmax(0, 1fr); }
-  .side { padding: 16px 8px; } .side .brand { padding: 0 10px; }
-  .brand-name, .workspace, .nav-item > span:not(.ic), .nav-caption, .side-foot, .profile { display: none; }
-  .nav-item { justify-content: center; padding: 12px 8px; }
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .side { display: none; }
+  .main { margin: 0; border-radius: 0; }
   .lab-version, .lab-title span { display: none; } .lab-bar { padding: 0 12px; gap: 8px; }
   .lab-theme { gap: 4px; } .lab-theme select { width: min(210px, 52vw); }
   .main { --pad: 16px; --gap: 12px; }

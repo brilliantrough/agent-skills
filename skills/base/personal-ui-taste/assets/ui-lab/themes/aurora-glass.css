@@ -23,7 +23,7 @@
 }
 /* 玻璃面板 */
 .panel, .kpi, .card, .sort-item, .legend-chip { backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: var(--sh-1); }
-.side { background: rgba(255, 255, 255, .45); backdrop-filter: blur(18px); border-right-color: rgba(255, 255, 255, .6); }
+.side { background: rgba(255, 255, 255, .45); }
 .top { background: rgba(255, 255, 255, .5); backdrop-filter: blur(18px); border-bottom-color: rgba(255, 255, 255, .6); }
 .btn { background: rgba(255, 255, 255, .6); border-color: rgba(255, 255, 255, .8); }
 .btn.primary { background: var(--accent); border-color: transparent; }

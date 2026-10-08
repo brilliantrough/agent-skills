@@ -18,17 +18,16 @@
   --focus-ring: 0 0 0 3px rgba(46, 107, 240, .18);
   --t-fast: 150ms cubic-bezier(.4, 0, .2, 1); --t-med: 240ms cubic-bezier(.4, 0, .2, 1);
   --gap: 12px; --pad: 18px; --bar-zoom: 1.05;
-  --side-bg: #0d1220; --top-bg: rgba(255, 255, 255, .82);
+  --side-bg: #0d1220; --side-line: #1c2438; --top-bg: rgba(255, 255, 255, .82);
 }
 /* 深色侧栏：亮蓝活跃指示 + 柔和扫入 */
-.side { border-right: 1px solid #1c2438; }
 .side .brand { color: #e8ecf5; }
 .side .brand-dot { box-shadow: 0 0 10px rgba(46, 107, 240, .8); }
 .nav-item { color: #8b94a9; }
 .nav-item:hover { color: #dbe1ec; background: rgba(255, 255, 255, .06); }
 .nav-item.is-active { color: #fff; background: linear-gradient(90deg, rgba(46, 107, 240, .28), rgba(46, 107, 240, .10)); font-weight: 600; }
 .nav-item.is-active::before { content: ""; position: absolute; left: 0; top: 6px; bottom: 6px; width: 2.5px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 8px rgba(46, 107, 240, .9); }
-.side-foot, .side .nav-caption, .side .workspace small { color: #a0abc1; }
+.side-foot, .side .nav-label, .side .workspace small { color: #a0abc1; }
 .side .workspace, .side .profile { color: #edf1fa; border-color: #283248; }
 .side .avatar { background: #29344b; color: #e7edfa; }
 /* 顶栏毛玻璃 */

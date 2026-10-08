@@ -63,13 +63,18 @@ document.body.innerHTML = `
     <div class="brand"><span class="brand-dot">${icon("layers")}</span><span class="brand-name">Orbit</span></div>
     <div class="workspace"><span class="avatar">R</span><div>Research workspace<small>个人工作空间 · 演示</small></div></div>
     <nav class="nav" aria-label="工作台导航">
-      <p class="nav-caption">Workspace</p>
-      <a class="nav-item is-active" href="#overview" aria-current="location" aria-label="概览">${icon("grid")}<span>概览</span></a>
-      <a class="nav-item" href="#metrics" aria-label="实验指标">${icon("chart")}<span>实验指标</span><span class="nav-count">03</span></a>
-      <a class="nav-item" href="#runs" aria-label="运行记录">${icon("list")}<span>运行记录</span><span class="nav-count">07</span></a>
-      <a class="nav-item" href="#previews" aria-label="实验预览">${icon("layers")}<span>实验预览</span></a>
-      <a class="nav-item" href="#components" aria-label="组件样本">${icon("gear")}<span>组件样本</span></a>
-      <a class="nav-item" href="#design" aria-label="字体与色阶">${icon("palette")}<span>字体与色阶</span></a>
+      <div class="nav-group">
+        <p class="nav-label">工作区</p>
+        <a class="nav-item is-active" href="#overview" aria-current="location">概览</a>
+        <a class="nav-item" href="#metrics">实验指标</a>
+        <a class="nav-item" href="#runs">运行记录</a>
+      </div>
+      <div class="nav-group">
+        <p class="nav-label">分析</p>
+        <a class="nav-item" href="#previews">实验预览</a>
+        <a class="nav-item" href="#components">组件样本</a>
+        <a class="nav-item" href="#design">字体与色阶</a>
+      </div>
     </nav>
     <div class="side-foot"><span class="dot ok"></span>worker · 已连接</div>
     <div class="profile"><span class="avatar">A</span><div>Alex Chen<div class="hint">Research team</div></div></div>
@@ -120,7 +125,6 @@ $$(".nav-item").forEach((a) => (a.onclick = (e) => {
   a.classList.add("is-active");
   a.setAttribute("aria-current", "location");
 }));
-$$(".nav-item").forEach(a => a.title = a.getAttribute("aria-label"));
 
 /* ---------- KPI 卡片 ---------- */
 function renderKpis() {
@@ -404,7 +408,6 @@ function renderTable() {
     $("button", tag).onclick = () => { sel.delete(i); updateDatasets(); };
     $("#activeFilters").append(tag);
   });
-  $('[href="#runs"] .nav-count').textContent = String(TABLE.length).padStart(2, "0");
 }
 function updateDatasets() {
   $(".msel-btn").innerHTML = `${sel.size === DS.length ? "全部数据集" : `已选 ${sel.size} 项`} ${icon("chev")}`;

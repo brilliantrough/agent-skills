@@ -230,3 +230,12 @@
 - 中文与数字：主题栈中文回退改为 Noto Sans SC（思源黑体）优先、系统字体兜底；实验室随页携带其变量切片（101 份 unicode-range 字集，按需下载）。拉丁与数字仍由 Inter/Nunito/IBM Plex 携带；Apple 苹方为系统专有不可随包，保留在回退链
 - 示例交互：搜索与节点/数据集筛选、曲线焦点与锁定、队列排序、新建演示记录、详情与 CSV 导出；数据为演示内容，不承诺后端或持久化
 - 认可边界：玻璃去渐变、soft-ui 降亮、其他主题精修均需本轮目验；不把工程检查等同于审美确认
+
+### 2026-10-08 · 实验室侧栏与页面骨架改按 shadcn 线上 docs 口径 · v1.20.0
+
+- 状态：Confirmed（用户的四项选择）；九套主题实机几何与像素已测过，最终观感待用户目验
+- 证据：用户指出“这里面的 shadcn 是我比较关注的”，要求左导航做成 ui.shadcn.com 那种风格、并“把我们的各种元素变成他这里的风格”。Agent 抓线上 DOM 与 computed style 取实测值：侧栏列宽 288 / 菜单列 224、分隔线是右缘 8px 处 1px 上下淡出的渐变（非 border-right）、条目 30px / 12.8px / 圆角 8px / 药丸贴合文字、静止文字为正文色而非灰、hover 与选中同为 #f5f5f5；同时发现线上页面是纯白扁平，inset 来自 shadcn Sidebar 组件的 variant="inset"
+- 决策：参照以线上现行 docs 侧栏为准（不是经典带图标版）；改共享骨架、九套主题一起变；页面改 inset（页面底 = --side-bg，内容区 = 白色圆角面板 + 8px 外边距）；口径写入主题文档
+- 变更：base.css 侧栏去 border-right 改透明并新增 --side-line 渐变分隔线、导航去图标与计数、分组标题改 .nav-label、条目改 30px / 圆角 8px / 贴合文字 / 选中与 hover 同浅底；body 与顶栏底色改 --side-bg、.main 改白色圆角面板（overflow: clip 保 sticky）；窄屏改为隐藏侧栏（对齐线上 hidden lg:flex）；aurora-glass、bento、modern-saas、swiss 中硬编码的 .side 边框与 .nav-caption 选择器同步清理
+- 变化与原因：实验室此前是“白侧栏 + 灰画布 + border-right + 带图标计数条目”，与线上口径不同；骨架为九主题共享，横向对比基线随之更新
+- 边界：shadcn-neutral 的 tokens 已接近线上值（±1 灰阶）故未逐项改写；swiss 全白世界下 inset 面板不可见、aurora-glass 的分隔线为白色不可见，属主题自身取舍，未强行统一

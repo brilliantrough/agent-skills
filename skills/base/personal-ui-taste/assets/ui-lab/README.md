@@ -4,6 +4,7 @@
 
 - 七套主题：shadcn-neutral、modern-saas、bespoke、bento、swiss、aurora-glass、soft-ui
 - 两个对照：旧 baseline、layered 阴影技法；不加入正式风格选项
+- 页面骨架为 inset：页面底用 `--side-bg`，内容区是白色圆角面板（`.main`）；侧栏无 `border-right`，右缘一条上下淡出的 1px 竖线，窄屏隐藏侧栏
 - 默认 shadcn-neutral；顶部选择器或左右按钮切换，保留当前筛选与演示记录
 - 全部指标为固定演示数据；新建记录、队列顺序与表单只保留在本次页面中，刷新恢复
 - 这是视觉与交互参考，新版各主题细节仍待用户目验；不是完整业务应用，也不覆盖 S04 的汇总、下钻与持久化
@@ -21,7 +22,7 @@ React 项目需要 shadcn 时采用官方组件。此处 `shadcn-neutral` 是原
 
 | 组件 | `base.css` 定位 | `lab.js` 定位 / 页面入口 |
 | --- | --- | --- |
-| 导航、节点切换、搜索 | `.side`、`.nav-item`、`.seg`、`.search` | 页面骨架、`SERVERS`、`runSearch` |
+| 导航、分组标题、节点切换、搜索 | `.side`、`.nav-group`、`.nav-label`、`.nav-item`、`.seg`、`.search` | 页面骨架、`SERVERS`、`runSearch` |
 | 主/次/描边/轻/危险按钮、加载态 | `.btn` 及其变体 | Component specimens、`samplePrimary` |
 | 字段、错误、禁用、键盘焦点 | `.fld`、`.inp`、`:focus-visible` | `invalidSample`、原生 `dialog` |
 | 数据集多选、搜索、移除筛选 | `.msel`、`.filter-tag` | `closeMenu`、`updateDatasets`、`filteredRows` |
@@ -41,6 +42,7 @@ React 项目需要 shadcn 时采用官方组件。此处 `shadcn-neutral` 是原
 | 用途 | 变量 |
 | --- | --- |
 | 表面、正文、边界 | `--canvas`、`--panel`、`--control`、`--text`、`--text-2`、`--border` |
+| 骨架 | `--side-bg`（页面与侧栏底色）、`--side-w`（侧栏列宽，默认 288px）、`--side-line`（右缘分隔线色，默认 `--border`） |
 | 主操作 | `--accent`、`--accent-hover`、`--accent-fg`；此处 accent 对应主操作，不是 shadcn 同名的轻选中表面 |
 | 选中、hover、焦点 | `--selected`、`--hover-bg`、`--focus-ring` |
 | 状态 | `--ok/warn/bad` 及各自 `-bg`、`-fg`；图表另用 `--c1`…`--c5` |

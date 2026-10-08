@@ -15,11 +15,10 @@
   --focus-ring: 0 0 0 2px rgba(37, 71, 244, .25);
   --t-fast: 120ms ease; --t-med: 200ms ease;
   --gap: 16px; --pad: 20px; --bar-zoom: 1.02;
-  --side-w: 216px;
+  --side-w: 216px; --side-line: var(--border-strong);
 }
 /* 层级全靠网格与发丝线：面板去阴影，顶栏加粗黑线 */
 .top { border-bottom: 2px solid var(--text); }
-.side { border-right: 1px solid var(--border-strong); }
 .panel, .kpi { border-color: var(--border); }
 .panel, .kpi { box-shadow: none; }
 /* 导航：左侧 3px 黑块指示，不用底色 */

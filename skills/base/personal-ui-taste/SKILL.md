@@ -2,8 +2,8 @@
 name: personal-ui-taste
 description: "个人前端审美、功能驱动的信息组织与持续演化的 UI 设计指南。Use when designing, building, polishing or reviewing this user's frontend UI, dashboards, charts, forms or admin panels; choosing task-fit interactions such as joint rankings, rollups and drill-down; following 我的品味/个人审美; or recording approved feedback. Applies scoped preferences and interaction patterns across projects. Not for backend-only work."
 metadata:
-  version: "1.19.0"
-  updated: "2026-10-04"
+  version: "1.20.0"
+  updated: "2026-10-08"
 ---
 
 # Personal UI Taste · 个人前端品味与交互设计

@@ -21,7 +21,6 @@
 /* 无边界世界：层级全靠灰阶与阴影 */
 .panel, .kpi { border: 0; box-shadow: var(--sh-1); }
 .card:hover { box-shadow: var(--sh-2); }
-.side { border-right: 0; background: transparent; }
 .nav-item.is-active { background: #fff; color: var(--text); box-shadow: var(--sh-1); }
 .top { background: transparent; border-bottom: 0; backdrop-filter: blur(12px); }
 .search, .seg { background: #ececee; }
