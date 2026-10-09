@@ -82,7 +82,7 @@ Magic Context 操作：
 - 插件资产备份到 `$CFG/.agent-skills-backups/<时间戳>/<原相对路径>`；同时移走 `plugins/context-mode.bak-*` 遗留目录，避免被 v2 再次扫描。配置文件保留相邻 `.bak*` 备份。
 - 私密字段、provider options、MCP 与其他本地字段保留；已有 v2 原生 `providers` 不套 v1 模型模板。完整安装会刷新 v1 `provider.models`，精简插件模式不做。
 - `opencode.jsonc` 合并到 `opencode.json` 后备份退役。v2 已有 `cli.json` 时保留；没有时合并旧 `tui.json(c)` 为 `tui.json`，由宿主首启迁移 action、界面与 state。完整安装的按键设置另行确认。
-- 除确认的 Ponytail／Magic Context 缓存刷新外，不清理 npm 插件缓存；认证、会话库与外置正文不动。**插件备份不是整机快照，也不替代数据库备份。****
+- 除确认的 Ponytail／Magic Context 缓存刷新外，不清理 npm 插件缓存；认证、会话库与外置正文不动。**插件备份不是整机快照，也不替代数据库备份。**
 
 自维护发布包校验失败、未知宿主版本、配置无法解析、相关写入路径为符号链接时停止；Magic Context 兼容性问题改为警告与独立刷新询问。
 
