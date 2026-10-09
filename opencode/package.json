@@ -1,6 +1,6 @@
 {
   "name": "agent-skills-opencode-build",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "private": true,
   "type": "module",
   "devDependencies": {

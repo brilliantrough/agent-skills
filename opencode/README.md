@@ -24,7 +24,7 @@ bash opencode-setup.sh                # 完整安装，同样包含插件同步
 - v1 → v2：统一处理旧散装 wrapper／later／纠错入口和旧分版本包，配置切到 v2 `plugins`；旧 `tui-plugins/later/`、`context-rewrite/`、`plugins/context-mode/` 退役。现有 `cli.json` 保留；没有时准备 `tui.json`，由宿主首启迁移。
 - 插件备份：`$CFG/.agent-skills-backups/<时间戳>/<原相对路径>`；移走 `plugins/context-mode.bak-*` 遗留目录，避免被 v2 自动发现。配置文件仍留相邻时间戳备份；回退插件不等于回退宿主数据库。
 - 仅回收本套件固定安装路径，不按文件名子串删除用户自定义插件。Magic Context、Ponytail 缓存、会话库、认证及外置正文不删除；v1 检测到 v2 配置会停止，不自动降级。
-- 官方 Ponytail：缓存缺失时由 setup 用 `npm --ignore-scripts` 写入 OpenCode v1/v2 对应缓存，再登记配置；已有版本不升级。不上调用宿主 CLI，因此不启动服务、不触发数据库初始化／迁移。
+- 官方 Ponytail：setup 只登记配置；OpenCode v1/v2 启动时由各自官方插件 loader 安装缺失包。已有包不由 setup 升级；setup 不调用宿主 plugin CLI、不清缓存、不启动服务、不迁移数据库。
 - API key、URL、provider options、MCP 与其他本地字段保留。通用模型模板更新 v1 `provider` 结构；已有 v2 原生 `providers` 保持原样，不混写或猜测字段转换。
 - context-mode 继续独立从 `releases/latest` 下载：v1 放 `plugins/context-mode/`；v2 放 `vendor/context-mode/`，不再放 v1 自动入口。
 - Magic Context 保留已配置版本；v2 至少需要 0.45。已有 `@latest` 时定位已安装包；无法定位则提示先固定版本，不擅自升级共享数据库。新安装优先沿用已有 OpenCode／Pi 版本；没有已装版本和共享库时才固定用 0.45.0。
