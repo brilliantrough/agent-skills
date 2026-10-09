@@ -67,7 +67,7 @@ OC_VERSION="$(opencode --version)"
 if [[ "$OC_VERSION" =~ (^|[[:space:]])v?([12])\.[0-9]+\.[0-9]+ ]]; then OC_MAJOR="${BASH_REMATCH[2]}"
 else echo "ERROR: 无法识别或暂不支持的 OpenCode 版本: $OC_VERSION" >&2; exit 1; fi
 echo "客户端: $OC_VERSION → v$OC_MAJOR 插件包；不升级宿主/不迁移数据库"
-OC_RELEASE="opencode-plugins-1.0.2"
+OC_RELEASE="opencode-plugins-1.0.3"
 CFG="${OPENCODE_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/opencode}"
 PLUGINS="$CFG/plugins"
 LIB="$CFG/lib"
@@ -462,7 +462,7 @@ ensure_ponytail() {
   if [ "$OC_MAJOR" = 2 ]; then
     found="$(find "$cache_root/npm/@dietrichgebert/ponytail@latest" -name package.json -type f -print -quit 2>/dev/null || true)"
   else
-    found="$(find "$cache_root" -path '*/@dietrichgebert/ponytail*/package.json' -type f -print -quit 2>/dev/null || true)"
+    found="$(find "$cache_root/packages/@dietrichgebert/ponytail@latest" -name package.json -type f -print -quit 2>/dev/null || true)"
   fi
   if [ -n "$found" ]; then
     echo "unchanged: Ponytail($(python3 -c "import json;print(json.load(open('$found')).get('version','?'))" 2>/dev/null || echo '?'))"
