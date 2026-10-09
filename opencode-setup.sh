@@ -70,7 +70,7 @@ OC_VERSION="$(opencode --version)"
 if [[ "$OC_VERSION" =~ (^|[[:space:]])v?([12])\.[0-9]+\.[0-9]+ ]]; then OC_MAJOR="${BASH_REMATCH[2]}"
 else echo "ERROR: 无法识别或暂不支持的 OpenCode 版本: $OC_VERSION" >&2; exit 1; fi
 echo "客户端: $OC_VERSION → v$OC_MAJOR 插件包；不升级宿主/不迁移数据库"
-OC_RELEASE="opencode-plugins-1.0.5"
+OC_RELEASE="opencode-plugins-1.0.6"
 CFG="${OPENCODE_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/opencode}"
 PLUGINS="$CFG/plugins"
 LIB="$CFG/lib"
@@ -402,6 +402,30 @@ echo "== opencode 一键配置 =="
 # 大小写都查;无代理环境变量时再探测直连(排除路由器层透明代理的情况)
 proxy="${http_proxy:-${https_proxy:-${all_proxy:-${HTTP_PROXY:-${HTTPS_PROXY:-${ALL_PROXY:-}}}}}}"
 net_ok() { curl -fsSI --connect-timeout 5 -m 8 -o /dev/null https://github.com; }
+ensure_ponytail() {
+  local cache_root="${XDG_CACHE_HOME:-$HOME/.cache}/opencode" found="" target
+  if [ "$OC_MAJOR" = 2 ]; then
+    found="$(find "$cache_root/npm/@dietrichgebert/ponytail@latest" -name package.json -type f -print -quit 2>/dev/null || true)"
+    target="$cache_root/npm/@dietrichgebert/ponytail@latest/$(date +%s%N)"
+  else
+    found="$(find "$cache_root/packages/@dietrichgebert/ponytail@latest" -name package.json -type f -print -quit 2>/dev/null || true)"
+    target="$cache_root/packages/@dietrichgebert/ponytail@latest"
+  fi
+  if [ -n "$found" ]; then
+    echo "unchanged: Ponytail 已安装（v$OC_MAJOR 缓存）"
+    return 0
+  fi
+  command -v npm >/dev/null 2>&1 || {
+    echo "ERROR: 缺少 npm，无法写入 OpenCode v$OC_MAJOR 的 Ponytail 缓存；完整 setup 会先准备 Node/npm" >&2
+    return 1
+  }
+  echo "未找到官方 Ponytail，写入 OpenCode v$OC_MAJOR 插件缓存（不启动宿主/不迁移数据库）"
+  mkdir -p "$target"
+  if ! npm install --ignore-scripts --no-audit --no-fund --prefix "$target" @dietrichgebert/ponytail@latest; then
+    rm -rf "$target"
+    return 1
+  fi
+}
 if [ -n "$proxy" ]; then
   echo "代理: $proxy"
 elif net_ok 2>/dev/null; then
@@ -788,6 +812,11 @@ PYEOF
 fi
 
 fi # 完整安装的环境／配置步骤
+
+if ! ensure_ponytail; then
+  echo "ERROR: 官方 Ponytail 缓存未就绪，未部署 OpenCode 插件" >&2
+  exit 1
+fi
 
 # ---- 5. context-mode 独立产物：v1 自动入口；v2 由版本适配包加载 ----
 # skills 装到 $CFG/skill/<name>/。
