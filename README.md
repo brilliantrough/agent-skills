@@ -549,7 +549,7 @@ bash /tmp/opencode-setup.sh --plugins-only
 | --- | --- |
 | 默认完整安装 | 插件、配置、依赖与通用 skills；默认 base 19 个，交互可选全组 27 个，另同步外部设计 skills |
 | `--plugins-only` | 自维护插件、context-mode 及其自带 skills、官方包登记；不更新模型／Python／通用 skills，不补装 claude-mem 资产或 notify |
-| `--check` | 下载并校验自维护发布包，检查配置／Magic Context，列管理路径和待退役项；不改配置、认证或数据库 |
+| `--check` | 下载校验自维护包，检查配置，查询 Ponytail／Magic Context 本地与 npm 版本；不询问、不改配置、认证或数据库 |
 
 `--check` 与 `--plugins-only` 要求已有 Python 3、curl；`--check` 仍会联网，宿主 `--version` 也可能写日志，并非零文件系统写入。
 
@@ -560,7 +560,7 @@ bash /tmp/opencode-setup.sh --plugins-only
 
 - **旧插件迁移**：旧散装入口和旧 v1 包统一纳管；v1→v2 后移入 `$CFG/.agent-skills-backups/<时间戳>/`，不留在自动扫描目录。无需手工删除；相同内容不重写，不自动降级回 v1。
 - **保留范围**：私密值、provider options、未知第三方配置、认证、会话库和外置正文。v2 原生 `providers` 不套 v1 模型模板。
-- **Ponytail**：两端都登记官方包，宿主启动时自动安装缺包；不内置副本，不手填 npm 缓存，不由 setup 执行 `plugin add` 或升级已有包。
+- Ponytail：官方包由宿主加载；宿主会自动安装缺失包，但不会替换已有缓存。setup 维护时查询本地版本与 npm `latest`，有新版默认询问刷新；确认后只刷新该官方包，不调用宿主 plugin CLI。
 - **Magic Context**：独立询问刷新，默认 N；确认后备份移走 latest 缓存、登记官方 `@latest`。选 N 保留现状并继续，兼容性 WARN 不等于可用。
 - **context-mode**：独立 release；v1 在 `plugins/context-mode/`，v2 在 `vendor/context-mode/`。notify 仅 v1 可选安装，v2 停用旧入口。
 - **验证范围**：Linux v1 1.18.35／v2 2.0.26；旧入口迁移、重复运行、两端发现全部 27 个本仓 skills 与 Ponytail 空缓存自动安装已通过。Windows 实机未覆盖；不是所有历史版本的兼容承诺。
@@ -873,7 +873,7 @@ v1/v2 预构建包均已包含，不另装独立入口：
 }
 ```
 
-npm 缺失包在 OpenCode 启动时自动安装；已有包不因 setup 重跑而自动升级。Magic Context 刷新须在独立询问中明确确认，不能直接复制示例覆盖现有配置；也不要额外登记旧 wrapper。
+npm 缺失包在 OpenCode 启动时自动安装；已有包不会因重启自动替换。重跑 setup 时，Ponytail 查询本地版本与 npm `latest`，有新版默认询问刷新；Magic Context 单独默认 N。不能直接复制示例覆盖现有配置；也不要额外登记旧 wrapper。
 
 ## 更新
 
@@ -915,7 +915,7 @@ bash skills-external.sh   # 在克隆的套件根单独补装/更新第三方，
 | OpenCode 自维护包（later、context_rewrite、claude-mem wrapper） | setup 的固定版本 release，按主版本选包；插件备份放 `$CFG/.agent-skills-backups/` |
 | context-mode fork | 两侧从独立 latest release 同步；OpenCode 目录备份放 `.agent-skills-backups/`，Pi 保持自身备份策略 |
 | notify | 仅 v1 可选；已装则比对独立 release，变化时备份替换；v2 备份停用 |
-| OpenCode 官方 Ponytail | setup 只登记官方包；宿主启动时安装缺失包，已有包更新由宿主管理 |
+| OpenCode 官方 Ponytail | 宿主负责缺包安装；setup 维护时查询版本，有新版默认询问刷新；确认后备份对应缓存并登记 `@latest`，不调用宿主 plugin CLI |
 
 **Magic Context 升级单独确认。** 先停所有共用 `context.db` 的宿主并备份；Pi 不用 `--all`，OpenCode setup 提供默认 N 的独立刷新询问。选 Y 只备份移走它在 OpenCode 中的 latest 缓存、改回官方 npm 登记；不启动宿主、不访问数据库。选 N 保留现状，不阻塞其他插件；兼容性 WARN 须在启动前处理。
 

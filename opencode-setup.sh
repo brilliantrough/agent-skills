@@ -5,7 +5,8 @@
 # 用法：bash opencode-setup.sh [-y|--yes] [--plugins-only|--check]；先安装 OpenCode，按主版本拉取对应预构建包。
 # 完整安装含配置、依赖与通用 skills；--plugins-only 仅插件及 context-mode skills；--check 下载校验后退出。
 # 更新前先退出 TUI 和后台服务；已知旧入口移到配置目录 .agent-skills-backups/。
-# Magic Context 刷新单独询问、默认 N；确认后只备份移走 latest 缓存并改回官方包登记。
+# 第三方 npm 插件先查本地/npm latest；Ponytail 常规更新默认 Y，Magic Context 单独默认 N。
+# 确认后只备份移走对应 latest 缓存并改回官方包登记；下次宿主启动下载。
 # 不升级宿主、不启动服务、不迁移数据库；官方 npm 缺包由宿主启动时下载。
 # 配置：本地私密值保留；provider.models 随模板刷新；v2 原生 providers 不改写。
 # -y 采用各项默认选择（默认 N 仍跳过）；凭据可交互输入或通过环境变量填写。
@@ -66,11 +67,12 @@ while [ $# -gt 0 ]; do
 用法: bash <本脚本> [-y|--yes] [--plugins-only|--check]
   默认             完整配置、插件、依赖与通用 skills；默认 base，交互可选全组
   --plugins-only   同步插件及 context-mode skills，迁移旧入口；不更新模型/Python/通用 skills
-  --check          下载校验自维护包、检查配置和待退役项；不部署，不更改配置/认证/数据库
+  --check          下载校验自维护包、查询第三方版本、检查配置；不部署，不更改配置/认证/数据库
   -y, --yes        采用各项默认值（默认 N 仍跳过）；凭据仍可询问
 先安装 OpenCode v1/v2；更新前退出 TUI 和后台服务。精简模式需要已有 Python 3、curl。
 已知旧入口备份到 $CFG/.agent-skills-backups/；不启动宿主、不迁移数据库。
-Magic Context 刷新单独询问、默认 N；确认后只备份移走其 latest 缓存并改回官方包登记，下次启动下载。
+查询 Ponytail/Magic Context 的本地版本与 npm latest；失败只警告。Ponytail 有新版默认 Y，钉版/本地路径默认 N。
+Magic Context 刷新单独询问、默认 N；确认后只备份移走对应 latest 缓存并改回官方包登记，下次启动下载。
 官方 npm 缺包由宿主启动时下载；--check 只报告、不询问刷新，仍联网，宿主 --version 可能写日志。
 HELP
       exit 0 ;;
@@ -85,7 +87,7 @@ OC_VERSION="$(opencode --version)"
 if [[ "$OC_VERSION" =~ (^|[[:space:]])v?([12])\.[0-9]+\.[0-9]+ ]]; then OC_MAJOR="${BASH_REMATCH[2]}"
 else echo "ERROR: 无法识别或暂不支持的 OpenCode 版本: $OC_VERSION" >&2; exit 1; fi
 echo "客户端: $OC_VERSION → v$OC_MAJOR 插件包；不升级宿主/不迁移数据库"
-OC_RELEASE="opencode-plugins-1.0.9"
+OC_RELEASE="opencode-plugins-1.0.10"
 CFG="${OPENCODE_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/opencode}"
 PLUGINS="$CFG/plugins"
 LIB="$CFG/lib"
@@ -456,16 +458,25 @@ with tarfile.open(sys.argv[1]) as archive:
     else:
         archive.extractall(root)
 PYEOF
-python3 "$oc_stage/deploy.py" "$oc_stage" "$(npath "$CFG")" "$OC_MAJOR" --check
+python3 "$oc_stage/deploy.py" "$oc_stage" "$(npath "$CFG")" "$OC_MAJOR" --check --versions "$(npath "$oc_stage/versions.json")"
 
 if [ "$CHECK_ONLY" = 1 ]; then exit 0; fi
 
-# ---- Magic Context：明确确认后刷新；不启动宿主、不修改共享数据库 ----
-mc_args=()
+# ---- 第三方 npm 插件：询问后刷新；不启动宿主、不修改共享数据库 ----
+plugin_args=()
+pony_default="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1],encoding="utf-8"))["@dietrichgebert/ponytail"]["prompt"] or "")' "$(npath "$oc_stage/versions.json")")"
+pony_default="${pony_default%$'\r'}"
+if [ -n "$pony_default" ]; then
+  if ask "是否将 Ponytail 更新为 npm latest（旧缓存备份；钉版/本地登记将改回官方包，下次启动下载）?" "$pony_default"; then
+    plugin_args+=(--refresh-ponytail)
+  else
+    echo "跳过 Ponytail 更新，保留缓存和登记。"
+  fi
+fi
 echo "Magic Context 可单独刷新：备份移走 OpenCode 的 latest 插件缓存，登记官方 @latest，下次启动重新下载。"
 echo "注意：新版首次加载可能迁移共享 context.db。确认前请退出 OpenCode/Desktop/Pi 并备份共享库；同机 Pi 版本需另行同步。"
 if ask "是否刷新 Magic Context（已确认相关宿主停用并备份）?" N; then
-  mc_args=(--refresh-magic-context)
+  plugin_args+=(--refresh-magic-context)
 else
   echo "跳过 Magic Context 刷新：保留缓存和现有登记，继续其他插件；如有兼容性 WARN，启动前仍需处理。"
 fi
@@ -863,9 +874,9 @@ if [ "$cm_ok" != 1 ]; then
 fi
 
 # ---- 5. 按客户端主版本部署；配置只替换本套件管理的条目 ----
-python3 "$oc_stage/deploy.py" "$oc_stage" "$(npath "$CFG")" "$OC_MAJOR" "${mc_args[@]}"
-echo "Ponytail 已登记官方包；缺失包由下次启动 OpenCode 下载，setup 不清其缓存、不启动宿主。"
-if [ "${#mc_args[@]}" -gt 0 ]; then
+python3 "$oc_stage/deploy.py" "$oc_stage" "$(npath "$CFG")" "$OC_MAJOR" "${plugin_args[@]}"
+echo "Ponytail 已登记官方包；已确认更新的包将在下次启动重新下载，其余沿用缓存。setup 不启动宿主。"
+if [[ " ${plugin_args[*]} " == *" --refresh-magic-context "* ]]; then
   echo "Magic Context 已安排刷新；下次启动下载最新版并由插件处理迁移（本脚本未运行迁移）。"
 fi
 if [ "$PLUGINS_ONLY" = 1 ]; then

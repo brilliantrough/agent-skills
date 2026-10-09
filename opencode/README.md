@@ -17,7 +17,7 @@ bash /tmp/opencode-setup.sh --plugins-only
 | --- | --- | --- |
 | 默认完整安装 | 插件、依赖、配置、通用 skills；按交互选择执行 | 宿主／数据库升级 |
 | `--plugins-only` | 自维护包、context-mode 及其 skills、官方包登记、旧入口迁移 | 模型模板、Python 环境、通用 skills、claude-mem 资产安装、notify 安装、按键统一 |
-| `--check` | 下载校验自维护发布包，检查配置与 Magic Context，列出管理路径和待退役项 | 部署、更改配置／认证／数据库；也不试运行插件或检查全部依赖 |
+| `--check` | 下载校验自维护发布包，检查配置与 Magic Context，查询 Ponytail／Magic Context 版本，列出管理路径和待退役项 | 部署、更改配置／认证／数据库；也不试运行插件或检查全部依赖 |
 
 - 完整安装默认同步 base 19 个 skills；交互选择全组时为 27 个，另同步四个外部设计 skills。实体位于 `~/.agents/skills/`；context-mode 自带 skills 位于 `$CFG/skill/`。
 - `-y`／`--yes` 取各项默认值，**不是全部同意**；算力组与 notify 首装默认跳过。查看输出中的 WARN，缺包或网络失败后重跑。
@@ -44,10 +44,18 @@ bash /tmp/opencode-setup.sh --plugins-only
 
 | 对象 | setup 行为 |
 | --- | --- |
-| Ponytail | 登记官方包，两代宿主启动时自动安装缺失包；不内置副本、不手填缓存、不运行宿主 plugin CLI、不升级已有包 |
+| Ponytail | 查询本地版本与 npm latest；有新版时默认询问刷新，确认后备份移走对应缓存并登记官方 `@latest`，下次宿主启动下载；不运行宿主 plugin CLI |
 | Magic Context | 单独询问刷新，默认 N；版本缺失／不明／过旧只报 WARN，不阻塞其他插件。确认后移走 latest 缓存并登记官方 `@latest`，下次宿主启动下载 |
 | context-mode | 独立从 `releases/latest` 同步；v1 放 `plugins/context-mode/`，v2 放 `vendor/context-mode/`，不另加配置插件登记 |
 | notify | 仅完整安装的 v1 路径可选；v2 将旧入口备份停用，后续由 notify 项目适配 |
+
+版本检查与刷新：
+
+- 只检查套件引用的 Ponytail、Magic Context：按配置与当前宿主缓存读取本地实际版本，联网查询官方 npm `latest`。不扫描或更新用户自行安装的其他包。
+- Ponytail 稳定版有新版时询问，普通 npm／`@latest` 登记默认 Y；钉版或本地路径默认 N。版本一致不重装，本地更高不降级；非稳定版本只提示人工核对。缺包交宿主安装，已有缓存但版本未知可询问刷新。
+- 确认 Ponytail 刷新后，只备份移走其 `@latest` 缓存到 `.agent-skills-backups/<时间戳>/ponytail-cache/`，登记改为官方 `@latest`，保留 options。钉版缓存和任意本地源码目录不删除。
+- 查询失败：显示 WARN，不据此刷新；`--check` 不询问。`-y`／无终端采用各项默认值，Ponytail 普通登记可刷新，钉版／本地路径及 Magic Context 跳过。
+- 此时仅**安排更新**；下载与加载发生在下次宿主启动。日常仍可用 OpenCode v2 `/plugins` 更新，不必每次运行 setup；版本一致不等于加载正常，npm latest 也不保证兼容任意旧宿主。
 
 Magic Context 操作：
 
@@ -74,7 +82,7 @@ Magic Context 操作：
 - 插件资产备份到 `$CFG/.agent-skills-backups/<时间戳>/<原相对路径>`；同时移走 `plugins/context-mode.bak-*` 遗留目录，避免被 v2 再次扫描。配置文件保留相邻 `.bak*` 备份。
 - 私密字段、provider options、MCP 与其他本地字段保留；已有 v2 原生 `providers` 不套 v1 模型模板。完整安装会刷新 v1 `provider.models`，精简插件模式不做。
 - `opencode.jsonc` 合并到 `opencode.json` 后备份退役。v2 已有 `cli.json` 时保留；没有时合并旧 `tui.json(c)` 为 `tui.json`，由宿主首启迁移 action、界面与 state。完整安装的按键设置另行确认。
-- 除明确确认的 Magic Context 缓存刷新外，不清理 npm 插件缓存；认证、会话库与外置正文不动。**插件备份不是整机快照，也不替代数据库备份。**
+- 除确认的 Ponytail／Magic Context 缓存刷新外，不清理 npm 插件缓存；认证、会话库与外置正文不动。**插件备份不是整机快照，也不替代数据库备份。****
 
 自维护发布包校验失败、未知宿主版本、配置无法解析、相关写入路径为符号链接时停止；Magic Context 兼容性问题改为警告与独立刷新询问。
 

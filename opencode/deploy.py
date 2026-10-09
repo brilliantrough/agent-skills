@@ -6,13 +6,15 @@ import os
 from pathlib import Path
 import re
 import shutil
+import subprocess
 import sys
 from datetime import datetime
-from urllib.parse import unquote, urlparse
+from urllib.parse import quote, unquote, urlparse
 from typing import Any
 
 STAMP = datetime.now().strftime('%Y%m%d%H%M%S%f')
 MC = '@cortexkit/opencode-magic-context'
+PONYTAIL = '@dietrichgebert/ponytail'
 LEGACY = ['plugins/claude-mem-wrapper.js', 'plugins/later.js',
           'plugins/zz-context-rewrite.js', 'plugins/context-rewrite.js']
 V1_ONLY = ['plugins/zz-agent-skills.js', 'plugins/context-mode.js',
@@ -84,31 +86,96 @@ def native(entry) -> Any:
     return {'package': entry[0], 'options': entry[1]} if isinstance(entry, list) else entry
 
 
-def magic_context_caches():
+def npm_caches(name, spec='latest'):
     cache = Path(os.environ.get('XDG_CACHE_HOME', Path.home() / '.cache')) / 'opencode'
-    return [cache / layout / (MC + '@latest') for layout in ('npm', 'packages')]
+    key = name + '@' + spec
+    if os.name == 'nt':
+        key = re.sub(r'[<>:"|?*\x00-\x1f]', '_', key)
+    return [cache / layout / key for layout in ('npm', 'packages')]
 
 
-def cached_magic_context():
-    for cache in magic_context_caches():
+def cached_package(name, major=None, spec='latest'):
+    caches = npm_caches(name, spec)
+    if major is not None:
+        caches = [caches[0 if major == 2 else 1]]
+    for cache in caches:
         generations = sorted((p for p in cache.glob('*') if p.is_dir() and p.name.isdecimal()),
                              key=lambda p: int(p.name))
-        root = (generations[-1] if generations else cache) / 'node_modules' / MC
+        root = (generations[-1] if generations else cache) / 'node_modules' / name
         if (root / 'package.json').exists():
             return root
     return None
 
 
+def refreshed_entry(entry, name, major):
+    updated = native(entry) if major == 2 else entry
+    spec = name + '@latest'
+    if isinstance(updated, dict):
+        return {**updated, 'package': spec}
+    if isinstance(updated, list):
+        return [spec, *updated[1:]]
+    return spec
+
+
+def matches_package(entry, name):
+    spec = str(package(entry)).replace('\\', '/')
+    if spec == name or spec.startswith(name + '@'):
+        return True
+    local = spec.startswith(('.', '/', 'file:')) or re.match(r'^[A-Za-z]:/', spec)
+    return bool(local and re.search(r'(^|/)' + re.escape(name) + r'(/|$)', spec))
+
+
+def plugin_versions(cfg, major, output):
+    config = merge(load(cfg / 'opencode.json'), load(cfg / 'opencode.jsonc'))
+    entries = [*config.get('plugin', []), *config.get('plugins', [])]
+    report = {}
+    for name in (PONYTAIL, MC):
+        entry = next((e for e in entries if matches_package(e, name)), name)
+        spec = str(package(entry))
+        local = directory(entry, cfg)
+        revision = (spec[len(name):].lstrip('@') or 'latest') if local is None else 'latest'
+        root = local if local is not None else cached_package(name, major, revision)
+        current = None
+        try:
+            current = load(root / 'package.json').get('version') if root else None
+        except (OSError, ValueError) as error:
+            print(f'WARN: {name} 本地包版本无法读取：{error}')
+        row = {'current': current, 'latest': None, 'prompt': None}
+        default = 'Y' if name == PONYTAIL and local is None and revision == 'latest' else 'N'
+        try:
+            result = subprocess.run(['curl', '-fsSL', '--connect-timeout', '5', '-m', '15',
+                                     'https://registry.npmjs.org/' + quote(name, safe='@/') + '/latest'],
+                                    check=True, capture_output=True, text=True, encoding='utf-8')
+            latest = json.loads(result.stdout)['version']
+            remote = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)', latest)
+            installed = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)', current or '')
+            row['latest'] = latest
+            if current == latest:
+                status = '版本一致（不代表加载状态正常）'
+            elif remote and installed:
+                newer = tuple(map(int, remote.groups())) > tuple(map(int, installed.groups()))
+                status = '有新版' if newer else '本地版本高于 latest，不降级'
+                if newer:
+                    row['prompt'] = default
+            elif current:
+                status = '非稳定版本，保留；请手工核对'
+            else:
+                status = '未安装／版本未知'
+                # 缺包交宿主；已有未知缓存或显式路径／钉版才询问是否换回官方 latest。
+                caches = npm_caches(name, revision)
+                if remote and (local is not None or revision != 'latest' or caches[0 if major == 2 else 1].exists()):
+                    row['prompt'] = default
+            print(f'{name}: 本地 {current or "未安装／未知"} / npm latest {latest} — {status}')
+        except (OSError, subprocess.CalledProcessError, ValueError, KeyError, TypeError) as error:
+            print(f'WARN: {name}: 本地 {current or "未安装／未知"} / npm latest 查询失败；不据此刷新缓存：{error}')
+        report[name] = row
+    output.write_text(json.dumps(report, ensure_ascii=False), encoding='utf-8')
+
+
 def magic_context(entries, major, cfg, refresh=False):
     entry = next((e for e in entries if is_mc(e)), None)
     if refresh:
-        updated = native(entry) if major == 2 else entry
-        spec = MC + '@latest'
-        if isinstance(updated, dict):
-            return {**updated, 'package': spec}
-        if isinstance(updated, list):
-            return [spec, *updated[1:]]
-        return spec
+        return refreshed_entry(entry, MC, major)
     try:
         return resolve_magic_context(entry, major, cfg)
     except ValueError as error:
@@ -119,7 +186,7 @@ def magic_context(entries, major, cfg, refresh=False):
 
 def resolve_magic_context(entry, major, cfg):
     if entry is None:
-        installed = cached_magic_context()
+        installed = cached_package(MC)
         agent = Path(os.environ.get('PI_CODING_AGENT_DIR', Path.home() / '.pi/agent'))
         pi = agent / 'npm/node_modules/@cortexkit/pi-magic-context/package.json'
         version = load(installed / 'package.json').get('version') if installed else ''
@@ -142,7 +209,7 @@ def resolve_magic_context(entry, major, cfg):
             if tuple(int(n) for n in version.split('.')[:2]) < (0, 45):
                 raise ValueError('现有 Magic Context 早于 0.45；请在停用各宿主的窗口单独升级，再配置 v2')
             return native(entry) if entry else spec
-        root = cached_magic_context()
+        root = cached_package(MC, major)
         if root is None:
             raise ValueError('无法确定现有 Magic Context @latest 的已装版本；请先把条目固定为已安装版本或包目录，不自动升级共享数据库')
     version = load(root / 'package.json').get('version', '')
@@ -191,7 +258,7 @@ def cli_config(cfg):
     return cfg / 'tui.json', old
 
 
-def install(root, cfg, major, check=False, refresh_mc=False):
+def install(root, cfg, major, check=False, refresh_mc=False, refresh_ponytail=False):
     manifest = load(root / 'MANIFEST.json')
     if manifest.get('major') != major:
         raise ValueError('发布包主版本与客户端不一致')
@@ -212,6 +279,8 @@ def install(root, cfg, major, check=False, refresh_mc=False):
         raise ValueError('该配置已用于 v2；v1 请使用隔离配置目录，不自动降级数据库或插件')
     mc = magic_context(entries, major, cfg, refresh_mc)
     entries = [e for e in entries if not owned(e, cfg) and not is_mc(e)]
+    if refresh_ponytail:
+        entries = [refreshed_entry(e, PONYTAIL, major) if matches_package(e, PONYTAIL) else e for e in entries]
     old_entry = next((e for e in entries if directory(e, cfg) == (cfg / 'v2').resolve()), {})
     previous = native(old_entry)
     cli_path, cli = cli_config(cfg) if major == 2 else (cfg / 'tui.json', merge(load(cfg / 'tui.json'), load(cfg / 'tui.jsonc')))
@@ -221,8 +290,8 @@ def install(root, cfg, major, check=False, refresh_mc=False):
             previous = {**previous, 'options': {k: v for k, v in previous['options'].items() if k != 'ponytailPackage'}}
             if not previous['options']:
                 previous.pop('options')
-        official_ponytail = next((native(e) for e in entries if '@dietrichgebert/ponytail' in str(package(e))), '@dietrichgebert/ponytail')
-        entries = [native(e) for e in entries if '@dietrichgebert/ponytail' not in str(package(e)) and e != old_entry]
+        official_ponytail = next((native(e) for e in entries if matches_package(e, PONYTAIL)), PONYTAIL + ('@latest' if refresh_ponytail else ''))
+        entries = [native(e) for e in entries if not matches_package(e, PONYTAIL) and e != old_entry]
         entries = [e for e in entries if directory(e, cfg) not in [(cfg / p).resolve() for p in V1_ONLY]]
         if mc is not None:
             entries.insert(0, mc)
@@ -237,8 +306,8 @@ def install(root, cfg, major, check=False, refresh_mc=False):
             config['skills']['paths'] = [p for p in config['skills']['paths'] if (cfg / p).resolve() not in retired]
     else:
         config['plugin'] = ([mc] if mc is not None else []) + entries
-        if not any('@dietrichgebert/ponytail' in str(package(e)) for e in entries):
-            config['plugin'].append('@dietrichgebert/ponytail')
+        if not any(matches_package(e, PONYTAIL) for e in entries):
+            config['plugin'].append(PONYTAIL + ('@latest' if refresh_ponytail else ''))
         config.pop('plugins', None)
         cli['plugin'] = [e for e in cli.get('plugin', []) if not owned(e, cfg) and not is_mc(e)]
         cli['plugin'] += ([mc] if mc is not None else []) + ['./tui-plugins/later']
@@ -261,16 +330,18 @@ def install(root, cfg, major, check=False, refresh_mc=False):
         print(f'retire: {path}')
     print(f'config: {target.name} ({"plugins" if major == 2 else "plugin"}), {cli_path.name}; 私密字段保留')
     cache_backups = []
-    if refresh_mc:
-        for cache in magic_context_caches():
+    for name, refresh, folder in ((MC, refresh_mc, 'magic-context-cache'), (PONYTAIL, refresh_ponytail, 'ponytail-cache')):
+        if not refresh:
+            continue
+        for cache in npm_caches(name):
             if not cache.exists():
                 continue
-            destination = cfg / '.agent-skills-backups' / STAMP / 'magic-context-cache' / cache.parent.parent.name / cache.name
+            destination = cfg / '.agent-skills-backups' / STAMP / folder / cache.parent.parent.name / cache.name
             writable(cache)
             writable(destination)
             cache_backups.append((cache, destination))
             print(f'refresh: {cache} -> {destination}')
-        print('Magic Context: 改用 @latest；下次宿主启动下载，setup 不访问共享数据库、不更新 Pi 包')
+        print(f'{name}: 改用 @latest；下次宿主启动下载，setup 不访问共享数据库、不更新 Pi 包')
     if check:
         print('ready: 发布包和配置检查完成；Magic Context 状态见上方 WARN（未写入）')
         return
@@ -315,6 +386,9 @@ def install(root, cfg, major, check=False, refresh_mc=False):
 if __name__ == '__main__':
     try:
         install(Path(sys.argv[1]), Path(sys.argv[2]), int(sys.argv[3]),
-                '--check' in sys.argv[4:], '--refresh-magic-context' in sys.argv[4:])
+                '--check' in sys.argv[4:], '--refresh-magic-context' in sys.argv[4:],
+                '--refresh-ponytail' in sys.argv[4:])
+        if '--versions' in sys.argv[4:]:
+            plugin_versions(Path(sys.argv[2]), int(sys.argv[3]), Path(sys.argv[sys.argv.index('--versions') + 1]))
     except Exception as error:
         sys.exit(f'ERROR: {error}')

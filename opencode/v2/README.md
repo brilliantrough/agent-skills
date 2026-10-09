@@ -37,7 +37,7 @@ Magic Context 使用其自身的 v2 入口，兼容基线至少 **0.45**；本�
 - 旧工具 schema、wrapper、later 已打进 bundle；不再依赖 `legacy-v1/` 或目标机 `node_modules/@opencode-ai/plugin`。
 - `v2/` 目录包：本仓自维护能力；官方 Ponytail 单独由 `@dietrichgebert/ponytail` 提供，不能再把 `v2/ponytail/` 或 `options.ponytailPackage` 加入配置。
 
-Ponytail 缺包由宿主启动时自动下载；setup 只登记，不手填缓存或调用 `opencode plugin add`。Magic Context 未确认刷新时保留已有版本／目录登记；不把上面占位示例整体覆盖到现有配置。
+Ponytail 缺包由宿主启动时自动下载；已有包由宿主手动更新，或在 setup 查询版本后确认刷新缓存。Ponytail 普通登记有新版默认 Y，钉版／本地路径默认 N；Magic Context 单独默认 N。setup 不手填缓存、不调用宿主 plugin CLI；确认刷新只安排下次下载，不代表已加载成功。不要把上面占位示例整体覆盖到现有配置。
 
 setup 将本套件旧入口移入 `$CFG/.agent-skills-backups/<时间戳>/`，避免与 `plugins/` 自动发现重复；不删除会话库、认证或外置文件。CLI 自动发现本包的 `tui.js`，不要在 `cli.json` 中再登记旧 `tui-plugins/later`。主题、快捷键使用 `cli.json`；完整 setup 可确认更新按键，插件模式不统一按键。首次从旧 TUI 配置接入时，setup 准备 `tui.json`，由宿主首启迁移 UI 和 state。
 
