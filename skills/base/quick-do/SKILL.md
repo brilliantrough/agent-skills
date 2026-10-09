@@ -13,7 +13,7 @@ description: Execute small, well-understood changes directly in the current sess
 
 ## Do the work
 
-- Read the request, applicable project rules, and affected files before editing. Inspect relevant callers when changing shared behavior; avoid unrelated exploration.
+- Read the request, applicable project rules, and affected files before editing. Inspect relevant callers when changing shared behavior; avoid unrelated exploration. Reuse unchanged context, keep the exact edit unit available, and refresh it after a match failure instead of guessing another patch.
 - **Look at the live site first (seconds, no approval):** env active, deps actually importable, files and callers as expected — one glance that prevents a whole round of avoidable errors. Skipping ceremony is the point here; skipping this look is not.
 - Fix the root cause, not the reported symptom: grep the callers of what you touch and fix where all of them route through — a guard repeated in every caller is a bigger diff and leaves siblings broken.
 - Prefer the obvious interpretation for ordinary implementation details. Ask at most one focused clarification in the normal quick path; if investigation reveals substantial ambiguity or risk, stop and propose `steady-do` rather than guessing to satisfy the question limit.

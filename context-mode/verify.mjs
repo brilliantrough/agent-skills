@@ -35,7 +35,7 @@ const bundle = read("server.bundle.mjs");
 const at = ext.indexOf("context-mode active.");
 const anchor = at < 0 ? "" : ext.slice(at, at + 800);
 check("注入锚点已去掉 Upgrade 子句", anchor !== "" && !/Upgrade/.test(anchor), anchor === "" ? "扩展产物里找不到锚点" : `锚点里还有 Upgrade：${anchor.slice(-90)}`);
-check("注入锚点用的是改名后的工具名", anchor.includes(`${PREFIX}batch_execute`) && anchor.includes("Read files / bulk processing"));
+check("注入锚点按任务选择且工具名已改名", anchor.includes(`${PREFIX}batch_execute`) && anchor.includes("Choose by next action") && !anchor.includes("Hierarchy:"));
 check("getUpgradeHint 指回 setup.sh", bundle.includes("context-mode/setup.sh"), "Pi 平台的升级提示还不是我们的脚本（旧版会返回 npm run build，那只重建不重改名）");
 
 // ── 静态：产物层（改名） ────────────────────────────────────────────────────
@@ -71,7 +71,7 @@ check("skill 数量为 7", skills.length === 7, `现在是 ${skills.length} 个�
 const main = existsSync(join(REPO, "skills/context-mode/SKILL.md")) ? read("skills/context-mode/SKILL.md") : "";
 check("主 skill 有 When NOT to Use 表", main.includes("## When NOT to Use"));
 check("主 skill 有沙箱/原生工具限制一节", main.includes("## Sandbox vs native tools"));
-check(`主 skill 教了 ${PREFIX}batch_execute`, main.includes(`${PREFIX}batch_execute`), "它是注入锚点的第一优先级工具");
+check(`主 skill 教了 ${PREFIX}batch_execute`, main.includes(`${PREFIX}batch_execute`), "缺少多命令索引研究的工具指引");
 
 // ── 静态：发布包层（产物走 release：目标机装的就是这两个 tar 包，不是 clone） ──
 const DIST = join(SELF_REPO, "context-mode", "dist");

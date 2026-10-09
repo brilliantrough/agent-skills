@@ -32,6 +32,7 @@ The same knowledge may appear in several sources. That overlap is useful for rec
 ## Practical guidance
 
 - Start with the task and project instructions. Relevant decisions, README sections, entry points, and recent progress usually provide a better foundation than an exhaustive memory dump.
+- Reuse skills and confirmed facts already available in this session. Reload only missing or changed material; resuming a task is not a reason to repeat the whole memory-loading sequence. Keep a compact working set of current constraints, source locations, open questions and the next action in the existing session context/todo, not a new report.
 - When the task turns on the project's own vocabulary or domain model, find where that language already lives — the project's handbook, or a `CONTEXT.md` where the project uses one — before inventing names. Loading is not changing: changing the model is `domain-modeling`'s job.
 - Injected Magic Context memories are already available. Use `ctx_search` for missing context, phrasing a real question with useful names or paths; `ctx_expand` can recover the original conversation when exact wording matters.
 - Use claude-mem when earlier activity or observations would help. Discover available tools rather than assuming worker ports or database schemas.

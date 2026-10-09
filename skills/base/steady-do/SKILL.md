@@ -39,6 +39,7 @@ Use the bounded, round-based grilling method below; it is self-contained and doe
 - Briefly recap the agreed scope, approach, and verification, then begin without an extra plan-approval gate. If the recap introduces an unresolved material choice, wait for its answer first.
 - Keep primary implementation in this session; do not hand it to a fresh session or execution sub-agent. Optional read-only research or review may be delegated when useful, not as a default multi-agent pipeline.
 - No plan documents, launcher prompts, development reports, or review reports. Track multi-step work with a session todo; required product docs and project memory still apply.
+- Work in coherent units: keep current exact source plus callers/contracts available through the edit, group independent lookups, and reuse unchanged evidence. Refresh the affected unit after a match failure; do not retry from a summary or stale text. For generated/minified output, find the editable source and generation path first.
 - If new evidence invalidates the agreed approach or requires broader scope or changed external behavior, pause the affected work and realign. Resolve ordinary local implementation issues yourself.
 - Before destructive or irreversible actions, show the impact and obtain explicit authorization. Permission to start does not permit overwriting secrets or changing unrelated environments.
 
@@ -52,6 +53,8 @@ Use the bounded, round-based grilling method below; it is self-contained and doe
 ## 5. Verify and finish
 
 - Default to the smallest real execution path plus a reread of the change and affected adjacent behavior. Check the agreed observable outcome, not merely the absence of errors. For documentation-only changes, inspect content and applicable format checks.
+- Check the source contract before expensive generation or broad validation: pin the relevant source/version and verify meanings, shapes, state transitions or parameter order against that source, not merely against tables produced by your own code. Validate a representative vertical slice before scaling out; this does not waive the final agreed coverage.
+- When review is warranted, provide the baseline, changed scope, evidence paths and unresolved questions together. Stabilize shared components before repeated per-item reviews; re-review changed items and affected dependents, unless the agreed full review is required. Distinguish semantic defects from environment defects before regenerating artifacts.
 - Do not add tests, TDD, or verification scripts by default. Follow explicit user requests and mandatory project checks; feature work does not automatically imply TDD.
 - Distinguish static checks, successful loading, local calls, and complete user interaction. A loadable plugin is not a working feature; injected input is not a physical terminal interaction.
 - If execution needs the user's environment or is blocked, state what remains unverified and give concrete steps and expected observations. **Blocked is a legitimate outcome** — say so with the exact check the user must run; never invent completion or silently omit blocked work.

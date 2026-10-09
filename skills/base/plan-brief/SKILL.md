@@ -67,7 +67,7 @@ One structured Markdown document in the user's language (Chinese headings by def
 1. **Goal and scope** — the Phase 0 restatement, including non-goals.
 2. **Current state** — what exists now and which parts get reused; Phase 1 findings.
 3. **Environment and prerequisites** — exact known commands, paths, versions; unresolved external blockers labeled as such.
-4. **Execution steps** — ordered; each step states what / the files or command / the expected result / its dependencies. Do not invent commands or API details that were not verified.
+4. **Execution steps** — ordered; each step states what / the files or command / the expected result / its dependencies. Before bulk generation or a broad matrix, settle source/version and semantic contracts, then validate a representative vertical slice and shared components. Group independent work; do not weaken the final agreed coverage. Do not invent commands or API details that were not verified.
 5. **Constraints and known pitfalls** — compatibility, risks, and the authorization gates from Phase 3.
 6. **Verification** — name the chosen mode (TDD / smoke-and-read) and why; concrete acceptance evidence and who runs what. Distinguish static checks, successful loading, local calls, and real user interaction; never treat absence of errors as proof of the outcome.
 7. **Deliverables** — include `<plan-basename>.report.md` beside the plan. Required product docs and project memory still apply.
@@ -78,6 +78,7 @@ Append it to the plan doc inside a fenced block AND print it in chat for copying
 
 - Point to the plan doc path; instruct the executor to read it plus AGENTS.md and the relevant project docs before acting.
 - Carry the agreed scope, environment, step order and dependencies, ponytail taste, verification mode, authorization gates, and deliverables. Follow the plan instead of restarting workflow selection or re-grilling settled decisions.
+- Keep current constraints, evidence paths and the active edit unit in the existing todo/context; recover only missing or changed material. Read exact source before editing, refresh after a match failure, and edit the generator rather than giant generated output when a source path exists.
 - Hard constraints: activate the specified environment before running anything; follow the plan's step order; no scope creep; stop and ask when the plan is ambiguous, new evidence invalidates it, or scope must change; resolve ordinary local implementation details without repeated approval.
 - **Development report is mandatory — even for partial work:** write `<plan-basename>.report.md` beside the plan, in the user's language, with 完成情况总表 (per plan step: 完成 / 部分 / 搁置 / 未动 + evidence), 做了什么, 没做什么与搁置原因, 规范遵循情况, 特殊处理与偏离, 遗留问题与建议.
 - **Partial completion is legitimate:** steps blocked by real constraints (missing dependencies, environment limits, out of scope) may be shelved — never fake completion, never silently skip. The report says exactly what was and was not done.
@@ -93,7 +94,7 @@ When the user returns saying the executor finished (or drops the report path), a
 3. Audit 规范遵循: environment activation, step order, scope, ponytail taste, chosen verification mode, authorization gates, test-script restraint. Judge each deviation with its reason instead of assuming every deviation is wrong.
 4. Verdict (符合 / 部分符合 / 不符合), then concrete prioritized minimal fixes in ponytail style.
 5. Write `<slug>.review.md` beside the plan in the user's language and print it in chat. NEVER edit the executor's report — it is their artifact.
-6. If fixes are needed, produce a new self-contained launcher prompt (Phase 5 rules) re-dispatching exactly the fix items; it must point at the review file, the plan, and the previous report.
+6. If fixes are needed, produce a new self-contained launcher prompt (Phase 5 rules) re-dispatching exactly the fix items; it must point at the review file, the plan, and the previous report. Re-review changes and affected dependents using prior evidence for unchanged scope; repeat the full matrix only when required by the agreed acceptance or blast radius. Separate source-semantic defects from verification-environment defects before ordering regeneration.
 7. **Fix rounds keep their own artifacts:** the fix session writes `<slug>.report-2.md` (then `-3`, …), never overwriting an earlier report, and each round gets its own `<slug>.review-2.md` (…), so every round stays auditable.
 8. **Exit:** a 符合 verdict closes the loop — record `Status: done (rounds: N)` at the top of the plan doc, list anything still not done, and update project memory/docs per project rules. If a round makes no progress on the same blocking item, stop and hand the open questions back to the user instead of looping again.
 

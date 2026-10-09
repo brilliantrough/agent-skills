@@ -20,10 +20,10 @@ This project uses a three-layer memory system (Magic Context + StrictDoc + claud
 
 ### Context window (always applies)
 
-- Big output never enters context: bulk commands / multi-file analysis -> `ctxm_batch_execute`, one-off computation -> `ctxm_execute`, reading a file -> `ctxm_execute_file`.
+- Choose by the next action: exact source or a complete edit/logic unit -> native `Read`/`Grep`; short output consumed directly -> native `Bash`/`Read`; large-data aggregation -> `ctxm_execute`/`ctxm_execute_file`; multi-command indexed research -> `ctxm_batch_execute`. Return enough evidence to act, not bulk dumps or summaries that force another lookup.
 - Web: never the host built-ins (WebSearch, WebFetch, web_search) — they are weaker or unconfigured here. Use the mcphub-web MCP tools: `tavily_search`/`tavily_extract` for facts/news, `firecrawl_search` for ranked results, `firecrawl_scrape` for a known page (use the actual exposed name; Pi native names are `mcp__<server>__<tool>` with non-identifier characters replaced by underscores; long or colliding names get a hash suffix, so use the exposed metadata rather than constructing names). Discover the remaining tools (firecrawl crawl/map/research, context7 docs) through Pi's `tool_search` and call them directly or via `codemode`; on hosts with an MCP gateway, use its search/describe/call flow. `ctxm_fetch_and_index` only for a page you will re-query (how-to lives in the `context-mode` skill).
 - Magic Context supports recall and durable storage: `ctx_search` can recover earlier decisions before asking the user, `ctx_memory` can preserve useful knowledge, and `ctx_note` can hold reminders. Use alongside StrictDoc and claude-mem, with useful overlap.
-- Native `Read`/`Grep`/`Glob` stay right when you need the exact bytes or will edit the file — never route those through `ctxm_*`.
+- Reuse loaded skills, confirmed facts and current source while they remain available and unchanged. Recover only missing or stale context; after an exact-match edit fails, reread the affected unit rather than guessing another patch. `intent` is an optional retrieval query, not a task note; omit it when code already prints the answer.
 
 ### Steering the agent (always applies)
 

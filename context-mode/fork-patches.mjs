@@ -53,31 +53,25 @@ function edit(rel, name, fn) {
 // ─────────────────────────────────────────────────────────────────────────────
 const HINT = 'if (name === "Pi") return "bash ~/Linewrite/skills/agent-skills/context-mode/setup.sh";';
 const ANCHOR = [
-  "      // Fork 口径（2026-09-19）：本机是 ~/Linewrite/forks/context-mode（纯上游 clone + 锚定改写）。",
-  "      // 锚点原本还写着 \"Upgrade → ctx_upgrade\"，而升级会把上游装回来、抹掉改名补丁，",
-  "      // 导致与 pi-magic-context 的 ctx_search 重新撞名——所以这里不再提升级；",
-  "      // 并且 \"Read/edit files →\" 改掉：ctx_execute_file 只能读（它把文件读进 FILE_CONTENT），不能编辑。",
-  "      parts.push(",
-  '        "context-mode active. Hierarchy: ctx_batch_execute > ctx_execute > ctx_execute_file > ctx_search. " +',
-  '        "Read files / bulk processing → ctx_execute_file. Multi-command research → ctx_batch_execute. " +',
-  '        "Web pages → your configured MCP web tools first (firecrawl/tavily); ctx_fetch_and_index only when you will re-query the page. Index docs → ctx_index. " +',
-  '        "Stats → ctx_stats. Doctor → ctx_doctor. Purge → ctx_purge (destructive, needs confirm:true). " +',
-  '        "Native Read stays right when you will edit that file or need exact bytes; Bash stays right for short fixed output and state mutations."',
+  "parts.push(",
+  '        "context-mode active. Choose by next action, not a tool hierarchy. " +',
+  '        "Exact source or a complete edit unit → native Read/Grep; short output consumed directly → Bash. " +',
+  '        "Large-data aggregation → ctx_execute/ctx_execute_file; multi-command indexed research → ctx_batch_execute. " +',
+  '        "Already indexed and still missing information → ctx_search. Return paths, key evidence and values needed to act. " +',
+  '        "Omit intent when code already prints the answer; above 5000 output bytes it returns search previews, not the full answer. " +',
+  '        "Web → configured MCP tools; ctx_fetch_and_index only for repeated queries. Full guidance: skill context-mode; reuse it once loaded."',
   "      );",
 ].join("\n");
 
 edit("src/adapters/pi/extension.ts", "upgrade-anchor", (s) => {
-  const NEEDLE = '"context-mode active. Hierarchy:';
-  if (s.includes("Native Read stays right when you will edit")) return { status: "skip", why: "锚点已是我们的版本" };
-  const at = s.indexOf(NEEDLE);
-  if (at < 0) {
-    return { status: "fail", why: `扩展里找不到 ${NEEDLE} 这段路由提示，上游可能改了注入逻辑，需要人工看一眼 src/adapters/pi/extension.ts` };
-  }
+  const at = s.indexOf('"context-mode active.');
+  if (at < 0) return { status: "fail", why: "找不到 context-mode active 路由提示" };
   const start = s.lastIndexOf("parts.push(", at);
   const m = /\n\s*\);/.exec(s.slice(at));
-  if (start < 0 || !m) return { status: "fail", why: "找到了锚点文本，但定位不到 parts.push(...) 语句边界" };
+  if (start < 0 || !m) return { status: "fail", why: "定位不到 parts.push(...) 语句边界" };
   const end = at + m.index + m[0].length;
-  return { status: "write", text: s.slice(0, start) + ANCHOR + s.slice(end), why: "升级锚点去掉（不再把模型引去跑会抹掉改名的升级）" };
+  if (s.slice(start, end) === ANCHOR) return { status: "skip", why: "已是按任务选择的路由" };
+  return { status: "write", text: s.slice(0, start) + ANCHOR + s.slice(end), why: "Pi 路由按下一步所需信息选择" };
 });
 
 edit("src/server.ts", "upgrade-hint", (s) => {
@@ -99,19 +93,19 @@ edit("src/server.ts", "upgrade-hint", (s) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const DESC = {
   ctx_execute:
-    "Run code in a sandboxed subprocess ${bunNote} Languages: ${langList}. Only what you console.log() enters context; the raw bytes never do. Reach for it to derive an answer FROM data (filter/count/aggregate/parse) rather than reading the bytes, and to keep long-running processes alive (background:true). Full guidance: skill context-mode.",
+    "Run code to derive an answer from large data or noisy command output. ${bunNote} Languages: ${langList}. Print actionable evidence, not raw dumps; omit intent when code already prints the answer. For short output consumed verbatim, use native Bash. Full guidance: skill context-mode.",
   ctx_execute_file:
-    "Read one file into a sandboxed FILE_CONTENT variable and print only the derived answer — the file bytes never enter context. The path must be inside the workspace (outside paths are refused by design, issue #852). Use it to KNOW something about a file without seeing all of it. Full guidance: skill `context-mode`.",
+    "Derive an answer from one workspace file via FILE_CONTENT; print paths, relevant values and evidence. For exact source, complete logic or editing, use native Read. Omit intent when the printed result is already the answer. Outside-workspace paths are refused (#852). Full guidance: skill `context-mode`.",
   ctx_batch_execute:
-    "Run several commands in ONE call. Every command's output is auto-indexed into the knowledge base; pass `queries` and the matching sections come back in the same round trip (gather + answer together). `concurrency` parallelizes the fetch phase — keep it at 1 for CPU-bound or stateful commands. Full guidance: skill `context-mode`.",
+    "Run commands, index their output and answer `queries` in one call for multi-command research. Short results consumed directly need no index. Default concurrency is 1; parallelize independent I/O, not shared-state or CPU-heavy work. Matches may be incomplete. Full guidance: skill `context-mode`.",
   ctx_index:
-    "Store content — inline text, or a file/directory via `path` — in the persistent FTS5 knowledge base: split by headings, code blocks kept intact, raw chunks persisted for later retrieval. Retrieve with ctx_search. Full guidance: skill `ctx-index`.",
+    "Store reusable content in the searchable knowledge base. Prefer `path` for local files/directories; `content` is for small inline text. One-shot analysis needs no persistent index, and already-visible output need not be indexed again. Full guidance: skill `ctx-index`.",
   ctx_search:
-    "Search the unified knowledge base (content you indexed + auto-captured session memory) with a multi-strategy pipeline: Porter-stemming matcher and trigram-substring matcher fused by RRF, Levenshtein typo correction, proximity rerank, window-extracted snippets. Returns section titles and previews, never full bytes — drill in with more queries. Full guidance: skill `ctx-search`.",
+    "Retrieve missing information from indexed content or captured session memory. Batch related questions and scope with `source` when appropriate. Use existing context first; no match is not proof of absence, and indexed snippets are not current edit source. Full guidance: skill `ctx-search`.",
   ctx_fetch_and_index:
-    "Fetch a URL, convert HTML to markdown (JSON chunked by key paths), index it, and return only a small preview window per source — the page bytes never enter context. Cached on disk (24h TTL; override with `ttl`, bypass with `ttl: 0` or `force`). Plain HTTP fetch, no headless browser. Full guidance: skill `context-mode`.",
+    "Fetch and index pages you will query repeatedly; use configured MCP search/scrape for one-off lookups. Returns previews, not full pages. Plain HTTP, no JS rendering. Cache: 24h; bypass with `ttl: 0` or `force`. Full guidance: skill `context-mode`.",
   ctx_stats:
-    "Return this session's context-consumption statistics: total bytes returned, per-tool breakdown, call counts, estimated token usage, context-savings ratio. Read-only. Full guidance: skill `ctx-stats`.",
+    "Show context-consumption counters and estimated savings. Read-only. Check reported session/project/lifetime scope before attribution; byte savings do not measure task duration, model rounds or speedup. Full guidance: skill `ctx-stats`.",
   ctx_doctor:
     "Diagnose the context-mode installation server-side and return a plain-text [OK]/[FAIL]/[WARN] report. Full guidance: skill `ctx-doctor`.",
   ctx_upgrade:
@@ -159,110 +153,76 @@ edit("src/server.ts", "brief-descriptions", (s) => {
   return { status: "write", text: out.join("\n"), why: `压缩 ${report.filter((r) => !r[3]).length} 个描述（~${report.reduce((a, r) => a + r[1], 0)}B → ${report.reduce((a, r) => a + r[2], 0)}B）` };
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 3. skill 补充：主 skill 原本完全没提 batch_execute（而注入锚点把它列为第一优先级），
-//    外加一张从描述里采下来的「什么时候不要用」表 —— 描述压短的前提是深度已经在这
-// ─────────────────────────────────────────────────────────────────────────────
-const SKILL = "skills/context-mode/SKILL.md";
-const MANDATE = `
+// 3. 主 skill 与两宿主的提示词；不改变 hook 决策或工具执行逻辑。
+const guidance = readFileSync(new URL("./guidance.md", import.meta.url), "utf8");
+edit("skills/context-mode/SKILL.md", "skill-guidance", (s) => {
+  s = s.replaceAll(process.env.CONTEXT_MODE_PREFIX ?? "ctxm_", "ctx_");
+  if (!/^name: context-mode$/m.test(s)) return { status: "fail", why: "主 skill 的 name 锚点消失" };
+  if (s === guidance) return { status: "skip", why: "主 skill 已同步" };
+  return { status: "write", text: guidance, why: "主 skill 按信息需求选择，保留工具边界与按需参考" };
+});
 
-**Several commands, or output you'll want to search later → \`ctx_batch_execute\`.** One call runs them all, indexes every output, and returns only the sections matching your \`queries\` — gather and answer in a single round trip instead of N sequential \`ctx_execute\` calls.`;
-const TREE = `├── MORE THAN ONE command, or one command whose output you'll query later?
-│   └── Use ctx_batch_execute — one call runs them all, indexes every output,
-│       and returns only the sections matching \`queries\`. Replaces N sequential
-│       ctx_execute calls (N round-trips) with one.
-│
+edit("src/server.ts", "parameter-guidance", (s) => {
+  let count = 0;
+  let out = s.replace(/(intent: z\s*\.string\(\)\s*\.optional\(\)\s*\.describe\()[\s\S]*?(\n\s*\))/g, (_m, start, end) => {
+    count++;
+    return start + "\n          " + JSON.stringify("Optional retrieval query, not a task note. If nonempty and program output exceeds 5000 bytes, returns indexed titles/previews, not the full answer. Usually omit when code already prints the needed result. Use literal output terms; no match is not proof of absence.") + end;
+  });
+  if (count !== 2) return { status: "fail", why: `intent 参数应有 2 处，找到 ${count}` };
+  const batchAt = out.indexOf('  "ctx_batch_execute",');
+  const schemaEnd = out.indexOf("      timeout:", batchAt);
+  if (batchAt < 0 || schemaEnd < 0) return { status: "fail", why: "找不到 batch queries 描述边界" };
+  const before = out.slice(batchAt, schemaEnd);
+  const after = before.replace(/(queries: z\.preprocess\(coerceJsonArray, z[\s\S]*?\.min\(1\))[\s\S]*$/, (_m, start) => start + ")\n        .describe(" + JSON.stringify("Questions needed for the next decision, using terms present in command output. Batch independent questions; no fixed query count. Returns top matching sections, not guaranteed complete coverage. If insufficient, refine retrieval or read exact source before editing.") + "),\n");
+  if (after === before && !before.includes("no fixed query count")) return { status: "fail", why: "找不到 batch queries 描述" };
+  out = out.slice(0, batchAt) + after + out.slice(schemaEnd);
+  out = out.replace("Optional working directory for shell commands. Non-shell languages still execute from their sandbox temp directory.", "Working directory for execution (all languages); defaults to the project root.");
+  return out === s ? { status: "skip", why: "参数引导已同步" } : { status: "write", text: out, why: "澄清 intent、queries 与 cwd，不改 schema 行为" };
+});
+
+edit("hooks/routing-block.mjs", "shared-routing-guidance", (s) => {
+  s = s.replaceAll(process.env.CONTEXT_MODE_PREFIX ?? "ctxm_", "ctx_");
+  const start = s.indexOf("  <priority_instructions>");
+  const end = s.indexOf("  <session_continuity>", start);
+  if (start < 0 || end < 0) return { status: "fail", why: "共享路由块的标签锚点消失" };
+  // 保留 deferred-tool bootstrap 的条件与工具名插值。
+  const bootstrapStart = s.indexOf("${toolSearchBootstrap ?", start);
+  const bootstrapEnd = s.indexOf("  <tool_selection", bootstrapStart);
+  const bootstrap = bootstrapStart >= 0 && bootstrapEnd >= 0 ? s.slice(bootstrapStart, bootstrapEnd) : "";
+  const routing = `  <priority_instructions>
+    Choose by the information needed for the next action, not a fixed tool hierarchy. Reduce irrelevant bytes AND avoidable round trips without losing evidence or quality.
+  </priority_instructions>
+` + bootstrap + `  <tool_selection>
+    - Exact source, complete logic/edit unit, or bounded output consumed directly: native Read/Grep/Bash. Keep the current unit available; do not summarize it first and guess edits.
+    - Large-data aggregation: \${t("ctx_execute")} or \${t("ctx_execute_file")}. Print paths/IDs, key evidence, conditions and values needed to act, not just counts.
+    - Multi-command indexed research: \${t("ctx_batch_execute")}(commands, queries). Group independent questions; parallelize only independent work with isolated state and sufficient resources.
+    - Already indexed information still needed: \${t("ctx_search")}(queries, source). Use existing context first; resume does not require reloading every rule or plan.
+    - Web: configured MCP search/scrape tools. \${t("ctx_fetch_and_index")} only when the page will be queried repeatedly.
+  </tool_selection>
+  <retrieval_contract>
+    intent is an optional search query, not a task note. Above 5000 output bytes it yields titles/previews; omit it when code already prints the answer. No match is not proof of absence. If evidence is missing, refine extraction or read the exact unit instead of repeatedly searching vague terms.
+  </retrieval_contract>
+  <file_writing_policy>
+    Use native Edit/Write for project changes. Subprocess execution is not a disposable host filesystem: writes outside its temporary script directory may persist. Read current exact source before editing; after a match failure, refresh the affected unit rather than guessing another patch.
+  </file_writing_policy>
 `;
-const ROWS = `| Several commands / multi-issue lookups | \`ctx_batch_execute\` | \`[{label: "issue 1", command: "gh issue view 1"}, ...]\` + \`queries: [...]\` |
-| Need the answer AND a searchable index in one round trip | \`ctx_batch_execute\` | output is auto-indexed; \`queries\` returns the matching sections inline |
-| Summarize N files without reading any of them | \`ctx_batch_execute\` | one command per file, print only the derived answer |
-`;
-const WHENNOT = `## When NOT to Use
-
-Each tool's description only carries the short contract; these are the negative halves — when something else is the right surface.
-
-| Tool | Don't reach for it when | Use instead |
-|------|-------------------------|-------------|
-| \`ctx_execute\` | One observational command whose whole short output you'll consume verbatim (\`whoami\`, \`pwd\`, \`git status\` on a clean tree) | Bash |
-| \`ctx_execute\` | File mutations (Edit/Write) or navigation (\`cd\`, \`ls\`) | Bash / the host's edit tools |
-| \`ctx_execute_file\` | You intend to EDIT the file | the host's Read + exact-match Edit |
-| \`ctx_execute_file\` | You need one known line, or the file is small and you'll consume all of it | the host's Read (offset/limit) |
-| \`ctx_execute_file\` | The file is outside the workspace | refused by design (#852); use the host's Read |
-| \`ctx_fetch_and_index\` | A one-off lookup, and the host has its own web tools (a search/scrape MCP) | those tools — this one is for pages you will query again |
-| \`ctx_batch_execute\` | Single command with no follow-up query | plain \`ctx_execute\` |
-| \`ctx_batch_execute\` | CPU-bound or stateful commands — keep \`concurrency: 1\` (npm test, build, lint, port-binding servers, lock holders) | serial, in one batch |
-| \`ctx_index\` | Log files, test output, CSV or build output | \`ctx_execute_file\` — processes in-sandbox, persists nothing |
-| \`ctx_index\` | Single-use content you'll never query again | keep it inline if it fits, else \`ctx_execute_file\` |
-| \`ctx_index\` | Passing large data as \`content:\` | pass \`path:\` — \`content\` puts those bytes into context as a parameter |
-| \`ctx_search\` | The data was never stored and no session memory accumulated around it | capture first (\`ctx_batch_execute\` / \`ctx_index\`), then search |
-| \`ctx_search\` | One ad-hoc question against data that is not in the knowledge base | answer it inline in the sandbox — one round trip |
-| \`ctx_fetch_and_index\` | You already have the content locally | \`ctx_index\` |
-| \`ctx_fetch_and_index\` | The page is SPA / JavaScript-rendered | it is a plain HTTP fetch, no headless browser |
-| \`ctx_stats\` | You actually want to delete something | \`ctx_purge(confirm: true)\` |
-| \`ctx_purge\` | The user says "reset"/"clear"/"wipe" without naming a scope | ask which scope first |
-| \`ctx_purge\` | The user wants to free memory or improve performance | show \`ctx_stats\` first, do not purge |
-
-`;
-
-edit(SKILL, "skill-coverage", (s) => {
-  const did = [];
-  const missing = [];
-  let out = s;
-
-  const insertAfter = (anchor, addition, marker, label) => {
-    if (out.includes(marker)) { did.push(`${label}（已存在）`); return; }
-    const at = out.indexOf(anchor);
-    if (at < 0) { missing.push(`${label}：找不到锚点 ${JSON.stringify(anchor.slice(0, 40))}`); return; }
-    out = out.slice(0, at + anchor.length) + addition + out.slice(at + anchor.length);
-    did.push(label);
+  let out = s.slice(0, start) + routing + s.slice(end);
+  out = out.replace('→ Call upgrade MCP tool, run returned shell command, display as checklist.', '→ This is a fork: do not call the upstream upgrade tool. Use the suite setup/update workflow.');
+  out = out.replace('→ Call purge MCP tool with confirm: true. Warn: irreversible.', '→ Confirm the exact session/project scope and irreversible deletion with the user first; only then call purge with confirm: true.');
+  out = out.replace('→ Call stats MCP tool, display full output verbatim.', '→ Call stats and preserve its scope labels. Byte savings are not task elapsed time or a speedup measurement.');
+  const tips = {
+    createReadGuidance: 'Need exact source or a complete logic/edit unit? Native Read is correct. Use ctx_execute_file only to derive an answer from bulk data; print evidence needed for the next step. Do not guess edits from previews.',
+    createBashGuidance: 'Short output consumed directly or authorized state changes: native Bash. Large-data aggregation: ctx_execute; multi-command indexed research: ctx_batch_execute. Batch independent work without sharing mutable state; return enough evidence to act.',
+    createExternalMcpGuidance: 'Use already returned MCP content directly. For large output, prefer tool-side filtering, file output or host orchestration; re-indexing content already in context cannot undo its cost. Index only for repeated queries, not every lookup.',
   };
-
-  // 3a. MANDATORY RULE 里补一句
-  insertAfter("cannot list them all.", MANDATE, "**Several commands, or output you'll want to search later", "MANDATORY RULE 补 batch_execute");
-  // 3b. Decision Tree 补分支
-  const treeAnchor = "├── Command is on the Bash whitelist (file mutations, git writes, navigation, echo)?";
-  if (out.includes("MORE THAN ONE command")) did.push("Decision Tree 分支（已存在）");
-  else if (!out.includes(treeAnchor)) missing.push("Decision Tree 分支：找不到 Bash whitelist 那一行");
-  else { out = out.replace(treeAnchor, TREE + treeAnchor); did.push("Decision Tree 分支"); }
-  // 3c. 工具表补三行
-  insertAfter("| Situation | Tool | Example |\n|-----------|------|---------|\n", ROWS, "Several commands / multi-issue lookups", "工具表补 batch_execute 三行");
-  // 3d. When NOT to Use 一节
-  const autoAnchor = "## Automatic Triggers";
-  if (out.includes("## When NOT to Use")) did.push("When NOT to Use（已存在）");
-  else if (!out.includes(autoAnchor)) missing.push("When NOT to Use：找不到 ## Automatic Triggers 这个锚点");
-  else { out = out.replace(autoAnchor, WHENNOT + autoAnchor); did.push("When NOT to Use 17 条"); }
-
-  if (missing.length) return { status: "fail", why: missing.join("；") };
-  if (out === s) return { status: "skip", why: "已是我们的版本" };
-  return { status: "write", text: out, why: did.join("、") };
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 4. 沙箱机制的坑（cwd / 临时目录 / 环境变量 / 回显 / 超时 / 边界）与
-//    Bash-vs-ctxm_* 取舍：主 skill 原本 0 处提及，第一次调用最容易踩
-// ─────────────────────────────────────────────────────────────────────────────
-const PITFALLS = `## Sandbox vs native tools
-
-- **Sandbox (ctxm_*)**: throwaway subprocess. Non-shell languages start in a temp dir (project-relative paths don't resolve — use absolute paths, or \`language: "shell"\` + \`cwd\`); writes never persist; injection env vars are stripped (\`NODE_OPTIONS\`, \`PYTHONSTARTUP\`, \`BASH_ENV\` …, secrets still inherited); no default timeout; the code you pass is echoed back (≤2000 chars).
-- **Native (Bash/Read/Grep)**: project cwd + full env, but output lands in the conversation as-is (the host truncates it). Read/Grep when you need exact bytes or will edit; Bash for short fixed output or state changes.
-
-`;
-
-edit(SKILL, "skill-pitfalls", (s) => {
-  const NEW_HEAD = "## Sandbox vs native tools";
-  const OLD_HEAD = "## Sandbox mechanics (pitfalls)";
-  if (s.includes(NEW_HEAD)) return { status: "skip", why: "已有 Sandbox vs native tools 一节" };
-  if (s.includes(OLD_HEAD)) {
-    const start = s.indexOf(OLD_HEAD);
-    const next = s.indexOf("\n## ", start);
-    return { status: "write", text: s.slice(0, start) + PITFALLS + s.slice(next < 0 ? s.length : next + 1), why: "沙箱一节压到两行" };
+  for (const [name, tip] of Object.entries(tips)) {
+    const re = new RegExp(`(export function ${name}\\(t\\) \\{)\\n[\\s\\S]*?\\n\\}`);
+    if (!re.test(out)) return { status: "fail", why: `找不到 ${name} 函数锚点` };
+    out = out.replace(re, (_m, head) => `${head}\n  return ${JSON.stringify("<context_guidance>" + tip + "</context_guidance>").replace(/ctx_[a-z_]+/g, (name) => `" + t(${JSON.stringify(name)}) + "`)};\n}`);
   }
-  const anchor = "## Automatic Triggers";
-  if (!s.includes(anchor)) return { status: "fail", why: `找不到 ${anchor} 锚点，无法插入沙箱一节` };
-  return { status: "write", text: s.replace(anchor, PITFALLS + anchor), why: "补沙箱与原生工具的限制（两条）" };
+  return out === s ? { status: "skip", why: "共享路由引导已同步" } : { status: "write", text: out, why: "共享路由与读取提示按信息需求选择" };
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
 const summary = `${wrote} 处改写、${skipped} 处已就绪、${failed} 处失败`;
 for (const n of notes) console.warn(`⚠ ${n}`);
 if (failed) {
