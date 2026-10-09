@@ -538,10 +538,10 @@ PS：开发时，脚本最后将本机 Pi 包软链到仓库 `node_modules/`（`
 | 客户端 | 包与入口 | 配置 |
 | --- | --- | --- |
 | v1 | `opencode-plugins-v1.tar.gz` → `plugins/zz-agent-skills.js`、`tui-plugins/later/` | `plugin`、`tui.json(c)` |
-| v2 | `opencode-plugins-v2.tar.gz` → `v2/`，附带 ponytail | `plugins`、`cli.json` |
+| v2 | `opencode-plugins-v2.tar.gz` → `v2/`；Ponytail 登记官方包，宿主启动时自动安装 | `plugins`、`cli.json` |
 
 - Magic Context 保留已装版本；v2 至少 0.45，版本不明确则提示处理，不自动升级共享库。
-- v2 context-mode 放 `vendor/context-mode/`；notify 不安装，旧入口备份后停用。
+- v2 context-mode 放 `vendor/context-mode/`；Ponytail 不再从本包复制，setup 不调用宿主 `plugin add`；notify 不安装，旧入口备份后停用。
 - 自维护入口变化前备份，内容相同不重写；未知第三方配置保留，兼容性需自行核对。
 - v2 原生 `providers` 保留原样；通用模型模板只更新 v1 `provider` 结构。
 - 构建、发布及首次 TUI 配置迁移见 [OpenCode 分发说明](opencode/README.md)。
