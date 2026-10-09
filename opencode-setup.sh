@@ -2,7 +2,7 @@
 # opencode-setup.sh — 个人 opencode 一键配置(claude-mem + magic-context + ponytail + notify + skills 本体)
 # 仓库: brilliantrough/agent-skills
 #
-# 用法：bash opencode-setup.sh [-y|--yes]；先安装 OpenCode，按主版本拉取对应预构建包。
+# 用法：bash opencode-setup.sh [-y|--yes] [--plugins-only|--check]；先安装 OpenCode，按主版本拉取对应预构建包。
 # 不升级宿主、不迁移数据库、不自动升级共享 Magic Context。
 # 配置：本地私密值保留；provider.models 随模板刷新；v2 原生 providers 不改写。
 # -y 采用各项默认选择（默认 N 仍跳过）；凭据可交互输入或通过环境变量填写。
@@ -52,11 +52,14 @@ resolve_python3() { # python3 就绪返回 0;否则 python → py → uv 自管�
 # (装缺件、字段级合并写配置、刷新 skills),默认 N 的跳过(notify 插件、覆盖插件缓存、无代理继续、AGENTS.md 注入)。
 # 唯一还会问的是凭据(网关 + 5 个 api key);没有终端时静默跳过、占位符保留(无人值守用环境变量预填)。
 ASSUME_YES="${ASSUME_YES:-}"
+PLUGINS_ONLY=0; CHECK_ONLY=0
 while [ $# -gt 0 ]; do
   case "$1" in
     -y|--yes) ASSUME_YES=1 ;;
-    -h|--help) echo "用法: bash <本脚本> [-y|--yes]   # -y 跳过默认 Y 的确认项,默认 N 的仍人工确认"; exit 0 ;;
-    *) echo "未知参数: $1(仅支持 -y|--yes / -h|--help)" >&2; exit 2 ;;
+    --plugins-only) PLUGINS_ONLY=1 ;;
+    --check) CHECK_ONLY=1; PLUGINS_ONLY=1 ;;
+    -h|--help) echo "用法: bash <本脚本> [-y|--yes] [--plugins-only|--check]  # --plugins-only 仅同步插件；--check 只下载并检查，不写配置"; exit 0 ;;
+    *) echo "未知参数: $1(支持 -y|--yes / --plugins-only / --check / -h|--help)" >&2; exit 2 ;;
   esac
   shift
 done
@@ -67,11 +70,10 @@ OC_VERSION="$(opencode --version)"
 if [[ "$OC_VERSION" =~ (^|[[:space:]])v?([12])\.[0-9]+\.[0-9]+ ]]; then OC_MAJOR="${BASH_REMATCH[2]}"
 else echo "ERROR: 无法识别或暂不支持的 OpenCode 版本: $OC_VERSION" >&2; exit 1; fi
 echo "客户端: $OC_VERSION → v$OC_MAJOR 插件包；不升级宿主/不迁移数据库"
-OC_RELEASE="opencode-plugins-1.0.3"
+OC_RELEASE="opencode-plugins-1.0.4"
 CFG="${OPENCODE_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/opencode}"
 PLUGINS="$CFG/plugins"
 LIB="$CFG/lib"
-mkdir -p "$CFG" "$PLUGINS"
 BUNDLED="$LIB/claude-mem.js"
 MCP_CJS="$HOME/.claude/plugins/marketplaces/thedotmack/plugin/scripts/mcp-server.cjs"
 SETTINGS="$HOME/.claude-mem/settings.json"
@@ -411,8 +413,36 @@ else
 fi
 
 # ---- 1. 依赖: python3(必需;缺失时用 uv 自管理 3.12 兜底,Git for Windows 不带 python) ----
+if [ "$PLUGINS_ONLY" = 1 ]; then
+  if command -v python3 >/dev/null 2>&1 && python3 -c pass >/dev/null 2>&1; then :
+  elif command -v python >/dev/null 2>&1 && python -c pass >/dev/null 2>&1; then python3() { python "$@"; }
+  elif command -v py >/dev/null 2>&1 && py -3 -c pass >/dev/null 2>&1; then python3() { py -3 "$@"; }
+  else echo "ERROR: 插件检查／同步需要现成的 Python 3；请先安装或运行完整 setup" >&2; exit 1; fi
+else
 resolve_python3 || { echo "ERROR: 没有可用的 Python 3(配置写入依赖它)。可手工装(winget install Python.Python.3.12 / apt install python3)或允许脚本用 uv 装后重跑。" >&2; exit 1; }
 
+fi
+
+# ---- 1.1 下载对应主版本的发布包；下载/解包失败即停止，保留原配置 ----
+oc_stage="$(mktemp -d)"
+trap 'rm -rf "$oc_stage"' EXIT
+OC_URL="https://github.com/brilliantrough/agent-skills/releases/download/$OC_RELEASE/opencode-plugins-v$OC_MAJOR.tar.gz"
+curl -fsSL --connect-timeout 8 -m 120 -o "$oc_stage/package.tgz" "$OC_URL"
+python3 - "$oc_stage/package.tgz" "$oc_stage" <<'PYEOF'
+import pathlib, sys, tarfile
+root = pathlib.Path(sys.argv[2]).resolve()
+with tarfile.open(sys.argv[1]) as archive:
+    for member in archive.getmembers():
+        dest = (root / member.name).resolve()
+        if (root != dest and root not in dest.parents) or not (member.isfile() or member.isdir()):
+            raise SystemExit('ERROR: 发布包包含非法路径或链接')
+    archive.extractall(root)
+PYEOF
+python3 "$oc_stage/deploy.py" "$oc_stage" "$(npath "$CFG")" "$OC_MAJOR" --check
+
+if [ "$CHECK_ONLY" = 1 ]; then exit 0; fi
+
+if [ "$PLUGINS_ONLY" != 1 ]; then
 # ---- 1.1 依赖: npx(fnm + Node)----
 if ! command -v npx >/dev/null 2>&1 && command -v fnm >/dev/null 2>&1; then
   # Git Bash 不加载 PowerShell 的 fnm 初始化；复用已有 default Node，避免重复安装。
@@ -456,44 +486,6 @@ fi
 BUN_BIN="$(command -v bun 2>/dev/null || true)"; [ -n "$BUN_BIN" ] || BUN_BIN="$HOME/.bun/bin/bun$BIN_EXT"
 [ -x "$BUN_BIN" ] || BUN_BIN=bun
 
-# ---- 1.3 Ponytail:官方同一包同时支持 v1/v2；缺失才安装，不升级已有包 ----
-ensure_ponytail() {
-  local cache_root="${XDG_CACHE_HOME:-$HOME/.cache}/opencode" found=""
-  if [ "$OC_MAJOR" = 2 ]; then
-    found="$(find "$cache_root/npm/@dietrichgebert/ponytail@latest" -name package.json -type f -print -quit 2>/dev/null || true)"
-  else
-    found="$(find "$cache_root/packages/@dietrichgebert/ponytail@latest" -name package.json -type f -print -quit 2>/dev/null || true)"
-  fi
-  if [ -n "$found" ]; then
-    echo "unchanged: Ponytail($(python3 -c "import json;print(json.load(open('$found')).get('version','?'))" 2>/dev/null || echo '?'))"
-    return 0
-  fi
-  echo "未找到官方 Ponytail，按 OpenCode v$OC_MAJOR 语法安装 @dietrichgebert/ponytail"
-  if [ "$OC_MAJOR" = 2 ]; then
-    opencode plugin add @dietrichgebert/ponytail
-  else
-    opencode plugin @dietrichgebert/ponytail -g
-  fi
-}
-ensure_ponytail || { echo "ERROR: 官方 Ponytail 安装失败，未部署 OpenCode 插件" >&2; exit 1; }
-
-# ---- 1.4 下载对应主版本的发布包；下载/解包失败即停止，保留原配置 ----
-oc_stage="$(mktemp -d)"
-trap 'rm -rf "$oc_stage"' EXIT
-OC_URL="https://github.com/brilliantrough/agent-skills/releases/download/$OC_RELEASE/opencode-plugins-v$OC_MAJOR.tar.gz"
-curl -fsSL --connect-timeout 8 -m 120 -o "$oc_stage/package.tgz" "$OC_URL"
-python3 - "$oc_stage/package.tgz" "$oc_stage" <<'PYEOF'
-import pathlib, sys, tarfile
-root = pathlib.Path(sys.argv[2]).resolve()
-with tarfile.open(sys.argv[1]) as archive:
-    for member in archive.getmembers():
-        dest = (root / member.name).resolve()
-        if (root != dest and root not in dest.parents) or not (member.isfile() or member.isdir()):
-            raise SystemExit('ERROR: 发布包包含非法路径或链接')
-    archive.extractall(root)
-PYEOF
-python3 "$oc_stage/deploy.py" "$oc_stage" "$(npath "$CFG")" "$OC_MAJOR" --check
-
 # ---- 2. claude-mem:安装(只为拿 bundle / MCP 资产)+ 修复 ----
 if [ ! -f "$BUNDLED" ] && [ ! -f "$PLUGINS/claude-mem.js" ]; then
   if command -v npx >/dev/null 2>&1 && ask "未找到 claude-mem,运行官方安装器 npx claude-mem install --ide opencode?" Y; then
@@ -524,13 +516,7 @@ if [ ! -f "$BUNDLED" ] && [ ! -f "$PLUGINS/claude-mem.js" ]; then
 fi
 ensure_mem_provider "$SETTINGS"
 
-if [ -f "$PLUGINS/claude-mem.js" ]; then
-  mkdir -p "$LIB"
-  mv -f "$PLUGINS/claude-mem.js" "$BUNDLED"
-  echo "moved: plugins/claude-mem.js -> lib/claude-mem.js"
-fi
-
-if [ ! -f "$BUNDLED" ]; then
+if [ ! -f "$BUNDLED" ] && [ ! -f "$PLUGINS/claude-mem.js" ]; then
   echo "WARN: 没有 claude-mem bundle,跳过 claude-mem 相关配置" >&2
 fi
 
@@ -643,7 +629,10 @@ def deep_merge(base, over):  # over 优先(本地值优先),dict 递归
     if isinstance(base, dict) and isinstance(over, dict):
         out = dict(base)
         for k, v in over.items():
-            out[k] = deep_merge(base.get(k), v) if k in base else v
+            if k in ('plugin', 'plugins') and isinstance(base.get(k), list) and isinstance(v, list):
+                out[k] = base[k] + [entry for entry in v if entry not in base[k]]
+            else:
+                out[k] = deep_merge(base.get(k), v) if k in base else v
         return out
     return over
 
@@ -798,6 +787,8 @@ PYEOF
   fi
 fi
 
+fi # 完整安装的环境／配置步骤
+
 # ---- 5. context-mode 独立产物：v1 自动入口；v2 由版本适配包加载 ----
 # skills 装到 $CFG/skill/<name>/。
 CM_ASSET="opencode-context-mode-vendor.tar.gz"
@@ -813,10 +804,17 @@ if mkdir -p "$cm_tmp/pkg" && curl -fsSL --connect-timeout 8 -m 120 -o "$cm_tmp/a
   if [ -d "$CM_DIR" ] && diff -rq "$cm_tmp/pkg" "$CM_DIR" >/dev/null 2>&1; then
     echo "unchanged: $CM_DIR($cm_ver)"
   else
-    [ ! -e "$CM_DIR" ] || mv "$CM_DIR" "$CM_DIR.bak-$(date +%Y%m%d%H%M%S)"
+    if [ -e "$CM_DIR" ]; then
+      cm_backup="$CFG/.agent-skills-backups/$(date +%Y%m%d%H%M%S)-context-mode/${CM_DIR#"$CFG/"}"
+      mkdir -p "$(dirname "$cm_backup")"; mv "$CM_DIR" "$cm_backup"
+      echo "backup: $CM_DIR -> $cm_backup"
+    fi
     mkdir -p "$(dirname "$CM_DIR")"; mv "$cm_tmp/pkg" "$CM_DIR"; echo "deployed: $CM_DIR($cm_ver)"
   fi
-  if [ "$OC_MAJOR" = 1 ]; then cp -f "$CM_DIR/entry.js" "$CM_ENTRY"; fi
+  if [ "$OC_MAJOR" = 1 ] && ! cmp -s "$CM_DIR/entry.js" "$CM_ENTRY"; then
+    [ ! -f "$CM_ENTRY" ] || cp -p "$CM_ENTRY" "$CM_ENTRY.bak-$(date +%Y%m%d%H%M%S)"
+    cp -f "$CM_DIR/entry.js" "$CM_ENTRY"
+  fi
   cm_n=0
   for d in "$CM_DIR"/skills/*/; do
     [ -f "$d/SKILL.md" ] || continue
@@ -838,6 +836,11 @@ fi
 
 # ---- 5. 按客户端主版本部署；配置只替换本套件管理的条目 ----
 python3 "$oc_stage/deploy.py" "$oc_stage" "$(npath "$CFG")" "$OC_MAJOR"
+echo "Ponytail 已登记官方包；缺失包由下次启动 OpenCode 下载，setup 不清缓存、不启动宿主。"
+if [ "$PLUGINS_ONLY" = 1 ]; then
+  echo "插件同步完成；重启 OpenCode 生效。宿主／数据库／共享 Magic Context 未升级。"
+  exit 0
+fi
 
 # ---- 5.1 compaction 关闭(manual setup 要求:magic-context 接管压缩;完整 jsonc 已含则跳过)----
 if ! grep -qs '"compaction"' "$CFG/opencode.jsonc" "$CFG/opencode.json" 2>/dev/null && \
@@ -860,76 +863,9 @@ if "compaction" not in cfg:
 PYEOF
 fi
 
-# ensure_tui_plugin <entry> <识别串> — 往 TUI 配置的 plugin 数组补条目(幂等,只增不删;
-# 用户故意移除条目即表示不要该插件)。opencode 同时加载 tui.json 与 tui.jsonc(后者优先),
-# 故:有 jsonc 用 jsonc,否则用 json,都没有则建 tui.jsonc。
-ensure_tui_plugin() {
-  local entry="$1" match="$2"
-  if [ -f "$CFG/tui.jsonc" ]; then TUI_CFG="$CFG/tui.jsonc"
-  elif [ -f "$CFG/tui.json" ]; then TUI_CFG="$CFG/tui.json"
-  else TUI_CFG="$CFG/tui.jsonc"; fi
-  if grep -qs "$match" "$CFG/tui.jsonc" "$CFG/tui.json" 2>/dev/null; then
-    echo "unchanged: $TUI_CFG(已有 $match 条目)"
-    return 0
-  fi
-python3 - "$TUI_CFG" "$entry" <<'PYEOF'
-import json, re, sys
-path, entry = sys.argv[1], sys.argv[2]
-def load(p):  # JSONC 感知:去注释与尾逗号(字符串内的 // 不动)
-    try:
-        t = open(p, encoding='utf-8').read()
-    except FileNotFoundError:
-        return {}
-    out, i, n, instr = [], 0, len(t), False
-    while i < n:
-        c = t[i]
-        if instr:
-            out.append(c)
-            if c == '\\': out.append(t[i + 1]); i += 2; continue
-            if c == '"': instr = False
-            i += 1; continue
-        if c == '"': instr = True; out.append(c); i += 1; continue
-        if c == '/' and i + 1 < n and t[i + 1] == '/':
-            while i < n and t[i] != '\n': i += 1
-            continue
-        if c == '/' and i + 1 < n and t[i + 1] == '*':
-            i += 2
-            while i + 1 < n and not (t[i] == '*' and t[i + 1] == '/'): i += 1
-            i += 2; continue
-        out.append(c); i += 1
-    return json.loads(re.sub(r',(\s*[}\]])', r'\1', ''.join(out)))
-cfg = load(path)
-plugins = cfg.get("plugin")
-if not isinstance(plugins, list):
-    plugins = []
-plugins.append(entry)
-cfg["plugin"] = plugins
-with open(path, "w", encoding="utf-8") as f:
-    json.dump(cfg, f, indent=2, ensure_ascii=False)
-    f.write("\n")
-print(f"added: tui plugin {entry} -> {path}")
-PYEOF
-}
-
-# ---- 5.2 TUI 入口：v2 从主配置的目录包自动发现 tui.js ----
-if [ "$OC_MAJOR" = 1 ]; then
-  if [ -f "$CFG/tui.jsonc" ]; then TUI_CFG="$CFG/tui.jsonc"
-  elif [ -f "$CFG/tui.json" ]; then TUI_CFG="$CFG/tui.json"
-  else TUI_CFG="$CFG/tui.jsonc"; fi
-  TUI_ENTRY="$(python3 - "$CFG/opencode.json" <<'PYEOF'
-import json,sys
-c=json.load(open(sys.argv[1],encoding='utf-8'))
-sources = [p[0] if isinstance(p, list) else p for p in c['plugin']]
-print(next(p for p in sources if isinstance(p, str) and 'opencode-magic-context' in p))
-PYEOF
-)"
-  ensure_tui_plugin "$TUI_ENTRY" 'magic-context'
-  ensure_tui_plugin "./tui-plugins/later" 'tui-plugins/later'
-else
-  if [ -f "$CFG/cli.json" ]; then TUI_CFG="$CFG/cli.json"
-  else TUI_CFG="$CFG/tui.json"; fi
-  echo "v2: 使用 cli.json（未存在时由宿主首启迁移 tui.json）；notify 不安装"
-fi
+# TUI 插件登记由 deploy.py 统一处理；这里仅设置用户按键。
+TUI_CFG="$CFG/tui.json"
+if [ "$OC_MAJOR" = 2 ] && [ -f "$CFG/cli.json" ]; then TUI_CFG="$CFG/cli.json"; fi
 
 # ---- 5.4 TUI 按键(Enter 发送、Shift+Enter 换行;不绑定 Ctrl+Enter)----
 # 先 fetch 式检查差异,有变化才展示并询问;无变化只报 unchanged。

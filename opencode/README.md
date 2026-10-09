@@ -2,6 +2,14 @@
 
 先安装 OpenCode，再运行仓库根 `opencode-setup.sh`；脚本只读取 `opencode --version`，不升级宿主、不迁移数据库。无客户端、未知主版本或下载失败时停止，不猜版本。
 
+```bash
+bash opencode-setup.sh --check         # 查询目标包、管理路径、待退役项；不改本机配置
+bash opencode-setup.sh --plugins-only  # 同步插件与 context-mode skills，不更新模型／Python／通用 skills
+bash opencode-setup.sh                # 完整安装，同样包含插件同步
+```
+
+升级前退出 OpenCode（含后台服务），先完成宿主升级，再运行上述同步命令；无需手工删除旧插件。`--check` 和 `--plugins-only` 需要已安装 Python 3、curl，前者仍会联网下载并校验发布包。
+
 | 客户端 | 资产 | 安装位置与登记 |
 | --- | --- | --- |
 | v1 | `opencode-plugins-v1.tar.gz` | `plugins/zz-agent-skills.js`、`tui-plugins/later/`；`plugin`、`tui.json(c)` |
@@ -13,6 +21,10 @@
 
 - `OPENCODE_CONFIG_DIR` 优先，否则 `$XDG_CONFIG_HOME/opencode` 或 `~/.config/opencode`。
 - 只替换本套件管理的入口；变化前备份，内容相同不重写。旧 wrapper／later／纠错入口停用，避免重复注册。
+- v1 → v2：统一处理旧散装 wrapper／later／纠错入口和旧分版本包，配置切到 v2 `plugins`；旧 `tui-plugins/later/`、`context-rewrite/`、`plugins/context-mode/` 退役。现有 `cli.json` 保留；没有时准备 `tui.json`，由宿主首启迁移。
+- 插件备份：`$CFG/.agent-skills-backups/<时间戳>/<原相对路径>`；移走 `plugins/context-mode.bak-*` 遗留目录，避免被 v2 自动发现。配置文件仍留相邻时间戳备份；回退插件不等于回退宿主数据库。
+- 仅回收本套件固定安装路径，不按文件名子串删除用户自定义插件。Magic Context、Ponytail 缓存、会话库、认证及外置正文不删除；v1 检测到 v2 配置会停止，不自动降级。
+- 官方 Ponytail 写入配置登记，缺包由下次启动 OpenCode 拉取；setup 不运行 `plugin add`、不清缓存、不升级已有包。
 - API key、URL、provider options、MCP 与其他本地字段保留。通用模型模板更新 v1 `provider` 结构；已有 v2 原生 `providers` 保持原样，不混写或猜测字段转换。
 - context-mode 继续独立从 `releases/latest` 下载：v1 放 `plugins/context-mode/`；v2 放 `vendor/context-mode/`，不再放 v1 自动入口。
 - Magic Context 保留已配置版本；v2 至少需要 0.45。已有 `@latest` 时定位已安装包；无法定位则提示先固定版本，不擅自升级共享数据库。新安装优先沿用已有 OpenCode／Pi 版本；没有已装版本和共享库时才固定用 0.45.0。

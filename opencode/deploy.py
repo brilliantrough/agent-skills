@@ -13,6 +13,20 @@ from typing import Any
 
 STAMP = datetime.now().strftime('%Y%m%d%H%M%S%f')
 MC = '@cortexkit/opencode-magic-context'
+LEGACY = ['plugins/claude-mem-wrapper.js', 'plugins/later.js',
+          'plugins/zz-context-rewrite.js', 'plugins/context-rewrite.js']
+V1_ONLY = ['plugins/zz-agent-skills.js', 'plugins/context-mode.js',
+           'plugins/session-notify.js', 'plugins/fixed-prompt-cache-key.js',
+           'plugins/session-id-header.js', 'tui-plugins/later',
+           'context-rewrite', 'plugins/context-mode']
+
+
+def retire(path, cfg):
+    destination = cfg / '.agent-skills-backups' / STAMP / path.relative_to(cfg)
+    writable(destination)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    path.rename(destination)
+    print(f'backup: {path} -> {destination}')
 
 
 def load(path) -> dict[str, Any]:
@@ -111,18 +125,25 @@ def is_mc(entry):
     return not spec.startswith('-') and 'opencode-magic-context' in spec
 
 
-def owned(entry):
-    spec = str(package(entry)).replace('\\', '/')
+def owned(entry, cfg):
+    spec = str(package(entry))
     if spec.startswith('-'):
         return False
-    return any(s in spec for s in ['claude-mem-wrapper.js', '/claude-mem.js', 'plugins/later.js',
-        'context-rewrite.js', 'zz-agent-skills.js', 'tui-plugins/later', 'context-mode.js']) or bool(re.fullmatch(r'(npm:)?context-mode(@[^/]+)?', spec))
+    paths = [*LEGACY, 'plugins/claude-mem.js', 'plugins/zz-agent-skills.js',
+             'plugins/context-mode.js', 'plugins/context-mode',
+             'tui-plugins/later', 'tui-plugins/later/index.mjs',
+             'v2/later-cli.js', 'v2/tui.js']
+    return directory(entry, cfg) in [(cfg / p).resolve() for p in paths] or bool(
+        re.fullmatch(r'(npm:)?(context-mode|claude-mem)(@[^/]+)?', spec))
 
 
 def merge(base, over):
     out = dict(base)
     for key, value in over.items():
-        out[key] = merge(out[key], value) if isinstance(out.get(key), dict) and isinstance(value, dict) else value
+        if key in ('plugin', 'plugins') and isinstance(out.get(key), list) and isinstance(value, list):
+            out[key] = out[key] + [entry for entry in value if entry not in out[key]]
+        else:
+            out[key] = merge(out[key], value) if isinstance(out.get(key), dict) and isinstance(value, dict) else value
     return out
 
 
@@ -130,11 +151,11 @@ def cli_config(cfg):
     if (cfg / 'cli.json').exists():
         cli = load(cfg / 'cli.json')
         if 'plugins' in cli:
-            cli['plugins'] = [e for e in cli['plugins'] if not owned(e)]
+            cli['plugins'] = [e for e in cli['plugins'] if not owned(e, cfg) and not is_mc(e)]
         return cfg / 'cli.json', cli
     # v2 首启用自身迁移器转换旧 action 名、界面配置与 state/kv.json。
     old = merge(load(cfg / 'tui.json'), load(cfg / 'tui.jsonc'))
-    old['plugin'] = [e for e in old.get('plugin', []) if not owned(e) and not is_mc(e)]
+    old['plugin'] = [e for e in old.get('plugin', []) if not owned(e, cfg) and not is_mc(e)]
     return cfg / 'tui.json', old
 
 
@@ -155,13 +176,13 @@ def install(root, cfg, major, check=False):
     target = cfg / 'opencode.json'
     config = merge(load(target), load(cfg / 'opencode.jsonc'))
     entries = [*config.get('plugin', []), *config.get('plugins', [])]
-    if major == 1 and any(directory(e, cfg) == (cfg / 'v2').resolve() for e in entries):
+    if major == 1 and ((cfg / 'v2').exists() or (cfg / 'cli.json').exists() or 'plugins' in config):
         raise ValueError('该配置已用于 v2；v1 请使用隔离配置目录，不自动降级数据库或插件')
     mc = magic_context(entries, major, cfg)
-    entries = [e for e in entries if not owned(e) and not is_mc(e)]
+    entries = [e for e in entries if not owned(e, cfg) and not is_mc(e)]
     old_entry = next((e for e in entries if directory(e, cfg) == (cfg / 'v2').resolve()), {})
     previous = native(old_entry)
-    cli_path, cli = cli_config(cfg) if major == 2 else (cfg / 'tui.json', {})
+    cli_path, cli = cli_config(cfg) if major == 2 else (cfg / 'tui.json', merge(load(cfg / 'tui.json'), load(cfg / 'tui.jsonc')))
     if major == 2:
         ponytail = previous.get('options', {}).get('ponytailPackage') if isinstance(previous, dict) else None
         if isinstance(previous, dict) and 'options' in previous:
@@ -170,7 +191,7 @@ def install(root, cfg, major, check=False):
                 previous.pop('options')
         official_ponytail = next((native(e) for e in entries if '@dietrichgebert/ponytail' in str(package(e))), '@dietrichgebert/ponytail')
         entries = [native(e) for e in entries if '@dietrichgebert/ponytail' not in str(package(e)) and e != old_entry]
-        entries = [e for e in entries if not any(s in str(package(e)) for s in ['session-notify.js', 'fixed-prompt-cache-key.js', 'session-id-header.js'])]
+        entries = [e for e in entries if directory(e, cfg) not in [(cfg / p).resolve() for p in V1_ONLY]]
         entries.insert(0, mc)
         entries.append(official_ponytail)
         entries.append({**previous, 'package': str(cfg / 'v2')} if isinstance(previous, dict) else str(cfg / 'v2'))
@@ -186,18 +207,33 @@ def install(root, cfg, major, check=False):
         if not any('@dietrichgebert/ponytail' in str(package(e)) for e in entries):
             config['plugin'].append('@dietrichgebert/ponytail')
         config.pop('plugins', None)
-    files = ['claude-mem-wrapper.js', 'later.js', 'zz-context-rewrite.js', 'context-rewrite.js']
-    if major == 2:
-        files += ['zz-agent-skills.js', 'context-mode.js', 'session-notify.js', 'fixed-prompt-cache-key.js', 'session-id-header.js']
-    obsolete = [cfg / 'plugins' / name for name in files if (cfg / 'plugins' / name).exists()]
-    for path in [target, cfg / 'opencode.jsonc', *(cfg / name for name in manifest['install']), *obsolete]:
+        cli['plugin'] = [e for e in cli.get('plugin', []) if not owned(e, cfg) and not is_mc(e)]
+        cli['plugin'] += [mc, './tui-plugins/later']
+    obsolete = [cfg / p for p in [*LEGACY, *(V1_ONLY if major == 2 else [])] if (cfg / p).exists()]
+    # 移走已知旧备份，不能留在 v2 会自动发现子目录的 plugins/ 下。
+    obsolete += [p for p in (cfg / 'plugins').glob('context-mode.bak-*') if p.is_dir()]
+    bundled = cfg / 'lib/claude-mem.js'
+    old_bundle = cfg / 'plugins/claude-mem.js'
+    if old_bundle.exists():
+        obsolete.append(old_bundle)
+    for path in [target, cfg / 'opencode.jsonc', cli_path, cfg / 'tui.jsonc', bundled,
+                 cfg / '.agent-skills-backups', cfg / 'plugins/context-mode',
+                 cfg / 'plugins/context-mode.js', cfg / 'vendor/context-mode',
+                 *(cfg / name for name in manifest['install']), *obsolete]:
         writable(path)
-    if major == 2:
-        writable(cli_path)
-        writable(cfg / 'tui.jsonc')
+    print(f'package: {manifest["version"]} / OpenCode v{major}')
+    for relative in manifest['install']:
+        print(f'managed: {cfg / relative}')
+    for path in obsolete:
+        print(f'retire: {path}')
+    print(f'config: {target.name} ({"plugins" if major == 2 else "plugin"}), {cli_path.name}; 私密字段保留')
     if check:
-        print(f'ready: v{major} 发布包、配置和 Magic Context 版本检查通过（未写入）')
+        print('ready: 发布包、配置和 Magic Context 检查通过（未写入；备份位于 .agent-skills-backups/）')
         return
+    if old_bundle.exists() and not bundled.exists():
+        bundled.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(old_bundle, bundled)
+        print(f'moved bundle: {old_bundle} -> {bundled}')
     for relative in manifest['install']:
         source, destination = root / relative, cfg / relative
         if source.is_dir():
@@ -213,20 +249,18 @@ def install(root, cfg, major, check=False):
         temporary = destination.with_name(destination.name + '.new-' + STAMP)
         shutil.copytree(source, temporary) if source.is_dir() else shutil.copy2(source, temporary)
         if destination.exists():
-            destination.rename(str(destination) + '.bak-' + STAMP)
+            retire(destination, cfg)
         temporary.replace(destination)
         print(f'deployed: {destination}')
     for path in obsolete:
-        path.rename(str(path) + '.bak-' + STAMP)
-        print(f'retired: {path}')
+        retire(path, cfg)
     write(target, config)
     if (cfg / 'opencode.jsonc').exists():
         (cfg / 'opencode.jsonc').rename(cfg / ('opencode.jsonc.migrated-' + STAMP + '.bak'))
-    if major == 2:
-        write(cli_path, cli)
-        if cli_path.name == 'tui.json' and (cfg / 'tui.jsonc').exists():
-            (cfg / 'tui.jsonc').rename(cfg / ('tui.jsonc.migrated-' + STAMP + '.bak'))
-            print('prepared: tui.json（原 JSONC 已备份；cli.json 由 v2 首启生成）')
+    write(cli_path, cli)
+    if cli_path.name == 'tui.json' and (cfg / 'tui.jsonc').exists():
+        (cfg / 'tui.jsonc').rename(cfg / ('tui.jsonc.migrated-' + STAMP + '.bak'))
+        print('prepared: tui.json（原 JSONC 已备份）')
     print(f'OpenCode v{major} 插件已部署；未启动宿主、未迁移数据库')
 
 
