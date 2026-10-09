@@ -67,7 +67,7 @@ OC_VERSION="$(opencode --version)"
 if [[ "$OC_VERSION" =~ (^|[[:space:]])v?([12])\.[0-9]+\.[0-9]+ ]]; then OC_MAJOR="${BASH_REMATCH[2]}"
 else echo "ERROR: 无法识别或暂不支持的 OpenCode 版本: $OC_VERSION" >&2; exit 1; fi
 echo "客户端: $OC_VERSION → v$OC_MAJOR 插件包；不升级宿主/不迁移数据库"
-OC_RELEASE="opencode-plugins-1.0.1"
+OC_RELEASE="opencode-plugins-1.0.2"
 CFG="${OPENCODE_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/opencode}"
 PLUGINS="$CFG/plugins"
 LIB="$CFG/lib"
@@ -456,7 +456,28 @@ fi
 BUN_BIN="$(command -v bun 2>/dev/null || true)"; [ -n "$BUN_BIN" ] || BUN_BIN="$HOME/.bun/bin/bun$BIN_EXT"
 [ -x "$BUN_BIN" ] || BUN_BIN=bun
 
-# ---- 1.2 下载对应主版本的发布包；下载/解包失败即停止，保留原配置 ----
+# ---- 1.3 Ponytail:官方同一包同时支持 v1/v2；缺失才安装，不升级已有包 ----
+ensure_ponytail() {
+  local cache_root="${XDG_CACHE_HOME:-$HOME/.cache}/opencode" found=""
+  if [ "$OC_MAJOR" = 2 ]; then
+    found="$(find "$cache_root/npm/@dietrichgebert/ponytail@latest" -name package.json -type f -print -quit 2>/dev/null || true)"
+  else
+    found="$(find "$cache_root" -path '*/@dietrichgebert/ponytail*/package.json' -type f -print -quit 2>/dev/null || true)"
+  fi
+  if [ -n "$found" ]; then
+    echo "unchanged: Ponytail($(python3 -c "import json;print(json.load(open('$found')).get('version','?'))" 2>/dev/null || echo '?'))"
+    return 0
+  fi
+  echo "未找到官方 Ponytail，按 OpenCode v$OC_MAJOR 语法安装 @dietrichgebert/ponytail"
+  if [ "$OC_MAJOR" = 2 ]; then
+    opencode plugin add @dietrichgebert/ponytail
+  else
+    opencode plugin @dietrichgebert/ponytail -g
+  fi
+}
+ensure_ponytail || { echo "ERROR: 官方 Ponytail 安装失败，未部署 OpenCode 插件" >&2; exit 1; }
+
+# ---- 1.4 下载对应主版本的发布包；下载/解包失败即停止，保留原配置 ----
 oc_stage="$(mktemp -d)"
 trap 'rm -rf "$oc_stage"' EXIT
 OC_URL="https://github.com/brilliantrough/agent-skills/releases/download/$OC_RELEASE/opencode-plugins-v$OC_MAJOR.tar.gz"

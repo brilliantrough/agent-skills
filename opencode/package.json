@@ -1,10 +1,9 @@
 {
   "name": "agent-skills-opencode-build",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "type": "module",
   "devDependencies": {
-    "@opencode-ai/plugin": "1.18.35",
-    "@dietrichgebert/ponytail": "4.9.0"
+    "@opencode-ai/plugin": "1.18.35"
   }
 }

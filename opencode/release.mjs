@@ -37,8 +37,6 @@ for (const major of [1, 2]) {
     await bundle("opencode/v2/index.js", "v2/index.js");
     await bundle("opencode/v2/later-cli.js", "v2/later-cli.js");
     for (const file of ["package.json", "tui.js", "README.md"]) copy(`opencode/v2/${file}`, `v2/${file}`);
-    const pony = "opencode/node_modules/@dietrichgebert/ponytail";
-    for (const file of ["hooks", "skills", ".opencode", "LICENSE", "package.json"]) copy(`${pony}/${file}`, `v2/ponytail/${file}`);
   }
   const docs = major === 1 ? "context-rewrite" : "v2";
   for (const file of ["README.md", "ACP-KERNEL-LICENSE"]) copy(`context-rewrite/${file}`, `${docs}/${file === 'README.md' && major === 2 ? 'CONTEXT.md' : file}`);

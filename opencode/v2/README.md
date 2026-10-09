@@ -4,9 +4,8 @@
 
 | 文件 | 职责 |
 | --- | --- |
-| `index.js` | 依次注册以下服务端能力，并清理注册资源 |
+| `index.js` | 注册 v2 服务端能力，并清理注册资源；Ponytail 由官方包原生加载 |
 | `legacy-tools.js` | 复用已安装的 context-mode、claude-mem、later 实现，转换 v2 工具与会话事件 |
-| `ponytail.js` | 复用 ponytail 规则正文与命令模板 |
 | `request-affinity.js` | 会话级缓存键、sticky session 请求头 |
 | `context-rewrite.js` | 近期纠错、持久外置、显式全文取回；复用 `context-rewrite/` 核心 |
 | `later-cli.js` | TUI 输入 `later 5h 检查结果`、`later list`、`later cancel all`，以及 `/later` |
@@ -32,7 +31,7 @@ Magic Context 使用其自身的 v2 入口；本包须在它之后加载。notif
 - `vendor/context-mode/`：独立 release 产物，由适配层调用；不把旧 hooks 再登记给宿主。
 - `lib/claude-mem.js`：已有上游 bundle；不存在时跳过采集 hook，其余工具仍可使用。
 - 旧工具 schema、wrapper、later 已打进 bundle；不再依赖 `legacy-v1/` 或目标机 `node_modules/@opencode-ai/plugin`。
-- `v2/ponytail/`：随包携带，包含规则、命令、skills 和许可证。默认无需 `options.ponytailPackage`；已有显式路径仍保留。
+- `v2/` 目录包：本仓自维护能力；官方 Ponytail 单独由 `@dietrichgebert/ponytail` 提供，不能再把 `v2/ponytail/` 或 `options.ponytailPackage` 加入配置。
 
 setup 备份后停用本套件旧入口，避免与 `plugins/` 自动发现重复。CLI 自动发现本包的 `tui.js`；主题、快捷键使用 `cli.json`。首次从旧 TUI 配置接入时，由宿主迁移 `tui.json` 与 state；setup 不迁移会话数据库。
 

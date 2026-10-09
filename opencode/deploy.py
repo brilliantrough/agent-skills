@@ -163,17 +163,24 @@ def install(root, cfg, major, check=False):
     previous = native(old_entry)
     cli_path, cli = cli_config(cfg) if major == 2 else (cfg / 'tui.json', {})
     if major == 2:
+        ponytail = previous.get('options', {}).get('ponytailPackage') if isinstance(previous, dict) else None
+        if isinstance(previous, dict) and 'options' in previous:
+            previous = {**previous, 'options': {k: v for k, v in previous['options'].items() if k != 'ponytailPackage'}}
+            if not previous['options']:
+                previous.pop('options')
+        official_ponytail = next((native(e) for e in entries if '@dietrichgebert/ponytail' in str(package(e))), '@dietrichgebert/ponytail')
         entries = [native(e) for e in entries if '@dietrichgebert/ponytail' not in str(package(e)) and e != old_entry]
         entries = [e for e in entries if not any(s in str(package(e)) for s in ['session-notify.js', 'fixed-prompt-cache-key.js', 'session-id-header.js'])]
         entries.insert(0, mc)
+        entries.append(official_ponytail)
         entries.append({**previous, 'package': str(cfg / 'v2')} if isinstance(previous, dict) else str(cfg / 'v2'))
         config.pop('plugin', None)
         config['plugins'] = entries
-        paths = config.setdefault('skills', {}).setdefault('paths', [])
-        ponytail = previous.get('options', {}).get('ponytailPackage') if isinstance(previous, dict) else None
-        skills = str(Path(ponytail or cfg / 'v2/ponytail') / 'skills')
-        if skills not in paths:
-            paths.append(skills)
+        if isinstance(config.get('skills'), dict) and 'paths' in config['skills']:
+            retired = {(cfg / 'v2/ponytail/skills').resolve()}
+            if ponytail:
+                retired.add((Path(ponytail) / 'skills').resolve())
+            config['skills']['paths'] = [p for p in config['skills']['paths'] if (cfg / p).resolve() not in retired]
     else:
         config['plugin'] = [mc, *entries]
         if not any('@dietrichgebert/ponytail' in str(package(e)) for e in entries):

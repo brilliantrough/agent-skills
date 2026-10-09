@@ -5,9 +5,9 @@
 | 客户端 | 资产 | 安装位置与登记 |
 | --- | --- | --- |
 | v1 | `opencode-plugins-v1.tar.gz` | `plugins/zz-agent-skills.js`、`tui-plugins/later/`；`plugin`、`tui.json(c)` |
-| v2 | `opencode-plugins-v2.tar.gz` | `v2/` 目录包，内带 ponytail；`plugins`、`cli.json` |
+| v2 | `opencode-plugins-v2.tar.gz` | `v2/` 目录包；官方 Ponytail 单独安装；`plugins`、`cli.json` |
 
-包内含近期纠错、大输出外置／全文取回、later、claude-mem wrapper；v2 另含旧工具 API 适配和请求亲和性设置。工具用法见 [上下文插件](../context-rewrite/README.md)，v2 接口见 [v2 说明](v2/README.md)。
+包内含近期纠错、大输出外置／全文取回、later、claude-mem wrapper；v2 另含旧工具 API 适配和请求亲和性设置。Ponytail 不复制进包，直接使用官方同一包的 v1/v2 双入口。工具用法见 [上下文插件](../context-rewrite/README.md)，v2 接口见 [v2 说明](v2/README.md)。
 
 ## 配置与依赖
 
@@ -47,4 +47,4 @@ git push origin main
 
 ## 许可证
 
-局部吸收与编号使用 [ranxianglei/acp-kernel](https://github.com/ranxianglei/acp-kernel) 0.0.101；相关项目 [billion-context](https://github.com/ranxianglei/billion-context)。保留 [ACP-KERNEL-LICENSE](../context-rewrite/ACP-KERNEL-LICENSE) 的许可证及出处标注要求。包内另附 OpenCode／Zod 许可证；v2 的 ponytail 保留其原始 LICENSE。
+局部吸收与编号使用 [ranxianglei/acp-kernel](https://github.com/ranxianglei/acp-kernel) 0.0.101；相关项目 [billion-context](https://github.com/ranxianglei/billion-context)。保留 [ACP-KERNEL-LICENSE](../context-rewrite/ACP-KERNEL-LICENSE) 的许可证及出处标注要求。包内另附 OpenCode／Zod 许可证。
