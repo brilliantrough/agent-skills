@@ -54,6 +54,18 @@ def package(entry):
     return entry.get('package', '') if isinstance(entry, dict) else entry[0] if isinstance(entry, list) else entry
 
 
+def directory(entry, cfg):
+    spec = str(package(entry))
+    if spec.startswith('file:'):
+        spec = unquote(urlparse(spec).path)
+        if os.name == 'nt':
+            spec = spec.lstrip('/')
+    path = Path(spec)
+    if path.is_absolute():
+        return path.resolve()
+    return (cfg / path).resolve() if spec.startswith('.') else None
+
+
 def native(entry) -> Any:
     return {'package': entry[0], 'options': entry[1]} if isinstance(entry, list) else entry
 
@@ -116,7 +128,10 @@ def merge(base, over):
 
 def cli_config(cfg):
     if (cfg / 'cli.json').exists():
-        return cfg / 'cli.json', load(cfg / 'cli.json')
+        cli = load(cfg / 'cli.json')
+        if 'plugins' in cli:
+            cli['plugins'] = [e for e in cli['plugins'] if not owned(e)]
+        return cfg / 'cli.json', cli
     # v2 首启用自身迁移器转换旧 action 名、界面配置与 state/kv.json。
     old = merge(load(cfg / 'tui.json'), load(cfg / 'tui.jsonc'))
     old['plugin'] = [e for e in old.get('plugin', []) if not owned(e) and not is_mc(e)]
@@ -140,21 +155,23 @@ def install(root, cfg, major, check=False):
     target = cfg / 'opencode.json'
     config = merge(load(target), load(cfg / 'opencode.jsonc'))
     entries = [*config.get('plugin', []), *config.get('plugins', [])]
-    if major == 1 and any(str(package(e)).replace('\\', '/').rstrip('/').endswith('/v2') for e in entries):
+    if major == 1 and any(directory(e, cfg) == (cfg / 'v2').resolve() for e in entries):
         raise ValueError('该配置已用于 v2；v1 请使用隔离配置目录，不自动降级数据库或插件')
     mc = magic_context(entries, major, cfg)
     entries = [e for e in entries if not owned(e) and not is_mc(e)]
-    previous = next((e for e in entries if str(package(e)).replace('\\', '/').rstrip('/') == cfg.as_posix() + '/v2'), {})
+    old_entry = next((e for e in entries if directory(e, cfg) == (cfg / 'v2').resolve()), {})
+    previous = native(old_entry)
     cli_path, cli = cli_config(cfg) if major == 2 else (cfg / 'tui.json', {})
     if major == 2:
-        entries = [native(e) for e in entries if '@dietrichgebert/ponytail' not in str(package(e)) and e != previous]
+        entries = [native(e) for e in entries if '@dietrichgebert/ponytail' not in str(package(e)) and e != old_entry]
         entries = [e for e in entries if not any(s in str(package(e)) for s in ['session-notify.js', 'fixed-prompt-cache-key.js', 'session-id-header.js'])]
         entries.insert(0, mc)
         entries.append({**previous, 'package': str(cfg / 'v2')} if isinstance(previous, dict) else str(cfg / 'v2'))
         config.pop('plugin', None)
         config['plugins'] = entries
         paths = config.setdefault('skills', {}).setdefault('paths', [])
-        skills = str(cfg / 'v2/ponytail/skills')
+        ponytail = previous.get('options', {}).get('ponytailPackage') if isinstance(previous, dict) else None
+        skills = str(Path(ponytail or cfg / 'v2/ponytail') / 'skills')
         if skills not in paths:
             paths.append(skills)
     else:

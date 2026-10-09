@@ -67,7 +67,7 @@ OC_VERSION="$(opencode --version)"
 if [[ "$OC_VERSION" =~ (^|[[:space:]])v?([12])\.[0-9]+\.[0-9]+ ]]; then OC_MAJOR="${BASH_REMATCH[2]}"
 else echo "ERROR: 无法识别或暂不支持的 OpenCode 版本: $OC_VERSION" >&2; exit 1; fi
 echo "客户端: $OC_VERSION → v$OC_MAJOR 插件包；不升级宿主/不迁移数据库"
-OC_RELEASE="opencode-plugins-1.0.0"
+OC_RELEASE="opencode-plugins-1.0.1"
 CFG="${OPENCODE_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/opencode}"
 PLUGINS="$CFG/plugins"
 LIB="$CFG/lib"
@@ -898,7 +898,8 @@ if [ "$OC_MAJOR" = 1 ]; then
   TUI_ENTRY="$(python3 - "$CFG/opencode.json" <<'PYEOF'
 import json,sys
 c=json.load(open(sys.argv[1],encoding='utf-8'))
-print(next(p for p in c['plugin'] if isinstance(p,str) and 'opencode-magic-context' in p))
+sources = [p[0] if isinstance(p, list) else p for p in c['plugin']]
+print(next(p for p in sources if isinstance(p, str) and 'opencode-magic-context' in p))
 PYEOF
 )"
   ensure_tui_plugin "$TUI_ENTRY" 'magic-context'
