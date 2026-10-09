@@ -13,7 +13,7 @@
 | `tui.js` | 目录包的 TUI 入口，转发到 `later-cli.js`，由 CLI 自动发现 |
 | `later-cli.js` | TUI 输入 `later 5h 检查结果`、`later list`、`later cancel all`，以及 `/later` |
 
-Magic Context 使用其自身的 v2 入口，要求已装版本至少 **0.45**；本包须在它之后加载。版本不明或过旧时 setup 停止，不自动升级共享库。notify 不包含在本包中，旧入口备份停用。上下文纠错复用 [acp-kernel](https://github.com/ranxianglei/acp-kernel) 0.0.101；部署须附带 `context-rewrite/ACP-KERNEL-LICENSE`，保留许可证及出处标注。
+Magic Context 使用其自身的 v2 入口，兼容基线至少 **0.45**；本包须在它之后加载。setup 单独询问刷新、默认 N：确认后备份移走 latest 缓存并改回官方 npm 登记，下次启动下载；未确认只警告、保留现状并继续其他插件，不表示 Magic Context 已可用。setup 不访问共享库。notify 不包含在本包中，旧入口备份停用。上下文纠错复用 [acp-kernel](https://github.com/ranxianglei/acp-kernel) 0.0.101；部署须附带 `context-rewrite/ACP-KERNEL-LICENSE`，保留许可证及出处标注。
 
 ## 构建和部署
 
@@ -37,7 +37,7 @@ Magic Context 使用其自身的 v2 入口，要求已装版本至少 **0.45**�
 - 旧工具 schema、wrapper、later 已打进 bundle；不再依赖 `legacy-v1/` 或目标机 `node_modules/@opencode-ai/plugin`。
 - `v2/` 目录包：本仓自维护能力；官方 Ponytail 单独由 `@dietrichgebert/ponytail` 提供，不能再把 `v2/ponytail/` 或 `options.ponytailPackage` 加入配置。
 
-Ponytail 缺包由宿主启动时自动下载；setup 只登记，不手填缓存或调用 `opencode plugin add`。保留已有 Magic Context 的版本／目录登记，不把上面占位示例整体覆盖到现有配置。
+Ponytail 缺包由宿主启动时自动下载；setup 只登记，不手填缓存或调用 `opencode plugin add`。Magic Context 未确认刷新时保留已有版本／目录登记；不把上面占位示例整体覆盖到现有配置。
 
 setup 将本套件旧入口移入 `$CFG/.agent-skills-backups/<时间戳>/`，避免与 `plugins/` 自动发现重复；不删除会话库、认证或外置文件。CLI 自动发现本包的 `tui.js`，不要在 `cli.json` 中再登记旧 `tui-plugins/later`。主题、快捷键使用 `cli.json`；完整 setup 可确认更新按键，插件模式不统一按键。首次从旧 TUI 配置接入时，setup 准备 `tui.json`，由宿主首启迁移 UI 和 state。
 

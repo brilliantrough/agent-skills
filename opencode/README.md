@@ -1,6 +1,6 @@
 # OpenCode 插件分发
 
-面向 OpenCode v1/v2 的安装、更新与旧入口迁移。setup 只用 `opencode --version` 识别主版本，**不安装／升级宿主，不启动服务，不迁移会话数据库，不升级已有 Magic Context**。
+面向 OpenCode v1/v2 的安装、更新与旧入口迁移。setup 只用 `opencode --version` 识别主版本，**不安装／升级宿主，不启动服务，不迁移数据库**。Magic Context 刷新单独询问，默认 N。
 
 ## 安装与更新
 
@@ -45,11 +45,18 @@ bash /tmp/opencode-setup.sh --plugins-only
 | 对象 | setup 行为 |
 | --- | --- |
 | Ponytail | 登记官方包，两代宿主启动时自动安装缺失包；不内置副本、不手填缓存、不运行宿主 plugin CLI、不升级已有包 |
-| Magic Context | 保留已有版本；v2 至少 0.45。已有 `@latest` 须能定位已装包，无法确定则停止提示；不追 latest |
+| Magic Context | 单独询问刷新，默认 N；版本缺失／不明／过旧只报 WARN，不阻塞其他插件。确认后移走 latest 缓存并登记官方 `@latest`，下次宿主启动下载 |
 | context-mode | 独立从 `releases/latest` 同步；v1 放 `plugins/context-mode/`，v2 放 `vendor/context-mode/`，不另加配置插件登记 |
 | notify | 仅完整安装的 v1 路径可选；v2 将旧入口备份停用，后续由 notify 项目适配 |
 
-Magic Context 首装优先沿用已有 OpenCode／Pi 版本；没有已装版本和共享库时固定用 0.45.0。已有共享库却无法确认版本时停止，不擅自引入新版。Ponytail 使用官方同一个包的 v1/v2 双入口，与自维护包的分版本构建不同。
+Magic Context 操作：
+
+- **选 Y**：确认 OpenCode／Desktop／Pi 均已停用、共享库已备份。只将 OpenCode 两代布局中的 Magic Context `@latest` 缓存移到 `$CFG/.agent-skills-backups/<时间戳>/magic-context-cache/`；旧目录／钉版登记改为官方 npm `@latest`，保留插件 options。不删除任意本地源码目录、Pi 包、其他插件缓存或数据库。
+- **选 N／`-y`／无终端**：不刷新缓存，保留现有登记；兼容性问题只报 WARN。其他插件继续部署，但不保证 Magic Context 或宿主可以启动。没有登记且共享库版本未知时不新增入口。
+- **`--check`**：只报告现状，不询问、不刷新。通过仅表示套装可部署，不代表 Magic Context 已可用。
+- 未确认刷新时，首装仍优先沿用已有 OpenCode／Pi 版本；没有已装版本和共享库时固定用 0.45.0。v2 兼容基线至少 0.45。
+
+刷新后由宿主 loader 下载包、由 Magic Context 自己处理数据库迁移；setup 不运行它们。同机 Pi 的 Magic Context 需另行同步升级。Ponytail 仍使用官方双入口包，缺包由宿主下载。
 
 ## 旧插件迁移与备份
 
@@ -67,9 +74,9 @@ Magic Context 首装优先沿用已有 OpenCode／Pi 版本；没有已装版本
 - 插件资产备份到 `$CFG/.agent-skills-backups/<时间戳>/<原相对路径>`；同时移走 `plugins/context-mode.bak-*` 遗留目录，避免被 v2 再次扫描。配置文件保留相邻 `.bak*` 备份。
 - 私密字段、provider options、MCP 与其他本地字段保留；已有 v2 原生 `providers` 不套 v1 模型模板。完整安装会刷新 v1 `provider.models`，精简插件模式不做。
 - `opencode.jsonc` 合并到 `opencode.json` 后备份退役。v2 已有 `cli.json` 时保留；没有时合并旧 `tui.json(c)` 为 `tui.json`，由宿主首启迁移 action、界面与 state。完整安装的按键设置另行确认。
-- 不删除 Magic Context／Ponytail 缓存、认证、会话库或外置正文。**插件备份不是整机快照，也不替代数据库备份。**
+- 除明确确认的 Magic Context 缓存刷新外，不清理 npm 插件缓存；认证、会话库与外置正文不动。**插件备份不是整机快照，也不替代数据库备份。**
 
-自维护发布包校验失败、未知宿主版本、配置无法解析、相关路径为符号链接、Magic Context 不满足条件时停止；按错误提示处理后重跑，不强制覆盖。
+自维护发布包校验失败、未知宿主版本、配置无法解析、相关写入路径为符号链接时停止；Magic Context 兼容性问题改为警告与独立刷新询问。
 
 ## 升级、共存与回退
 
@@ -77,7 +84,7 @@ Magic Context 首装优先沿用已有 OpenCode／Pi 版本；没有已装版本
 2. 升级 OpenCode 二进制，再执行 setup 预检和插件同步
 3. 启动新版，由 OpenCode 自己迁移会话库与 CLI 配置；首次 npm 包安装需要网络
 
-Magic Context 的共享 `context.db` 由它自己的版本和迁移机制管理；升级须另选所有使用宿主均停用的窗口。不能把 OpenCode 升级等同于允许升级 Magic Context。
+Magic Context 的共享 `context.db` 由它自己的版本和迁移机制管理；升级须安排所有使用宿主均停用的窗口，在 setup 的独立询问中确认刷新。不能把 OpenCode 升级等同于允许升级 Magic Context。
 
 v1/v2 可以并存二进制，但并行运行须隔离配置、数据、state、cache；Magic Context 存储也需按用途隔离。回退前保留升级后的新增数据，再恢复对应备份；只换旧二进制、只恢复插件目录都不是完整回退。
 

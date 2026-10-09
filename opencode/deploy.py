@@ -84,24 +84,46 @@ def native(entry) -> Any:
     return {'package': entry[0], 'options': entry[1]} if isinstance(entry, list) else entry
 
 
-def cached_magic_context():
+def magic_context_caches():
     cache = Path(os.environ.get('XDG_CACHE_HOME', Path.home() / '.cache')) / 'opencode'
-    package = MC + '@latest'
-    # OpenCode v1 stores npm packages under packages; v2 uses npm.
-    for layout in ('npm', 'packages'):
-        root = cache / layout / package / 'node_modules' / MC
+    return [cache / layout / (MC + '@latest') for layout in ('npm', 'packages')]
+
+
+def cached_magic_context():
+    for cache in magic_context_caches():
+        generations = sorted((p for p in cache.glob('*') if p.is_dir() and p.name.isdecimal()),
+                             key=lambda p: int(p.name))
+        root = (generations[-1] if generations else cache) / 'node_modules' / MC
         if (root / 'package.json').exists():
             return root
     return None
 
 
-def magic_context(entries, major, cfg):
+def magic_context(entries, major, cfg, refresh=False):
     entry = next((e for e in entries if is_mc(e)), None)
+    if refresh:
+        updated = native(entry) if major == 2 else entry
+        spec = MC + '@latest'
+        if isinstance(updated, dict):
+            return {**updated, 'package': spec}
+        if isinstance(updated, list):
+            return [spec, *updated[1:]]
+        return spec
+    try:
+        return resolve_magic_context(entry, major, cfg)
+    except ValueError as error:
+        print(f'WARN: Magic Context：{error}')
+        print('WARN: 未刷新缓存，保留现有登记；继续部署其他插件。Magic Context 尚未就绪，宿主启动可能失败；可重跑 setup 并确认刷新。')
+        return native(entry) if major == 2 else entry
+
+
+def resolve_magic_context(entry, major, cfg):
     if entry is None:
         installed = cached_magic_context()
-        pi = Path.home() / '.pi/agent/npm/node_modules/pi-magic-context/package.json'
+        agent = Path(os.environ.get('PI_CODING_AGENT_DIR', Path.home() / '.pi/agent'))
+        pi = agent / 'npm/node_modules/@cortexkit/pi-magic-context/package.json'
         version = load(installed / 'package.json').get('version') if installed else ''
-        version = version or load(pi).get('version')
+        version = version or load(pi).get('version') or load(agent / 'npm/node_modules/pi-magic-context/package.json').get('version')
         data = Path(os.environ.get('XDG_DATA_HOME', Path.home() / '.local/share'))
         if not version and (data / 'cortexkit/magic-context/context.db').exists():
             raise ValueError('已有共享 Magic Context 数据库但无法确认运行版本；请先单独配置插件，不自动引入新版本')
@@ -125,7 +147,7 @@ def magic_context(entries, major, cfg):
             raise ValueError('无法确定现有 Magic Context @latest 的已装版本；请先把条目固定为已安装版本或包目录，不自动升级共享数据库')
     version = load(root / 'package.json').get('version', '')
     if not version or tuple(int(n) for n in version.split('.')[:2]) < (0, 45):
-        raise ValueError(f'Magic Context 包缺失或不支持 v2：{root}；保留配置，请单独处理')
+        raise ValueError(f'包版本 {version or "未知／缺失"}，v2 要求至少 0.45：{root}')
     normalized = native(entry)
     return {**normalized, 'package': str(root)} if isinstance(normalized, dict) else str(root)
 
@@ -169,7 +191,7 @@ def cli_config(cfg):
     return cfg / 'tui.json', old
 
 
-def install(root, cfg, major, check=False):
+def install(root, cfg, major, check=False, refresh_mc=False):
     manifest = load(root / 'MANIFEST.json')
     if manifest.get('major') != major:
         raise ValueError('发布包主版本与客户端不一致')
@@ -188,7 +210,7 @@ def install(root, cfg, major, check=False):
     entries = [*config.get('plugin', []), *config.get('plugins', [])]
     if major == 1 and ((cfg / 'v2').exists() or (cfg / 'cli.json').exists() or 'plugins' in config):
         raise ValueError('该配置已用于 v2；v1 请使用隔离配置目录，不自动降级数据库或插件')
-    mc = magic_context(entries, major, cfg)
+    mc = magic_context(entries, major, cfg, refresh_mc)
     entries = [e for e in entries if not owned(e, cfg) and not is_mc(e)]
     old_entry = next((e for e in entries if directory(e, cfg) == (cfg / 'v2').resolve()), {})
     previous = native(old_entry)
@@ -202,7 +224,8 @@ def install(root, cfg, major, check=False):
         official_ponytail = next((native(e) for e in entries if '@dietrichgebert/ponytail' in str(package(e))), '@dietrichgebert/ponytail')
         entries = [native(e) for e in entries if '@dietrichgebert/ponytail' not in str(package(e)) and e != old_entry]
         entries = [e for e in entries if directory(e, cfg) not in [(cfg / p).resolve() for p in V1_ONLY]]
-        entries.insert(0, mc)
+        if mc is not None:
+            entries.insert(0, mc)
         entries.append(official_ponytail)
         entries.append({**previous, 'package': str(cfg / 'v2')} if isinstance(previous, dict) else str(cfg / 'v2'))
         config.pop('plugin', None)
@@ -213,12 +236,12 @@ def install(root, cfg, major, check=False):
                 retired.add((Path(ponytail) / 'skills').resolve())
             config['skills']['paths'] = [p for p in config['skills']['paths'] if (cfg / p).resolve() not in retired]
     else:
-        config['plugin'] = [mc, *entries]
+        config['plugin'] = ([mc] if mc is not None else []) + entries
         if not any('@dietrichgebert/ponytail' in str(package(e)) for e in entries):
             config['plugin'].append('@dietrichgebert/ponytail')
         config.pop('plugins', None)
         cli['plugin'] = [e for e in cli.get('plugin', []) if not owned(e, cfg) and not is_mc(e)]
-        cli['plugin'] += [mc, './tui-plugins/later']
+        cli['plugin'] += ([mc] if mc is not None else []) + ['./tui-plugins/later']
     obsolete = [cfg / p for p in [*LEGACY, *(V1_ONLY if major == 2 else [])] if (cfg / p).exists()]
     # 移走已知旧备份，不能留在 v2 会自动发现子目录的 plugins/ 下。
     obsolete += [p for p in (cfg / 'plugins').glob('context-mode.bak-*') if p.is_dir()]
@@ -237,9 +260,24 @@ def install(root, cfg, major, check=False):
     for path in obsolete:
         print(f'retire: {path}')
     print(f'config: {target.name} ({"plugins" if major == 2 else "plugin"}), {cli_path.name}; 私密字段保留')
+    cache_backups = []
+    if refresh_mc:
+        for cache in magic_context_caches():
+            if not cache.exists():
+                continue
+            destination = cfg / '.agent-skills-backups' / STAMP / 'magic-context-cache' / cache.parent.parent.name / cache.name
+            writable(cache)
+            writable(destination)
+            cache_backups.append((cache, destination))
+            print(f'refresh: {cache} -> {destination}')
+        print('Magic Context: 改用 @latest；下次宿主启动下载，setup 不访问共享数据库、不更新 Pi 包')
     if check:
-        print('ready: 发布包、配置和 Magic Context 检查通过（未写入；备份位于 .agent-skills-backups/）')
+        print('ready: 发布包和配置检查完成；Magic Context 状态见上方 WARN（未写入）')
         return
+    for cache, destination in cache_backups:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(cache), str(destination))
+        print(f'backup: {cache} -> {destination}')
     if old_bundle.exists() and not bundled.exists():
         bundled.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(old_bundle, bundled)
@@ -276,6 +314,7 @@ def install(root, cfg, major, check=False):
 
 if __name__ == '__main__':
     try:
-        install(Path(sys.argv[1]), Path(sys.argv[2]), int(sys.argv[3]), '--check' in sys.argv[4:])
+        install(Path(sys.argv[1]), Path(sys.argv[2]), int(sys.argv[3]),
+                '--check' in sys.argv[4:], '--refresh-magic-context' in sys.argv[4:])
     except Exception as error:
         sys.exit(f'ERROR: {error}')

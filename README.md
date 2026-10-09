@@ -485,7 +485,7 @@ OpenCode 的已下载包不会因重启就自动刷新；本地目录或固定�
 3. 显式目录登记须更新指向；不能假定删一个 `@latest` 缓存就能升级
 4. 确认版本一致后再重跑 setup、启动宿主
 
-OpenCode setup 保留已有 Magic Context；v2 要求至少 **0.45**，旧版或版本无法确定时停止提示。升级窗口见[更新](#更新)。
+OpenCode setup 单独询问是否刷新 Magic Context，默认 N；v2 兼容基线至少 **0.45**，旧版或版本不明只警告，不再阻塞整套部署。确认刷新才备份移走其 latest 缓存、改回官方包登记；下次宿主启动下载。升级窗口见[更新](#更新)。
 
 ### context-mode fork
 
@@ -561,7 +561,7 @@ bash /tmp/opencode-setup.sh --plugins-only
 - **旧插件迁移**：旧散装入口和旧 v1 包统一纳管；v1→v2 后移入 `$CFG/.agent-skills-backups/<时间戳>/`，不留在自动扫描目录。无需手工删除；相同内容不重写，不自动降级回 v1。
 - **保留范围**：私密值、provider options、未知第三方配置、认证、会话库和外置正文。v2 原生 `providers` 不套 v1 模型模板。
 - **Ponytail**：两端都登记官方包，宿主启动时自动安装缺包；不内置副本，不手填 npm 缓存，不由 setup 执行 `plugin add` 或升级已有包。
-- **Magic Context**：保留已有版本；v2 至少 0.45，版本不明先处理，不自动升级共享库。
+- **Magic Context**：独立询问刷新，默认 N；确认后备份移走 latest 缓存、登记官方 `@latest`。选 N 保留现状并继续，兼容性 WARN 不等于可用。
 - **context-mode**：独立 release；v1 在 `plugins/context-mode/`，v2 在 `vendor/context-mode/`。notify 仅 v1 可选安装，v2 停用旧入口。
 - **验证范围**：Linux v1 1.18.35／v2 2.0.26；旧入口迁移、重复运行、两端发现全部 27 个本仓 skills 与 Ponytail 空缓存自动安装已通过。Windows 实机未覆盖；不是所有历史版本的兼容承诺。
 
@@ -873,7 +873,7 @@ v1/v2 预构建包均已包含，不另装独立入口：
 }
 ```
 
-npm 缺失包在 OpenCode 启动时自动安装；已有包不因 setup 重跑而升级。上例 Magic Context 的 `@latest` 仅作手工登记示例，已有共享库的机器应保留已装版本／目录，不要复制覆盖；也不要额外登记旧 wrapper。
+npm 缺失包在 OpenCode 启动时自动安装；已有包不因 setup 重跑而自动升级。Magic Context 刷新须在独立询问中明确确认，不能直接复制示例覆盖现有配置；也不要额外登记旧 wrapper。
 
 ## 更新
 
@@ -911,13 +911,13 @@ bash skills-external.sh   # 在克隆的套件根单独补装/更新第三方，
 | Pi 本体与已装包，magic-context 除外 | 步骤 2，默认 Y；逐包 `pi update <spec> --no-approve`，不用 `--all` |
 | 本仓库 Pi git 包 / npm 包 | 同步骤 2，含 UI/later/耗时/主题；`pi-autoname@0.6.8` 钉版，Pi 会跳过 |
 | magic-context（Pi） | 步骤 3.1 独立询问，默认 N |
-| Magic Context（OpenCode） | 单独维护窗口；按当前版本／包目录登记方式升级，与 Pi 的共享库兼容；setup 不代办 |
+| Magic Context（OpenCode） | 独立询问、默认 N；确认后备份移走其 latest 缓存并登记 `@latest`，下次宿主启动下载；Pi 包另行同步 |
 | OpenCode 自维护包（later、context_rewrite、claude-mem wrapper） | setup 的固定版本 release，按主版本选包；插件备份放 `$CFG/.agent-skills-backups/` |
 | context-mode fork | 两侧从独立 latest release 同步；OpenCode 目录备份放 `.agent-skills-backups/`，Pi 保持自身备份策略 |
 | notify | 仅 v1 可选；已装则比对独立 release，变化时备份替换；v2 备份停用 |
 | OpenCode 官方 Ponytail | setup 只登记官方包；宿主启动时安装缺失包，已有包更新由宿主管理 |
 
-**Magic Context 永远单独升级。** 先停所有共用 `context.db` 的宿主并备份；核对实际版本、npm 缓存或目录登记后再升级。Pi 不用 `--all`；OpenCode 不按固定旧路径盲删缓存，也不让 setup 顺带升级它。
+**Magic Context 升级单独确认。** 先停所有共用 `context.db` 的宿主并备份；Pi 不用 `--all`，OpenCode setup 提供默认 N 的独立刷新询问。选 Y 只备份移走它在 OpenCode 中的 latest 缓存、改回官方 npm 登记；不启动宿主、不访问数据库。选 N 保留现状，不阻塞其他插件；兼容性 WARN 须在启动前处理。
 
 ### 配置合并
 

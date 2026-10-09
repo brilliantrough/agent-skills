@@ -4,8 +4,9 @@
 #
 # 用法：bash opencode-setup.sh [-y|--yes] [--plugins-only|--check]；先安装 OpenCode，按主版本拉取对应预构建包。
 # 完整安装含配置、依赖与通用 skills；--plugins-only 仅插件及 context-mode skills；--check 下载校验后退出。
-# 更新前先退出 TUI 和后台服务；已知旧入口移到配置目录 .agent-skills-backups/，不手工清缓存。
-# 不升级宿主、不迁移数据库、不自动升级共享 Magic Context；官方 npm 缺包由宿主启动时下载。
+# 更新前先退出 TUI 和后台服务；已知旧入口移到配置目录 .agent-skills-backups/。
+# Magic Context 刷新单独询问、默认 N；确认后只备份移走 latest 缓存并改回官方包登记。
+# 不升级宿主、不启动服务、不迁移数据库；官方 npm 缺包由宿主启动时下载。
 # 配置：本地私密值保留；provider.models 随模板刷新；v2 原生 providers 不改写。
 # -y 采用各项默认选择（默认 N 仍跳过）；凭据可交互输入或通过环境变量填写。
 # OPENCODE_CONFIG_DIR 优先，其次 XDG_CONFIG_HOME/opencode。Windows 使用 Git Bash。
@@ -68,8 +69,9 @@ while [ $# -gt 0 ]; do
   --check          下载校验自维护包、检查配置和待退役项；不部署，不更改配置/认证/数据库
   -y, --yes        采用各项默认值（默认 N 仍跳过）；凭据仍可询问
 先安装 OpenCode v1/v2；更新前退出 TUI 和后台服务。精简模式需要已有 Python 3、curl。
-已知旧入口备份到 $CFG/.agent-skills-backups/；不清缓存、不启动宿主、不迁移会话库或升级 Magic Context。
-官方 npm 缺包由宿主启动时下载；--check 仍联网，宿主 --version 可能写日志。
+已知旧入口备份到 $CFG/.agent-skills-backups/；不启动宿主、不迁移数据库。
+Magic Context 刷新单独询问、默认 N；确认后只备份移走其 latest 缓存并改回官方包登记，下次启动下载。
+官方 npm 缺包由宿主启动时下载；--check 只报告、不询问刷新，仍联网，宿主 --version 可能写日志。
 HELP
       exit 0 ;;
     *) echo "未知参数: $1(支持 -y|--yes / --plugins-only / --check / -h|--help)" >&2; exit 2 ;;
@@ -83,7 +85,7 @@ OC_VERSION="$(opencode --version)"
 if [[ "$OC_VERSION" =~ (^|[[:space:]])v?([12])\.[0-9]+\.[0-9]+ ]]; then OC_MAJOR="${BASH_REMATCH[2]}"
 else echo "ERROR: 无法识别或暂不支持的 OpenCode 版本: $OC_VERSION" >&2; exit 1; fi
 echo "客户端: $OC_VERSION → v$OC_MAJOR 插件包；不升级宿主/不迁移数据库"
-OC_RELEASE="opencode-plugins-1.0.8"
+OC_RELEASE="opencode-plugins-1.0.9"
 CFG="${OPENCODE_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/opencode}"
 PLUGINS="$CFG/plugins"
 LIB="$CFG/lib"
@@ -449,11 +451,24 @@ with tarfile.open(sys.argv[1]) as archive:
         dest = (root / member.name).resolve()
         if (root != dest and root not in dest.parents) or not (member.isfile() or member.isdir()):
             raise SystemExit('ERROR: 发布包包含非法路径或链接')
-    archive.extractall(root)
+    if hasattr(tarfile, 'data_filter'):
+        archive.extractall(root, filter='data')
+    else:
+        archive.extractall(root)
 PYEOF
 python3 "$oc_stage/deploy.py" "$oc_stage" "$(npath "$CFG")" "$OC_MAJOR" --check
 
 if [ "$CHECK_ONLY" = 1 ]; then exit 0; fi
+
+# ---- Magic Context：明确确认后刷新；不启动宿主、不修改共享数据库 ----
+mc_args=()
+echo "Magic Context 可单独刷新：备份移走 OpenCode 的 latest 插件缓存，登记官方 @latest，下次启动重新下载。"
+echo "注意：新版首次加载可能迁移共享 context.db。确认前请退出 OpenCode/Desktop/Pi 并备份共享库；同机 Pi 版本需另行同步。"
+if ask "是否刷新 Magic Context（已确认相关宿主停用并备份）?" N; then
+  mc_args=(--refresh-magic-context)
+else
+  echo "跳过 Magic Context 刷新：保留缓存和现有登记，继续其他插件；如有兼容性 WARN，启动前仍需处理。"
+fi
 
 if [ "$PLUGINS_ONLY" != 1 ]; then
 # ---- 1.1 依赖: npx(fnm + Node)----
@@ -848,10 +863,13 @@ if [ "$cm_ok" != 1 ]; then
 fi
 
 # ---- 5. 按客户端主版本部署；配置只替换本套件管理的条目 ----
-python3 "$oc_stage/deploy.py" "$oc_stage" "$(npath "$CFG")" "$OC_MAJOR"
-echo "Ponytail 已登记官方包；缺失包由下次启动 OpenCode 下载，setup 不清缓存、不启动宿主。"
+python3 "$oc_stage/deploy.py" "$oc_stage" "$(npath "$CFG")" "$OC_MAJOR" "${mc_args[@]}"
+echo "Ponytail 已登记官方包；缺失包由下次启动 OpenCode 下载，setup 不清其缓存、不启动宿主。"
+if [ "${#mc_args[@]}" -gt 0 ]; then
+  echo "Magic Context 已安排刷新；下次启动下载最新版并由插件处理迁移（本脚本未运行迁移）。"
+fi
 if [ "$PLUGINS_ONLY" = 1 ]; then
-  echo "插件同步完成；重启 OpenCode 生效。宿主／数据库／共享 Magic Context 未升级。"
+  echo "插件部署完成；Magic Context 未就绪的 WARN 仍需处理。宿主与共享数据库未由 setup 升级。"
   exit 0
 fi
 
