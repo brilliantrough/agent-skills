@@ -2,38 +2,11 @@
 # opencode-setup.sh — 个人 opencode 一键配置(claude-mem + magic-context + ponytail + notify + skills 本体)
 # 仓库: brilliantrough/agent-skills
 #
-# 干什么(交互确认 + 幂等,重复跑安全):
-#   询问默认:装缺的软件/插件、写入条目 → [Y/n](回车即装);覆盖已有配置、无代理下继续 → [y/N];
-#            非交互环境按各自默认执行
-#   凭据(只问这一处):统一网关(回车=默认 https://api.pezayo.com/v1)+ 5 个 api key
-#            (claude-newapi / codex-newapi / anthropic-newapi / magic-context embedding / claude-mem);
-#            回车=跳过,占位符保留,之后重跑可补(三处 <YOUR_NEWAPI_API_KEY> 按 provider 名各填各的)
-#   0. 代理环境提醒(大小写都查;未设则探测直连,透明代理不拦;都不通才要求确认)
-#   1. 依赖检查:python3(缺则由 uv 提供自管理 3.12)、npx(缺 → 征得同意装 fnm + Node LTS)、
-#      bun(缺 → 征得同意装,MCP server 依赖 bun:sqlite)
-#   2. claude-mem:未装 → 征得同意跑官方安装器(只为拿 bundle 和 MCP 资产,--provider claude
-#      是唯一免浏览器 OAuth 的选项);然后修复 upstream bug(bundle 移出 plugins/ → lib/,
-#      写 wrapper;thedotmack/claude-mem#2854/#3328);wrapper 同时补上游缺失的用户 prompt
-#      采集(chat.message 钩子实际收到 UserMessage,上游只认 assistant)。再清理 config 里失效的 claude-mem 插件条目
-#      (官方安装器每次都会重新注册),并确保 wrapper 条目存在
-#   3. 部署(字段级合并)~/.claude-mem/settings.json 与 ~/.config/cortexkit/magic-context.jsonc:
-#      dot_file 模板的非敏感字段值优先下发,api key / base url 等本地敏感值保留;下载失败用内嵌兜底
-#   4. 部署/更新 ~/.config/opencode/opencode.json(dot_file 模板:providers/agents/mcp/插件条目/
-#      compaction)。已存在则只覆盖各 provider 的 models,apiKey 等本地字段原样保留;
-#      老 opencode.jsonc 的值自动并入后退役为 .migrated.bak
-#   5. MCP 查询工具(claude-mem)+ codegraph 代码知识图谱(CLI 可选安装 + MCP 条目)+
-#      插件条目(magic-context、ponytail)+ compaction 关闭 + TUI 侧(tui.jsonc:magic-context
-#      侧边栏、later 延迟发送 prompt、Enter 换行/Ctrl+Enter 发送的按键改绑)
-#      → 写入纯 JSON 的 opencode.json(及 TUI 的 tui.jsonc)
-#   5.5 context-mode 插件(GitHub Release 预构建包解到 plugins/context-mode/,入口 entry.js;
-#      skills 装到 skill/;不写 opencode.json 的 plugin 字段)
-#   6. notify 插件(brilliantrough/opencode-notify-hub,GitHub Release 预构建包)
-#   7. skills:本仓 base/kb 刷新(漂移先备份)、accel 缺才装；补装外部设计依赖、更新第三方
-#   8. uv(缺则装;含自升级与清华 PyPI 镜像)+ strictdoc(用 uv tool 全局安装,.sdoc 校验依赖)
-#
-# 用法:bash opencode-setup.sh [-y|--yes]   (-y 默认安装:不再逐项确认、一律取默认——默认 Y 的照做,默认 N 的跳过
-#       (notify 插件、覆盖插件缓存、无代理继续、AGENTS.md 注入),只问一次凭据;遵循 OPENCODE_CONFIG_DIR,与官方安装器一致)
-# Windows:在 Git Bash(不是 WSL)里跑同一份脚本;Python 3 需自备(curl/git 由 Git for Windows 自带)。
+# 用法：bash opencode-setup.sh [-y|--yes]；先安装 OpenCode，按主版本拉取对应预构建包。
+# 不升级宿主、不迁移数据库、不自动升级共享 Magic Context。
+# 配置：本地私密值保留；provider.models 随模板刷新；v2 原生 providers 不改写。
+# -y 采用各项默认选择（默认 N 仍跳过）；凭据可交互输入或通过环境变量填写。
+# OPENCODE_CONFIG_DIR 优先，其次 XDG_CONFIG_HOME/opencode。Windows 使用 Git Bash。
 
 set -euo pipefail
 
@@ -88,7 +61,14 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-CFG="${OPENCODE_CONFIG_DIR:-$HOME/.config/opencode}"
+# 只读取版本；不安装/升级宿主，也不触发首次运行的数据库迁移。
+command -v opencode >/dev/null 2>&1 || { echo "ERROR: 请先安装 OpenCode v1 或 v2，再运行本脚本" >&2; exit 1; }
+OC_VERSION="$(opencode --version)"
+if [[ "$OC_VERSION" =~ (^|[[:space:]])v?([12])\.[0-9]+\.[0-9]+ ]]; then OC_MAJOR="${BASH_REMATCH[2]}"
+else echo "ERROR: 无法识别或暂不支持的 OpenCode 版本: $OC_VERSION" >&2; exit 1; fi
+echo "客户端: $OC_VERSION → v$OC_MAJOR 插件包；不升级宿主/不迁移数据库"
+OC_RELEASE="opencode-plugins-1.0.0"
+CFG="${OPENCODE_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/opencode}"
 PLUGINS="$CFG/plugins"
 LIB="$CFG/lib"
 mkdir -p "$CFG" "$PLUGINS"
@@ -476,6 +456,23 @@ fi
 BUN_BIN="$(command -v bun 2>/dev/null || true)"; [ -n "$BUN_BIN" ] || BUN_BIN="$HOME/.bun/bin/bun$BIN_EXT"
 [ -x "$BUN_BIN" ] || BUN_BIN=bun
 
+# ---- 1.2 下载对应主版本的发布包；下载/解包失败即停止，保留原配置 ----
+oc_stage="$(mktemp -d)"
+trap 'rm -rf "$oc_stage"' EXIT
+OC_URL="https://github.com/brilliantrough/agent-skills/releases/download/$OC_RELEASE/opencode-plugins-v$OC_MAJOR.tar.gz"
+curl -fsSL --connect-timeout 8 -m 120 -o "$oc_stage/package.tgz" "$OC_URL"
+python3 - "$oc_stage/package.tgz" "$oc_stage" <<'PYEOF'
+import pathlib, sys, tarfile
+root = pathlib.Path(sys.argv[2]).resolve()
+with tarfile.open(sys.argv[1]) as archive:
+    for member in archive.getmembers():
+        dest = (root / member.name).resolve()
+        if (root != dest and root not in dest.parents) or not (member.isfile() or member.isdir()):
+            raise SystemExit('ERROR: 发布包包含非法路径或链接')
+    archive.extractall(root)
+PYEOF
+python3 "$oc_stage/deploy.py" "$oc_stage" "$(npath "$CFG")" "$OC_MAJOR" --check
+
 # ---- 2. claude-mem:安装(只为拿 bundle / MCP 资产)+ 修复 ----
 if [ ! -f "$BUNDLED" ] && [ ! -f "$PLUGINS/claude-mem.js" ]; then
   if command -v npx >/dev/null 2>&1 && ask "未找到 claude-mem,运行官方安装器 npx claude-mem install --ide opencode?" Y; then
@@ -483,6 +480,7 @@ if [ ! -f "$BUNDLED" ] && [ ! -f "$PLUGINS/claude-mem.js" ]; then
     (
       [ ! -L "$SETTINGS" ] || { echo "ERROR: settings 是符号链接，跳过安装" >&2; exit 1; }
       saved="$(mktemp)"; chmod 600 "$saved"
+      mem_stage="$(mktemp -d)"
       had_settings=0
       if [ -f "$SETTINGS" ]; then cp -p "$SETTINGS" "$saved" || exit 1; had_settings=1; fi
       restore_mem_settings() {
@@ -491,12 +489,15 @@ if [ ! -f "$BUNDLED" ] && [ ! -f "$PLUGINS/claude-mem.js" ]; then
         else
           rm -f "$SETTINGS"
         fi
-        rm -f "$saved"
+        rm -f "$saved"; rm -rf "$mem_stage"
       }
       trap restore_mem_settings EXIT
       trap 'exit 130' INT
       trap 'exit 143' TERM
-      npx -y claude-mem install --ide opencode --provider claude --no-auto-start < /dev/null
+      OPENCODE_CONFIG_DIR="$(npath "$mem_stage")" npx -y claude-mem install --ide opencode --provider claude --no-auto-start < /dev/null
+      if [ -f "$mem_stage/plugins/claude-mem.js" ]; then
+        mkdir -p "$LIB"; cp "$mem_stage/plugins/claude-mem.js" "$BUNDLED"
+      fi
     ) || echo "WARN: claude-mem 安装失败；请检查上方恢复提示" >&2
   fi
 fi
@@ -510,48 +511,6 @@ fi
 
 if [ ! -f "$BUNDLED" ]; then
   echo "WARN: 没有 claude-mem bundle,跳过 claude-mem 相关配置" >&2
-else
-  mkdir -p "$PLUGINS"
-  w_tmp="$(mktemp)"
-  if ! curl -fsSL --connect-timeout 8 -m 60 -o "$w_tmp" "$SELF_RAW/opencode/plugins/claude-mem-wrapper.js"; then
-    rm -f "$w_tmp"; echo "WARN: claude-mem-wrapper.js 下载失败,保留现有文件(检查代理)" >&2
-  elif cmp -s "$w_tmp" "$PLUGINS/claude-mem-wrapper.js"; then rm -f "$w_tmp"
-  elif ask "更新 $PLUGINS/claude-mem-wrapper.js(claude-mem wrapper 修复)?" Y; then
-    mv "$w_tmp" "$PLUGINS/claude-mem-wrapper.js"; echo "wrote: plugins/claude-mem-wrapper.js"
-  else rm -f "$w_tmp"; echo "保留原文件: plugins/claude-mem-wrapper.js"; fi
-
-  # ---- 2.1 清理两份 config 里官方安装器注册的失效插件条目 ----
-  for name in opencode.jsonc opencode.json; do
-    python3 - "$CFG/$name" <<'PYEOF'
-import json, sys
-path = sys.argv[1]
-try:
-    with open(path) as f:
-        text = f.read()
-except FileNotFoundError:
-    sys.exit(0)
-try:
-    cfg = json.loads(text)
-except json.JSONDecodeError:
-    import re
-    if re.search(r"plugins[/\\]claude-mem", text):
-        print(f"WARN: {path} 含注释无法自动清理,请手动检查 plugin 数组中的 claude-mem 插件路径")
-    sys.exit(0)
-plugins = cfg.get("plugin")
-if not isinstance(plugins, list):
-    sys.exit(0)
-clean = [x for x in plugins if not (isinstance(x, str) and "claude-mem" in x and x != "./plugins/claude-mem-wrapper.js")]
-if len(clean) != len(plugins):
-    if clean:
-        cfg["plugin"] = clean
-    else:
-        cfg.pop("plugin", None)
-    with open(path, "w") as f:
-        json.dump(cfg, f, indent=2, ensure_ascii=False)
-        f.write("\n")
-    print(f"cleaned: {path} plugin 数组中的 claude-mem 条目")
-PYEOF
-  done
 fi
 
 # ---- 3. 部署 settings.json(字段级合并 dot_file 模板;下载失败用内嵌模板兜底)----
@@ -654,8 +613,10 @@ def strip_jsonc(t):  # 注释感知的 JSONC 剥离(字符串内的 // 不动),�
 def load(p):
     try:
         return json.loads(strip_jsonc(open(p, encoding='utf-8').read()))
-    except Exception:
+    except FileNotFoundError:
         return {}
+    except (json.JSONDecodeError, UnicodeError) as error:
+        raise SystemExit(f'ERROR: {p} 解析失败，保留原文件：{error}')
 
 def deep_merge(base, over):  # over 优先(本地值优先),dict 递归
     if isinstance(base, dict) and isinstance(over, dict):
@@ -668,12 +629,22 @@ def deep_merge(base, over):  # over 优先(本地值优先),dict 递归
 tpl = json.load(open(tpl_p, encoding='utf-8'))
 
 live_json, live_jsonc = load(target_p), load(jsonc_p)
-live = live_json if live_json.get('provider') else (live_jsonc or live_json)
+live = deep_merge(live_json, live_jsonc)
+# v2 原生字段已有本地配置时不再注入对应旧字段；模型模板只更新 v1 provider 形状。
+tpl.pop('plugin', None)
+for old, native in [('provider', 'providers'), ('permission', 'permissions'), ('agent', 'agents'),
+                    ('autoupdate', 'update'), ('snapshot', 'snapshots')]:
+    if native in live:
+        tpl.pop(old, None)
+if 'providers' in live:
+    print('INFO: 保留本机 v2 providers；通用 provider 模型模板不改写原生结构', file=sys.stderr)
+if isinstance(live.get('mcp'), dict) and 'servers' in live['mcp']:
+    tpl['mcp'] = {'servers': {k: {**{a:b for a,b in v.items() if a != 'enabled'}, 'disabled': not v.get('enabled', True)} for k,v in tpl.get('mcp', {}).items()}}
 
 merged = deep_merge(tpl, live)
 tpl_prov = tpl.get('provider') or {}
 live_prov = live.get('provider') or {}
-mp = merged.setdefault('provider', {})
+mp = merged.setdefault('provider', {}) if tpl_prov else {}
 for name, p in tpl_prov.items():
     if name in live_prov:
         # 已存在的 provider:本地节点原样保留(options/apiKey 一个字节都不动),只换 models
@@ -717,32 +688,6 @@ else
 fi
 rm -f "$oc_tpl" "$oc_cand"
 
-# ---- 4.0 合并后补回 claude-mem wrapper 条目(旧 opencode.jsonc 自带 plugin 数组时,
-#      第 4 步的模板合并会丢掉它——2.1 只清理了失效条目,这里兜底确保 wrapper 在)----
-if [ -f "$BUNDLED" ]; then
-  if ! grep -qs 'claude-mem-wrapper.js' "$CFG/opencode.json" 2>/dev/null && \
-     ask "在 $CFG/opencode.json 补回 plugin 条目 ./plugins/claude-mem-wrapper.js?" Y; then
-  python3 - "$CFG/opencode.json" <<'PYEOF'
-import json, os, sys
-path = sys.argv[1]
-ENTRY = "./plugins/claude-mem-wrapper.js"
-cfg = {}
-if os.path.exists(path):
-    with open(path) as f:
-        text = f.read()
-    if text.strip():
-        cfg = json.loads(text)
-plugins = cfg.setdefault("plugin", [])
-if ENTRY not in plugins:
-    plugins.append(ENTRY)
-    with open(path, "w") as f:
-        json.dump(cfg, f, indent=2, ensure_ascii=False)
-        f.write("\n")
-    print(f"added: plugin {ENTRY} -> {path}")
-PYEOF
-  fi
-fi
-
 # ---- 4.1 MCP 查询工具 → opencode.json ----
 if [ -f "$BUNDLED" ] && [ -f "$MCP_CJS" ]; then
   configured=0
@@ -761,9 +706,10 @@ try:
 except FileNotFoundError:
     cfg = {"$schema": "https://opencode.ai/config.json"}
 cfg.setdefault("mcp", {})
-if "claude-mem" in cfg["mcp"]:
+servers = cfg["mcp"].get("servers", cfg["mcp"])
+if "claude-mem" in servers:
     sys.exit(0)
-cfg["mcp"]["claude-mem"] = {"type": "local", "command": [bun, cjs], "enabled": True}
+servers["claude-mem"] = {"type": "local", "command": [bun, cjs], **({"disabled": False} if "servers" in cfg["mcp"] else {"enabled": True})}
 with open(path, "w") as f:
     json.dump(cfg, f, indent=2, ensure_ascii=False)
     f.write("\n")
@@ -818,10 +764,11 @@ try:
 except FileNotFoundError:
     cfg = {"$schema": "https://opencode.ai/config.json"}
 cfg.setdefault("mcp", {})
-if "codegraph" in cfg["mcp"]:
+servers = cfg["mcp"].get("servers", cfg["mcp"])
+if "codegraph" in servers:
     sys.exit(0)
 cmd = [node, shim] if node and shim else [bin_]
-cfg["mcp"]["codegraph"] = {"type": "local", "command": cmd + ["serve", "--mcp"], "enabled": True}
+servers["codegraph"] = {"type": "local", "command": cmd + ["serve", "--mcp"], **({"disabled": False} if "servers" in cfg["mcp"] else {"enabled": True})}
 with open(path, "w") as f:
     json.dump(cfg, f, indent=2, ensure_ascii=False)
     f.write("\n")
@@ -830,41 +777,46 @@ PYEOF
   fi
 fi
 
-# ---- 5. 插件条目: magic-context + ponytail(直写,不跑官方交互 setup)----
-need_mc=0
-grep -qs 'opencode-magic-context' "$CFG/opencode.jsonc" "$CFG/opencode.json" 2>/dev/null || need_mc=1
-need_pt=0
-grep -qs 'dietrichgebert/ponytail' "$CFG/opencode.jsonc" "$CFG/opencode.json" 2>/dev/null || need_pt=1
-
-if [ "$need_mc" -eq 1 ] || [ "$need_pt" -eq 1 ]; then
-  pkgs=""
-  # shellcheck disable=SC2086
-  [ "$need_mc" -eq 1 ] && pkgs="@cortexkit/opencode-magic-context@latest"
-  # shellcheck disable=SC2086
-  [ "$need_pt" -eq 1 ] && pkgs="$pkgs @dietrichgebert/ponytail"
-  # shellcheck disable=SC2086
-  if ask "未检测到插件条目:$pkgs。直接写入 $CFG/opencode.json?" Y; then
-    # shellcheck disable=SC2086
-    python3 - "$CFG/opencode.json" $pkgs <<'PYEOF'
-import json, sys
-path = sys.argv[1]
-pkgs = sys.argv[2:]
-try:
-    with open(path) as f:
-        text = f.read()
-    cfg = json.loads(text) if text.strip() else {"$schema": "https://opencode.ai/config.json"}
-except FileNotFoundError:
-    cfg = {"$schema": "https://opencode.ai/config.json"}
-plugins = cfg.setdefault("plugin", [])
-added = [p for p in pkgs if p not in plugins]
-plugins.extend(added)
-with open(path, "w") as f:
-    json.dump(cfg, f, indent=2, ensure_ascii=False)
-    f.write("\n")
-print(f"added to {path} plugin: {', '.join(added)}")
-PYEOF
+# ---- 5. context-mode 独立产物：v1 自动入口；v2 由版本适配包加载 ----
+# skills 装到 $CFG/skill/<name>/。
+CM_ASSET="opencode-context-mode-vendor.tar.gz"
+CM_URL="https://github.com/brilliantrough/agent-skills/releases/latest/download/$CM_ASSET"
+CM_DIR="$PLUGINS/context-mode"
+[ "$OC_MAJOR" = 2 ] && CM_DIR="$CFG/vendor/context-mode"
+CM_ENTRY="$PLUGINS/context-mode.js"
+cm_tmp="$(mktemp -d)"; cm_ok=0
+if mkdir -p "$cm_tmp/pkg" && curl -fsSL --connect-timeout 8 -m 120 -o "$cm_tmp/a.tgz" "$CM_URL" 2>/dev/null \
+   && tar -xzf "$cm_tmp/a.tgz" -C "$cm_tmp/pkg"; then
+  cm_ver="$(python3 -c "import json;print(json.load(open('$cm_tmp/pkg/VENDORED.json'))['upstream']['version'])" 2>/dev/null || echo '?')"
+  mkdir -p "$PLUGINS"
+  if [ -d "$CM_DIR" ] && diff -rq "$cm_tmp/pkg" "$CM_DIR" >/dev/null 2>&1; then
+    echo "unchanged: $CM_DIR($cm_ver)"
+  else
+    [ ! -e "$CM_DIR" ] || mv "$CM_DIR" "$CM_DIR.bak-$(date +%Y%m%d%H%M%S)"
+    mkdir -p "$(dirname "$CM_DIR")"; mv "$cm_tmp/pkg" "$CM_DIR"; echo "deployed: $CM_DIR($cm_ver)"
   fi
+  if [ "$OC_MAJOR" = 1 ]; then cp -f "$CM_DIR/entry.js" "$CM_ENTRY"; fi
+  cm_n=0
+  for d in "$CM_DIR"/skills/*/; do
+    [ -f "$d/SKILL.md" ] || continue
+    n="$(basename "$d")"; dest="$CFG/skill/$n"
+    if [ -d "$dest" ] && diff -rq "$d" "$dest" >/dev/null 2>&1; then continue; fi
+    mkdir -p "$CFG/skill"; rm -rf "$dest"; cp -r "$d" "$dest"
+    echo "deployed: skill/$n"; cm_n=$((cm_n+1))
+  done
+  echo "       context-mode: skill 更新 $cm_n 个(重启 opencode 生效)"
+  cm_ok=1
+else
+  echo "WARN: context-mode 插件下载/解包失败($CM_URL,检查代理)" >&2
 fi
+rm -rf "$cm_tmp"
+
+if [ "$cm_ok" != 1 ]; then
+  echo "ERROR: context-mode 未就绪，未切换插件登记；修复网络后重跑" >&2; exit 1
+fi
+
+# ---- 5. 按客户端主版本部署；配置只替换本套件管理的条目 ----
+python3 "$oc_stage/deploy.py" "$oc_stage" "$(npath "$CFG")" "$OC_MAJOR"
 
 # ---- 5.1 compaction 关闭(manual setup 要求:magic-context 接管压缩;完整 jsonc 已含则跳过)----
 if ! grep -qs '"compaction"' "$CFG/opencode.jsonc" "$CFG/opencode.json" 2>/dev/null && \
@@ -938,58 +890,23 @@ print(f"added: tui plugin {entry} -> {path}")
 PYEOF
 }
 
-# ---- 5.2 TUI 插件条目(magic-context 右侧可视化侧边栏)----
-# 侧边栏(占比/historian/compartment 可视化)是独立于 opencode.json 的 TUI 插件,
-# magic-context 只在自身 setup 向导/doctor 时才写,这里补上。
-TUI_ENTRY="@cortexkit/opencode-magic-context@latest"
-if [ -f "$CFG/tui.jsonc" ]; then TUI_CFG="$CFG/tui.jsonc"
-elif [ -f "$CFG/tui.json" ]; then TUI_CFG="$CFG/tui.json"
-else TUI_CFG="$CFG/tui.jsonc"; fi
-if ! grep -qs 'magic-context' "$CFG/tui.jsonc" "$CFG/tui.json" 2>/dev/null && \
-   ask "在 $TUI_CFG 添加 magic-context 侧边栏 TUI 插件条目?" Y; then
+# ---- 5.2 TUI 入口：v2 从主配置的目录包自动发现 tui.js ----
+if [ "$OC_MAJOR" = 1 ]; then
+  if [ -f "$CFG/tui.jsonc" ]; then TUI_CFG="$CFG/tui.jsonc"
+  elif [ -f "$CFG/tui.json" ]; then TUI_CFG="$CFG/tui.json"
+  else TUI_CFG="$CFG/tui.jsonc"; fi
+  TUI_ENTRY="$(python3 - "$CFG/opencode.json" <<'PYEOF'
+import json,sys
+c=json.load(open(sys.argv[1],encoding='utf-8'))
+print(next(p for p in c['plugin'] if isinstance(p,str) and 'opencode-magic-context' in p))
+PYEOF
+)"
   ensure_tui_plugin "$TUI_ENTRY" 'magic-context'
-fi
-
-# ---- 5.3 later TUI 插件(输入框关键字延迟发送 prompt)----
-# 用法:输入框里打「later 5h 查看当前实验的运行结果」回车 —— 关键字在 TUI 层被拦截并排程,
-# 不产生任何模型请求;到点用 session.promptAsync 把这条 prompt 注入会话(agent 忙时排队等本轮结束)。
-# 另有「later list」「later cancel <id|all>」。计时器只活在当前 opencode 进程内,挂机请放 tmux。
-# 注意:TUI 插件不能放 plugins/(那目录只认 server 插件,签名不符会让 opencode 启动即崩),
-# 放 $CFG/tui-plugins/later/ 并在 tui.json(c) 里按目录条目引用。
-LATER_DIR="$CFG/tui-plugins/later"
-mkdir -p "$LATER_DIR"
-for f in package.json index.mjs; do
-  if curl -fsSL --connect-timeout 8 -m 60 -o "$LATER_DIR/$f.new" "$SELF_RAW/opencode/tui-plugins/later/$f"; then
-    if [ -f "$LATER_DIR/$f" ] && cmp -s "$LATER_DIR/$f.new" "$LATER_DIR/$f"; then
-      rm -f "$LATER_DIR/$f.new"; echo "unchanged: $LATER_DIR/$f"
-    else
-      if [ -f "$LATER_DIR/$f" ]; then
-        cp -p "$LATER_DIR/$f" "$LATER_DIR/$f.bak-$(date +%Y%m%d%H%M%S)"
-      fi
-      mv "$LATER_DIR/$f.new" "$LATER_DIR/$f"; echo "deployed: $LATER_DIR/$f"
-    fi
-  else
-    rm -f "$LATER_DIR/$f.new"; echo "WARN: later 插件 $f 下载失败(检查代理)" >&2
-  fi
-done
-if [ -f "$LATER_DIR/index.mjs" ] && \
-   ! grep -qs 'tui-plugins/later' "$CFG/tui.jsonc" "$CFG/tui.json" 2>/dev/null && \
-   ask "在 $TUI_CFG 添加 later(延迟发送 prompt)TUI 插件条目?" Y; then
   ensure_tui_plugin "./tui-plugins/later" 'tui-plugins/later'
-fi
-
-# ---- 5.3b later server 插件(agent 可调用工具)----
-# 与上面的 TUI 输入框版互补:TUI 版管人手输,这个管 agent 调 later 工具(Hooks.tool 注册,
-# 到点 session.promptAsync 注入同一会话)。server 插件放 $PLUGINS 自动加载,无需注册条目。
-if curl -fsSL --connect-timeout 8 -m 60 -o "$PLUGINS/later.js.new" "$SELF_RAW/opencode/plugins/later.js"; then
-  if [ -f "$PLUGINS/later.js" ] && cmp -s "$PLUGINS/later.js.new" "$PLUGINS/later.js"; then
-    rm -f "$PLUGINS/later.js.new"; echo "unchanged: plugins/later.js"
-  else
-    [ -f "$PLUGINS/later.js" ] && cp -p "$PLUGINS/later.js" "$PLUGINS/later.js.bak-$(date +%Y%m%d%H%M%S)"
-    mv -f "$PLUGINS/later.js.new" "$PLUGINS/later.js"; echo "deployed: plugins/later.js"
-  fi
 else
-  rm -f "$PLUGINS/later.js.new"; echo "WARN: later server 插件下载失败(检查代理)" >&2
+  if [ -f "$CFG/cli.json" ]; then TUI_CFG="$CFG/cli.json"
+  else TUI_CFG="$CFG/tui.json"; fi
+  echo "v2: 使用 cli.json（未存在时由宿主首启迁移 tui.json）；notify 不安装"
 fi
 
 # ---- 5.4 TUI 按键(Enter 发送、Shift+Enter 换行;不绑定 Ctrl+Enter)----
@@ -1022,6 +939,8 @@ def load(p):  # JSONC 感知:去注释与尾逗号(字符串内的 // 不动)
         out.append(c); i += 1
     return json.loads(re.sub(r',(\s*[}\]])', r'\1', ''.join(out)))
 want = {"input_submit": "return", "input_newline": "shift+return", "prompt_submit": "none"}
+if path.endswith("/cli.json") or path.endswith("\\cli.json"):
+    want = {k.replace("_", "."): v for k,v in want.items()}
 cfg = load(path)
 kb = cfg.get("keybinds", {})
 if not isinstance(kb, dict):
@@ -1059,75 +978,10 @@ fi
 # 含密钥的配置统一 600(与 pi/codex 两侧一致;含本机路径的脚本文件不下调)
 chmod 600 "$SETTINGS" "$MC_CFG" "$CFG/opencode.json" 2>/dev/null || true
 
-# ---- 5.5 context-mode 插件(从 GitHub Release 装到插件目录;不写 opencode.json 的 plugin 字段)----
-#   OpenCode 只扫描 plugins/*.js 这一层(子目录不会被自动加载),所以包放 plugins/context-mode/,
-#   入口用包里的 entry.js 复制成 plugins/context-mode.js。skills 装到 $CFG/skill/<name>/。
-CM_ASSET="opencode-context-mode-vendor.tar.gz"
-CM_URL="https://github.com/brilliantrough/agent-skills/releases/latest/download/$CM_ASSET"
-CM_DIR="$PLUGINS/context-mode"
-CM_ENTRY="$PLUGINS/context-mode.js"
-cm_tmp="$(mktemp -d)"; cm_ok=0
-if mkdir -p "$cm_tmp/pkg" && curl -fsSL --connect-timeout 8 -m 120 -o "$cm_tmp/a.tgz" "$CM_URL" 2>/dev/null \
-   && tar -xzf "$cm_tmp/a.tgz" -C "$cm_tmp/pkg"; then
-  cm_ver="$(python3 -c "import json;print(json.load(open('$cm_tmp/pkg/VENDORED.json'))['upstream']['version'])" 2>/dev/null || echo '?')"
-  mkdir -p "$PLUGINS"
-  if [ -d "$CM_DIR" ] && diff -rq "$cm_tmp/pkg" "$CM_DIR" >/dev/null 2>&1; then
-    echo "unchanged: plugins/context-mode($cm_ver)"
-  else
-    rm -rf "$CM_DIR"; mv "$cm_tmp/pkg" "$CM_DIR"; echo "deployed: plugins/context-mode($cm_ver)"
-  fi
-  cp -f "$CM_DIR/entry.js" "$CM_ENTRY"
-  cm_n=0
-  for d in "$CM_DIR"/skills/*/; do
-    [ -f "$d/SKILL.md" ] || continue
-    n="$(basename "$d")"; dest="$CFG/skill/$n"
-    if [ -d "$dest" ] && diff -rq "$d" "$dest" >/dev/null 2>&1; then continue; fi
-    mkdir -p "$CFG/skill"; rm -rf "$dest"; cp -r "$d" "$dest"
-    echo "deployed: skill/$n"; cm_n=$((cm_n+1))
-  done
-  echo "       context-mode: skill 更新 $cm_n 个(重启 opencode 生效)"
-  cm_ok=1
-else
-  echo "WARN: context-mode 插件下载/解包失败($CM_URL,检查代理)" >&2
-fi
-rm -rf "$cm_tmp"
-
-# 官方装法(plugin 字段里写 context-mode 包)会与我们这份重复注册工具,发现就提示摘掉
-if [ "$cm_ok" = 1 ] && [ -f "$CFG/opencode.json" ]; then
-  cm_dup="$(python3 - "$CFG/opencode.json" <<'PYEOF'
-import json, sys
-try:
-    plugins = json.load(open(sys.argv[1], encoding="utf-8")).get("plugin") or []
-except Exception:
-    plugins = []
-print(1 if any("context-mode" in str(p) and "plugins/context-mode.js" not in str(p) for p in plugins) else 0)
-PYEOF
-)"
-  if [ "$cm_dup" = 1 ]; then
-    echo "WARN: opencode.json 的 plugin 数组里还有官方的 context-mode 条目(与本安装重复注册工具)"
-    if ask "现在摘掉它?" Y; then
-      python3 - "$CFG/opencode.json" <<'PYEOF'
-import json, sys
-path = sys.argv[1]
-cfg = json.load(open(path, encoding="utf-8"))
-kept = [p for p in (cfg.get("plugin") or []) if not ("context-mode" in str(p) and "plugins/context-mode.js" not in str(p))]
-if kept:
-    cfg["plugin"] = kept
-else:
-    cfg.pop("plugin", None)
-with open(path, "w", encoding="utf-8") as f:
-    json.dump(cfg, f, indent=2, ensure_ascii=False)
-    f.write("\n")
-print("removed: plugin 条目里的官方 context-mode -> " + path)
-PYEOF
-    fi
-  fi
-fi
-
 # ---- 6. notify 插件(brilliantrough/opencode-notify-hub,GitHub Release 预构建包)----
 # 每次拉最新 release 的 zip,与已装文件比对:一致就不动,不同才备份 .bak-时间戳 再替换。
 NOTIFY_TARGET="$PLUGINS/session-notify.js"
-if command -v curl >/dev/null 2>&1; then
+if [ "$OC_MAJOR" = 1 ] && command -v curl >/dev/null 2>&1; then
   if [ -f "$NOTIFY_TARGET" ] || ask "未找到 notify 插件,从 GitHub Release 下载最新 opencode-notify-plugin?" N; then
     _new="$NOTIFY_TARGET.new"
     notify_ver="$(python3 - "$_new" <<'PYEOF' || true

@@ -1,0 +1,8 @@
+{
+  "name": "agent-skills-context-rewrite-core",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "acp-kernel": "0.0.101"
+  }
+}

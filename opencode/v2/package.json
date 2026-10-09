@@ -1,0 +1,9 @@
+{
+  "name": "agent-skills-opencode-v2",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./tui": "./tui.js"
+  }
+}

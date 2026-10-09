@@ -497,10 +497,11 @@ OpenCode 缓存钉住下载时版本，重启不自动升级。与 Pi 版本不�
 | 宿主 | 部署方式 |
 |---|---|
 | Pi | curl 最新 release → 解到 `~/.pi/agent/vendor/context-mode` → `pi install`；内容未变则跳过 |
-| OpenCode | `opencode-context-mode-vendor.tar.gz` → `~/.config/opencode/plugins/context-mode/`；再放一层 `entry.js` 入口 |
+| OpenCode v1 | `opencode-context-mode-vendor.tar.gz` → `~/.config/opencode/plugins/context-mode/`；再放一层 `entry.js` 入口 |
+| OpenCode v2 | 同一 context-mode 资产 → `~/.config/opencode/vendor/context-mode/`；由 v2 适配包加载 |
 
 - Pi：摘除旧 clone 路径条目；同时登记两份会无法启动
-- OpenCode：不改 `opencode.json` 的 `plugin` 字段；7 个 skill 装到 `~/.config/opencode/skill/`
+- OpenCode：context-mode 不单独登记为配置插件；配套 skill 装到 `~/.config/opencode/skill/`
 
 ### later：延迟发送 prompt
 
@@ -522,7 +523,7 @@ OpenCode 缓存钉住下载时版本，重启不自动升级。与 Pi 版本不�
 1. 对照[插件清单](#插件与主题)，用 `pi install npm:<包名>` 逐个安装七个 npm 包，再用 `pi install git:github.com/brilliantrough/agent-skills` 安装本仓库包
 2. 可选安装 context-mode fork：
    - Pi：`curl -fsSL https://github.com/brilliantrough/agent-skills/releases/latest/download/pi-context-mode-vendor.tar.gz | tar -xz -C ~/.pi/agent/vendor/context-mode`，再 `pi install ~/.pi/agent/vendor/context-mode`
-   - OpenCode：取 `opencode-context-mode-vendor.tar.gz` 解到 `~/.config/opencode/plugins/context-mode`，将包内 `entry.js` 用 `cp` 复制到 `plugins/context-mode.js`
+   - OpenCode v1：取 `opencode-context-mode-vendor.tar.gz` 解到 `~/.config/opencode/plugins/context-mode`，将包内 `entry.js` 用 `cp` 复制到 `plugins/context-mode.js`
 3. 将 dot_file 的 `pi/{models,settings,mcp,auth,pi-autoname}.json`、`pi/agents/*.md` 放到对应位置
 4. 填好 `models.json` 网关占位符、`auth.json` coding plan key；用 `pi auth check --provider <p>` 验证
 
@@ -532,7 +533,20 @@ PS：开发时，脚本最后将本机 Pi 包软链到仓库 `node_modules/`（`
 
 ## OpenCode 插件配置（手工步骤）
 
-一键安装见顶部；以下为手工配置。
+一键安装见顶部；先安装客户端，脚本按 `opencode --version` 选择 v1／v2 预构建包，不升级宿主或迁移数据库。
+
+| 客户端 | 包与入口 | 配置 |
+| --- | --- | --- |
+| v1 | `opencode-plugins-v1.tar.gz` → `plugins/zz-agent-skills.js`、`tui-plugins/later/` | `plugin`、`tui.json(c)` |
+| v2 | `opencode-plugins-v2.tar.gz` → `v2/`，附带 ponytail | `plugins`、`cli.json` |
+
+- Magic Context 保留已装版本；v2 至少 0.45，版本不明确则提示处理，不自动升级共享库。
+- v2 context-mode 放 `vendor/context-mode/`；notify 不安装，旧入口备份后停用。
+- 自维护入口变化前备份，内容相同不重写；未知第三方配置保留，兼容性需自行核对。
+- v2 原生 `providers` 保留原样；通用模型模板只更新 v1 `provider` 结构。
+- 构建、发布及首次 TUI 配置迁移见 [OpenCode 分发说明](opencode/README.md)。
+
+以下手工配置以 **v1** 为例；v2 使用上述脚本或 [v2 入口](opencode/v2/README.md)，不要直接装旧 hooks。
 
 ### 1. claude-mem
 
@@ -547,9 +561,9 @@ npx claude-mem install --ide opencode
 上游 bug [thedotmack/claude-mem#2854/#3328](https://github.com/thedotmack/claude-mem/issues/2854)：bundle 导出非函数常量。
 
 - bundle 移至 `~/.config/opencode/lib/claude-mem.js`
-- `opencode-setup.sh` 生成 `~/.config/opencode/plugins/claude-mem-wrapper.js`
-- plugin 条目设为 `./plugins/claude-mem-wrapper.js`
-- 升级 claude-mem 后重跑脚本，重新生成 wrapper
+- setup 的预构建包内含 wrapper；v1 从 `plugins/zz-agent-skills.js` 加载，v2 从 `v2/` 加载
+- 不再额外登记 `./plugins/claude-mem-wrapper.js`；已有旧入口备份后停用
+- 升级 claude-mem 后重跑脚本，重新检查 bundle 和 wrapper
 
 | 修复 | 行为 |
 |---|---|

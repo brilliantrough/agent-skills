@@ -60,8 +60,6 @@ for (const key of ["CLAUDE_MEM_WORKER_HOST", "CLAUDE_MEM_WORKER_PORT"]) {
   }
 }
 
-const { ClaudeMemPlugin } = await import("../lib/claude-mem.js");
-
 function resolveWorkerBaseUrl() {
   const host =
     process.env.CLAUDE_MEM_WORKER_HOST ||
@@ -89,6 +87,7 @@ function textOf(parts) {
 }
 
 export default async function (ctx) {
+  const { ClaudeMemPlugin } = await import(new URL("../lib/claude-mem.js", import.meta.url).href);
   const project = ctx?.project?.name || "opencode";
   const sessions = new Map(); // opencode sessionID -> { cid, lastPrompt }
   let chatMessageWorks = false;
