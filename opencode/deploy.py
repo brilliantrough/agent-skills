@@ -84,13 +84,24 @@ def native(entry) -> Any:
     return {'package': entry[0], 'options': entry[1]} if isinstance(entry, list) else entry
 
 
+def cached_magic_context():
+    cache = Path(os.environ.get('XDG_CACHE_HOME', Path.home() / '.cache')) / 'opencode'
+    package = MC + '@latest'
+    # OpenCode v1 stores npm packages under packages; v2 uses npm.
+    for layout in ('npm', 'packages'):
+        root = cache / layout / package / 'node_modules' / MC
+        if (root / 'package.json').exists():
+            return root
+    return None
+
+
 def magic_context(entries, major, cfg):
     entry = next((e for e in entries if is_mc(e)), None)
     if entry is None:
-        cache = Path(os.environ.get('XDG_CACHE_HOME', Path.home() / '.cache')) / 'opencode'
-        installed = cache / 'packages' / (MC + '@latest') / 'node_modules' / MC / 'package.json'
+        installed = cached_magic_context()
         pi = Path.home() / '.pi/agent/npm/node_modules/pi-magic-context/package.json'
-        version = load(installed).get('version') or load(pi).get('version')
+        version = load(installed / 'package.json').get('version') if installed else ''
+        version = version or load(pi).get('version')
         data = Path(os.environ.get('XDG_DATA_HOME', Path.home() / '.local/share'))
         if not version and (data / 'cortexkit/magic-context/context.db').exists():
             raise ValueError('已有共享 Magic Context 数据库但无法确认运行版本；请先单独配置插件，不自动引入新版本')
@@ -109,9 +120,8 @@ def magic_context(entries, major, cfg):
             if tuple(int(n) for n in version.split('.')[:2]) < (0, 45):
                 raise ValueError('现有 Magic Context 早于 0.45；请在停用各宿主的窗口单独升级，再配置 v2')
             return native(entry) if entry else spec
-        cache = Path(os.environ.get('XDG_CACHE_HOME', Path.home() / '.cache')) / 'opencode'
-        root = cache / 'packages' / (MC + '@latest') / 'node_modules' / MC
-        if not (root / 'package.json').exists():
+        root = cached_magic_context()
+        if root is None:
             raise ValueError('无法确定现有 Magic Context @latest 的已装版本；请先把条目固定为已安装版本或包目录，不自动升级共享数据库')
     version = load(root / 'package.json').get('version', '')
     if not version or tuple(int(n) for n in version.split('.')[:2]) < (0, 45):
