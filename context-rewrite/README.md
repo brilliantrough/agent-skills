@@ -43,7 +43,7 @@
 - 命令输出：有可信的宿主落盘路径时，复制到持久目录；否则只保存实际收到的文本，明确标注它可能已被宿主截断。
 - MCP 多个文本块合并保存，图片及其他非文本内容保留。记忆控制、问卷、`context_rewrite`、`context_output_read` 不自动外置；OpenCode `read` 携带项目指令时保持原样。
 - codemode 内部子调用不外置，脚本继续获得原数据；只对最终给模型看的大文本处理。
-- OpenCode 未经过 `tool.execute.after` 的抛出异常保持原样；普通 shell 非零退出码仍会进入外置流程。保留的错误可再用 `context_rewrite` 处理。
+- OpenCode v1 未经过 `tool.execute.after` 的抛出异常保持原样；普通 shell 非零退出码仍会进入外置流程。保留的错误可再用 `context_rewrite` 处理。
 - 写文件失败：不返回空指针，保留原始输出并报告错误。
 
 取回使用占位符中的完整 id：
@@ -95,7 +95,27 @@ OpenCode 2.0.26 已改为等待输出流完成。v2 适配通过进度事件保�
 
 ## 安装与试用
 
-OpenCode v1／v2 已接入 `opencode-setup.sh` 的分版本预构建包，重启宿主生效；旧独立入口会备份后停用，不要重复安装。
+### OpenCode：随套装安装
+
+v1/v2 均已接入 `opencode-setup.sh`；先退出 TUI 和后台服务，再按需运行：
+
+```bash
+bash opencode-setup.sh --check         # 预检管理路径、旧入口与配置
+bash opencode-setup.sh --plugins-only  # 更新插件，不更新通用 skills／模型／Python
+# 新机器安装完整套装：bash opencode-setup.sh
+```
+
+脚本获取方式与迁移边界见 [OpenCode 分发说明](../opencode/README.md)。旧散装或旧 v1 入口备份到 `$CFG/.agent-skills-backups/` 后停用，不需手工删除；重启宿主生效。**不要叠加整包与独立纠错插件。**
+
+| 层 | 源码与分发 |
+| --- | --- |
+| 公共核心 | `core.mjs`、`output-store.mjs`，Pi／OpenCode 共用 |
+| OpenCode v1 | `opencode/plugins/context-rewrite.js`，打进 v1 bundle |
+| OpenCode v2 | `opencode/v2/context-rewrite.js`，打进 v2 目录包 |
+
+当前是共用核心、两套宿主适配与分发资产，不是单一双入口包。setup 只迁移插件／配置；宿主会话库由 OpenCode 管理，已有外置正文不因插件升级而删除。跨机器迁移会话时仍需同时迁移正文文件。
+
+### Pi：本机试用
 
 Pi 尚未接入根包清单，仍可在仓库根目录试用：
 
@@ -106,7 +126,9 @@ pi -e ./pi/extensions/context-rewrite.ts
 
 Pi 长期本机试用：把该文件的绝对路径加入 `~/.pi/agent/settings.json` 的 `extensions` 数组，保留其他条目，随后 `/reload`。不要同时以两种方式加载。
 
-仅单独调试 OpenCode 1.18.35 时，可构建独立入口（不能与 setup 的整包同时加载）：
+### OpenCode v1：仅开发调试
+
+单独调试 OpenCode 1.18.35 时，可构建独立入口（不能与 setup 的整包同时加载）：
 
 ```bash
 bun build opencode/plugins/context-rewrite.js --target=bun \
@@ -125,6 +147,6 @@ OpenCode v2 使用独立适配入口，见 [`opencode/v2/README.md`](../opencode
 - OpenCode v1：每个会话首次请求读取原始历史，之后通常只读取最近 `窗口 + 1` 条消息；发现历史回退或分页断层才重新读取全部。缓存只留调用索引、纠错记录和窗口内文本。
 - OpenCode v2：读取 `session.context` 返回的当前宿主上下文并重建索引，再过滤发送视图；旧历史迁移、普通重开已验收，长期压缩交错仍待实用观察。
 - 两端仍需遍历调用索引；不是与会话长度无关的常数开销。
-- 基线：Pi 1.1.0、OpenCode 1.18.35、Magic Context 0.45.0。短链路共存不等于所有 provider、长会话压缩和 TUI 场景均已验收。
+- 验收基线：Pi 1.1.0、OpenCode v1 1.18.35／v2 2.0.26、Magic Context 0.45.0。短链路共存不等于所有 provider、长会话压缩和 TUI 场景均已验收；Windows 实机未覆盖。
 
 最小核心检查：`node context-rewrite/demo.mjs`。实机试用可让 Agent 读取不存在的文件，随后纠错并改读正确路径；观察固定纠错记录、正确重试，以及重开后的结果。

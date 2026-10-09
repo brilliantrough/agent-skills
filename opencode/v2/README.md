@@ -1,6 +1,8 @@
 # OpenCode v2 适配
 
-面向 OpenCode **2.0.26**；通过 `opencode-setup.sh` 自动选择 v2 预构建包。v1 使用独立资产，Pi 入口不在此包中。
+已在 OpenCode **2.0.26** 验证；通过 `opencode-setup.sh` 自动选择 v2 预构建包。v1 使用独立资产，两端复用公共逻辑，不是同一双入口自维护包；Pi 入口不在此包中。
+
+正常安装、旧散装／v1 迁移均走 [统一 setup](../README.md#安装与更新)，不手工删旧入口。`--plugins-only` 更新插件和 context-mode 自带 skills；新机器需要通用 skills、claude-mem 资产与环境配置时，运行完整 setup。
 
 | 文件 | 职责 |
 | --- | --- |
@@ -8,9 +10,10 @@
 | `legacy-tools.js` | 复用已安装的 context-mode、claude-mem、later 实现，转换 v2 工具与会话事件 |
 | `request-affinity.js` | 会话级缓存键、sticky session 请求头 |
 | `context-rewrite.js` | 近期纠错、持久外置、显式全文取回；复用 `context-rewrite/` 核心 |
+| `tui.js` | 目录包的 TUI 入口，转发到 `later-cli.js`，由 CLI 自动发现 |
 | `later-cli.js` | TUI 输入 `later 5h 检查结果`、`later list`、`later cancel all`，以及 `/later` |
 
-Magic Context 使用其自身的 v2 入口；本包须在它之后加载。notify 不包含在本包中。上下文纠错复用 [acp-kernel](https://github.com/ranxianglei/acp-kernel) 0.0.101；部署须附带 `context-rewrite/ACP-KERNEL-LICENSE`，保留许可证及出处标注。
+Magic Context 使用其自身的 v2 入口，要求已装版本至少 **0.45**；本包须在它之后加载。版本不明或过旧时 setup 停止，不自动升级共享库。notify 不包含在本包中，旧入口备份停用。上下文纠错复用 [acp-kernel](https://github.com/ranxianglei/acp-kernel) 0.0.101；部署须附带 `context-rewrite/ACP-KERNEL-LICENSE`，保留许可证及出处标注。
 
 ## 构建和部署
 
@@ -19,7 +22,8 @@ Magic Context 使用其自身的 v2 入口；本包须在它之后加载。notif
 ```json
 {
   "plugins": [
-    "<已安装的 Magic Context 包目录>",
+    "<已安装且支持 v2 的 Magic Context 包目录>",
+    "@dietrichgebert/ponytail",
     {"package": "<配置目录>/v2"}
   ]
 }
@@ -33,9 +37,13 @@ Magic Context 使用其自身的 v2 入口；本包须在它之后加载。notif
 - 旧工具 schema、wrapper、later 已打进 bundle；不再依赖 `legacy-v1/` 或目标机 `node_modules/@opencode-ai/plugin`。
 - `v2/` 目录包：本仓自维护能力；官方 Ponytail 单独由 `@dietrichgebert/ponytail` 提供，不能再把 `v2/ponytail/` 或 `options.ponytailPackage` 加入配置。
 
-setup 备份后停用本套件旧入口，避免与 `plugins/` 自动发现重复。CLI 自动发现本包的 `tui.js`；主题、快捷键使用 `cli.json`。首次从旧 TUI 配置接入时，由宿主迁移 `tui.json` 与 state；setup 不迁移会话数据库。
+Ponytail 缺包由宿主启动时自动下载；setup 只登记，不手填缓存或调用 `opencode plugin add`。保留已有 Magic Context 的版本／目录登记，不把上面占位示例整体覆盖到现有配置。
 
-本包的 TUI 定时器随 TUI 退出清除；Agent 工具定时器随服务端退出清除。关闭 TUI 不一定会停止 v2 后台服务。
+setup 将本套件旧入口移入 `$CFG/.agent-skills-backups/<时间戳>/`，避免与 `plugins/` 自动发现重复；不删除会话库、认证或外置文件。CLI 自动发现本包的 `tui.js`，不要在 `cli.json` 中再登记旧 `tui-plugins/later`。主题、快捷键使用 `cli.json`；完整 setup 可确认更新按键，插件模式不统一按键。首次从旧 TUI 配置接入时，setup 准备 `tui.json`，由宿主首启迁移 UI 和 state。
+
+宿主升级前先停进程、备份，再升级二进制并运行 setup；会话数据库迁移由 OpenCode 正常启动完成。Magic Context 的共享库升级是另一项维护任务。
+
+输入框排程与 Agent 工具排程独立，分别查询／取消。本包的 TUI 定时器随 TUI 退出清除；Agent 工具定时器随服务端退出清除。关闭 TUI 不一定会停止 v2 后台服务。
 
 ## 输出与会话
 

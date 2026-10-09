@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# opencode-setup.sh — 个人 opencode 一键配置(claude-mem + magic-context + ponytail + notify + skills 本体)
+# opencode-setup.sh — OpenCode v1/v2 套装配置与旧插件迁移
 # 仓库: brilliantrough/agent-skills
 #
 # 用法：bash opencode-setup.sh [-y|--yes] [--plugins-only|--check]；先安装 OpenCode，按主版本拉取对应预构建包。
-# 不升级宿主、不迁移数据库、不自动升级共享 Magic Context。
+# 完整安装含配置、依赖与通用 skills；--plugins-only 仅插件及 context-mode skills；--check 下载校验后退出。
+# 更新前先退出 TUI 和后台服务；已知旧入口移到配置目录 .agent-skills-backups/，不手工清缓存。
+# 不升级宿主、不迁移数据库、不自动升级共享 Magic Context；官方 npm 缺包由宿主启动时下载。
 # 配置：本地私密值保留；provider.models 随模板刷新；v2 原生 providers 不改写。
 # -y 采用各项默认选择（默认 N 仍跳过）；凭据可交互输入或通过环境变量填写。
 # OPENCODE_CONFIG_DIR 优先，其次 XDG_CONFIG_HOME/opencode。Windows 使用 Git Bash。
@@ -49,7 +51,7 @@ resolve_python3() { # python3 就绪返回 0;否则 python → py → uv 自管�
 }
 
 # -y/--yes(或环境变量 ASSUME_YES=1)「默认安装」:不再逐项确认,一律取默认值 —— 默认 Y 的照做
-# (装缺件、字段级合并写配置、刷新 skills),默认 N 的跳过(notify 插件、覆盖插件缓存、无代理继续、AGENTS.md 注入)。
+# (装缺件、字段级合并写配置、刷新 base skills),默认 N 的跳过(notify 首装、算力/知识组、无代理继续、AGENTS.md 注入)。
 # 唯一还会问的是凭据(网关 + 5 个 api key);没有终端时静默跳过、占位符保留(无人值守用环境变量预填)。
 ASSUME_YES="${ASSUME_YES:-}"
 PLUGINS_ONLY=0; CHECK_ONLY=0
@@ -58,7 +60,18 @@ while [ $# -gt 0 ]; do
     -y|--yes) ASSUME_YES=1 ;;
     --plugins-only) PLUGINS_ONLY=1 ;;
     --check) CHECK_ONLY=1; PLUGINS_ONLY=1 ;;
-    -h|--help) echo "用法: bash <本脚本> [-y|--yes] [--plugins-only|--check]  # --plugins-only 仅同步插件；--check 只下载并检查，不写配置"; exit 0 ;;
+    -h|--help)
+      cat <<'HELP'
+用法: bash <本脚本> [-y|--yes] [--plugins-only|--check]
+  默认             完整配置、插件、依赖与通用 skills；默认 base，交互可选全组
+  --plugins-only   同步插件及 context-mode skills，迁移旧入口；不更新模型/Python/通用 skills
+  --check          下载校验自维护包、检查配置和待退役项；不部署，不更改配置/认证/数据库
+  -y, --yes        采用各项默认值（默认 N 仍跳过）；凭据仍可询问
+先安装 OpenCode v1/v2；更新前退出 TUI 和后台服务。精简模式需要已有 Python 3、curl。
+已知旧入口备份到 $CFG/.agent-skills-backups/；不清缓存、不启动宿主、不迁移会话库或升级 Magic Context。
+官方 npm 缺包由宿主启动时下载；--check 仍联网，宿主 --version 可能写日志。
+HELP
+      exit 0 ;;
     *) echo "未知参数: $1(支持 -y|--yes / --plugins-only / --check / -h|--help)" >&2; exit 2 ;;
   esac
   shift
@@ -99,7 +112,7 @@ ask() { # $1=提示 $2=默认(Y/N,缺省 N)
 }
 
 RAW="https://raw.githubusercontent.com/brilliantrough/dot_file/master"
-# 本仓自产的插件源文件(claude-mem wrapper、later server/TUI 插件)从自己仓库下载
+# 本仓原始文件入口：skills 同步器、项目规范块等；插件产物从固定 release 获取。
 SELF_RAW="https://raw.githubusercontent.com/brilliantrough/agent-skills/main"
 # merge_cfg <url> <dest> — 拉 dot_file 模板后做「字段级」合并,而非整文件覆盖:
 #   模板中的非敏感字段值优先 → 新默认值能下发到服务器;
@@ -1103,4 +1116,4 @@ if [ -f "$NOTIFY_TARGET" ]; then
   echo "      NOTIFY_GATEWAY_URL=<你的网关地址>    NOTIFY_INGEST_KEY=<你的 ingest key>"
   echo "      可选: NOTIFY_MACHINE=<机器名>(多机区分)"
 fi
-echo "$n. 重启 opencode 生效"
+echo "$n. 退出旧 TUI 和后台服务后重启 OpenCode；官方 npm 缺包由宿主安装，会话库迁移也由宿主处理"

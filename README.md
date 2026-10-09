@@ -8,7 +8,7 @@
 | Pi | 与 OpenCode 共享记忆配置 |
 | Codex | best effort；复用 skills 原文，不改工作流 |
 
-[快速安装](#快速安装) · [Skills](#skills本仓-27-个) · [首次部署](#首次部署只需要网关--5-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [OpenCode](#opencode-插件配置手工步骤) · [更新](#更新)
+[快速安装](#快速安装) · [Skills](#skills本仓-27-个) · [首次部署](#首次部署只需要网关--5-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [OpenCode](#opencode-安装与迁移) · [更新](#更新)
 
 ## 快速安装
 
@@ -29,6 +29,8 @@ winget install --id Git.Git -e --source winget
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/opencode-setup.sh)" -- -y
 ```
+
+先安装 OpenCode **v1 或 v2**；已有安装先退出 TUI 和后台服务。脚本按主版本部署插件，兼容旧散装入口；不升级宿主、不迁移会话库。默认同步 base skills；需要算力组时用交互安装选择全组。只更新插件用 `--plugins-only`，预检用 `--check`，详见[安装与迁移](#opencode-安装与迁移)。
 
 **Pi**
 
@@ -57,7 +59,7 @@ bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.co
 | 默认值 | 行为 | 项目 |
 |---|---|---|
 | Y | 执行 | 装缺件、字段级合并配置（保留本地敏感值）、刷新 skills |
-| N | 跳过 | notify、覆盖插件缓存、升级 Pi 本体、无代理继续、AGENTS.md 注入 |
+| N | 跳过 | notify 首装（仅 OpenCode v1）、算力／知识 skills 组、升级 Pi 本体、升级 Magic Context、无代理继续、AGENTS.md 注入 |
 | 凭据 | 仍询问 | 无终端则跳过，保留占位符；无人值守可用环境变量预填 |
 
 等价写法：`--yes`、`ASSUME_YES=1`、`curl -fsSL <脚本 URL> | bash -s -- -y`。
@@ -474,15 +476,16 @@ Pi 原生 MCP（>= 0.99.0）：全局 `~/.pi/agent/mcp.json`，可信项目 `.pi
 
 **magic-context 版本守卫**
 
-OpenCode 缓存钉住下载时版本，重启不自动升级。与 Pi 版本不一致时，共享 `context.db` 会使新宿主 fail-closed、拒绝主回合。
+OpenCode 的已下载包不会因重启就自动刷新；本地目录或固定版本登记也不会跟随 `latest`。与 Pi 版本不一致时，共享 `context.db` 可能触发版本守卫，拒绝主回合。
 
-检测到不一致时，脚本默认不启用 Pi 版，并提示：
+检测到不一致时，不继续强行启用或清理整个缓存：
 
-1. 清除 `~/.cache/opencode/packages/@cortexkit/opencode-magic-context@latest`
-2. 重启 OpenCode
-3. 重跑 `pi-setup.sh`
+1. 停止所有共用 Magic Context 的宿主，备份共享数据库及配置
+2. 核对两端实际包路径、版本和配置登记方式，单独安排到兼容版本
+3. 显式目录登记须更新指向；不能假定删一个 `@latest` 缓存就能升级
+4. 确认版本一致后再重跑 setup、启动宿主
 
-升级须选两边均无人使用的时段，见[更新](#更新)。
+OpenCode setup 保留已有 Magic Context；v2 要求至少 **0.45**，旧版或版本无法确定时停止提示。升级窗口见[更新](#更新)。
 
 ### context-mode fork
 
@@ -531,22 +534,50 @@ OpenCode 缓存钉住下载时版本，重启不自动升级。与 Pi 版本不�
 
 PS：开发时，脚本最后将本机 Pi 包软链到仓库 `node_modules/`（`.gitignore` 已排除），供编辑器/pi-lens 解析 `@earendil-works/pi-*`、`node:*` 类型。缺软链会报 `Cannot find module`，但运行时由 Pi 提供，不影响使用。
 
-## OpenCode 插件配置（手工步骤）
+## OpenCode 安装与迁移
 
-一键安装见顶部；先安装客户端，脚本按 `opencode --version` 选择 v1／v2 预构建包，不升级宿主或迁移数据库。
+先安装 OpenCode，已有服务先退出。setup 按 `opencode --version` 选择预构建包；**目前仍是 v1/v2 两个资产，不是单一双入口包**。later 的 Agent 逻辑、context_rewrite 核心共用，宿主与 TUI 适配分开。
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/opencode-setup.sh -o /tmp/opencode-setup.sh
+bash /tmp/opencode-setup.sh --check
+bash /tmp/opencode-setup.sh --plugins-only
+# 新机器安装完整套装：bash /tmp/opencode-setup.sh
+```
+
+| 模式 | 处理范围 |
+| --- | --- |
+| 默认完整安装 | 插件、配置、依赖与通用 skills；默认 base 19 个，交互可选全组 27 个，另同步外部设计 skills |
+| `--plugins-only` | 自维护插件、context-mode 及其自带 skills、官方包登记；不更新模型／Python／通用 skills，不补装 claude-mem 资产或 notify |
+| `--check` | 下载并校验自维护发布包，检查配置／Magic Context，列管理路径和待退役项；不改配置、认证或数据库 |
+
+`--check` 与 `--plugins-only` 要求已有 Python 3、curl；`--check` 仍会联网，宿主 `--version` 也可能写日志，并非零文件系统写入。
 
 | 客户端 | 包与入口 | 配置 |
 | --- | --- | --- |
 | v1 | `opencode-plugins-v1.tar.gz` → `plugins/zz-agent-skills.js`、`tui-plugins/later/` | `plugin`、`tui.json(c)` |
-| v2 | `opencode-plugins-v2.tar.gz` → `v2/`；Ponytail 登记官方包，宿主启动时自动安装 | `plugins`、`cli.json` |
+| v2 | `opencode-plugins-v2.tar.gz` → `v2/`，含 server 与 TUI 入口 | `plugins`、`cli.json` |
 
-- Magic Context 保留已装版本；v2 至少 0.45，版本不明确则提示处理，不自动升级共享库。
-- v2 context-mode 放 `vendor/context-mode/`；Ponytail 不再从本包复制，setup 不调用宿主 `plugin add`；notify 不安装，旧入口备份后停用。
-- 自维护入口变化前备份，内容相同不重写；未知第三方配置保留，兼容性需自行核对。
-- v2 原生 `providers` 保留原样；通用模型模板只更新 v1 `provider` 结构。
-- 构建、发布及首次 TUI 配置迁移见 [OpenCode 分发说明](opencode/README.md)。
+- **旧插件迁移**：旧散装入口和旧 v1 包统一纳管；v1→v2 后移入 `$CFG/.agent-skills-backups/<时间戳>/`，不留在自动扫描目录。无需手工删除；相同内容不重写，不自动降级回 v1。
+- **保留范围**：私密值、provider options、未知第三方配置、认证、会话库和外置正文。v2 原生 `providers` 不套 v1 模型模板。
+- **Ponytail**：两端都登记官方包，宿主启动时自动安装缺包；不内置副本，不手填 npm 缓存，不由 setup 执行 `plugin add` 或升级已有包。
+- **Magic Context**：保留已有版本；v2 至少 0.45，版本不明先处理，不自动升级共享库。
+- **context-mode**：独立 release；v1 在 `plugins/context-mode/`，v2 在 `vendor/context-mode/`。notify 仅 v1 可选安装，v2 停用旧入口。
+- **验证范围**：Linux v1 1.18.35／v2 2.0.26；旧入口迁移、重复运行、两端发现全部 27 个本仓 skills 与 Ponytail 空缓存自动安装已通过。Windows 实机未覆盖；不是所有历史版本的兼容承诺。
 
-以下手工配置以 **v1** 为例；v2 使用上述脚本或 [v2 入口](opencode/v2/README.md)，不要直接装旧 hooks。
+### 宿主升级顺序
+
+1. 退出旧 TUI 和后台服务，备份配置、认证、state 及一致的会话数据库
+2. 升级 OpenCode 二进制，再运行 setup 的 `--check`／`--plugins-only`
+3. 启动新版，由 **OpenCode 自己迁移会话库和 CLI 配置**；setup 不代管数据库迁移
+
+Magic Context 的共享 `context.db` 是另一套库，升级另选所有宿主停用的窗口。v1/v2 并行须隔离配置、数据、state、cache；回退不能只换旧二进制，也不能把插件备份当作数据库备份。
+
+管理路径、停止条件与构建发布见 [OpenCode 分发说明](opencode/README.md)；工具用法见 [近期纠错与大输出外置](context-rewrite/README.md)。
+
+### 手工配置参考
+
+以下 JSON 示例以 **v1** 为例；v2 目录包与配置见 [v2 说明](opencode/v2/README.md)。使用 setup 后不要再重复登记旧 wrapper、later 或 context_rewrite 独立入口。
 
 ### 1. claude-mem
 
@@ -672,19 +703,21 @@ curl 127.0.0.1:37700/api/health     # 端口见 $SETTINGS 的 CLAUDE_MEM_WORKER_
 }
 ```
 
-故障自检：`npx @cortexkit/magic-context@latest doctor`。
+故障自检前先核对已装版本；会升级插件或迁移共享库的 doctor 操作，只在维护窗口执行，不直接拉 `@latest` 排障。
 
-**右侧可视化侧边栏**显示占比 / historian / compartment 状态，属于独立 TUI 插件。注册到 `~/.config/opencode/tui.jsonc`：
+**v1 侧边栏**显示占比 / historian / compartment 状态，属于独立 TUI 插件。注册到 `~/.config/opencode/tui.jsonc`：
 
 ```jsonc
 { "plugin": ["@cortexkit/opencode-magic-context@latest"] }
 ```
 
-- OpenCode 同时加载 `tui.json` 与 `tui.jsonc`，后者优先
-- magic-context 仅在自身安装向导 / `doctor` 时写入，侧边栏为显式 opt-in
-- `opencode-setup.sh` 自动补齐，只增不删；关闭需手动删除条目
+- v1 同时读取 `tui.json` 与 `tui.jsonc`；setup 合并到 `tui.json` 并备份退役原 JSONC
+- v1 的 setup 补齐 Magic Context 和 later 的 TUI 登记，保留第三方条目；重跑会恢复套件必需入口
+- v2 从已登记目录包发现 TUI 入口，使用 `cli.json`；不要照抄上述 v1 登记
 
 ### 3. ponytail
+
+官方同一个包提供 v1 `server()` 与 v2 `setup(ctx)`。v1 登记示例：
 
 ```jsonc
 "plugin": [
@@ -692,7 +725,9 @@ curl 127.0.0.1:37700/api/health     # 端口见 $SETTINGS 的 CLAUDE_MEM_WORKER_
 ]
 ```
 
-### 4. notify
+v2 改用 `"plugins"`。两端启动时自动下载缺失包；不要再登记 `v2/ponytail/`、`options.ponytailPackage` 或旧内置 skills 路径，setup 会清理这批旧配置。
+
+### 4. notify（仅 v1，可选）
 
 来源：[brilliantrough/opencode-notify-hub](https://github.com/brilliantrough/opencode-notify-hub)。
 
@@ -734,7 +769,7 @@ cd your-project && codegraph init
 
 ### 6. later（延迟发送 prompt）
 
-挂机等实验结果：**直接在输入框输入，不是 slash 命令。**
+挂机等实验结果，v1/v2 均可**直接在输入框输入**；v2 也支持带参数的 `/later`：
 
 ```text
 later 5h 查看当前实验的运行结果
@@ -747,26 +782,28 @@ later 5h 查看当前实验的运行结果
 | `later cancel 2` | 取消第 2 条 |
 | `later cancel all` | 取消全部 |
 
-- **零模型开销**：TUI 拦 Enter；命中关键字后排程、清空输入、`ctx.consume()`，不发请求
-- **到点发送**：`session.promptAsync` 注入会话，等同本人输入回车；agent 忙时入队，本轮 step 结束后处理
-- 实测：`bash sleep 25` 期间注入，工具返回后同一回合回复
-- **仅进程内有效**：退出/重启丢失未触发排程；挂机用 tmux
+- **排程时不调模型**：TUI 拦截输入并清空；到点向目标会话提交用户消息
+- **两类计时器互相独立**：输入框排程由 TUI 管理；Agent 调用 `later` 工具的排程由服务端管理，各自查询和取消
+- **仅进程内有效**：对应进程退出／重启后丢失未触发排程；v2 关 TUI 不一定停止后台服务
 
-**必须安装为 TUI 插件：**
+输入框拦截必须走 TUI API；不能把 v1 server 的 `chat.message` 当成“不发模型”的拦截器。
 
-- server 插件的 `chat.message` / `command.execute.before` 拦不住模型调用；清空 `parts` 仍会建 session、走模型，官方 issue #30268 同结论
-- TUI 插件才有 `command.register` / `keymap` / prompt ref
-- 放到 `~/.config/opencode/tui-plugins/`，在 `tui.jsonc` 引用；**不能放 `plugins/`**，该目录只认 server 签名，否则启动即崩
+| 版本 | TUI 入口 | 登记方式 |
+| --- | --- | --- |
+| v1 | `tui-plugins/later/index.mjs` | `tui.json` 的 `plugin`；不可放进 server 的 `plugins/` 扫描目录 |
+| v2 | `v2/tui.js` → `later-cli.js` | 随 `v2/` 目录包发现，不另登记旧 TUI 插件 |
+
+v1 手工登记示例：
 
 ```jsonc
 { "plugin": ["@cortexkit/opencode-magic-context@latest", "./tui-plugins/later"] }
 ```
 
-`opencode-setup.sh` 自动部署并补条目，只增不删。
+setup 负责部署、去重和旧入口迁移；不要同时安装整包与旧独立 later。
 
 ### 7. 按键（Enter 发送 / Shift+Enter 换行）
 
-OpenCode 的 `tui.jsonc`：
+v1 的 `tui.json`（手工 JSONC 同样适用）：
 
 ```jsonc
 "keybinds": {
@@ -776,9 +813,19 @@ OpenCode 的 `tui.jsonc`：
 }
 ```
 
+v2 的 `cli.json` 使用点分 action 名：
+
+```jsonc
+"keybinds": {
+  "input.submit": "return",
+  "input.newline": "shift+return",
+  "prompt.submit": "none"
+}
+```
+
 | 宿主 | 配置与生效方式 |
 |---|---|
-| OpenCode | 脚本确认后更新这三个 action、迁移旧发送绑定；先显示差异并备份，保留其它按键/插件/凭据；重启生效 |
+| OpenCode v1/v2 | 完整 setup 确认后设置对应三个 action；先显示差异并备份，保留其它按键；`--plugins-only` 不统一按键。v2 没有 `cli.json` 时先准备 `tui.json`，首启由宿主迁移 |
 | Pi | `dot_file/pi/keybindings.json`：`tui.input.submit: [enter]`、`tui.input.newLine: [shift+enter]`，保留自定义 `app.*`；脚本按模板部署，本机修改后 `/reload` 生效 |
 
 - Enter 发送，Shift+Enter 换行；不绑定 Ctrl+Enter，不再把 Ctrl+J 设为发送
@@ -788,16 +835,29 @@ OpenCode 的 `tui.jsonc`：
 
 **终端边界：** Shift+Enter 需要终端传递不同于 Enter 的输入。若 Ctrl+Enter 被编码成普通 Enter/LF，应用无法还原物理按键；“不绑定”不保证所有终端按下都无效果。
 
-## opencode.jsonc 最小配置
+### 8. 近期纠错与大输出外置
+
+v1/v2 预构建包均已包含，不另装独立入口：
+
+- `context_rewrite(ids, note)`：撤下近期无用调用及结果，仅改变模型发送视图；原始历史与命令副作用保留
+- 自动外置：普通文本默认 ≥16 KiB，留下预览、状态和持久文件指针
+- `context_output_read`：分页或 `full=true` 取回原文；显式全文不再次外置
+- Magic Context 仍主管长期历史与记忆；编号独立，不使用它的 tag
+
+完整参数、存储目录与宿主边界见 [上下文插件说明](context-rewrite/README.md)。
+
+## OpenCode v1 最小配置参考
+
+下面仅展示 v1 主配置；自维护 bundle 由 `plugins/` 自动发现，TUI 登记另见上文。v2 使用 [目录包配置](opencode/v2/README.md)，不要直接复制本段。
 
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
   "plugin": [
     "@cortexkit/opencode-magic-context@latest",
-    "@dietrichgebert/ponytail",
-    "./plugins/claude-mem-wrapper.js"
+    "@dietrichgebert/ponytail"
   ],
+  "compaction": { "auto": false, "prune": false },
   "mcp": {
     "claude-mem": {
       "type": "local",
@@ -813,13 +873,13 @@ OpenCode 的 `tui.jsonc`：
 }
 ```
 
-npm 条目在 OpenCode 重启时自动安装；配置改动也需重启生效。
+npm 缺失包在 OpenCode 启动时自动安装；已有包不因 setup 重跑而升级。上例 Magic Context 的 `@latest` 仅作手工登记示例，已有共享库的机器应保留已装版本／目录，不要复制覆盖；也不要额外登记旧 wrapper。
 
 ## 更新
 
 ### Skills
 
-本仓库 skill 由三个 setup 脚本统一调用的 `skills-sync.sh`（仓库根）分组同步，**重跑 setup 即更新**（始终从 GitHub 拉取 `main` tarball 安装）。分组即仓库 `skills/{base,accel,kb}/` 目录，新增 skill 放入对应组目录即可，无名单维护：
+本仓库 skill 由三个 setup 脚本统一调用的 `skills-sync.sh`（仓库根）分组同步，**重跑完整 setup 刷新所选组**；OpenCode 的 `--plugins-only` 不更新通用 skills。始终从 GitHub 拉取 `main` tarball 安装；分组即仓库 `skills/{base,accel,kb}/` 目录，新增 skill 放入对应组目录即可，无名单维护：
 
 | 组 | 策略 |
 |---|---|
@@ -851,12 +911,13 @@ bash skills-external.sh   # 在克隆的套件根单独补装/更新第三方，
 | Pi 本体与已装包，magic-context 除外 | 步骤 2，默认 Y；逐包 `pi update <spec> --no-approve`，不用 `--all` |
 | 本仓库 Pi git 包 / npm 包 | 同步骤 2，含 UI/later/耗时/主题；`pi-autoname@0.6.8` 钉版，Pi 会跳过 |
 | magic-context（Pi） | 步骤 3.1 独立询问，默认 N |
-| magic-context（OpenCode） | 停会话 → 清包缓存 → 重启拉新版、迁移 DB |
-| context-mode fork（两侧）、later、notify | 每次拉最新 release/raw 比对；有差异才替换，原文件存 `.bak-YYYYmmddHHMMSS` |
-| claude-mem wrapper | 脚本生成；内容不同时才询问替换 |
-| OpenCode 的 magic-context / ponytail | 脚本仅保证配置条目存在；升级由 OpenCode 包缓存决定 |
+| Magic Context（OpenCode） | 单独维护窗口；按当前版本／包目录登记方式升级，与 Pi 的共享库兼容；setup 不代办 |
+| OpenCode 自维护包（later、context_rewrite、claude-mem wrapper） | setup 的固定版本 release，按主版本选包；插件备份放 `$CFG/.agent-skills-backups/` |
+| context-mode fork | 两侧从独立 latest release 同步；OpenCode 目录备份放 `.agent-skills-backups/`，Pi 保持自身备份策略 |
+| notify | 仅 v1 可选；已装则比对独立 release，变化时备份替换；v2 备份停用 |
+| OpenCode 官方 Ponytail | setup 只登记官方包；宿主启动时安装缺失包，已有包更新由宿主管理 |
 
-**magic-context 永远单独升级。** 两侧共享 `context.db`，必须选两边都无人使用的时段。Pi 不用 `--all`，避免顺带升级；OpenCode 停会话后运行 `rm -rf ~/.cache/opencode/packages/@cortexkit/opencode-magic-context@latest`，再重启。
+**Magic Context 永远单独升级。** 先停所有共用 `context.db` 的宿主并备份；核对实际版本、npm 缓存或目录登记后再升级。Pi 不用 `--all`；OpenCode 不按固定旧路径盲删缓存，也不让 setup 顺带升级它。
 
 ### 配置合并
 
@@ -864,14 +925,14 @@ bash skills-external.sh   # 在克隆的套件根单独补装/更新第三方，
 
 **共同规则**
 
-- 有变更：原文件先存 `.bak-YYYYmmddHHMMSS`；无变更：不写
+- 有变更先备份，无变更不写；OpenCode 插件目录用 `.agent-skills-backups/`，配置沿用相邻 `.bak*` 备份
 - 非敏感字段跟模板；本地独有键保留
 - 敏感键、本机已有值对应的模板 `<占位符>`：保留本地值
 - magic-context 合并后由 JSONC 规整为 JSON；注释保留在 `.bak`，不在新文件中
 
 | 文件 | 更新策略 / 特例 |
 |---|---|
-| `~/.config/opencode/opencode.json` | 已有 provider 保留本地 `options`（apiKey/网关），仅覆盖 `models`；新增 provider 整块加入；其它字段仅补缺键 |
+| `~/.config/opencode/opencode.json` | 完整 setup 刷新 v1 `provider.models`，保留 `options`；v2 原生 `providers` 不套旧模板。插件模式只规范套件登记、保留其他字段；路径遵循 `OPENCODE_CONFIG_DIR`／XDG |
 | `~/.claude-mem/settings.json` | 非敏感字段含 `CLAUDE_MEM_*_MODEL` 随模板；`CLAUDE_MEM_PROVIDER` 强制 `openrouter` |
 | `~/.config/cortexkit/magic-context.jsonc` | 同 settings；含与 OpenCode 共用的 `historian.pi` / `dreamer.pi` 块 |
 | `~/.pi/agent/{settings,models,mcp}.json` | 同 settings，由 `pi-setup.sh` 处理；已有 `tuiMode` 保留本地选择；mcp.json 本地命令路径在合并前替换；旧共享 MCP 只读迁移，不再部署 |
@@ -881,8 +942,8 @@ bash skills-external.sh   # 在克隆的套件根单独补装/更新第三方，
 
 - 键名命中 `SENSITIVE`，或模板值为 `<占位符>`：机器上已有值永不覆盖
 - `SENSITIVE`：`api[_-]?key` / `secret` / `token` / `password` / `credential` / `bearer` / `auth` / `cookie` / `ingest` / `webhook` / `base[_-]?url` / `url` / `endpoint` / `host` / 以 `key` 结尾
-- `opencode.json` 整块本地优先；provider 模型按上表单独更新
-- 模型名不受保护：`*_MODEL`、各 provider 的 `models`、magic-context 的 model 字段随模板；`-y` 直接覆盖，交互模式先列变更
+- OpenCode 配置的本地值优先；插件登记按主版本规范化、退役旧入口，provider 模型按上表单独更新
+- 实际参与模板合并的模型字段不受私密值保护：完整 setup 可刷新 `*_MODEL`、v1 `provider.models`、Magic Context 的 model；v2 原生 `providers` 与插件精简模式除外。`-y` 取默认更新，交互模式先列变更
 - 整文件覆盖的 `agent-skills-ui.json` / `agent-skills-editor.json` / `keybindings.json` 不含隐私内容
 
 回归检查：`python3 tests/merge-private-preservation.py`；selfcheck 也会运行。
