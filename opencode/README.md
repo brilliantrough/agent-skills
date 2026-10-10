@@ -35,7 +35,7 @@ bash /tmp/opencode-setup.sh --plugins-only
 
 - `later`：共用 Agent 工具逻辑；v1/v2 各有 TUI 适配。输入框排程与 Agent 工具排程独立，分别随 TUI／服务端进程退出清除。
 - `context_rewrite`：共用 `context-rewrite/core.mjs`、`output-store.mjs`，分别适配两代工具与消息 API；包含近期纠错、持久外置和全文取回。
-- `claude-mem`：wrapper 打进包；上游 bundle 留在 `$CFG/lib/claude-mem.js`。缺失时跳过采集 hook，其 MCP／worker 仍独立配置。
+- `claude-mem`：由官方安装器维护 `$CFG/plugins/claude-mem.js`，bundle 自带 OpenCode v1 `server` 与 v2 `setup` 入口；setup 更新官方 bundle，OpenCode 负责加载。MCP／worker 仍独立配置。
 - v2 额外适配旧工具 API、会话事件与请求亲和性；不要求目标机编译。
 
 工具用法见 [上下文插件](../context-rewrite/README.md)，v2 文件与配置见 [v2 说明](v2/README.md)。
@@ -73,8 +73,8 @@ Magic Context 操作：
 
 | 情况 | 处理 |
 | --- | --- |
-| 旧散装 → 当前 v1 | 更新 bundle、TUI 与 context-mode，退役独立 wrapper／later／纠错入口 |
-| 旧散装／旧 v1 包 → v2 | 部署 `v2/`，登记 `plugins`，停用旧 server／TUI 入口及内置 Ponytail 配置 |
+| 旧散装 → 当前 v1 | 更新 bundle、TUI 与 context-mode，退役独立 later／纠错入口；claude-mem 由官方入口加载 |
+| 旧散装／旧 v1 包 → v2 | 部署 `v2/`，登记 `plugins`，停用旧 server／TUI 入口及内置 Ponytail 配置；claude-mem 使用官方 v2 `setup` |
 | 同版本重跑 | 内容相同不重写、不重复注册，不产生无变化备份 |
 | 已有 v2 配置再运行 v1 | 停止；需隔离配置，不自动降级 |
 

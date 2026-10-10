@@ -5,7 +5,7 @@
 # 用法：bash opencode-setup.sh [-y|--yes] [--plugins-only|--check]；先安装 OpenCode，按主版本拉取对应预构建包。
 # 完整安装含配置、依赖与通用 skills；--plugins-only 仅插件及 context-mode skills；--check 下载校验后退出。
 # 更新前先退出 TUI 和后台服务；已知旧入口移到配置目录 .agent-skills-backups/。
-# 第三方 npm 插件先查本地/npm latest；Ponytail 常规更新默认 Y，Magic Context 单独默认 N。
+# 第三方 npm 插件先查本地/npm latest；Ponytail 常规更新默认 Y，Magic Context 单独默认 N；claude-mem 由官方安装器更新 runtime 与宿主入口。
 # 确认后只备份移走对应 latest 缓存并改回官方包登记；下次宿主启动下载。
 # 不升级宿主、不启动服务、不迁移数据库；官方 npm 缺包由宿主启动时下载。
 # 配置：本地私密值保留；provider.models 随模板刷新；v2 原生 providers 不改写。
@@ -66,14 +66,14 @@ while [ $# -gt 0 ]; do
       cat <<'HELP'
 用法: bash <本脚本> [-y|--yes] [--plugins-only|--check]
   默认             完整配置、插件、依赖与通用 skills；默认 base，交互可选全组
-  --plugins-only   同步插件及 context-mode skills，迁移旧入口；不更新模型/Python/通用 skills
+  --plugins-only   同步自维护插件、官方 claude-mem runtime/宿主入口及 context-mode skills，迁移旧入口；不更新模型/Python/通用 skills
   --check          下载校验自维护包、查询第三方版本、检查配置；不部署，不更改配置/认证/数据库
   -y, --yes        采用各项默认值（默认 N 仍跳过）；凭据仍可询问
 先安装 OpenCode v1/v2；更新前退出 TUI 和后台服务。精简模式需要已有 Python 3、curl。
 已知旧入口备份到 $CFG/.agent-skills-backups/；不启动宿主、不迁移数据库。
 查询 Ponytail/Magic Context 的本地版本与 npm latest；失败只警告。Ponytail 有新版默认 Y，钉版/本地路径默认 N。
 Magic Context 刷新单独询问、默认 N；确认后只备份移走对应 latest 缓存并改回官方包登记，下次启动下载。
-官方 npm 缺包由宿主启动时下载；--check 只报告、不询问刷新，仍联网，宿主 --version 可能写日志。
+官方 claude-mem 安装器按宿主更新 runtime 与入口；--check 只报告、不询问刷新，仍联网，宿主 --version 可能写日志。
 HELP
       exit 0 ;;
     *) echo "未知参数: $1(支持 -y|--yes / --plugins-only / --check / -h|--help)" >&2; exit 2 ;;
@@ -87,11 +87,10 @@ OC_VERSION="$(opencode --version)"
 if [[ "$OC_VERSION" =~ (^|[[:space:]])v?([12])\.[0-9]+\.[0-9]+ ]]; then OC_MAJOR="${BASH_REMATCH[2]}"
 else echo "ERROR: 无法识别或暂不支持的 OpenCode 版本: $OC_VERSION" >&2; exit 1; fi
 echo "客户端: $OC_VERSION → v$OC_MAJOR 插件包；不升级宿主/不迁移数据库"
-OC_RELEASE="opencode-plugins-1.0.12"
+OC_RELEASE="opencode-plugins-1.0.13"
 CFG="${OPENCODE_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/opencode}"
 PLUGINS="$CFG/plugins"
-LIB="$CFG/lib"
-BUNDLED="$LIB/claude-mem.js"
+CLAUDE_PLUGIN="$PLUGINS/claude-mem.js"
 MCP_CJS="$HOME/.claude/plugins/marketplaces/thedotmack/plugin/scripts/mcp-server.cjs"
 SETTINGS="$HOME/.claude-mem/settings.json"
 MC_CFG="$HOME/.config/cortexkit/magic-context.jsonc"
@@ -522,41 +521,55 @@ fi
 # 只写真实存在的绝对路径;都没有时退化为裸命令名(交给运行时 PATH),别把猜测路径写进 MCP 配置
 BUN_BIN="$(command -v bun 2>/dev/null || true)"; [ -n "$BUN_BIN" ] || BUN_BIN="$HOME/.bun/bin/bun$BIN_EXT"
 [ -x "$BUN_BIN" ] || BUN_BIN=bun
+fi
 
-# ---- 2. claude-mem:安装(只为拿 bundle / MCP 资产)+ 修复 ----
-if [ ! -f "$BUNDLED" ] && [ ! -f "$PLUGINS/claude-mem.js" ]; then
-  if command -v npx >/dev/null 2>&1 && ask "未找到 claude-mem,运行官方安装器 npx claude-mem install --ide opencode?" Y; then
-    # 安装阶段仅拿资产；原样恢复已有共享配置，避免 provider 被安装器改成 claude。
-    (
-      [ ! -L "$SETTINGS" ] || { echo "ERROR: settings 是符号链接，跳过安装" >&2; exit 1; }
-      saved="$(mktemp)"; chmod 600 "$saved"
-      mem_stage="$(mktemp -d)"
-      had_settings=0
-      if [ -f "$SETTINGS" ]; then cp -p "$SETTINGS" "$saved" || exit 1; had_settings=1; fi
-      restore_mem_settings() {
-        if [ "$had_settings" = 1 ]; then
-          cp -p "$saved" "$SETTINGS" || { echo "ERROR: 请从 $saved 恢复 $SETTINGS" >&2; exit 1; }
-        else
-          rm -f "$SETTINGS"
-        fi
-        rm -f "$saved"; rm -rf "$mem_stage"
-      }
-      trap restore_mem_settings EXIT
-      trap 'exit 130' INT
-      trap 'exit 143' TERM
-      OPENCODE_CONFIG_DIR="$(npath "$mem_stage")" npx -y claude-mem install --ide opencode --provider claude --no-auto-start < /dev/null
-      if [ -f "$mem_stage/plugins/claude-mem.js" ]; then
-        mkdir -p "$LIB"; cp "$mem_stage/plugins/claude-mem.js" "$BUNDLED"
+# ---- 2. claude-mem:官方 v1/v2 双入口插件，写入 OpenCode plugins 目录 ----
+if command -v npx >/dev/null 2>&1 && ask "更新 claude-mem 官方插件到最新版(由 OpenCode 自己加载)？" Y; then
+  # 安装阶段仅拿官方 bundle；原样恢复已有共享配置，避免 installer 改 provider 或启动 worker。
+  (
+    [ ! -L "$SETTINGS" ] || { echo "ERROR: settings 是符号链接，跳过 claude-mem 更新" >&2; exit 1; }
+    [ ! -L "$CLAUDE_PLUGIN" ] || { echo "ERROR: claude-mem 插件路径是符号链接，跳过更新" >&2; exit 1; }
+    saved="$(mktemp)"; chmod 600 "$saved"
+    mem_stage="$(mktemp -d)"
+    had_settings=0
+    if [ -f "$SETTINGS" ]; then cp -p "$SETTINGS" "$saved" || exit 1; had_settings=1; fi
+    restore_mem_settings() {
+      if [ "$had_settings" = 1 ]; then
+        cp -p "$saved" "$SETTINGS" || { echo "ERROR: 请从 $saved 恢复 $SETTINGS" >&2; exit 1; }
+      else
+        rm -f "$SETTINGS"
       fi
-    ) || echo "WARN: claude-mem 安装失败；请检查上方恢复提示" >&2
-  fi
+      rm -f "$saved"; rm -rf "$mem_stage"
+    }
+    trap restore_mem_settings EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    OPENCODE_CONFIG_DIR="$(npath "$mem_stage")" npx -y claude-mem install --ide opencode --provider claude --no-auto-start < /dev/null
+    if [ -f "$mem_stage/plugins/claude-mem.js" ]; then
+      mkdir -p "$PLUGINS"
+      if [ -f "$CLAUDE_PLUGIN" ]; then
+        backup="$CFG/.agent-skills-backups/$(date +%Y%m%d%H%M%S)/claude-mem/claude-mem.js"
+        mkdir -p "$(dirname "$backup")"
+        cp -p "$CLAUDE_PLUGIN" "$backup"
+        echo "backup: $CLAUDE_PLUGIN -> $backup"
+      fi
+      cp -p "$mem_stage/plugins/claude-mem.js" "$CLAUDE_PLUGIN"
+      echo "updated: $CLAUDE_PLUGIN(官方 v1/v2 bundle)"
+    else
+      echo "ERROR: claude-mem installer 未生成 plugins/claude-mem.js" >&2
+      exit 1
+    fi
+  ) || echo "WARN: claude-mem 更新失败；请检查上方恢复提示" >&2
+elif ! command -v npx >/dev/null 2>&1; then
+  echo "WARN: 未检测到 npx，跳过 claude-mem 官方插件更新" >&2
 fi
 ensure_mem_provider "$SETTINGS"
 
-if [ ! -f "$BUNDLED" ] && [ ! -f "$PLUGINS/claude-mem.js" ]; then
-  echo "WARN: 没有 claude-mem bundle,跳过 claude-mem 相关配置" >&2
+if [ ! -f "$CLAUDE_PLUGIN" ]; then
+  echo "WARN: 没有 claude-mem 官方插件，跳过 claude-mem MCP 相关配置" >&2
 fi
 
+if [ "$PLUGINS_ONLY" != 1 ]; then
 # ---- 3. 部署 settings.json(字段级合并 dot_file 模板;下载失败用内嵌模板兜底)----
 # 凭据先问:下面步骤 3(claude-mem settings)、3.1(magic-context)、4(opencode.json)都要用它填占位符
 collect_gateway_values
@@ -736,7 +749,7 @@ fi
 rm -f "$oc_tpl" "$oc_cand"
 
 # ---- 4.1 MCP 查询工具 → opencode.json ----
-if [ -f "$BUNDLED" ] && [ -f "$MCP_CJS" ]; then
+if [ -f "$CLAUDE_PLUGIN" ] && [ -f "$MCP_CJS" ]; then
   configured=0
   for name in opencode.jsonc opencode.json; do
     f="$CFG/$name"
@@ -763,7 +776,7 @@ with open(path, "w") as f:
 print(f"added: mcp.claude-mem -> {path}")
 PYEOF
   fi
-elif [ -f "$BUNDLED" ]; then
+elif [ -f "$CLAUDE_PLUGIN" ]; then
   echo "WARN: 未找到 claude-mem 的 mcp-server.cjs,跳过 MCP 配置" >&2
 fi
 

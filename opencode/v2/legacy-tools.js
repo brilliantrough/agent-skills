@@ -1,6 +1,4 @@
-import { existsSync } from "node:fs";
 import { tool } from "@opencode-ai/plugin";
-import claude from "../plugins/claude-mem-wrapper.js";
 import later from "../plugins/later.js";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -25,7 +23,6 @@ export default {
     const input = { client, directory: ctx.location.directory, worktree: ctx.location.directory, project: { name: ctx.location.directory.split(/[\\/]/).filter(Boolean).at(-1) } };
     const cm = await load(join(config, "vendor/context-mode/build/adapters/opencode/plugin.js"));
     const hooks = [await cm.ContextModePlugin(input), await later(input)];
-    if (existsSync(join(config, "lib/claude-mem.js"))) hooks.push(await claude(input));
     registrations.push(await ctx.tool.transform((editor) => {
       for (const h of hooks) for (const [name, def] of Object.entries(h.tool ?? {})) editor.add({
         name, description: def.description, input: tool.schema.object(def.args), options: { codemode: true, pinned: true },

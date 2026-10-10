@@ -33,9 +33,8 @@ Magic Context 使用其自身的 v2 入口，兼容基线至少 **0.45**；本�
 
 - 配置目录：`OPENCODE_CONFIG_DIR`，否则 `$XDG_CONFIG_HOME/opencode` 或 `~/.config/opencode`。
 - `vendor/context-mode/`：独立 release 产物，由适配层调用；不把旧 hooks 再登记给宿主。
-- `lib/claude-mem.js`：已有上游 bundle；不存在时跳过采集 hook，其余工具仍可使用。
-- 旧工具 schema、wrapper、later 已打进 bundle；不再依赖 `legacy-v1/` 或目标机 `node_modules/@opencode-ai/plugin`。
-- `v2/` 目录包：本仓自维护能力；官方 Ponytail 单独由 `@dietrichgebert/ponytail` 提供，不能再把 `v2/ponytail/` 或 `options.ponytailPackage` 加入配置。
+- `plugins/claude-mem.js`：官方 claude-mem bundle，自带 OpenCode v1 `server` 与 v2 `setup`；setup 维护最新版，agent-skills 不再代理其 hooks。
+- `v2/` 目录包：本仓自维护能力；包含 context-mode 调用、later、context_rewrite、请求亲和性等，不包含 claude-mem wrapper。
 
 Ponytail 缺包由宿主启动时自动下载；已有包由宿主手动更新，或在 setup 查询版本后确认刷新缓存。Ponytail 普通登记有新版默认 Y，钉版／本地路径默认 N；Magic Context 单独默认 N。setup 不手填缓存、不调用宿主 plugin CLI；确认刷新只安排下次下载，不代表已加载成功。不要把上面占位示例整体覆盖到现有配置。
 

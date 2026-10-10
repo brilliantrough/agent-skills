@@ -1,14 +1,13 @@
 {
   "name": "agent-skills",
   "version": "0.1.0",
-  "description": "Personal Pi UI: sidebar, composer, usage and tasks, plus memory bridge, scheduled prompts and One Dark",
+  "description": "Personal Pi UI: sidebar, composer, usage and tasks, plus scheduled prompts and One Dark",
   "type": "module",
   "license": "MIT",
   "pi": {
     "extensions": [
       "pi/extensions/pretty-tui/index.ts",
       "pi/extensions/ui/index.ts",
-      "pi/extensions/claude-mem.ts",
       "pi/extensions/later.ts",
       "pi/extensions/message-timing.ts"
     ],

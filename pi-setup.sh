@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pi-setup.sh — 个人 Pi(pi coding agent)一键配置(原生 MCP + magic-context + ponytail + subagent + claude-mem 桥 + skills 本体)
+# pi-setup.sh — 个人 Pi(pi coding agent)一键配置(原生 MCP + magic-context + ponytail + subagent + claude-mem 官方扩展 + skills 本体)
 # 仓库: brilliantrough/agent-skills
 #
 # 干什么(交互确认 + 幂等,重复跑安全):
@@ -17,7 +17,7 @@
 #   3. pi 包(pi install,幂等):@dietrichgebert/ponytail / pi-subagents-j0k3r /
 #      pi-lens / @juicesharp/rpiv-ask-user-question / pi-autoname@0.6.8 / @cortexkit/pi-magic-context /
 #      git:github.com/brilliantrough/agent-skills(本仓库自身;含个性化 UI、later、任务耗时扩展、
-#      claude-mem 桥扩展、one-dark 主题——旧版散装部署文件会自动清理;pi install 对已登记
+#      one-dark 主题；claude-mem 由官方安装器按 Pi 宿主单独部署——旧版散装部署文件会自动清理;pi install 对已登记
 #      条目只说"已有",这些包的新版靠步骤 2 的逐个 pi update 拉)
 #      另外装 context-mode fork(产物走 GitHub release:下载 launch 包到 ~/.pi/agent/vendor/context-mode
 #      再 pi install;开发机用 bash context-mode/setup.sh --publish 发新版。
@@ -30,8 +30,7 @@
 #      coding plan 等内置 provider 凭据)、~/.pi/agent/mcp.json(原生 MCP,Pi >= 0.99.0)
 #      旧 adapter 配置先预览,确认后备份迁移;~/.agents/mcp.json 不修改
 #      以及共用配置 ~/.claude-mem/settings.json、~/.config/cortexkit/magic-context.jsonc(含 historian.pi/dreamer.pi)
-#   5. claude-mem 资产(缺失则官方安装器,只为拿 worker/MCP 资产)——先装 runtime,再合并它的配置,
-#      这样安装器写的 settings 会被我们的模板覆盖(api key/网关等本地敏感值保留)
+#   5. claude-mem 官方 runtime 与宿主入口同步——Pi/OpenCode 分别由官方安装器部署，settings 保留本机值
 #   6. subagent 定义 ~/.pi/agent/agents/{explore,general}.md(对应 opencode 的两个 agent)
 #   7. skills:本仓 base/kb 刷新(漂移先备份)、accel 缺才装；补装外部设计依赖、更新第三方;pi 原生读 ~/.agents/skills
 #   8. uv(缺则装;含自升级与清华 PyPI 镜像)+ strictdoc(用 uv tool 全局安装,.sdoc 校验依赖)
@@ -822,7 +821,7 @@ PYEOF
   else
     echo "WARN: pi-autoname 0.6.8 不遵循 PI_CODING_AGENT_DIR,跳过自动命名"
   fi
-  # 本仓库自身作为 Pi 包:UI + claude-mem + later + message-timing + one-dark
+  # 本仓库自身作为 Pi 包:UI + later + message-timing + one-dark
   pi_install git:github.com/brilliantrough/agent-skills
   report_repo_pi_pkg
 
@@ -1039,32 +1038,33 @@ EOF
   fi
 fi
 
-# ---- 5. claude-mem 资产(缺失则官方安装器,只为拿 worker/MCP 资产)
-#      先装 runtime 再写配置:安装器会自己写一份 settings,之后我们的模板合并覆盖它(凭据保留)
+# ---- 5. claude-mem:官方 runtime + Pi 插件 ----
+# 官方安装器负责更新 ~/.claude/plugins/cache/... runtime 与 ~/.pi/agent/extensions/claude-mem；
+# 本仓库不再复制 bundle 或维护第二套 Pi bridge。
 mkdir -p "$HOME/.claude-mem"
-if [ ! -f "$MCP_CJS" ]; then
-  if command -v npx >/dev/null 2>&1 && ask "未找到 claude-mem 资产,运行官方安装器 npx claude-mem install --ide opencode?" Y; then
-    # 安装器会写 provider；只拿资产，退出时原样恢复共享 settings，不启动错误后端。
-    (
-      [ ! -L "$MC_SETTINGS" ] || { echo "ERROR: settings 是符号链接，跳过安装" >&2; exit 1; }
-      saved="$(mktemp)"; chmod 600 "$saved"
-      had_settings=0
-      if [ -f "$MC_SETTINGS" ]; then cp -p "$MC_SETTINGS" "$saved" || exit 1; had_settings=1; fi
-      restore_mem_settings() {
-        if [ "$had_settings" = 1 ]; then
-          cp -p "$saved" "$MC_SETTINGS" || { echo "ERROR: 请从 $saved 恢复 $MC_SETTINGS" >&2; exit 1; }
-        else
-          rm -f "$MC_SETTINGS"
-        fi
-        rm -f "$saved"
-      }
-      trap restore_mem_settings EXIT
-      trap 'exit 130' INT
-      trap 'exit 143' TERM
-      npx -y claude-mem install --ide opencode --provider claude --no-auto-start < /dev/null
-    ) || echo "WARN: claude-mem 安装失败；请检查上方恢复提示" >&2
-    ensure_mem_provider "$MC_SETTINGS"
-  fi
+if command -v npx >/dev/null 2>&1 && ask "更新 claude-mem runtime 与 Pi 插件到最新版?" Y; then
+  # 安装器会写 provider；退出时原样恢复共享 settings，不启动 worker。
+  (
+    [ ! -L "$MC_SETTINGS" ] || { echo "ERROR: settings 是符号链接，跳过 claude-mem 更新" >&2; exit 1; }
+    saved="$(mktemp)"; chmod 600 "$saved"
+    had_settings=0
+    if [ -f "$MC_SETTINGS" ]; then cp -p "$MC_SETTINGS" "$saved" || exit 1; had_settings=1; fi
+    restore_mem_settings() {
+      if [ "$had_settings" = 1 ]; then
+        cp -p "$saved" "$MC_SETTINGS" || { echo "ERROR: 请从 $saved 恢复 $MC_SETTINGS" >&2; exit 1; }
+      else
+        rm -f "$MC_SETTINGS"
+      fi
+      rm -f "$saved"
+    }
+    trap restore_mem_settings EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    npx -y claude-mem install --ide pi --provider claude --no-auto-start < /dev/null
+  ) || echo "WARN: claude-mem 更新失败；请检查上方恢复提示" >&2
+  ensure_mem_provider "$MC_SETTINGS"
+elif ! command -v npx >/dev/null 2>&1; then
+  echo "WARN: 未检测到 npx，跳过 claude-mem runtime/Pi 插件更新" >&2
 fi
 
 # ---- 6. 共用配置:claude-mem settings + magic-context.jsonc(与 opencode-setup.sh 同一套;下载失败用内嵌兜底)----
@@ -1131,14 +1131,15 @@ EOF
   fi
 fi
 
-# ---- 6.1 Pi 桥扩展/主题已迁入 git:github.com/brilliantrough/agent-skills(见步骤 3);
-#      旧版由本脚本部署到 ~/.pi/agent/{extensions, themes} 的文件与包内扩展会双注册冲突,清理之 ----
+# ---- 6.1 claude-mem 旧 bridge/主题已迁入官方或 git 包(见步骤 3);
+#      旧版由本脚本部署到 ~/.pi/agent/{extensions, themes} 的文件会移入 backups ----
 if [ "$PI_OK" -eq 1 ]; then
   if pkg_installed "git:github.com/brilliantrough/agent-skills"; then
     for legacy in "$AGENT_DIR/extensions/claude-mem.ts" "$AGENT_DIR/themes/onedark.json"; do
       if [ -f "$legacy" ] && [ ! -L "$legacy" ]; then
-        if ask "删除旧版部署文件 $legacy(已由 Pi 包提供,重复注册会冲突)?" Y; then
-          rm -f "$legacy"; echo "removed: $legacy"
+        if ask "把旧版部署文件 $legacy 移入 backups(官方 claude-mem/Pi 包已接管)？" Y; then
+          legacy_dest="$AGENT_DIR/backups/legacy-claude-mem-$(date +%Y%m%d%H%M%S)/$(basename "$legacy")"
+          mkdir -p "$(dirname "$legacy_dest")" && mv "$legacy" "$legacy_dest" && echo "moved: $legacy -> $legacy_dest"
         fi
       fi
     done

@@ -420,7 +420,7 @@ skills 重跑套件同步器即可；共享目录的更新也影响 OpenCode。c
 
 **本仓库也是 Pi 包：** `pi install git:github.com/brilliantrough/agent-skills`。
 
-- 提供个性化 UI（`/ui`）、pretty-tui 工具/思考折叠块与代码块复制、claude-mem 桥、`/later`、任务耗时、one-dark 主题
+- 提供个性化 UI（`/ui`）、pretty-tui 工具/思考折叠块与代码块复制、`/later`、任务耗时、one-dark 主题；claude-mem 由官方 Pi 扩展提供
 - 自动清理旧散装文件
 - 步骤 2 逐包更新后明确显示：`本仓库 Pi 插件已更新: <旧> -> <新>(N 个提交)`
 
@@ -466,13 +466,20 @@ Pi 原生 MCP（>= 0.99.0）：全局 `~/.pi/agent/mcp.json`，可信项目 `.pi
 
 ### 记忆桥与版本守卫
 
-**claude-mem 桥**
+**claude-mem 官方扩展**
 
-官方无 Pi 适配；本仓库桥镜像 OpenCode 插件契约：
+官方安装器按宿主分别部署：
 
-- POST worker `/api/sessions/init|observations|summarize`，`platformSource:"pi"`
-- 采集工具调用、助手消息、**用户 prompt**；支持 `前缀*` 跳过
-- `claude_mem_search` 直连 worker，不走 MCP
+```bash
+npx claude-mem install --ide pi --provider claude --no-auto-start
+```
+
+- runtime：`~/.claude/plugins/cache/thedotmack/claude-mem/<version>`
+- Pi 入口：`~/.pi/agent/extensions/claude-mem/`
+- OpenCode 入口：`$CFG/plugins/claude-mem.js`
+- `pi-setup.sh` 与 `opencode-setup.sh` 都调用官方安装器更新 runtime 和对应宿主入口
+- agent-skills 不再复制 bundle、代理 hooks 或维护 claude-mem wrapper
+- worker、settings、MCP 查询配置仍使用共享的官方 runtime；本仓库只负责保留本机连接配置
 
 **magic-context 版本守卫**
 
@@ -577,7 +584,7 @@ Magic Context 的共享 `context.db` 是另一套库，升级另选所有宿主�
 
 ### 手工配置参考
 
-以下 JSON 示例以 **v1** 为例；v2 目录包与配置见 [v2 说明](opencode/v2/README.md)。使用 setup 后不要再重复登记旧 wrapper、later 或 context_rewrite 独立入口。
+以下 JSON 示例以 **v1** 为例；v2 目录包与配置见 [v2 说明](opencode/v2/README.md)。使用 setup 后不要再重复登记官方 claude-mem、later 或 context_rewrite 入口。
 
 ### 1. claude-mem
 
@@ -585,31 +592,16 @@ Magic Context 的共享 `context.db` 是另一套库，升级另选所有宿主�
 npx claude-mem install --ide opencode
 ```
 
-安装后配置 wrapper、MCP、settings 三部分。
+官方安装器生成 `$HOME/.config/opencode/plugins/claude-mem.js`。当前 bundle 自带 OpenCode v1 `server` 与 v2 `setup` 入口，由 OpenCode 自己发现和加载；agent-skills 不再代理 claude-mem，也不再维护本地 wrapper。
 
-#### ① wrapper 修复
+- setup 完整维护时重新取得官方最新版 bundle，并备份旧文件
+- v1/v2 均使用同一份官方双入口文件
+- MCP 查询工具仍单独登记；worker 与 `settings.json` 仍由 claude-mem 维护
+- 若插件加载失败，先检查官方 bundle 与宿主版本，不要把 claude-mem 的工具再登记到 agent-skills 入口
 
-上游 bug [thedotmack/claude-mem#2854/#3328](https://github.com/thedotmack/claude-mem/issues/2854)：bundle 导出非函数常量。
+#### ① MCP 查询工具
 
-- bundle 移至 `~/.config/opencode/lib/claude-mem.js`
-- setup 的预构建包内含 wrapper；v1 从 `plugins/zz-agent-skills.js` 加载，v2 从 `v2/` 加载
-- 不再额外登记 `./plugins/claude-mem-wrapper.js`；已有旧入口备份后停用
-- 升级 claude-mem 后重跑脚本，重新检查 bundle 和 wrapper
-
-| 修复 | 行为 |
-|---|---|
-| 导出 | 仅 re-export 插件函数，绕过非函数常量 bug |
-| 用户 prompt | 每条输入经 `/api/sessions/init` 写入；统一 contentSessionId，与插件观测落在同一会话行；不增加模型请求 |
-| 助手回复 | `experimental.text.complete` 暂存每回合最后文本；`session.idle` 时发送 1 条 `assistant_message` |
-| 工具跳过 | `CLAUDE_MEM_SKIP_TOOLS` 中以 `*` 结尾的条目，在 POST 前按前缀过滤，如 `mcphub-web_*`、`ctx_*` |
-
-- 用户漏采集：上游 `chat.message` 只认 `assistant`，实际收到 `UserMessage`。wrapper 走 Claude Code 同一路径：`user_prompts` + FTS + Chroma + observer 的 `<user_request>`
-- 助手分支原为死代码；修复后 **每回合 1 次** observer 请求，而非每个模型 step 一次
-- worker 仅精确匹配；前缀通配仅在两个自研 shim 生效，包括 Pi 桥
-
-#### ② MCP 查询工具
-
-插件 hook 不含 `claude_mem_search` 等查询工具，需另配 MCP。`mcp-server.cjs` 依赖 `bun:sqlite`，**必须用 bun 运行**。
+setup 仍可单独登记 claude-mem MCP；新版官方 OpenCode bundle 也可能注册 `claude_mem_search` 工具，两者不要重复登记。`mcp-server.cjs` 依赖 `bun:sqlite`，**必须用 bun 运行**。
 
 ```jsonc
 "mcp": {
@@ -623,7 +615,7 @@ npx claude-mem install --ide opencode
 
 安装 bun：`curl -fsSL https://bun.sh/install | bash`。
 
-#### ③ settings 与 worker
+#### ② settings 与 worker
 
 配置文件：`~/.claude-mem/settings.json`。
 
@@ -664,7 +656,7 @@ curl 127.0.0.1:37700/api/health     # 端口见 $SETTINGS 的 CLAUDE_MEM_WORKER_
 | 写入 | 默认值显式写入 `~/.claude-mem/settings.json`，仅便于查询，不改变取值；保留已有自定义 host/port |
 | 解析优先级 | 环境变量 > `settings.json` > 默认公式；三处一致 |
 
-- Pi 桥、wrapper 均按上述优先级；上游 OpenCode 插件仅读 env + 公式，wrapper 在 import 前将 settings 的 host/port 写入 `process.env`
+- Pi 桥按上述优先级；官方 OpenCode bundle 由自身读取配置
 - 换端口：改 `CLAUDE_MEM_WORKER_PORT` → **重启 worker + 宿主**；否则 worker 仍监听旧端口
 - 所有消费者跟随该键；redis 队列前缀 `claude_mem_<port>` 也随之改变
 
@@ -912,7 +904,7 @@ bash skills-external.sh   # 在克隆的套件根单独补装/更新第三方，
 | 本仓库 Pi git 包 / npm 包 | 同步骤 2，含 UI/later/耗时/主题；`pi-autoname@0.6.8` 钉版，Pi 会跳过 |
 | magic-context（Pi） | 步骤 3.1 独立询问，默认 N |
 | Magic Context（OpenCode） | 独立询问、默认 N；确认后备份移走其 latest 缓存并登记 `@latest`，下次宿主启动下载；Pi 包另行同步 |
-| OpenCode 自维护包（later、context_rewrite、claude-mem wrapper） | setup 的固定版本 release，按主版本选包；插件备份放 `$CFG/.agent-skills-backups/` |
+| OpenCode 自维护包（later、context_rewrite） | setup 的固定版本 release，按主版本选包；插件备份放 `$CFG/.agent-skills-backups/`；claude-mem runtime 与宿主入口由官方安装器维护 |
 | context-mode fork | 两侧从独立 latest release 同步；OpenCode 目录备份放 `.agent-skills-backups/`，Pi 保持自身备份策略 |
 | notify | 仅 v1 可选；已装则比对独立 release，变化时备份替换；v2 备份停用 |
 | OpenCode 官方 Ponytail | 宿主负责缺包安装；setup 维护时查询版本，有新版默认询问刷新；确认后备份对应缓存并登记 `@latest`，不调用宿主 plugin CLI |

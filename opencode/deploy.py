@@ -15,7 +15,7 @@ from urllib.parse import quote, unquote, urlparse
 STAMP = datetime.now().strftime('%Y%m%d%H%M%S%f')
 MC = '@cortexkit/opencode-magic-context'
 PONYTAIL = '@dietrichgebert/ponytail'
-LEGACY = ['plugins/claude-mem-wrapper.js', 'plugins/later.js',
+LEGACY = ['lib/claude-mem.js', 'plugins/claude-mem-wrapper.js', 'plugins/later.js',
           'plugins/zz-context-rewrite.js', 'plugins/context-rewrite.js']
 V1_ONLY = ['plugins/zz-agent-skills.js', 'plugins/context-mode.js',
            'plugins/session-notify.js', 'plugins/fixed-prompt-cache-key.js',
@@ -329,11 +329,7 @@ def install(root, cfg, major, check=False, refresh_mc=False, refresh_ponytail=Fa
     obsolete = [cfg / p for p in [*LEGACY, *(V1_ONLY if major == 2 else [])] if (cfg / p).exists()]
     # 移走已知旧备份，不能留在 v2 会自动发现子目录的 plugins/ 下。
     obsolete += [p for p in (cfg / 'plugins').glob('context-mode.bak-*') if p.is_dir()]
-    bundled = cfg / 'lib/claude-mem.js'
-    old_bundle = cfg / 'plugins/claude-mem.js'
-    if old_bundle.exists():
-        obsolete.append(old_bundle)
-    for path in [target, cfg / 'opencode.jsonc', cli_path, cfg / 'tui.jsonc', bundled,
+    for path in [target, cfg / 'opencode.jsonc', cli_path, cfg / 'tui.jsonc',
                  cfg / '.agent-skills-backups', cfg / 'plugins/context-mode',
                  cfg / 'plugins/context-mode.js', cfg / 'vendor/context-mode',
                  *(cfg / name for name in manifest['install']), *obsolete]:
@@ -367,10 +363,6 @@ def install(root, cfg, major, check=False, refresh_mc=False, refresh_ponytail=Fa
         except OSError as error:
             raise ValueError(f'刷新缓存失败：{cache} -> {destination}：{error}') from error
         print(f'backup: {cache} -> {destination}')
-    if old_bundle.exists() and not bundled.exists():
-        bundled.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(old_bundle, bundled)
-        print(f'moved bundle: {old_bundle} -> {bundled}')
     for relative in manifest['install']:
         source, destination = root / relative, cfg / relative
         if source.is_dir():
