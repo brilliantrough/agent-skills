@@ -9,6 +9,7 @@ licensed under the MIT License:
   - tdd
   - diagnosing-bugs
   - code-review
+  - teach
 
 The personal Pi UI includes modified MIT-licensed source from:
 

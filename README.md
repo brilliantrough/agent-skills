@@ -44,7 +44,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.com/brilliantrough/agent-skills/main/skills-sync.sh)" -- base
 ```
 
-`base` 安装基础 19 个，`all` 加算力/知识组到 27 个；两者都默认补装四个外部设计 skill，并更新已登记第三方。需要 curl、git、Node/npx；安装位置 `~/.agents/skills/`，重开会话生效。
+`base` 安装基础 20 个，`all` 加算力/知识组到 28 个；两者都默认补装四个外部设计 skill，并更新已登记第三方。需要 curl、git、Node/npx；安装位置 `~/.agents/skills/`，重开会话生效。
 
 **Codex（best effort）**
 
@@ -71,9 +71,9 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/pi-setup.sh)"
 ```
 
-## Skills（本仓 27 个）
+## Skills（本仓 28 个）
 
-基础 19 个；算力模板 7 个与公共知识 1 个按需选装。另有四个设计依赖直接来自上游仓库，不复制到本仓。
+基础 20 个；算力模板 7 个与公共知识 1 个按需选装。另有四个设计依赖直接来自上游仓库，不复制到本仓。
 
 ### 工程技能
 
@@ -86,6 +86,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 | `tdd` | 红-绿-重构 |
 | `diagnosing-bugs` | bug 诊断：先建反馈回路，再假设原因 |
 | `code-review` | 双轴审查：规范符合度 + spec 忠实度 |
+| `teach` | 工作区内交互式教学新技能/概念；任务书、术语表、学习记录，跨会话推进 |
 
 ### 三层记忆（自制）
 
@@ -547,7 +548,7 @@ bash /tmp/opencode-setup.sh --plugins-only
 
 | 模式 | 处理范围 |
 | --- | --- |
-| 默认完整安装 | 插件、配置、依赖与通用 skills；默认 base 19 个，交互可选全组 27 个，另同步外部设计 skills |
+| 默认完整安装 | 插件、配置、依赖与通用 skills；默认 base 20 个，交互可选全组 28 个，另同步外部设计 skills |
 | `--plugins-only` | 自维护插件、context-mode 及其自带 skills、官方包登记；不更新模型／Python／通用 skills，不补装 claude-mem 资产或 notify |
 | `--check` | 下载校验自维护包，检查配置，查询 Ponytail／Magic Context 本地与 npm 版本；不询问、不改配置、认证或数据库 |
 
@@ -563,7 +564,7 @@ bash /tmp/opencode-setup.sh --plugins-only
 - Ponytail：官方包由宿主加载；宿主会自动安装缺失包，但不会替换已有缓存。setup 维护时查询本地版本与 npm `latest`，有新版默认询问刷新；确认后只刷新该官方包，不调用宿主 plugin CLI。
 - **Magic Context**：独立询问刷新，默认 N；确认后备份移走 latest 缓存、登记官方 `@latest`。选 N 保留现状并继续，兼容性 WARN 不等于可用。
 - **context-mode**：独立 release；v1 在 `plugins/context-mode/`，v2 在 `vendor/context-mode/`。notify 仅 v1 可选安装，v2 停用旧入口。
-- **验证范围**：Linux v1 1.18.35／v2 2.0.26；旧入口迁移、重复运行、两端发现全部 27 个本仓 skills 与 Ponytail 空缓存自动安装已通过。Windows 实机未覆盖；不是所有历史版本的兼容承诺。
+- **验证范围**：Linux v1 1.18.35／v2 2.0.26；旧入口迁移、重复运行、两端发现全部 28 个本仓 skills 与 Ponytail 空缓存自动安装已通过。Windows 实机未覆盖；不是所有历史版本的兼容承诺。
 
 ### 宿主升级顺序
 
