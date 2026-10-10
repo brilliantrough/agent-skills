@@ -53,11 +53,18 @@ def writable(path):
 
 
 def writable_cache(path):
-    """允许 OpenCode v2 的 @latest 叶子链接作为一个缓存条目整体移走。"""
-    if any(p.is_symlink() for p in path.parents):
-        raise ValueError(f'不覆盖符号链接父路径：{path}')
-    if not path.is_symlink():
-        writable(path)
+    """允许用户缓存根与 OpenCode v2 的 @latest 叶子链接保持符号链接。"""
+    cache_home = Path(os.environ.get('XDG_CACHE_HOME', Path.home() / '.cache'))
+    cache_root = cache_home / 'opencode'
+    try:
+        path.relative_to(cache_root)
+    except ValueError as error:
+        raise ValueError(f'缓存路径越界：{path}') from error
+    for parent in path.parents:
+        if parent == cache_home:
+            continue
+        if parent.is_symlink():
+            raise ValueError(f'不覆盖符号链接父路径：{path}')
 
 
 def write(path, value):

@@ -60,7 +60,7 @@ bash /tmp/opencode-setup.sh --plugins-only
 Magic Context 操作：
 
 - **选 Y**：确认 OpenCode／Desktop／Pi 均已停用、共享库已备份。只将 OpenCode 两代布局中的 Magic Context `@latest` 缓存移到 `$CFG/.agent-skills-backups/<时间戳>/magic-context-cache/`；旧目录／钉版登记改为官方 npm `@latest`，保留插件 options。不删除任意本地源码目录、Pi 包、其他插件缓存或数据库。
-- OpenCode v2 的 npm cache 可能把 `@latest` 做成指向数字代次目录的符号链接；刷新时只移动这个叶子链接本身，不跟随目标目录，也不放宽配置和父目录的符号链接保护。
+- OpenCode v2 的 npm cache 可能把 `@latest` 做成指向数字代次目录的符号链接；用户配置的 `$XDG_CACHE_HOME`（未设置时 `$HOME/.cache`）本身也可以是符号链接。刷新时只移动受管 `@latest` 叶子链接本身，不跟随目标目录；npm、scope、包目录等中间父路径仍受符号链接保护。
 - **选 N／`-y`／无终端**：不刷新缓存，保留现有登记；兼容性问题只报 WARN。其他插件继续部署，但不保证 Magic Context 或宿主可以启动。没有登记且共享库版本未知时不新增入口。
 - **`--check`**：只报告现状，不询问、不刷新。通过仅表示套装可部署，不代表 Magic Context 已可用。
 - 未确认刷新时，首装仍优先沿用已有 OpenCode／Pi 版本；没有已装版本和共享库时固定用 0.45.0。v2 兼容基线至少 0.45。
@@ -85,7 +85,7 @@ Magic Context 操作：
 - `opencode.jsonc` 合并到 `opencode.json` 后备份退役。v2 已有 `cli.json` 时保留；没有时合并旧 `tui.json(c)` 为 `tui.json`，由宿主首启迁移 action、界面与 state。完整安装的按键设置另行确认。
 - 除确认的 Ponytail／Magic Context 缓存刷新外，不清理 npm 插件缓存；认证、会话库与外置正文不动。**插件备份不是整机快照，也不替代数据库备份。**
 
-自维护发布包校验失败、未知宿主版本、配置无法解析、相关配置或安装路径为符号链接时停止；v2 npm cache 的 `@latest` 叶子链接仅在确认刷新对应托管缓存时整体移走。Magic Context 兼容性问题改为警告与独立刷新询问。
+自维护发布包校验失败、未知宿主版本、配置无法解析、相关配置或安装路径为符号链接时停止；用户指定的缓存根可为符号链接，v2 npm cache 的 `@latest` 叶子链接仅在确认刷新对应托管缓存时整体移走。Magic Context 兼容性问题改为警告与独立刷新询问。
 
 ## 升级、共存与回退
 
