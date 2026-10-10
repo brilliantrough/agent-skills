@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """安装脚本的字段级合并必须保留本机私密值(隐私内容永不覆盖)。
 
-规则:模板只补本地没有的键;键名命中 SENSITIVE(api key/secret/token/url/host/`*_KEY` 等)
-或模板值是 <占位符> 时,一律保留本地值。其余非私密键按模板更新(含模型名:CLAUDE_MEM_*_MODEL 也跟模板走)。
+规则:模板补齐缺失键;键名命中 SENSITIVE(api key/secret/token/url/host/`*_KEY` 等)、
+CLAUDE_MEM_*_MODEL 或模板值是 <占位符> 时,一律保留本地值。其余非私密键按模板更新。
 另外检查占位符填空:三个 <YOUR_NEWAPI_API_KEY> 必须各归各的 provider,embedding 与 claude-mem 不能串。
 
 用法:python3 tests/merge-private-preservation.py   退出码 0 = 通过
@@ -60,8 +60,8 @@ EXPECT = [
     # 列表键走并集:本地顺序保留,模板新增追加上去(不能整表替换掉本机装过的包)
     ("packages", ["npm:a", "npm:local-only", "npm:b"], "template(并集)"),
     ("enabledModels", ["m1", "m2"], "template(并集)"),
-    # 模型名/后端地址分开对待:模型跟模板(懒得自己更新),地址与 key 保留本机
-    ("CLAUDE_MEM_OPENROUTER_MODEL", "deepseek-flash", "template"),
+    # claude-mem 已有模型、地址与 key 都保留本机。
+    ("CLAUDE_MEM_OPENROUTER_MODEL", "glm-local", "local"),
     ("CLAUDE_MEM_OPENROUTER_BASE_URL", "https://local.example/v1", "local"),
     ("CLAUDE_MEM_OPENROUTER_API_KEY", "sk-LOCAL-MEM", "local"),
 ]
@@ -184,7 +184,7 @@ def main():
     if failures:
         print("\n".join(f"FAIL {f}" for f in failures))
         return 1
-    print("PASS: 私密键(api key/url/host/*_KEY)保留本机值,模型名随模板,本地独有键不丢,列表键走并集,"
+    print("PASS: 私密键(api key/url/host/*_KEY)与 claude-mem 模型保留本机值,本地独有键不丢,列表键走并集,"
           "5 个 key 各归各处")
     return 0
 

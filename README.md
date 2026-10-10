@@ -238,7 +238,7 @@ ponytail for experiments：规模随证据收缩，完整性满足论点。
   - `~/.func`：由 dot_file 的 `linux-setup.sh` 部署
   - `NOTIFY_*` 环境变量：仅安装 notify 时需要
 
-> **凭据不覆盖，模型名跟模板走。** `-y` 直接覆盖模型名，交互模式先列变更再确认；要保留自定义后端模型，不要用 `-y`。字段范围见[配置合并](#配置合并)。
+> **凭据与 claude-mem 已有模型不覆盖，包括 `-y` 模式。** Magic Context 模型仍跟模板走；交互模式先列变更再确认。字段范围见[配置合并](#配置合并)。
 
 ## Windows（Git Bash）
 
@@ -933,9 +933,9 @@ bash skills-external.sh   # 在克隆的套件根单独补装/更新第三方，
 | 文件 | 更新策略 / 特例 |
 |---|---|
 | `~/.config/opencode/opencode.json` | 完整 setup 刷新 v1 `provider.models`，保留 `options`；v2 原生 `providers` 不套旧模板。插件模式只规范套件登记、保留其他字段；路径遵循 `OPENCODE_CONFIG_DIR`／XDG |
-| `~/.claude-mem/settings.json` | 非敏感字段含 `CLAUDE_MEM_*_MODEL` 随模板；`CLAUDE_MEM_PROVIDER` 强制 `openrouter` |
-| `~/.config/cortexkit/magic-context.jsonc` | 同 settings；含与 OpenCode 共用的 `historian.pi` / `dreamer.pi` 块 |
-| `~/.pi/agent/{settings,models,mcp}.json` | 同 settings，由 `pi-setup.sh` 处理；已有 `tuiMode` 保留本地选择；mcp.json 本地命令路径在合并前替换；旧共享 MCP 只读迁移，不再部署 |
+| `~/.claude-mem/settings.json` | 已有 `CLAUDE_MEM_*_MODEL`、API key、Base URL、port／host 保留，缺失键按模板补齐；其他非敏感字段随模板；`CLAUDE_MEM_PROVIDER` 仍强制 `openrouter` |
+| `~/.config/cortexkit/magic-context.jsonc` | 模型及其他非敏感字段仍随模板；historian／dreamer 的 OpenCode、Pi 默认模型为 `codex-newapi/gpt-6-luna`，embedding 不变 |
+| `~/.pi/agent/{settings,models,mcp}.json` | 非敏感字段随模板，由 `pi-setup.sh` 处理；已有 `tuiMode` 保留本地选择；mcp.json 本地命令路径在合并前替换；旧共享 MCP 只读迁移，不再部署 |
 | `~/.pi/agent/agents/*.md`、`extensions/claude-mem.ts` | 整文件部署；有差异才写，原文件留时间戳备份 |
 
 **隐私保护边界**
@@ -943,7 +943,7 @@ bash skills-external.sh   # 在克隆的套件根单独补装/更新第三方，
 - 键名命中 `SENSITIVE`，或模板值为 `<占位符>`：机器上已有值永不覆盖
 - `SENSITIVE`：`api[_-]?key` / `secret` / `token` / `password` / `credential` / `bearer` / `auth` / `cookie` / `ingest` / `webhook` / `base[_-]?url` / `url` / `endpoint` / `host` / 以 `key` 结尾
 - OpenCode 配置的本地值优先；插件登记按主版本规范化、退役旧入口，provider 模型按上表单独更新
-- 实际参与模板合并的模型字段不受私密值保护：完整 setup 可刷新 `*_MODEL`、v1 `provider.models`、Magic Context 的 model；v2 原生 `providers` 与插件精简模式除外。`-y` 取默认更新，交互模式先列变更
+- 模型字段中，已有 `CLAUDE_MEM_*_MODEL` 明确保留；Magic Context 的 model、v1 `provider.models` 仍随完整 setup 更新。v2 原生 `providers` 与插件精简模式除外；`-y` 不会绕过保留规则
 - 整文件覆盖的 `agent-skills-ui.json` / `agent-skills-editor.json` / `keybindings.json` 不含隐私内容
 
 回归检查：`python3 tests/merge-private-preservation.py`；selfcheck 也会运行。

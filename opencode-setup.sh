@@ -353,10 +353,8 @@ def merge(cur, new):
         return new
     out = dict(cur)
     for k, v in new.items():
-        if k in cur and k.startswith('CLAUDE_MEM_') and (k.endswith('_BASE_URL') or k.endswith('_API_KEY')\
-                or k.endswith('_PORT') or k.endswith('_HOST')):
-            continue  # 已有接口/凭据保留，包括占位值
-        # CLAUDE_MEM_*_MODEL 不保留:模型名跟模板走 —— 默认安装(-y)直接覆盖,交互跑由下面的确认拦截
+        if k in cur and k.startswith('CLAUDE_MEM_') and k.endswith(('_MODEL', '_BASE_URL', '_API_KEY', '_PORT', '_HOST')):
+            continue  # 已有模型/接口/凭据保留，包括占位值
         if k in cur and SENSITIVE.search(k):                       # 敏感键:本地值优先
             continue
         if k in cur and isinstance(v, str) and PLACEHOLDER.search(v):  # 占位值不覆盖已填内容
