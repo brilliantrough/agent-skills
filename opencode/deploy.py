@@ -3,14 +3,14 @@
 from __future__ import annotations
 import json
 import os
-from pathlib import Path
 import re
 import shutil
 import subprocess
 import sys
 from datetime import datetime
-from urllib.parse import quote, unquote, urlparse
+from pathlib import Path
 from typing import Any
+from urllib.parse import quote, unquote, urlparse
 
 STAMP = datetime.now().strftime('%Y%m%d%H%M%S%f')
 MC = '@cortexkit/opencode-magic-context'
@@ -50,6 +50,14 @@ def load(path) -> dict[str, Any]:
 def writable(path):
     if any(p.is_symlink() for p in [path, *path.parents]):
         raise ValueError(f'不覆盖符号链接：{path}')
+
+
+def writable_cache(path):
+    """允许 OpenCode v2 的 @latest 叶子链接作为一个缓存条目整体移走。"""
+    if any(p.is_symlink() for p in path.parents):
+        raise ValueError(f'不覆盖符号链接父路径：{path}')
+    if not path.is_symlink():
+        writable(path)
 
 
 def write(path, value):
@@ -337,7 +345,7 @@ def install(root, cfg, major, check=False, refresh_mc=False, refresh_ponytail=Fa
             if not cache.exists():
                 continue
             destination = cfg / '.agent-skills-backups' / STAMP / folder / cache.parent.parent.name / cache.name
-            writable(cache)
+            writable_cache(cache)
             writable(destination)
             cache_backups.append((cache, destination))
             print(f'refresh: {cache} -> {destination}')
@@ -347,7 +355,10 @@ def install(root, cfg, major, check=False, refresh_mc=False, refresh_ponytail=Fa
         return
     for cache, destination in cache_backups:
         destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(cache), str(destination))
+        try:
+            shutil.move(str(cache), str(destination))
+        except OSError as error:
+            raise ValueError(f'刷新缓存失败：{cache} -> {destination}：{error}') from error
         print(f'backup: {cache} -> {destination}')
     if old_bundle.exists() and not bundled.exists():
         bundled.parent.mkdir(parents=True, exist_ok=True)
