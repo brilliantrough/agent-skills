@@ -49,6 +49,7 @@ dsh web
 | 能力 | 接入方式 | 数据与边界 |
 |---|---|---|
 | TUI、模型切换、会话浏览、任务及子代理 | `dsh-pi-tui` 与 DSH 原生服务 | 复用现成功能 |
+| Ponytail | `pi2dsh` 运行原版 `@dietrichgebert/ponytail` `5.3.2` | 默认 full；6 个技能、等级切换和命令别名 |
 | later | `pi2dsh` 运行仓库 `pi/extensions/later.ts` | 安装时复制唯一源文件；定时器随进程退出丢失 |
 | context rewrite | 本仓 DSH 原生插件 | 用 surface replacement 替换近期完整工具操作；原始事件仍保留在会话日志 |
 | 大输出外置 | 与 Pi/OpenCode 共用 `context-rewrite/output-store.mjs` | `context_output_read` 取回；受管制品目录内保存全文 |
@@ -56,6 +57,18 @@ dsh web
 | Magic Context | `wk544863858/dsh-plugin-magic-context` 固定源码构建 | DSH 专属 `home/magic-context/`；不打开 Pi/OpenCode 的共享库 |
 | claude-mem | 已安装的官方 `@claude-mem/dsh` | 复用现有 worker，官方 recall 工具；转录采集通过官方 schema |
 | skills、项目指令 | DSH 原生发现 | `~/.agents/skills`、项目 `.agents/skills`、`AGENTS.md` |
+
+Ponytail 使用[上游原版](https://github.com/DietrichGebert/ponytail)，通过现有 `pi2dsh` 扩展桥加载；TUI、Web、headless 共用这一份包，默认启用 full。TUI 常用命令：
+
+```text
+/ponytail lite
+/ponytail full
+/ponytail ultra
+/ponytail off
+/ponytail default full
+```
+
+`/ponytail <等级>` 调整当前会话；`default <等级>` 写入上游的 `~/.config/ponytail/config.json`（或 `$XDG_CONFIG_HOME/ponytail/config.json`），与同机 Pi 共享默认值，`PONYTAIL_DEFAULT_MODE` 环境变量优先。附带 `ponytail`、`ponytail-review`、`ponytail-audit`、`ponytail-debt`、`ponytail-gain`、`ponytail-help` 六个技能。Ponytail 与 later 均直接加载原文件，不另行维护 DSH 移植实现。
 
 claude-mem 已有官方运行目录时直接挂载。新登记的 transcript watch 在 worker 下次启动后生效；安装过程不重启共享 worker。尚未安装官方运行目录时，脚本给出官方安装命令，避免拉起另一套自维护 worker。已有自定义或禁用的转录设置保留。
 
@@ -73,6 +86,8 @@ Magic Context 使用自己的 DSH 语料库，`memory: {}` 启用记忆车道；
 | Office 文档处理 | `dsh-skill-office` | 按需挂载技能提供器与文档依赖；不预装办公运行环境 |
 
 这些原生能力按需选择，不随套件开启全部实验插件。
+
+社区可选参考：[dsh-lsp-actions](https://github.com/PerryLink/dsh-lsp-actions) 提供诊断、符号与重命名等 LSP 能力，需自行配置语言服务器，未默认安装。界面装饰与计时优先使用现有 TUI，不为对齐 Pi 另写适配。
 
 ## 更新与维护
 

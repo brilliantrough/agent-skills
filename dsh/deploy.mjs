@@ -198,7 +198,7 @@ export async function deploy({ root, source, template: templatePath, contextMode
     const original = existsSync(patchPath) ? await readFile(patchPath, "utf8") : "[]\n";
     const current = parseYaml(original, patchPath) ?? [];
     if (!Array.isArray(current)) throw new Error(`补丁必须是列表：${patchPath}`);
-    const additions = [...template, { id: "pi2dsh", config: { packages: [join(bundle, "dsh/pi")], visionCompanions: false } }];
+    const additions = [...template, { id: "pi2dsh", config: { packages: [join(bundle, "dsh/pi"), "@dietrichgebert/ponytail"], visionCompanions: false } }];
     const result = merge(current, additions);
     if (!isDeepStrictEqual(current, result)) await writeChanged(patchPath, YAML.stringify(result));
   }
