@@ -1,0 +1,8 @@
+- id: credentials
+  disabled: false
+- insert:
+    - id: agent-skills-context
+      name: agent-skills-dsh
+    - id: mcp-context-mode
+      name: '@deepseek-ai/dsh-mcp-client'
+      disabled: true

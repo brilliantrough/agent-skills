@@ -19,9 +19,10 @@
 |---|---|
 | OpenCode | 主目标 |
 | Pi | 与 OpenCode 共享记忆配置 |
+| DeepSeek Harness | 固定兼容组合；原生 DeepSeek 通道、TUI 与套件工具 |
 | Codex | best effort；复用 skills 原文，不改工作流 |
 
-[快速安装](#快速安装) · [Skills](#skills本仓-33-个) · [首次部署](#首次部署只需要网关--5-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [OpenCode](#opencode-安装与迁移) · [更新](#更新)
+[快速安装](#快速安装) · [Skills](#skills本仓-33-个) · [首次部署](#首次部署只需要网关--5-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [DSH](dsh/README.md) · [OpenCode](#opencode-安装与迁移) · [更新](#更新)
 
 ## 快速安装
 
@@ -35,7 +36,7 @@ winget install --id Git.Git -e --source winget
 
 ### 默认安装（`-y`，幂等）
 
-仅问一轮凭据：统一网关 + 5 个 key，见[首次部署](#首次部署只需要网关--5-个-key)。
+OpenCode、Pi、Codex 使用下述统一凭据流程；DSH 的 Node 版本、凭据和安装选项见 [DSH 接入](dsh/README.md)。
 
 **OpenCode**
 
@@ -50,6 +51,14 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/pi-setup.sh)" -- -y
 ```
+
+**DeepSeek Harness（Linux / macOS）**
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/dsh-setup.sh)" -- -y
+```
+
+固定 dsh `0.2.1-rc.2`、TUI `0.5.3`、pi2dsh `0.27.1`，独立数据目录；保留旧 alpha。默认 `llm-deepseek` 发送原生会话亲和头；其它 provider/model 随模板同步。运行 `dsh tui`；工具、记忆与更新边界见 [DSH 接入](dsh/README.md)。
 
 **只装 skills，不配插件**
 
@@ -66,6 +75,8 @@ bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.co
 ```
 
 ### `-y` 与逐项确认
+
+以下 `-y` 说明适用于 OpenCode、Pi、Codex；DSH 缺少凭据时会停止，须先用环境变量提供或改用交互安装。
 
 `-y` 取各项默认值，不再逐项确认：
 
@@ -214,7 +225,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 | [alchaincyf/huashu-design](https://github.com/alchaincyf/huashu-design) | `huashu-design` | 高保真、构图/叙事、动画与视觉 QA |
 | [Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill) | `design-taste-frontend` | 新页面视觉方法、已有页面改造审查（上游已合并 `redesign-existing-projects`） |
 
-- **分发**：三个 setup → [skills-sync.sh](skills-sync.sh) → [skills-external.sh](skills-external.sh)。精确名字补缺，再由 `npx skills@latest update -g <第三方名字>` 更新；不使用整库 `--all`，不把本仓条目交给 npx。
+- **分发**：四个 setup → [skills-sync.sh](skills-sync.sh) → [skills-external.sh](skills-external.sh)。精确名字补缺，再由 `npx skills@latest update -g <第三方名字>` 更新；不使用整库 `--all`，不把本仓条目交给 npx。
 - **归属**：本仓维护工作流、个人偏好与验证过的适配经验；外部维护完整目录、配方、脚本与资源。新增能力先考虑引用依赖，重复验证后再提炼差异，不逐版拷贝上游。
 - **更新**：第三方副本由上游管理，直接修改可能被覆盖；个人改动回到本仓 skill。同名本地/其他源不自动接管，保留并告警。
 - **使用**：安装后按任务读取实际入口/参考；安装 skill 不自动装浏览器/Python 包/GSAP，也不启用上游 hooks。分工和缺失处理见 [外部设计能力](skills/base/personal-ui-taste/references/external-skills.md)。
@@ -233,7 +244,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 
 ## 首次部署：只需要网关 + 5 个 key
 
-三个 setup 脚本统一收集、填入凭据；目标文件均无 `<YOUR_*>` 占位符则跳过。
+Pi、OpenCode、Codex 三个 setup 脚本统一收集、填入凭据；目标文件均无 `<YOUR_*>` 占位符则跳过。DSH 使用独立凭据引用，详见 [DSH 接入](dsh/README.md)。
 
 | 输入 | 回车行为 |
 |---|---|
@@ -914,7 +925,7 @@ npm 缺失包在 OpenCode 启动时自动安装；已有包不会因重启自动
 
 ### Skills
 
-本仓库 skill 由三个 setup 脚本统一调用的 `skills-sync.sh`（仓库根）分组同步，**重跑完整 setup 刷新所选组**；OpenCode 的 `--plugins-only` 不更新通用 skills。始终从 GitHub 拉取 `main` tarball 安装；分组即仓库 `skills/{base,research,accel,kb}/` 目录，新增 skill 放入对应组目录即可，无名单维护：
+本仓库 skill 由四个 setup 脚本调用的 `skills-sync.sh`（仓库根）分组同步，**重跑完整 setup 刷新所选组**；OpenCode 的 `--plugins-only` 不更新通用 skills。始终从 GitHub 拉取 `main` tarball 安装；分组即仓库 `skills/{base,research,accel,kb}/` 目录，新增 skill 放入对应组目录即可，无名单维护：
 
 | 组 | 策略 |
 |---|---|
