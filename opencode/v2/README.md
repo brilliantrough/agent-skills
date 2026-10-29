@@ -10,6 +10,7 @@
 | `legacy-tools.js` | 复用已安装的 context-mode、later 实现，转换 v2 工具与会话事件 |
 | `request-affinity.js` | 会话级缓存键、sticky session 请求头 |
 | `context-rewrite.js` | 近期纠错、持久外置、显式全文取回；复用 `context-rewrite/` 核心 |
+| `image-gen.js` | `image_gen` 画图工具；复用 `image-gen/` 核心，图片以 data URI 的 file part 返回 |
 | `tui.js` | 目录包的 TUI 入口，转发到 `later-cli.js`，由 CLI 自动发现 |
 | `later-cli.js` | TUI 输入 `later 5h 检查结果`、`later list`、`later cancel all`，以及 `/later` |
 

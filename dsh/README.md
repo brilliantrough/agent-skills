@@ -51,6 +51,7 @@ dsh web
 | TUI、模型切换、会话浏览、任务及子代理 | `dsh-pi-tui` 与 DSH 原生服务 | 复用现成功能 |
 | Ponytail | `pi2dsh` 运行原版 `@dietrichgebert/ponytail` `5.3.2` | 默认 full；6 个技能、等级切换和命令别名 |
 | later | `pi2dsh` 运行仓库 `pi/extensions/later.ts` | 安装时复制唯一源文件；定时器随进程退出丢失 |
+| 画图 | `pi2dsh` 运行仓库 `pi/extensions/image-gen.ts` + `image-gen/core.mjs` | 与 Pi、OpenCode 共用 `~/.local/share/agent-skills/image-gen.json`；图片走 DSH 原生附件 |
 | context rewrite | 本仓 DSH 原生插件 | 用 surface replacement 替换近期完整工具操作；原始事件仍保留在会话日志 |
 | 大输出外置 | 与 Pi/OpenCode 共用 `context-rewrite/output-store.mjs` | `context_output_read` 取回；受管制品目录内保存全文 |
 | context-mode fork | 官方 DSH MCP 客户端，复用本仓 release | `ctxm_*` 工具；配套 skills 自动挂载 |

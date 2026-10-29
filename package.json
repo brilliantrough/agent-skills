@@ -10,7 +10,8 @@
       "pi/extensions/ui/index.ts",
       "pi/extensions/later.ts",
       "pi/extensions/message-timing.ts",
-      "pi/extensions/context-rewrite.ts"
+      "pi/extensions/context-rewrite.ts",
+      "pi/extensions/image-gen.ts"
     ],
     "themes": [
       "pi/themes"

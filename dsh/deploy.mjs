@@ -74,7 +74,7 @@ export async function deploy({ root, source, template: templatePath, contextMode
     if ((await lstat(src)).isDirectory()) return true;
     return !existsSync(dest) || !(await readFile(src)).equals(await readFile(dest));
   } };
-  for (const dir of ["dsh", "context-rewrite"]) {
+  for (const dir of ["dsh", "context-rewrite", "image-gen"]) {
     await cp(join(source, dir), join(bundle, dir), copyOptions);
   }
   if (contextMode) await cp(contextMode, join(runtime, "vendor/context-mode"), {
@@ -84,9 +84,10 @@ export async function deploy({ root, source, template: templatePath, contextMode
   if (magicContext) await cp(magicContext, magic, copyOptions);
   if (!existsSync(join(magic, "package.json"))) throw new Error("缺少 Magic Context 源码包，未修改启动入口");
   await writeChanged(join(bundle, "dsh/pi/package.json"), JSON.stringify({
-    name: "agent-skills-dsh-pi-extensions", private: true, pi: { extensions: ["./later.ts"] },
+    name: "agent-skills-dsh-pi-extensions", private: true, pi: { extensions: ["./later.ts", "./image-gen.ts"] },
   }, null, 2) + "\n");
   await writeChanged(join(bundle, "dsh/pi/later.ts"), await readFile(join(source, "pi/extensions/later.ts"), "utf8"));
+  await writeChanged(join(bundle, "dsh/pi/image-gen.ts"), await readFile(join(source, "pi/extensions/image-gen.ts"), "utf8"));
   const manifest = await json(join(source, "dsh/runtime.package.json"));
   manifest.dependencies.yaml = "2.8.1";
   manifest.dependencies["acp-kernel"] = "0.0.101";

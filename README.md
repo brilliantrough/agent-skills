@@ -480,11 +480,21 @@ skills 重跑套件同步器即可；共享目录的更新也影响 OpenCode。c
 
 **本仓库也是 Pi 包：** `pi install git:github.com/brilliantrough/agent-skills`。
 
-- 提供个性化 UI（`/ui`）、pretty-tui 工具/思考折叠块与代码块复制、`/later`、任务耗时、one-dark 主题；claude-mem 由官方 Pi 扩展提供
+- 提供个性化 UI（`/ui`）、pretty-tui 工具/思考折叠块与代码块复制、`/later`、任务耗时、`image_gen` 画图工具、one-dark 主题；claude-mem 由官方 Pi 扩展提供
 - 自动清理旧散装文件
 - 步骤 2 逐包更新后明确显示：`本仓库 Pi 插件已更新: <旧> -> <新>(N 个提交)`
 
 主题：`pi/themes/onedark.json`（One Dark，56 色 token，支持热重载）；`settings.json` 中设 `theme: one-dark`。可修改 `theme`、在 `/settings` 中选择，或安装主题包：`awesome-pi-themes`（65 款）、`@inobit/pi-themes`。
+
+### 画图 `image_gen`
+
+把调研结论、对比、流程画成图。Pi、DSH（经 pi2dsh）、OpenCode v2 共用 `image-gen/core.mjs`，只有薄适配层不同。详见 [`image-gen/README.md`](image-gen/README.md)。
+
+- 首次运行自动从 Pi 的 `models.json` 挑一个 OpenAI 协议 provider，写 `~/.local/share/agent-skills/image-gen.json`（`0600`）；填 `base_url`、`api_key`，可选 `model`／`output_dir`／`size`／`quality`
+- 默认 `gpt-image-2.5-flare`；支持 `gpt-image-2.5-sunburst`、`gpt-image-2`、`gpt-image-1.5` 等网关已售模型
+- 文生图走 `POST /v1/images/generations`；给参考图走 `POST /v1/images/edits`（multipart `image[]`）
+- 图片存到项目 `images/`，同时作为图片内容返回模型；纯文本模型（如 `deepseek-flash`）不附图，只回路径并提示用户自己看
+- OpenCode v2 需要 `session.image_preview`（Transcript images）打开才能在聊天里看到图，默认关
 
 ### MCP 与 subagent
 
