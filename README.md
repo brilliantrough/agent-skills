@@ -44,7 +44,7 @@ OpenCode、Pi、Codex 使用下述统一凭据流程；DSH 的 Node 版本、凭
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/opencode-setup.sh)" -- -y
 ```
 
-先安装 OpenCode **v1 或 v2**；已有安装先退出 TUI 和后台服务。脚本按主版本部署插件，兼容旧散装入口；宿主升级在脚本里问一次（默认 Y，配置里自动更新默认关闭），不迁移会话库。默认同步 base skills；交互时可分别选择 research、accel、kb 组。只更新插件用 `--plugins-only`，预检用 `--check`，详见[安装与迁移](#opencode-安装与迁移)。
+先安装 OpenCode **V2**；已有安装先退出 TUI 和后台服务。脚本先转换旧配置，再更新原生 V2 模板与插件；宿主升级在脚本里问一次（默认 Y，配置里自动更新默认关闭），不迁移会话库。默认同步 base skills；交互可选 research、accel、kb。只更新插件用 `--plugins-only`，预检用 `--check`，详见[安装与迁移](#opencode-安装与迁移)。
 
 **Pi**
 
@@ -627,7 +627,7 @@ PS：开发时，脚本最后将本机 Pi 包软链到仓库 `node_modules/`（`
 
 ## OpenCode 安装与迁移
 
-先安装 OpenCode，已有服务先退出。setup 按 `opencode --version` 选择预构建包；**目前仍是 v1/v2 两个资产，不是单一双入口包**。later 的 Agent 逻辑、context_rewrite 核心共用，宿主与 TUI 适配分开。
+先安装 OpenCode V2，已有服务先退出。setup **只维护 V2**，检测到 V1 时停止并提示升级；配置先转换为原生 V2，再按原逻辑在线拉取模板与更新模型。
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/opencode-setup.sh -o /tmp/opencode-setup.sh
@@ -639,21 +639,20 @@ bash /tmp/opencode-setup.sh --plugins-only
 | 模式 | 处理范围 |
 | --- | --- |
 | 默认完整安装 | 插件、配置、依赖与通用 skills；默认 base 18 个，交互可选 research、accel、kb，全部选中时为 34 个，另同步外部设计 skills |
-| `--plugins-only` | 自维护插件、context-mode 及其 skills、官方包登记、claude-mem runtime／入口／MCP；不更新模型／Python／通用 skills，不安装 notify |
+| `--plugins-only` | 旧配置转原生 V2、自维护插件、context-mode 及其 skills、官方包登记、claude-mem runtime／入口／MCP；不更新模型／Python／通用 skills |
 | `--check` | 下载校验自维护包，检查配置，查询 Ponytail／Magic Context 本地与 npm 版本；不询问、不改配置、认证或数据库 |
 
-`--check` 与 `--plugins-only` 要求已有 Python 3、curl；`--check` 仍会联网，宿主 `--version` 也可能写日志，并非零文件系统写入。
+`--check` 与 `--plugins-only` 要求已有 Python 3、curl、Bun；`--check` 仅预览转换，仍会联网，宿主 `--version` 也可能写日志，并非零文件系统写入。
 
 | 客户端 | 包与入口 | 配置 |
 | --- | --- | --- |
-| v1 | `opencode-plugins-v1.tar.gz` → `plugins/zz-agent-skills.js`、`tui-plugins/later/` | `plugin`、`tui.json(c)` |
 | v2 | `opencode-plugins-v2.tar.gz` → `v2/`，含 server 与 TUI 入口 | `plugins`、`cli.json` |
 
 - **旧插件迁移**：旧散装入口和旧 v1 包统一纳管；v1→v2 后移入 `$CFG/.agent-skills-backups/<时间戳>/`，不留在自动扫描目录。无需手工删除；相同内容不重写，不自动降级回 v1。
-- **保留范围**：私密值、provider options、未知第三方配置、认证、会话库和外置正文。v2 原生 `providers` 不套 v1 模型模板。
+- **保留范围**：私密值、provider 本地设置、未知第三方配置、认证、会话库和外置正文。转换复用官方 2.2.3 归一化器，在本机执行；改前备份，冲突停止，无变化不写入。
 - Ponytail：官方包由宿主加载；宿主会自动安装缺失包，但不会替换已有缓存。setup 维护时查询本地版本与 npm `latest`，有新版默认询问刷新；确认后只刷新该官方包，不调用宿主 plugin CLI。
 - **Magic Context**：独立询问刷新，默认 N；确认后备份移走 latest 缓存、登记官方 `@latest`。选 N 保留现状并继续，兼容性 WARN 不等于可用。
-- **context-mode**：独立 release；v1 在 `plugins/context-mode/`，v2 在 `vendor/context-mode/`。notify 仅 v1 可选安装，v2 停用旧入口。
+- **context-mode**：独立 release，部署到 `vendor/context-mode/`。notify 旧入口备份停用。
 - **验证范围**：Linux v1 1.18.35／v2 2.0.26；旧入口迁移、重复运行、两端发现全部 27 个本仓 skills 与 Ponytail 空缓存自动安装已通过。Windows 实机未覆盖；不是所有历史版本的兼容承诺。
 
 ### 宿主升级顺序
@@ -668,7 +667,7 @@ Magic Context 的共享 `context.db` 是另一套库，升级另选所有宿主�
 
 ### 手工配置参考
 
-以下 JSON 示例以 **v1** 为例；v2 目录包与配置见 [v2 说明](opencode/v2/README.md)。使用 setup 后不要再重复登记官方 claude-mem、later 或 context_rewrite 入口。
+配置使用原生 **V2**；目录包与配置见 [v2 说明](opencode/v2/README.md)。使用 setup 后不要再重复登记官方 claude-mem、later 或 context_rewrite 入口。
 
 ### 1. claude-mem
 
@@ -687,7 +686,7 @@ npx claude-mem install --ide opencode
 
 官方 13.35.0 安装器为 OpenCode 登记 `mcp.claude-mem`，命令是 `[Node绝对路径, mcp-server.cjs绝对路径]`；setup 不另写命令。原生 `claude_mem_search` 是简化搜索，MCP 提供更多查询／保存能力，两者均为官方设计。
 
-迁移期清理旧 `mcp.servers.claude-mem`，避免覆盖官方新登记；旧 Bun 条目交安装器更新为 Node。自定义命令、环境变量或禁用项保留并提示。旧 wrapper／lib 文件移到备份，不再运行。
+setup 先移除受管同名 MCP 项，交官方安装器刷新，再统一转换为 `mcp.servers.claude-mem`；旧 Bun 条目交安装器更新为 Node。自定义命令、环境变量或禁用项保留并提示。旧 wrapper／lib 文件移到备份，不再运行。
 
 #### ② settings 与 worker
 
@@ -739,10 +738,10 @@ curl 127.0.0.1:37700/api/health     # 端口见 $SETTINGS 的 CLAUDE_MEM_WORKER_
 添加 plugin，关闭 OpenCode 内置 compaction，由 magic-context 接管（manual setup 要求）：
 
 ```jsonc
-"plugin": [
+"plugins": [
   "@cortexkit/opencode-magic-context@latest"
 ],
-"compaction": { "auto": false, "prune": false }
+"compaction": { "auto": false }
 ```
 
 配置 `~/.config/cortexkit/magic-context.jsonc`；**`historian.opencode.model` 必填**，缺失会导致 historian 失败并反复提示。
@@ -771,40 +770,25 @@ curl 127.0.0.1:37700/api/health     # 端口见 $SETTINGS 的 CLAUDE_MEM_WORKER_
 
 故障自检前先核对已装版本；会升级插件或迁移共享库的 doctor 操作，只在维护窗口执行，不直接拉 `@latest` 排障。
 
-**v1 侧边栏**显示占比 / historian / compartment 状态，属于独立 TUI 插件。注册到 `~/.config/opencode/tui.jsonc`：
-
-```jsonc
-{ "plugin": ["@cortexkit/opencode-magic-context@latest"] }
-```
-
-- v1 同时读取 `tui.json` 与 `tui.jsonc`；setup 合并到 `tui.json` 并备份退役原 JSONC
-- v1 的 setup 补齐 Magic Context 和 later 的 TUI 登记，保留第三方条目；重跑会恢复套件必需入口
-- v2 从已登记目录包发现 TUI 入口，使用 `cli.json`；不要照抄上述 v1 登记
+V2 从已登记包发现 TUI 入口；界面配置使用 `cli.json`，无需在旧 `tui.json(c)` 重复登记。
 
 ### 3. ponytail
 
-官方同一个包提供 v1 `server()` 与 v2 `setup(ctx)`。v1 登记示例：
+官方包的 V2 登记示例：
 
 ```jsonc
-"plugin": [
+"plugins": [
   "@dietrichgebert/ponytail"
 ]
 ```
 
-v2 改用 `"plugins"`。两端启动时自动下载缺失包；不要再登记 `v2/ponytail/`、`options.ponytailPackage` 或旧内置 skills 路径，setup 会清理这批旧配置。
+宿主启动时自动下载缺失包；不要再登记 `v2/ponytail/`、`options.ponytailPackage` 或旧内置 skills 路径，setup 会清理这批旧配置。
 
-### 4. notify（仅 v1，可选）
+### 4. notify（待适配 V2）
 
 来源：[brilliantrough/opencode-notify-hub](https://github.com/brilliantrough/opencode-notify-hub)。
 
-1. 下载 release 资产 `opencode-notify-plugin-*.zip`
-2. 解出 `session-notify.js`，放到 `~/.config/opencode/plugins/`；目录插件自动加载，无需 config 条目
-3. 在启动 OpenCode 的 shell 配置中 export 环境变量：
-
-| 变量 | 要求 |
-|---|---|
-| `NOTIFY_GATEWAY_URL`、`NOTIFY_INGEST_KEY` | 必填 |
-| `NOTIFY_MACHINE`、`NOTIFY_HEARTBEAT_MS` 等 | 可选；见仓库 `packages/plugin/src/config.ts` |
+当前 setup 将旧入口备份停用；V2 支持由 notify 项目单独维护。
 
 ### 5. codegraph（代码知识图谱 MCP）
 
@@ -819,10 +803,12 @@ curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install
 
 ```jsonc
 "mcp": {
-  "codegraph": {
-    "type": "local",
-    "command": ["codegraph", "serve", "--mcp"],
-    "enabled": true
+  "servers": {
+    "codegraph": {
+      "type": "local",
+      "command": ["codegraph", "serve", "--mcp"],
+      "disabled": false
+    }
   }
 }
 ```
@@ -835,7 +821,7 @@ cd your-project && codegraph init
 
 ### 6. later（延迟发送 prompt）
 
-挂机等实验结果，v1/v2 均可**直接在输入框输入**；v2 也支持带参数的 `/later`：
+挂机等实验结果，可**直接在输入框输入**，也支持带参数的 `/later`：
 
 ```text
 later 5h 查看当前实验的运行结果
@@ -856,28 +842,11 @@ later 5h 查看当前实验的运行结果
 
 | 版本 | TUI 入口 | 登记方式 |
 | --- | --- | --- |
-| v1 | `tui-plugins/later/index.mjs` | `tui.json` 的 `plugin`；不可放进 server 的 `plugins/` 扫描目录 |
 | v2 | `v2/tui.js` → `later-cli.js` | 随 `v2/` 目录包发现，不另登记旧 TUI 插件 |
-
-v1 手工登记示例：
-
-```jsonc
-{ "plugin": ["@cortexkit/opencode-magic-context@latest", "./tui-plugins/later"] }
-```
 
 setup 负责部署、去重和旧入口迁移；不要同时安装整包与旧独立 later。
 
 ### 7. 按键（Enter 发送 / Shift+Enter 换行）
-
-v1 的 `tui.json`（手工 JSONC 同样适用）：
-
-```jsonc
-"keybinds": {
-  "input_submit": "return",
-  "input_newline": "shift+return",
-  "prompt_submit": "none"
-}
-```
 
 v2 的 `cli.json` 使用点分 action 名：
 
@@ -891,7 +860,7 @@ v2 的 `cli.json` 使用点分 action 名：
 
 | 宿主 | 配置与生效方式 |
 |---|---|
-| OpenCode v1/v2 | 完整 setup 确认后设置对应三个 action；先显示差异并备份，保留其它按键；`--plugins-only` 不统一按键。v2 没有 `cli.json` 时先准备 `tui.json`，首启由宿主迁移 |
+| OpenCode V2 | 完整 setup 确认后设置对应三个 action；先显示差异并备份，保留其它按键；`--plugins-only` 不统一按键。没有 `cli.json` 时先准备 `tui.json`，首启由宿主迁移 |
 | Pi | `dot_file/pi/keybindings.json`：`tui.input.submit: [enter]`、`tui.input.newLine: [shift+enter]`，保留自定义 `app.*`；脚本按模板部署，本机修改后 `/reload` 生效 |
 
 - Enter 发送，Shift+Enter 换行；不绑定 Ctrl+Enter，不再把 Ctrl+J 设为发送
@@ -903,7 +872,7 @@ v2 的 `cli.json` 使用点分 action 名：
 
 ### 8. 近期纠错与大输出外置
 
-v1/v2 预构建包均已包含，不另装独立入口：
+V2 预构建包已包含，不另装独立入口：
 
 - `context_rewrite(ids, note)`：撤下近期无用调用及结果，仅改变模型发送视图；原始历史与命令副作用保留
 - 自动外置：普通文本默认 ≥16 KiB，留下预览、状态和持久文件指针
@@ -912,23 +881,25 @@ v1/v2 预构建包均已包含，不另装独立入口：
 
 完整参数、存储目录与宿主边界见 [上下文插件说明](context-rewrite/README.md)。
 
-## OpenCode v1 最小配置参考
+## OpenCode V2 最小配置参考
 
-下面仅展示 v1 主配置；自维护 bundle 由 `plugins/` 自动发现，TUI 登记另见上文。v2 使用 [目录包配置](opencode/v2/README.md)，不要直接复制本段。
+下面展示原生 V2 主配置；自维护插件目录由 setup 登记，详见[目录包配置](opencode/v2/README.md)。
 
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": [
+  "plugins": [
     "@cortexkit/opencode-magic-context@latest",
     "@dietrichgebert/ponytail"
   ],
-  "compaction": { "auto": false, "prune": false },
+  "compaction": { "auto": false },
   "mcp": {
-    "codegraph": {
-      "type": "local",
-      "command": ["codegraph", "serve", "--mcp"],
-      "enabled": true
+    "servers": {
+      "codegraph": {
+        "type": "local",
+        "command": ["codegraph", "serve", "--mcp"],
+        "disabled": false
+      }
     }
   }
 }
@@ -974,9 +945,9 @@ bash skills-external.sh   # 在克隆的套件根单独补装/更新第三方，
 | 本仓库 Pi git 包 / npm 包 | 同步骤 2，含 UI/later/耗时/主题；`pi-autoname@0.6.8` 钉版，Pi 会跳过 |
 | magic-context（Pi） | 步骤 3.1 独立询问，默认 N |
 | Magic Context（OpenCode） | 独立询问、默认 N；确认后备份移走其 latest 缓存并登记 `@latest`，下次宿主启动下载；Pi 包另行同步 |
-| OpenCode 自维护包（later、context_rewrite） | setup 的固定版本 release，按主版本选包；插件备份放 `$CFG/.agent-skills-backups/`；claude-mem runtime 与宿主入口由官方安装器维护 |
+| OpenCode 自维护包（later、context_rewrite） | setup 的固定版本 V2 release；插件备份放 `$CFG/.agent-skills-backups/`；claude-mem runtime 与宿主入口由官方安装器维护 |
 | context-mode fork | 两侧从独立 latest release 同步；OpenCode 目录备份放 `.agent-skills-backups/`，Pi 保持自身备份策略 |
-| notify | 仅 v1 可选；已装则比对独立 release，变化时备份替换；v2 备份停用 |
+| notify | 旧入口备份停用 |
 | OpenCode 官方 Ponytail | 宿主负责缺包安装；setup 维护时查询版本，有新版默认询问刷新；确认后备份对应缓存并登记 `@latest`，不调用宿主 plugin CLI |
 
 **Magic Context 升级单独确认。** 先停所有共用 `context.db` 的宿主并备份；Pi 不用 `--all`，OpenCode setup 提供默认 N 的独立刷新询问。选 Y 只备份移走它在 OpenCode 中的 latest 缓存、改回官方 npm 登记；不启动宿主、不访问数据库。选 N 保留现状，不阻塞其他插件；兼容性 WARN 须在启动前处理。
@@ -994,7 +965,7 @@ bash skills-external.sh   # 在克隆的套件根单独补装/更新第三方，
 
 | 文件 | 更新策略 / 特例 |
 |---|---|
-| `~/.config/opencode/opencode.json` | 完整 setup 刷新 v1 `provider.models`，保留 `options`；v2 原生 `providers` 不套旧模板。插件模式只规范套件登记、保留其他字段；路径遵循 `OPENCODE_CONFIG_DIR`／XDG |
+| `~/.config/opencode/opencode.json` | 先备份并转换旧字段，再在线获取 V2 模板；完整 setup 刷新 `providers.<名称>.models`，保留已有 provider 的 `settings`、headers 等本地字段。插件模式仅转换格式与规范登记；路径遵循 `OPENCODE_CONFIG_DIR`／XDG |
 | `~/.claude-mem/settings.json` | `CLAUDE_MEM_*_MODEL` 随模板统一为 `mem-1`；API key、Base URL、port／host 保留，缺失键按模板补齐；`CLAUDE_MEM_PROVIDER` 仍强制 `openrouter` |
 | `~/.config/cortexkit/magic-context.jsonc` | 模型及其他非敏感字段仍随模板；historian／dreamer 的 OpenCode、Pi 默认模型为 `codex-newapi/gpt-6-luna`，embedding 不变 |
 | `~/.pi/agent/{settings,models,mcp}.json` | 非敏感字段随模板，由 `pi-setup.sh` 处理；已有 `tuiMode` 保留本地选择；mcp.json 本地命令路径在合并前替换；旧共享 MCP 只读迁移，不再部署 |

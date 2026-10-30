@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# opencode-setup.sh — OpenCode v1/v2 套装配置与旧插件迁移
+# opencode-setup.sh — OpenCode V2 套装配置与旧配置／插件迁移
 # 仓库: brilliantrough/agent-skills
 #
-# 用法：bash opencode-setup.sh [-y|--yes] [--plugins-only|--check]；先安装 OpenCode，按主版本拉取对应预构建包。
+# 用法：bash opencode-setup.sh [-y|--yes] [--plugins-only|--check]；先安装 OpenCode V2，再拉取预构建包。
 # 完整安装含宿主升级(默认 Y)、配置、依赖与通用 skills；--plugins-only 仅插件及 context-mode skills；--check 下载校验后退出。
-# 配置默认关闭 OpenCode 自动更新(v2 update:disable / v1 autoupdate:false)，宿主只在本脚本里升级。
+# 配置默认关闭 OpenCode 自动更新(update:disable)，宿主只在本脚本里升级。
 # 更新前先退出 TUI 和后台服务；已知旧入口移到配置目录 .agent-skills-backups/。
 # 第三方 npm 插件先查本地/npm latest；Ponytail 常规更新默认 Y，Magic Context 单独默认 N；claude-mem 由官方安装器更新 runtime 与宿主入口。
 # 确认后只备份移走对应 latest 缓存并改回官方包登记；下次宿主启动下载。
@@ -67,10 +67,10 @@ while [ $# -gt 0 ]; do
       cat <<'HELP'
 用法: bash <本脚本> [-y|--yes] [--plugins-only|--check]
   默认             完整配置、插件、依赖与通用 skills；默认 base，交互可选全组
-  --plugins-only   同步自维护插件、官方 claude-mem runtime/宿主入口/MCP 及 context-mode skills，迁移旧入口；不更新模型/Python/通用 skills
+  --plugins-only   同步插件及 context-mode skills，转换旧配置格式；不更新模型/Python/通用 skills
   --check          下载校验自维护包、查询第三方版本、检查配置；不部署，不更改配置/认证/数据库
   -y, --yes        采用各项默认值（默认 N 仍跳过）；凭据仍可询问
-先安装 OpenCode v1/v2；更新前退出 TUI 和后台服务。精简模式需要已有 Python 3、curl。
+先安装 OpenCode V2；V1 请先自行升级。精简模式需要已有 Python 3、curl、Bun。
 已知旧入口备份到 $CFG/.agent-skills-backups/；不启动宿主、不迁移数据库。
 查询 Ponytail/Magic Context 的本地版本与 npm latest；失败只警告。Ponytail 有新版默认 Y，钉版/本地路径默认 N。
 Magic Context 旧缓存路径自动迁回官方包名，保留当前缓存；--check 只预览。实际刷新另问、默认 N，确认后下次启动下载。
@@ -83,12 +83,13 @@ HELP
 done
 
 # 只读取版本；不安装/升级宿主，也不触发首次运行的数据库迁移。
-command -v opencode >/dev/null 2>&1 || { echo "ERROR: 请先安装 OpenCode v1 或 v2，再运行本脚本" >&2; exit 1; }
+command -v opencode >/dev/null 2>&1 || { echo "ERROR: 请先安装 OpenCode V2，再运行本脚本" >&2; exit 1; }
 OC_VERSION="$(opencode --version)"
 if [[ "$OC_VERSION" =~ (^|[[:space:]])v?([12])\.[0-9]+\.[0-9]+ ]]; then OC_MAJOR="${BASH_REMATCH[2]}"
 else echo "ERROR: 无法识别或暂不支持的 OpenCode 版本: $OC_VERSION" >&2; exit 1; fi
+[ "$OC_MAJOR" = 2 ] || { echo "ERROR: 当前 setup 只维护 OpenCode V2；请先升级宿主，现有配置未改动。" >&2; exit 1; }
 echo "客户端: $OC_VERSION → v$OC_MAJOR 插件包；自动更新默认关闭,宿主只在本脚本里升级/不迁移数据库"
-OC_RELEASE="opencode-plugins-1.0.20"
+OC_RELEASE="opencode-plugins-1.0.21"
 CFG="${OPENCODE_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/opencode}"
 PLUGINS="$CFG/plugins"
 CLAUDE_PLUGIN="$PLUGINS/claude-mem.js"
@@ -119,9 +120,9 @@ ask() { # $1=提示 $2=默认(Y/N,缺省 N)
 if [ "$PLUGINS_ONLY" = 0 ] && ask "更新 OpenCode 到最新版(opencode upgrade)?" Y; then
   if opencode upgrade; then
     OC_VERSION="$(opencode --version)"
-    if [[ "$OC_VERSION" =~ (^|[[:space:]])v?([12])\.[0-9]+\.[0-9]+ ]]; then
+    if [[ "$OC_VERSION" =~ (^|[[:space:]])v?(2)\.[0-9]+\.[0-9]+ ]]; then
       OC_MAJOR="${BASH_REMATCH[2]}"; echo "客户端: $OC_VERSION → v$OC_MAJOR"
-    else echo "WARN: 升级后版本无法识别($OC_VERSION)，按原 v$OC_MAJOR 继续" >&2; fi
+    else echo "ERROR: 升级后版本不受支持($OC_VERSION)，配置未改动" >&2; exit 1; fi
   else echo "WARN: opencode upgrade 失败，继续用当前版本 $OC_VERSION" >&2; fi
 fi
 RAW="https://raw.githubusercontent.com/brilliantrough/dot_file/master"
@@ -520,6 +521,20 @@ with tarfile.open(sys.argv[1]) as archive:
 PYEOF
 python3 "$oc_stage/deploy.py" "$oc_stage" "$(npath "$CFG")" "$OC_MAJOR" --check --versions "$(npath "$oc_stage/versions.json")"
 
+# deprecated: config-v2-native；迁移期结束后删除旧格式转换，保留原生模板合并。
+migrate_opencode_config() {
+  command -v bun >/dev/null 2>&1 || { echo "ERROR: 配置转换需要 Bun；请安装或运行完整 setup，现有配置未改动" >&2; return 1; }
+  bun "$(npath "$oc_stage/migrate-config.mjs")" "$@" "$(npath "$CFG/opencode.json")" "$(npath "$CFG/opencode.jsonc")"
+}
+
+# ---- 配置迁移依赖：完整安装补齐 Bun；精简模式只检查 ----
+if [ "$PLUGINS_ONLY" != 1 ] && ! command -v bun >/dev/null 2>&1; then
+  if ask "是否安装 Bun（配置转换与 context-mode 所需）？" Y; then
+    curl -fsSL --connect-timeout 8 -m 60 https://bun.sh/install | bash
+    export PATH="$HOME/.bun/bin:$PATH"
+  fi
+fi
+
 # deprecated: mcphub-web-rename；用户确认退役后删除此段及 migrate-web-mcp.py。
 web_mcp_ready=1
 if grep -qs '"mcphub-web"[[:space:]]*:' "$CFG/opencode.json" "$CFG/opencode.jsonc"; then
@@ -533,7 +548,13 @@ if grep -qs '"mcphub-web"[[:space:]]*:' "$CFG/opencode.json" "$CFG/opencode.json
 fi
 # deprecated: mcphub-web-rename 结束。
 
-if [ "$CHECK_ONLY" = 1 ]; then exit 0; fi
+if [ "$CHECK_ONLY" = 1 ]; then
+  migrate_opencode_config || exit 1
+  exit 0
+fi
+
+# deprecated: config-v2-native；迁移期结束后删除旧格式转换，保留原生 V2 模板合并。
+migrate_opencode_config --apply || exit 1
 
 # ---- 第三方 npm 插件：询问后刷新；不启动宿主、不修改共享数据库 ----
 plugin_args=()
@@ -585,16 +606,6 @@ if ! command -v npx >/dev/null 2>&1; then
   fi
 fi
 
-# ---- 1.2 依赖: bun ----
-if ! command -v bun >/dev/null 2>&1; then
-  echo "未检测到 bun(claude-mem runtime 与 context-mode 所需依赖)。"
-  if ask "是否安装 bun？" Y; then
-    curl -fsSL --connect-timeout 8 -m 60 https://bun.sh/install | bash
-    export PATH="$HOME/.bun/bin:$PATH"
-  else
-    echo "跳过 bun；相关依赖由官方安装器检查。"
-  fi
-fi
 fi
 
 if [ "$PLUGINS_ONLY" != 1 ]; then
@@ -666,10 +677,10 @@ EOF
 fi
 
 # ---- 4. opencode.json(来自 dot_file 仓库:providers/agents/mcp/插件条目/compaction)----
-# 已存在则只覆盖各 provider 的 models(新模型自动下发),options(apiKey/网关)等本地字段保留;
+# 已转换为 V2；只覆盖各 providers 的 models，settings(apiKey/网关)等本地字段保留。
 # 老 opencode.jsonc 的值自动并入 opencode.json 后退役为 .migrated.bak
-# 自动更新默认关闭:v2 写 update:"disable",v1 写 autoupdate:false;已有非 auto 的选择尊重原值,auto 问一次
-oc_tpl="$(mktemp)"; oc_cand="$(mktemp)"
+# 自动更新默认关闭；已有 notify/disable 保留，auto 问一次。
+oc_tpl="$(mktemp "$oc_stage/template.XXXXXX")"; oc_cand="$(mktemp)"
 oc_link="$CFG/opencode.json"
 oc_target="$oc_link"
 if [ -L "$oc_link" ]; then
@@ -720,6 +731,7 @@ if [ -f "$CFG/opencode.json" ] && [ -n "$GW_BASE$K_CLAUDE$K_CODEX$K_ANTHROPIC$K_
   echo "filled placeholders: $CFG/opencode.json"
 fi
 if [ "$web_mcp_ready" = 1 ] && curl -fsSL --connect-timeout 8 -m 30 -o "$oc_tpl" "$RAW/opencode/opencode.json"; then
+  bun "$(npath "$oc_stage/migrate-config.mjs")" --apply "$(npath "$oc_tpl")" || exit 1
   fill_template_placeholders "$oc_tpl"
   oc_out="$(python3 - "$CFG/opencode.json" "$CFG/opencode.jsonc" "$oc_tpl" "$oc_cand" "$OC_MAJOR" "$oc_force_manual" <<'PYEOF'
 import json, re, os, sys
@@ -754,53 +766,41 @@ def load(p):
     except (json.JSONDecodeError, UnicodeError) as error:
         raise SystemExit(f'ERROR: {p} 解析失败，保留原文件：{error}')
 
-def deep_merge(base, over):  # over 优先(本地值优先),dict 递归
+def deep_merge(base, over, layered=False):  # layered：合并本机两个配置文件的有序规则。
     if isinstance(base, dict) and isinstance(over, dict):
         out = dict(base)
         for k, v in over.items():
-            if k in ('plugin', 'plugins') and isinstance(base.get(k), list) and isinstance(v, list):
+            if layered and k in ('permissions', 'policies') and isinstance(base.get(k), list) and isinstance(v, list):
+                out[k] = base[k] + v
+            elif k in ('plugin', 'plugins') and isinstance(base.get(k), list) and isinstance(v, list):
                 out[k] = base[k] + [entry for entry in v if entry not in base[k]]
             else:
-                out[k] = deep_merge(base.get(k), v) if k in base else v
+                out[k] = deep_merge(base.get(k), v, layered) if k in base else v
         return out
     return over
 
 tpl = json.load(open(tpl_p, encoding='utf-8'))
 
 live_json, live_jsonc = load(target_p), load(jsonc_p)
-live = deep_merge(live_json, live_jsonc)
-# v2 原生字段已有本地配置时不再注入对应旧字段；模型模板只更新 v1 provider 形状。
-tpl.pop('plugin', None)
-for old, native in [('provider', 'providers'), ('permission', 'permissions'), ('agent', 'agents'),
-                    ('autoupdate', 'update'), ('snapshot', 'snapshots')]:
-    if native in live:
-        tpl.pop(old, None)
-if 'providers' in live:
-    print('INFO: 保留本机 v2 providers；通用 provider 模型模板不改写原生结构', file=sys.stderr)
-if isinstance(live.get('mcp'), dict) and 'servers' in live['mcp']:
-    tpl['mcp'] = {'servers': {k: {**{a:b for a,b in v.items() if a != 'enabled'}, 'disabled': not v.get('enabled', True)} for k,v in tpl.get('mcp', {}).items()}}
+live = deep_merge(live_json, live_jsonc, layered=True)
+tpl.pop('plugins', None)  # 插件登记由 deploy.py 管理。
 
 merged = deep_merge(tpl, live)
-# 自动更新:默认关闭,显式问过(auto→手动)时强制关闭;v2 只认 update,v1 只认 autoupdate
+# 已有档位保留，只有用户确认后才关闭 auto。
 major, force_manual = sys.argv[5], sys.argv[6] == '1'
-if major == '2':
-    had_legacy = merged.pop('autoupdate', None) is not None
-    if force_manual or 'update' not in merged:
-        merged['update'] = 'disable'
-    if had_legacy:
-        print('INFO: 移除 v1 的 autoupdate(v2 只认 update=%r)' % merged.get('update'), file=sys.stderr)
-else:
-    if force_manual or 'autoupdate' not in merged:
-        merged['autoupdate'] = False
-tpl_prov = tpl.get('provider') or {}
-live_prov = live.get('provider') or {}
-mp = merged.setdefault('provider', {}) if tpl_prov else {}
+if major != '2':
+    raise SystemExit('ERROR: 配置模板仅支持 OpenCode V2')
+if force_manual or 'update' not in merged:
+    merged['update'] = 'disable'
+tpl_prov = tpl.get('providers') or {}
+live_prov = live.get('providers') or {}
+mp = merged.setdefault('providers', {}) if tpl_prov else {}
 for name, p in tpl_prov.items():
     if name in live_prov:
-        # 已存在的 provider:本地节点原样保留(options/apiKey 一个字节都不动),只换 models
+        # 已存在的 provider:保留 settings、headers 等本地节点，只换 models。
         mp[name] = {**live_prov[name], 'models': p.get('models', {})}
     elif name not in mp:
-        mp[name] = p  # 模板新增的 provider:整块加入(含占位符 options,待首次填写)
+        mp[name] = p  # 模板新增 provider，凭据占位符由填空流程处理。
 
 out = json.dumps(merged, indent=2, ensure_ascii=False) + '\n'
 same = load(target_p) == merged   # 按 JSON 语义比较:只有格式化/键序不同不算变更(避免每轮重写)
@@ -881,12 +881,11 @@ try:
     cfg = json.loads(text) if text.strip() else {"$schema": "https://opencode.ai/config.json"}
 except FileNotFoundError:
     cfg = {"$schema": "https://opencode.ai/config.json"}
-cfg.setdefault("mcp", {})
-servers = cfg["mcp"].get("servers", cfg["mcp"])
+servers = cfg.setdefault("mcp", {}).setdefault("servers", {})
 if "codegraph" in servers:
     sys.exit(0)
 cmd = [node, shim] if node and shim else [bin_]
-servers["codegraph"] = {"type": "local", "command": cmd + ["serve", "--mcp"], **({"disabled": False} if "servers" in cfg["mcp"] else {"enabled": True})}
+servers["codegraph"] = {"type": "local", "command": cmd + ["serve", "--mcp"], "disabled": False}
 with open(path, "w") as f:
     json.dump(cfg, f, indent=2, ensure_ascii=False)
     f.write("\n")
@@ -1008,14 +1007,14 @@ for servers in (mcp, mcp.get('servers', {})):
             or set(entry) - {'type', 'command', 'enabled', 'disabled'}
             or entry.get('enabled') is False or entry.get('disabled') is True):
         sys.exit('WARN: claude-mem MCP 有自定义或禁用配置，保留原值；跳过官方安装器，需单独处理')
-# deprecated: claude-mem-legacy；退役时删除此段旧 v2 嵌套条目迁移。
+# 官方安装器仍写旧形状；先移除受管同名项，安装后统一归一化。
 if 'claude-mem' in mcp.get('servers', {}):
     del mcp['servers']['claude-mem']
     path.write_text(json.dumps(config, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-    print('migrated: 旧 mcp.servers.claude-mem；由官方安装器重新登记')
-# deprecated: claude-mem-legacy 迁移段结束。
+    print('prepared: claude-mem MCP 交官方安装器刷新')
 PY_MEM_MIGRATE
     OPENCODE_CONFIG_DIR="$(npath "$CFG")" npx -y claude-mem@latest install --ide opencode --provider claude --no-auto-start < /dev/null || exit 1
+    migrate_opencode_config --apply || exit 1
     completed=1
     echo "claude-mem 官方安装器已结束；共享 settings 原样恢复，备份在 $backup"
   ) || echo "WARN: claude-mem 未完成更新，请检查上方官方安装输出；其他插件已部署" >&2
@@ -1042,11 +1041,11 @@ if os.path.exists(path):
     if text.strip():
         cfg = json.loads(text)
 if "compaction" not in cfg:
-    cfg["compaction"] = {"auto": False, "prune": False}
+    cfg["compaction"] = {"auto": False}
     with open(path, "w") as f:
         json.dump(cfg, f, indent=2, ensure_ascii=False)
         f.write("\n")
-    print(f"added: compaction auto=false prune=false -> {path}")
+    print(f"added: compaction auto=false -> {path}")
 PYEOF
 fi
 

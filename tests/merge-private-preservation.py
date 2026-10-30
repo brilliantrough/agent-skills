@@ -115,8 +115,8 @@ PROVIDERS = ("claude-newapi", "codex-newapi", "anthropic-newapi", "gemini-newapi
 P_SLOT = "<YOUR_NEWAPI_API_KEY>"
 BASE_SLOT = "https://<YOUR_GATEWAY_HOST>/v1"
 SAMPLE_OC = {
-    "provider": {p: {"options": {"baseURL": BASE_SLOT, "apiKey": P_SLOT}} for p in PROVIDERS},
-    "mcp": {"mcphub-web": {"url": "https://<YOUR_MCPHUB_HOST>/mcp/web"}},
+    "providers": {p: {"settings": {"baseURL": BASE_SLOT, "apiKey": P_SLOT}} for p in PROVIDERS},
+    "mcp": {"servers": {"web": {"url": "https://<YOUR_MCPHUB_HOST>/mcp/web"}}},
 }
 SAMPLE_PI = {"providers": {p: {"baseUrl": "https://<YOUR_GATEWAY_HOST>", "apiKey": P_SLOT} for p in PROVIDERS}}
 SAMPLE_MC = {"embedding": {"provider": "openai-compatible", "model": "text-embedding-3-large",
@@ -142,12 +142,12 @@ def check_fill(script, body, tmp):
     fails = []
     oc = run_fill(body, tmp, "opencode.json", SAMPLE_OC)
     for i, prov in enumerate(PROVIDERS):
-        node = oc["provider"][prov]["options"]
+        node = oc["providers"][prov]["settings"]
         if node["apiKey"] != KEYS[i]:
             fails.append(f"{script}: opencode.json {prov} 的 apiKey = {node['apiKey']!r},期望 {KEYS[i]!r}")
         if node["baseURL"] != GW:
             fails.append(f"{script}: opencode.json {prov} 的 baseURL = {node['baseURL']!r},期望 {GW!r}")
-    if oc["mcp"]["mcphub-web"]["url"] != "https://mcp.example.com/mcp/web":
+    if oc["mcp"]["servers"]["web"]["url"] != "https://mcp.example.com/mcp/web":
         fails.append(f"{script}: mcphub url 没填上")
 
     pi = run_fill(body, tmp, "models.json", SAMPLE_PI)
@@ -169,11 +169,11 @@ def check_fill(script, body, tmp):
 
     # 半填状态(一个 provider 已填真值):不能再动它,也不能把它的 key 抢去填隔壁
     half = json.loads(json.dumps(SAMPLE_OC))
-    half["provider"]["claude-newapi"]["options"]["apiKey"] = "sk-real-claude"
+    half["providers"]["claude-newapi"]["settings"]["apiKey"] = "sk-real-claude"
     half = run_fill(body, tmp, "half.json", half)
-    if half["provider"]["claude-newapi"]["options"]["apiKey"] != "sk-real-claude":
+    if half["providers"]["claude-newapi"]["settings"]["apiKey"] != "sk-real-claude":
         fails.append(f"{script}: 已填好的 claude-newapi 的 key 被改掉了")
-    if half["provider"]["codex-newapi"]["options"]["apiKey"] != KEYS[1]:
+    if half["providers"]["codex-newapi"]["settings"]["apiKey"] != KEYS[1]:
         fails.append(f"{script}: 半填状态下 codex-newapi 没拿到自己的 key")
     return fails
 
@@ -227,7 +227,7 @@ def run_oc_merge(body, tmp, live, major, force):
     engine.write_text(body, encoding="utf-8")
     target, jsonc, tpl, cand = tmp / "opencode.json", tmp / "opencode.jsonc", tmp / "tpl.json", tmp / "cand.json"
     target.write_text(json.dumps(live, indent=2), encoding="utf-8")
-    tpl.write_text(json.dumps({"$schema": "x", "autoupdate": False, "retry": {"enabled": True}}, indent=2), encoding="utf-8")
+    tpl.write_text(json.dumps({"$schema": "x", "update": "disable", "retry": {"enabled": True}}, indent=2), encoding="utf-8")
     proc = subprocess.run(
         [sys.executable, str(engine), str(target), str(jsonc), str(tpl), str(cand), major, "1" if force else "0"],
         capture_output=True, text=True, encoding="utf-8", errors="replace")
@@ -243,10 +243,9 @@ def check_opencode_update_policy():
     cases = [
         ({"update": "notify"}, "2", False, "update", "notify", "本机显式档位保留"),
         ({"update": "auto"}, "2", True, "update", "disable", "确认后改成手动"),
-        ({"autoupdate": True}, "2", False, "update", "disable", "v1 遗留 auto 按默认关"),
-        ({"autoupdate": True}, "2", True, "update", "disable", "v1 遗留 auto 确认后关"),
-        ({}, "1", False, "autoupdate", False, "v1 首次写入默认关"),
-        ({"autoupdate": True}, "1", True, "autoupdate", False, "v1 确认后关"),
+        ({"update": "auto"}, "2", False, "update", "auto", "未确认则保留 auto"),
+        ({"update": "disable"}, "2", False, "update", "disable", "本机禁用保留"),
+        ({}, "2", False, "update", "disable", "首次写入默认关"),
     ]
     for live, major, force, key, want, why in cases:
         with tempfile.TemporaryDirectory() as d:

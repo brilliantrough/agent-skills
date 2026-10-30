@@ -248,7 +248,9 @@ def owned(entry, cfg):
 def merge(base, over):
     out = dict(base)
     for key, value in over.items():
-        if key in ('plugin', 'plugins') and isinstance(out.get(key), list) and isinstance(value, list):
+        if key in ('permissions', 'policies') and isinstance(out.get(key), list) and isinstance(value, list):
+            out[key] = out[key] + value
+        elif key in ('plugin', 'plugins') and isinstance(out.get(key), list) and isinstance(value, list):
             out[key] = out[key] + [entry for entry in value if entry not in out[key]]
         else:
             out[key] = merge(out[key], value) if isinstance(out.get(key), dict) and isinstance(value, dict) else value
@@ -268,11 +270,13 @@ def cli_config(cfg):
 
 
 def install(root, cfg, major, check=False, refresh_mc=False, refresh_ponytail=False):
+    if major != 2:
+        raise ValueError('仅支持 OpenCode V2')
     manifest = load(root / 'MANIFEST.json')
     if manifest.get('major') != major:
         raise ValueError('发布包主版本与客户端不一致')
     import hashlib
-    expected = ['plugins/zz-agent-skills.js', 'tui-plugins/later', 'context-rewrite'] if major == 1 else ['v2']
+    expected = ['v2']
     if manifest['install'] != expected:
         raise ValueError('发布包安装目标不符合版本清单')
     for relative, digest in manifest['files'].items():
@@ -281,7 +285,7 @@ def install(root, cfg, major, check=False, refresh_mc=False, refresh_ponytail=Fa
             raise ValueError(f'发布包文件路径越界：{relative}')
         if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
             raise ValueError(f'发布包校验失败：{relative}')
-    target = cfg / 'opencode.json'
+    target = (cfg / 'opencode.json').resolve()
     config = merge(load(target), load(cfg / 'opencode.jsonc'))
     entries = [*config.get('plugin', []), *config.get('plugins', [])]
     if major == 1 and ((cfg / 'v2').exists() or (cfg / 'cli.json').exists() or 'plugins' in config):

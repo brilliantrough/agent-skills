@@ -42,4 +42,9 @@ The fork renames the eleven upstream tools to `ctxm_*`; the upstream names would
 collide with `pi-magic-context`'s `ctx_search`, which makes Pi exit on startup.
 Reproduce or update the artifacts with `bash context-mode/setup.sh --publish`.
 
+The OpenCode configuration migration bundle uses the official normalizer from
+`@opencode/core` 2.2.3 and its dependencies, plus `jsonc-parser` 3.3.1.
+Source: https://github.com/anomalyco/opencode. The release includes dependency
+license texts under `config-licenses/`.
+
 All other files are original works of brilliantrough.

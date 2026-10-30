@@ -1,6 +1,6 @@
 # OpenCode 插件分发
 
-面向 OpenCode v1/v2 的安装、更新与旧入口迁移。setup 只用 `opencode --version` 识别主版本；**宿主升级在脚本里询问后执行 `opencode upgrade`（默认 Y），配置默认关闭自动更新**；不安装宿主、不启动服务、不迁移数据库。Magic Context 刷新单独询问，默认 N。
+仅维护 OpenCode V2；检测到 V1 时停止，提示先升级宿主。**完整 setup 询问执行 `opencode upgrade`（默认 Y），配置默认关闭自动更新**；不安装宿主、不启动服务、不迁移数据库。Magic Context 刷新单独询问，默认 N。
 
 ## 安装与更新
 
@@ -16,22 +16,21 @@ bash /tmp/opencode-setup.sh --plugins-only
 | 模式 | 执行范围 | 不执行 |
 | --- | --- | --- |
 | 默认完整安装 | 插件、依赖、配置、通用 skills；按交互选择执行；宿主升级需显式确认 | 数据库升级 |
-| `--plugins-only` | 自维护包、context-mode 及其 skills、官方包登记、claude-mem runtime／入口／MCP、旧入口迁移 | 模型模板、Python 环境、通用 skills、notify 安装、按键统一 |
+| `--plugins-only` | 旧配置转原生 V2、自维护包、context-mode 及其 skills、官方包登记、claude-mem runtime／入口／MCP、旧入口迁移 | 模型模板、Python 环境、通用 skills、按键统一 |
 | `--check` | 下载校验自维护发布包，检查配置与 Magic Context，查询 Ponytail／Magic Context 版本，列出管理路径和待退役项 | 部署、更改配置／认证／数据库；也不试运行插件或检查全部依赖 |
 
-- 完整安装默认同步 base 16 个 skills；交互可分别选择 research、accel、kb，全部选中时为 31 个，另同步四个外部设计 skills。实体位于 `~/.agents/skills/`；context-mode 自带 skills 位于 `$CFG/skill/`。
-- `-y`／`--yes` 取各项默认值，**不是全部同意**；research、accel、kb 组与 notify 首装默认跳过。查看输出中的 WARN，缺包或网络失败后重跑。
-- 两个精简模式要求已有 Python 3、curl；`--check` 仍联网，宿主 `--version` 可能写自己的日志，不是零文件系统写入。
+- 完整安装默认同步 base 18 个 skills；交互可分别选择 research、accel、kb，全部选中时为 34 个，另同步三个外部设计 skills。实体位于 `~/.agents/skills/`；context-mode 自带 skills 位于 `$CFG/skill/`。
+- `-y`／`--yes` 取各项默认值，**不是全部同意**；research、accel、kb 组默认跳过。查看输出中的 WARN，缺包或网络失败后重跑。
+- 两个精简模式要求已有 Python 3、curl、Bun；完整安装可补齐 Bun。`--check` 仍联网，宿主 `--version` 可能写日志，不是零文件系统写入。
 - `$CFG`：`OPENCODE_CONFIG_DIR` 优先，否则 `$XDG_CONFIG_HOME/opencode` 或 `~/.config/opencode`。Windows 用 Git Bash；本轮 v1/v2 迁移尚未做 Windows 实机验收。
 
-## 两代宿主如何加载
+## V2 如何加载
 
 | 客户端 | 自维护资产 | 安装位置 | 配置 |
 | --- | --- | --- | --- |
-| v1 | `opencode-plugins-v1.tar.gz` | `plugins/zz-agent-skills.js`、`tui-plugins/later/`、`context-rewrite/` | server 自动发现；npm 用 `plugin`，TUI 用 `tui.json(c)` |
 | v2 | `opencode-plugins-v2.tar.gz` | `v2/` 目录包：server `index.js`、TUI `tui.js` | `plugins` 登记目录，界面用 `cli.json` |
 
-**当前仍是两个分发资产，不是单一双入口自维护包。** 公共功能复用，宿主适配分开：
+仅发布 `opencode-plugins-v2.tar.gz`；旧 V1 文件保留用于识别与迁移，不再发布新版 V1 资产。
 
 - `later`：共用 Agent 工具逻辑；v1/v2 各有 TUI 适配。输入框排程与 Agent 工具排程独立，分别随 TUI／服务端进程退出清除。
 - `context_rewrite`：共用 `context-rewrite/core.mjs`、`output-store.mjs`，分别适配两代工具与消息 API；包含近期纠错、持久外置和全文取回。
@@ -46,8 +45,8 @@ bash /tmp/opencode-setup.sh --plugins-only
 | --- | --- |
 | Ponytail | 查询本地版本与 npm latest；有新版时默认询问刷新，确认后备份移走对应缓存并登记官方 `@latest`，下次宿主启动下载；不运行宿主 plugin CLI |
 | Magic Context | 默认登记官方 `@latest`；旧缓存路径在可复用当前包时自动迁回包名。实际刷新另问，默认 N；确认后移走 latest 缓存，下次宿主启动下载 |
-| context-mode | 独立从 `releases/latest` 同步；v1 放 `plugins/context-mode/`，v2 放 `vendor/context-mode/`，不另加配置插件登记 |
-| notify | 仅完整安装的 v1 路径可选；v2 将旧入口备份停用，后续由 notify 项目适配 |
+| context-mode | 独立从 `releases/latest` 同步，放 `vendor/context-mode/`，不另加配置插件登记 |
+| notify | 旧入口备份停用，后续由 notify 项目适配 |
 
 版本检查与刷新：
 
@@ -74,21 +73,22 @@ Magic Context 操作：
 
 | 情况 | 处理 |
 | --- | --- |
-| 旧散装 → 当前 v1 | 更新 bundle、TUI 与 context-mode，退役独立 later／纠错入口；claude-mem 由官方入口加载 |
 | 旧散装／旧 v1 包 → v2 | 部署 `v2/`，登记 `plugins`，停用旧 server／TUI 入口及内置 Ponytail 配置；claude-mem 使用官方 v2 `setup` |
 | 同版本重跑 | 内容相同不重写、不重复注册，不产生无变化备份 |
-| 已有 v2 配置再运行 v1 | 停止；需隔离配置，不自动降级 |
+| V1 宿主运行当前 setup | 停止，不写入配置；先升级宿主 |
 
 - 管理固定安装路径；不按文件名子串删除用户插件。未知第三方登记保留，兼容性仍需自行确认。
 - v1→v2 退役：旧 wrapper／later／纠错、`plugins/zz-agent-skills.js`、`tui-plugins/later/`、`context-rewrite/`、旧 context-mode 入口与目录、notify、旧请求头插件。
 - 插件资产备份到 `$CFG/.agent-skills-backups/<时间戳>/<原相对路径>`；同时移走 `plugins/context-mode.bak-*` 遗留目录，避免被 v2 再次扫描。配置文件保留相邻 `.bak*` 备份。
-- 私密字段、provider options、MCP 与其他本地字段保留；已有 v2 原生 `providers` 不套 v1 模型模板。完整安装会刷新 v1 `provider.models`，精简插件模式不做。
+- 先把旧字段转为原生 V2，再在线获取模板。完整安装刷新 `providers.<名称>.models`；已有 provider 的 `settings`、headers、私密值等本地字段保留，本地独有 provider 保留。精简插件模式仅转换格式。
 - `opencode.jsonc` 合并到 `opencode.json` 后备份退役。v2 已有 `cli.json` 时保留；没有时合并旧 `tui.json(c)` 为 `tui.json`，由宿主首启迁移 action、界面与 state。完整安装的按键设置另行确认。
 - 除确认的 Ponytail／Magic Context 缓存刷新外，不清理 npm 插件缓存；认证、会话库与外置正文不动。**插件备份不是整机快照，也不替代数据库备份。**
 
-自维护发布包校验失败、未知宿主版本、配置无法解析、相关配置或安装路径为符号链接时停止；用户指定的缓存根可为符号链接，v2 npm cache 的 `@latest` 叶子链接仅在确认刷新对应托管缓存时整体移走。Magic Context 兼容性问题改为警告与独立刷新询问。
+自维护发布包校验失败、未知宿主版本、配置无法解析或存在转换冲突时停止。`opencode.json` 支持写穿符号链接并保留链接；其他安装路径仍受链接保护。用户指定的缓存根可为符号链接，v2 npm cache 的 `@latest` 叶子链接仅在确认刷新时整体移走。Magic Context 兼容性问题以 WARN 和独立刷新询问处理。
 
 ### 临时 deprecated 迁移
+
+`config-v2-native`（1.0.21 起）：发布包内置官方 `@opencode/core` 2.2.3 归一化器，目标机用 Bun 执行，无需安装 npm 依赖。完整安装与 `--plugins-only` 均先转换 `opencode.json(c)`；`--check` 仅预览。转换在本机完成，不上传配置；保留凭据、环境变量／文件引用、权限顺序，已被宿主忽略的字段会提示后清理。改前相邻备份 `.bak-v2-*`，注释留在备份；无变化不写入。官方 claude-mem 安装器写入旧 MCP 字段后，再归一化一次。
 
 `mc-cache-entry`（1.0.15 起）：`deploy.py` 将旧部署器写入的 Magic Context `@latest` 缓存目录迁回官方包名。只处理受管缓存根内的标准包路径，且必须与当前宿主缓存解析结果一致；保留缓存和 options，配置沿用相邻备份。自定义源码路径、npm 精确版本不自动接管。完整安装与 `--plugins-only` 执行，`--check` 只预览；重复运行不再改回 Local。退役时删除标记块及本段，不恢复旧路径冻结逻辑。
 
@@ -110,7 +110,7 @@ v1/v2 可以并存二进制，但并行运行须隔离配置、数据、state、
 
 ## 验证范围
 
-已验证 Linux **v1 1.18.35／v2 2.0.26**：旧散装更新、v1→v2、公开脚本与资产下载、精简模式重复运行；私密字段、用户插件、认证与会话库保留。两端均发现全部 27 个本仓 skills、context-mode skills，并从空缓存自动安装 Ponytail 5.1.0。
+历史验收基线为 Linux v1 1.18.35／v2 2.0.26。当前配置转换基于官方 **2.2.3**：预览、私密值与引用保留、权限顺序、混合 MCP、备份、幂等、冲突停止和符号链接写穿均有检查；模板通过官方 schema 校验。
 
 真实模型、TUI、纠错与外置链路已做分项验收。未覆盖 Windows 实机、任意历史宿主版本、所有第三方插件与长会话场景；`--check` 成功不等于这些运行路径都通过。
 

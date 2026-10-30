@@ -1,9 +1,12 @@
 {
   "name": "agent-skills-opencode-build",
-  "version": "1.0.20",
+  "version": "1.0.21",
   "private": true,
   "type": "module",
   "devDependencies": {
-    "@opencode-ai/plugin": "1.18.35"
+    "@opencode-ai/plugin": "1.18.35",
+    "@opencode/core": "2.2.3",
+    "effect": "4.0.6",
+    "jsonc-parser": "3.3.1"
   }
 }
