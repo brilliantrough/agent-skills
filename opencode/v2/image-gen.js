@@ -13,11 +13,11 @@ export default {
         description: `${DESCRIPTION} 凭据与默认模型在 ${configPath()}。`,
         input: tool.schema.object({
           prompt: tool.schema.string().describe("你写好的绘图提示词：主体、结构、需要出现的文字标签、风格与配色"),
-          reference: tool.schema.array(tool.schema.string()).optional().describe("参考图绝对路径；给了就改图/换风格，不给就是文生图"),
+          reference: tool.schema.array(tool.schema.string()).optional().describe("参考图绝对路径；给了就改图/换风格（走 /images/edits，默认 sunburst 精修模型），不给就是文生图"),
           size: tool.schema.string().optional().describe("如 1024x1024、1536x1024、2048x1152；默认取配置"),
           quality: tool.schema.enum(["auto", "low", "medium", "high", "xhigh", "max"]).optional().describe("画质档位，越高越慢越贵；默认取配置"),
           background: tool.schema.enum(["transparent", "opaque"]).optional().describe("透明底用于图标/贴图"),
-          model: tool.schema.string().optional().describe("覆盖模型，如 gpt-image-2.5-sunburst；默认取配置"),
+          model: tool.schema.string().optional().describe("覆盖模型；默认按有无参考图取配置（文生图 gpt-image-2.5-flare / 图生图 gpt-image-2.5-sunburst）"),
         }),
         async execute(args, context) {
           const result = await generate(args, ctx.location.directory, context.signal);

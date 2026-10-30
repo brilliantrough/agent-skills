@@ -17,6 +17,9 @@ export const DESCRIPTION =
 const CONFIG = process.env.IMAGE_GEN_CONFIG || join(homedir(), ".local/share/agent-skills/image-gen.json");
 const MODELS = join(homedir(), ".pi/agent/models.json");
 const DEFAULT_MODEL = "gpt-image-2.5-flare";
+// 官方分工:Flare 快、默认;Sunburst 多一层精度、跨编辑控制更紧(官方原话 tighter control across edits),更慢。
+// 所以文生图用 Flare,图生图/精修默认用 Sunburst。
+const EDIT_MODEL = "gpt-image-2.5-sunburst";
 const MIME = { png: "image/png", jpeg: "image/jpeg", jpg: "image/jpeg", webp: "image/webp" };
 const DEFAULTS = { output_dir: "images", size: "1024x1024", quality: "medium" };
 
@@ -96,7 +99,8 @@ const slug = (prompt) =>
 
 export async function generate(args, cwd, signal) {
   const config = await loadConfig();
-  const model = args.model || config.model || DEFAULT_MODEL;
+  const edit = Boolean(args.reference?.length);
+  const model = args.model || (edit ? config.edit_model || EDIT_MODEL : config.model || DEFAULT_MODEL);
   const body = {
     model,
     prompt: args.prompt,
@@ -106,7 +110,6 @@ export async function generate(args, cwd, signal) {
   };
   if (args.background) body.background = args.background;
   const { image, json } = await request(config, body, args.reference, signal);
-
   const format = json.output_format ?? "png";
   const dir = resolve(cwd, config.output_dir);
   await mkdir(dir, { recursive: true });

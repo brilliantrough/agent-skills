@@ -19,6 +19,7 @@
   "base_url": "https://api.pezayo.com/v1",
   "api_key": "...",
   "model": "gpt-image-2.5-flare",
+  "edit_model": "gpt-image-2.5-sunburst",
   "output_dir": "images",
   "size": "1024x1024",
   "quality": "medium"
@@ -32,10 +33,18 @@
 - `output_dir` 相对项目 cwd，默认 `images/`
 - `size` 可任意到 `3840x2160`；`quality` 支持 `auto`／`low`／`medium`／`high`／`xhigh`／`max`
 - `background: "transparent"` 用于图标、贴图
+- `model` 与 `edit_model`：文生图默认 `gpt-image-2.5-flare`，给了参考图（走 `/images/edits`）默认 `gpt-image-2.5-sunburst`；单次调用可用参数 `model` 覆盖
 
 ## 画质与成本
 
-网关当前提供 5 个图像模型（`/v1/models` 实测）：`gpt-image-1.5`、`gpt-image-2`、`gpt-image-2.5-flare`、`gpt-image-2.5-sunburst`、`gpt-image-dummy`。默认 `gpt-image-2.5-flare`。
+网关当前提供 5 个图像模型（`/v1/models` 实测）：`gpt-image-1.5`、`gpt-image-2`、`gpt-image-2.5-flare`、`gpt-image-2.5-sunburst`、`gpt-image-dummy`。
+
+两个 2.5 模型的分工来自 OpenAI 官方说明（[Introducing ChatGPT Images 2.5](https://openai.com/index/introducing-chatgpt-images-2-5)）：
+
+| 模型 | 官方定位 | 本工具默认用于 |
+| --- | --- | --- |
+| `gpt-image-2.5-flare` | 默认档，质量与速度兼顾，比 gpt-image-2 延迟低 50% | 文生图（`/images/generations`） |
+| `gpt-image-2.5-sunburst` | 多一层精度，"tighter control across edits"，生成更慢 | 图生图与精修（`/images/edits`） |
 
 | 档位 | 用途 | 代价 |
 | --- | --- | --- |
