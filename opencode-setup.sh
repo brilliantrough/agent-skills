@@ -294,6 +294,51 @@ PYEOF
   return 0
 }
 
+# 画图凭据(~/.local/share/agent-skills/image-gen.json,image_gen 工具用):只补缺失字段,
+# 已有 base_url/api_key 一律保留。检测规则与 image-gen/core.mjs 一致(第一个 openai 协议 provider);
+# 拿不到 key 就不建文件——画图是可选能力,首次调用时工具自己提示。PI_IMAGE_GEN_API_KEY 可预填。
+# opencode-setup.sh 里那份必须与这里逐字节一致。
+ensure_image_gen() {
+  python3 - "$HOME/.local/share/agent-skills/image-gen.json" "${GW_BASE:-}" \
+    "${PI_IMAGE_GEN_API_KEY:-${IMAGE_GEN_API_KEY:-}}" "$HOME/.pi/agent/models.json" <<'PYEOF'
+import json, os, re, sys
+cfg, gw, key, models = sys.argv[1:5]
+DEFAULT_MODEL = 'gpt-image-2.5-flare'
+PLACEHOLDER = re.compile(r'^\s*<[^>]+>\s*$')
+def ok(v): return isinstance(v, str) and v.strip() != '' and not PLACEHOLDER.match(v)
+try:
+    cur = json.load(open(cfg, encoding='utf-8'))
+except FileNotFoundError:
+    cur = {}
+except Exception as e:
+    print(f'image-gen: {cfg} 不是有效 JSON({e}),未改动'); sys.exit(0)
+if not isinstance(cur, dict):
+    cur = {}
+det_base = det_key = ''
+try:
+    for p in json.load(open(models, encoding='utf-8')).get('providers', {}).values():
+        if ok(p.get('apiKey')) and ok(p.get('baseUrl')) and str(p.get('api') or '').startswith('openai'):
+            det_base, det_key = p['baseUrl'], p['apiKey']; break
+except Exception:
+    pass
+base = cur['base_url'] if ok(cur.get('base_url')) else (gw if ok(gw) else det_base)
+api_key = cur['api_key'] if ok(cur.get('api_key')) else (key if ok(key) else det_key)
+if not (base and api_key):
+    print(f'image-gen: 未配置(画图为可选项);需要时写 {cfg} 或设 PI_IMAGE_GEN_API_KEY')
+    sys.exit(0)
+new = dict(cur); new.setdefault('model', DEFAULT_MODEL)
+new['base_url'] = base.rstrip('/'); new['api_key'] = api_key
+if new == cur:
+    print('image-gen: 已配置,保留本机值'); sys.exit(0)
+os.makedirs(os.path.dirname(cfg), exist_ok=True)
+with open(cfg, 'w', encoding='utf-8') as f:
+    f.write(json.dumps(new, ensure_ascii=False, indent=2) + '\n')
+os.chmod(cfg, 0o600)
+print(('image-gen: 补齐缺失字段 -> ' if cur else 'image-gen: 写入凭据 -> ') + cfg)
+PYEOF
+  return 0
+}
+
 merge_cfg() {
   local url="$1" dest="$2" tmp cand out
   if [ -L "$dest" ]; then
@@ -556,6 +601,7 @@ if [ "$PLUGINS_ONLY" != 1 ]; then
 # ---- 3. 部署 settings.json(字段级合并 dot_file 模板;下载失败用内嵌模板兜底)----
 # 凭据先问:下面步骤 3(claude-mem settings)、3.1(magic-context)、4(opencode.json)都要用它填占位符
 collect_gateway_values
+ensure_image_gen
 mkdir -p "$HOME/.claude-mem"
 mc_rc=0; merge_cfg "$RAW/opencode/claude-mem.settings.json" "$SETTINGS" || mc_rc=$?
 if [ "$mc_rc" = 1 ] && [ ! -f "$SETTINGS" ]; then   # 只在模板下载失败时用内嵌兜底

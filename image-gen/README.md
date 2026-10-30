@@ -25,11 +25,26 @@
 }
 ```
 
-文件不存在或缺少 `base_url`／`api_key` 时，自动从 `~/.pi/agent/models.json` 挑第一个 `api` 以 `openai` 开头且有 `baseUrl`／`apiKey` 的 provider 写入；挑不到就报错并留下空模板。
+文件不存在或缺少 `base_url`／`api_key` 时，自动从 `~/.pi/agent/models.json` 挑第一个 `api` 以 `openai` 开头、且凭据不是 `<占位符>` 的 provider 写入；挑不到就报错并留下空模板。
+
+`pi-setup.sh`／`opencode-setup.sh` 会把缺的字段补上（已有 `base_url`／`api_key` 一律保留，文件 `0600`）；拿不到 key 就不建文件——画图是可选能力，不阻塞安装。无人值守可用 `PI_IMAGE_GEN_API_KEY` 预填。
 
 - `output_dir` 相对项目 cwd，默认 `images/`
 - `size` 可任意到 `3840x2160`；`quality` 支持 `auto`／`low`／`medium`／`high`／`xhigh`／`max`
 - `background: "transparent"` 用于图标、贴图
+
+## 画质与成本
+
+网关当前提供 5 个图像模型（`/v1/models` 实测）：`gpt-image-1.5`、`gpt-image-2`、`gpt-image-2.5-flare`、`gpt-image-2.5-sunburst`、`gpt-image-dummy`。默认 `gpt-image-2.5-flare`。
+
+| 档位 | 用途 | 代价 |
+| --- | --- | --- |
+| `low` | 草稿、只用来确认构图/配色 | 最快最便宜 |
+| `medium`（默认） | 文档、说明图、流程图的成品 | 日常够用 |
+| `high` 及以上 | 封面、海报、大尺寸出图 | 明显更慢更贵 |
+| `auto` | 交给渠道决定 | 透传参数；是否被接受取决于渠道，本地未逐个验证 |
+
+按张计费，单价与 `size × quality` 正相关；具体价格看网关账单，这里不给数字。生成的图每张几百 KB，会进会话历史——同一次对话里不要连续画很多张。
 
 ## 接口
 

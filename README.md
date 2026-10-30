@@ -66,7 +66,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.com/brilliantrough/agent-skills/main/skills-sync.sh)" -- base
 ```
 
-`base` 安装基础 17 个；`base research` 追加 7 个算法研究 skill；`all` 安装四组共 33 个。也可把 `research`、`accel`、`kb` 作为额外参数传给 `skills-sync.sh`。所有组都默认补装四个外部设计 skill，并更新已登记第三方。需要 curl、git、Node/npx；安装位置 `~/.agents/skills/`，重开会话生效。
+`base` 安装基础 18 个；`base research` 追加 7 个算法研究 skill；`all` 安装四组共 34 个。也可把 `research`、`accel`、`kb` 作为额外参数传给 `skills-sync.sh`。所有组都默认补装四个外部设计 skill，并更新已登记第三方。需要 curl、git、Node/npx；安装位置 `~/.agents/skills/`，重开会话生效。
 
 **Codex（best effort）**
 
@@ -95,9 +95,9 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/pi-setup.sh)"
 ```
 
-## Skills（本仓 33 个）
+## Skills（本仓 34 个）
 
-基础 17 个；算法研究 7 个；算力模板 7 个与公共知识 2 个按需选装。`research` 与 `kb` 随仓库刷新，`accel` 缺才装；另有三个设计依赖来自上游仓库（装时装前询问，默认 Y），不复制到本仓。
+基础 18 个；算法研究 7 个；算力模板 7 个与公共知识 2 个按需选装。`research` 与 `kb` 随仓库刷新，`accel` 缺才装；另有三个设计依赖来自上游仓库（装时装前询问，默认 Y），不复制到本仓。
 
 ### 工程技能
 
@@ -198,11 +198,12 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 
 `kb` 可选安装、持续刷新且不自动备份；已有未回流修改先备份。阅读知识无需加载模型，原实验复现另需对应模型、平台与未打包工件。
 
-### 科研图件（自制）
+### 图件与出图（自制）
 
 | Skill | 用途 |
 |---|---|
 | `editable-vector-slides` | SVG/PDF 科研图 → 可编辑矢量 PDF + 原生 PPTX；保留路径/文字/渐变/阴影，非截图；含依赖安装、验收与踩坑清单 |
+| `image-gen` | 出位图作为可选手段：示意图/概念图/海报/图标；prompt 结构、尺寸与画质成本、图生图、宿主差异、失败对照。先判断能不能矢量 |
 
 ## 依赖
 
@@ -493,6 +494,8 @@ skills 重跑套件同步器即可；共享目录的更新也影响 OpenCode。c
 把调研结论、对比、流程画成图。Pi、DSH（经 pi2dsh）、OpenCode v2 共用 `image-gen/core.mjs`，只有薄适配层不同。详见 [`image-gen/README.md`](image-gen/README.md)。
 
 - 首次运行自动从 Pi 的 `models.json` 挑一个 OpenAI 协议 provider，写 `~/.local/share/agent-skills/image-gen.json`（`0600`）；填 `base_url`、`api_key`，可选 `model`／`output_dir`／`size`／`quality`
+- `pi-setup.sh`／`opencode-setup.sh` 会把缺的字段补上（已有值保留）；拿不到 key 就不建文件——画图是**可选能力**，不阻塞安装，无人值守用 `PI_IMAGE_GEN_API_KEY`
+- 什么时候该画、prompt 怎么写、尺寸与画质成本、失败对照：`skills/base/image-gen`（base 组，随 skills 一起装）
 - 默认 `gpt-image-2.5-flare`；支持 `gpt-image-2.5-sunburst`、`gpt-image-2`、`gpt-image-1.5` 等网关已售模型
 - 文生图走 `POST /v1/images/generations`；给参考图走 `POST /v1/images/edits`（multipart `image[]`）
 - 图片存到项目 `images/`，同时作为图片内容返回模型；纯文本模型（如 `deepseek-flash`）不附图，只回路径并提示用户自己看
@@ -635,7 +638,7 @@ bash /tmp/opencode-setup.sh --plugins-only
 
 | 模式 | 处理范围 |
 | --- | --- |
-| 默认完整安装 | 插件、配置、依赖与通用 skills；默认 base 17 个，交互可选 research、accel、kb，全部选中时为 33 个，另同步外部设计 skills |
+| 默认完整安装 | 插件、配置、依赖与通用 skills；默认 base 18 个，交互可选 research、accel、kb，全部选中时为 34 个，另同步外部设计 skills |
 | `--plugins-only` | 自维护插件、context-mode 及其 skills、官方包登记、claude-mem runtime／入口／MCP；不更新模型／Python／通用 skills，不安装 notify |
 | `--check` | 下载校验自维护包，检查配置，查询 Ponytail／Magic Context 本地与 npm 版本；不询问、不改配置、认证或数据库 |
 

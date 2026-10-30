@@ -14,7 +14,7 @@ export default function (pi: ExtensionAPI) {
       reference: Type.Optional(Type.Array(Type.String(), { description: "参考图绝对路径；给了就改图/换风格，不给就是文生图" })),
       size: Type.Optional(Type.String({ description: "如 1024x1024、1536x1024、2048x1152；默认取配置" })),
       quality: Type.Optional(Type.Union([
-        Type.Literal("low"), Type.Literal("medium"), Type.Literal("high"), Type.Literal("xhigh"), Type.Literal("max"),
+        Type.Literal("auto"), Type.Literal("low"), Type.Literal("medium"), Type.Literal("high"), Type.Literal("xhigh"), Type.Literal("max"),
       ], { description: "画质档位，越高越慢越贵；默认取配置" })),
       background: Type.Optional(Type.Union([Type.Literal("transparent"), Type.Literal("opaque")], { description: "透明底用于图标/贴图" })),
       model: Type.Optional(Type.String({ description: "覆盖模型，如 gpt-image-2.5-sunburst；默认取配置" })),

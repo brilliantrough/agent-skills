@@ -19,6 +19,7 @@ SCRIPT = re.compile(r'python3 - "\$dest" "\$tmp" "\$cand" <<\'PYEOF\'\n(.*?)\nPY
 OC_MERGE = re.compile(r'python3 - "\$CFG/opencode\.json" "\$CFG/opencode\.jsonc" "\$oc_tpl" "\$oc_cand" "\$OC_MAJOR" "\$oc_force_manual" <<\'PYEOF\'\n(.*?)\nPYEOF', re.S)
 OC_UPDATE = re.compile(r"python3 - \"\$oc_target\" \"\$OC_MAJOR\" <<'PY_OC_UPDATE'\n(.*?)\nPY_OC_UPDATE", re.S)
 FILL = re.compile(r'python3 - "\$1" "\$GW_BASE" "\$K_CLAUDE" "\$K_CODEX" "\$K_ANTHROPIC" "\$K_GEMINI" "\$K_EMBED" "\$K_MEM" "\$MCPHUB_HOST" <<\'PYEOF\'\n(.*?)\nPYEOF', re.S)
+IMG = re.compile(r'python3 - "\$HOME/\.local/share/agent-skills/image-gen\.json" .*?<<\'PYEOF\'\n(.*?)\nPYEOF', re.S)
 
 LOCAL = {
     "apiKey": "sk-LOCAL",
@@ -303,6 +304,48 @@ def check_todowrite_takeover(body, tmp):
     return [] if got == want else [f"todowrite 接管检查: 得到 {got!r},期望 {want!r}"]
 
 
+def check_image_gen(tmp):
+    """画图凭据:只补缺失字段,已有 base_url/api_key 必须保留;占位符不当真;无可用 key 时不建文件。"""
+    bodies = {}
+    for script in ("pi-setup.sh", "opencode-setup.sh"):
+        match = IMG.search((ROOT / script).read_text(encoding="utf-8"))
+        if not match:
+            raise SystemExit(f"STOP: 在 {script} 里找不到 image-gen 凭据步骤")
+        bodies[script] = match.group(1)
+    if len(set(bodies.values())) != 1:
+        return ["image-gen 凭据步骤:两个脚本的实现不一致(必须逐字节相同)"]
+    body = bodies["pi-setup.sh"]
+    engine = tmp / "image-gen.py"
+    engine.write_text(body, encoding="utf-8")
+    cfg, models = tmp / "image-gen.json", tmp / "models.json"
+    failures = []
+
+    def run(gw="", key=""):
+        proc = subprocess.run([sys.executable, str(engine), str(cfg), gw, key, str(models)],
+                              capture_output=True, text=True, encoding="utf-8", errors="replace")
+        if proc.returncode:
+            raise SystemExit(f"STOP: image-gen 凭据步骤退出码 {proc.returncode}: {proc.stderr.strip()}")
+        return json.loads(cfg.read_text(encoding="utf-8")) if cfg.exists() else None
+
+    if run("https://gw.example/v1", ""):
+        failures.append("image-gen: 无任何 key 时不应建文件")
+    got = run("https://gw.example/v1", "sk-ENV")
+    if got != {"base_url": "https://gw.example/v1", "api_key": "sk-ENV", "model": "gpt-image-2.5-flare"}:
+        failures.append(f"image-gen: 新建设置不对 {got!r}")
+    if (cfg.stat().st_mode & 0o777) != 0o600:
+        failures.append(f"image-gen: 权限应为 600,实际 {oct(cfg.stat().st_mode & 0o777)}")
+    before = cfg.read_bytes()
+    run("https://other.example/v1", "sk-OVERWRITE")
+    if cfg.read_bytes() != before:
+        failures.append("image-gen: 已配置时被改写(私密值必须保留)")
+    cfg.write_text(json.dumps({"base_url": "https://keep.example/v1", "model": "gpt-image-2"}), encoding="utf-8")
+    models.write_text(json.dumps({"providers": {"a": {"api": "openai-responses", "baseUrl": "https://det.example/v1", "apiKey": "sk-DET"}}}), encoding="utf-8")
+    got = run()
+    if got != {"base_url": "https://keep.example/v1", "api_key": "sk-DET", "model": "gpt-image-2"}:
+        failures.append(f"image-gen: 缺 api_key 时应保留 base_url/model 并从 models.json 补 key,得到 {got!r}")
+    return failures
+
+
 def main():
     check_web_migration()
     check_opencode_update_policy()
@@ -320,6 +363,9 @@ def main():
         with tempfile.TemporaryDirectory() as d:
             failures += check_todowrite_takeover(body, pathlib.Path(d))
         print(f"{script}: 合并检查 {len(EXPECT)} 项 + 占位符填空检查 12 项 + todowrite 接管检查")
+    with tempfile.TemporaryDirectory() as d:
+        failures += check_image_gen(pathlib.Path(d))
+    print("image-gen 凭据检查: 保留本机值 / 只补缺失 / 600 权限 / 无 key 不建文件")
     if failures:
         print("\n".join(f"FAIL {f}" for f in failures))
         return 1

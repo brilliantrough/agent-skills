@@ -22,13 +22,14 @@ const DEFAULTS = { output_dir: "images", size: "1024x1024", quality: "medium" };
 
 export const configPath = () => CONFIG;
 
-// 首次运行从 Pi 的模型表挑一个 OpenAI 协议 provider（图像接口是 OpenAI 形状），
-// 挑不到就留空，由调用方报错让用户填。
+// 首次运行从 Pi 的模型表挑一个 OpenAI 协议 provider(图像接口是 OpenAI 形状),
+// 挑不到就留空,由调用方报错让用户填。刚从模板落地还没填 key 的 provider 不算。
 async function detect() {
   const empty = { base_url: "", api_key: "", model: DEFAULT_MODEL };
+  const filled = (v) => typeof v === "string" && v.trim() !== "" && !/^\s*<[^>]+>\s*$/.test(v);
   try {
     const { providers = {} } = JSON.parse(await readFile(MODELS, "utf8"));
-    const entry = Object.values(providers).find((p) => p?.apiKey && p?.baseUrl && /^openai/.test(p.api ?? ""));
+    const entry = Object.values(providers).find((p) => filled(p?.apiKey) && filled(p?.baseUrl) && /^openai/.test(p.api ?? ""));
     return entry ? { base_url: entry.baseUrl, api_key: entry.apiKey, model: DEFAULT_MODEL } : empty;
   } catch {
     return empty;
