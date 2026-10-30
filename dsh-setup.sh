@@ -42,7 +42,7 @@ fi
 NODE=$("$NODE" -p 'process.execPath')
 export PATH="$(dirname "$NODE"):$PATH"
 if [[ ! -f "${DSH_HOME:-$ROOT/home}/profiles/headless/cordis.patch.yml" ]]; then
-  for route in claude-newapi codex-newapi anthropic-newapi; do
+  for route in claude-newapi codex-newapi anthropic-newapi gemini-newapi; do
     prefix=$(printf '%s' "$route" | tr 'a-z-' 'A-Z_')
     for field in BASE_URL API_KEY; do
       variable="${prefix}_${field}"

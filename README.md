@@ -261,13 +261,14 @@ Pi、OpenCode、Codex 三个 setup 脚本统一收集、填入凭据；目标文
 - `~/.claude-mem/settings.json`
 - magic-context：embedding `endpoint`
 
-前三个 key 写入 `opencode.json` / `pi/models.json`：
+前四个 key 写入 `opencode.json` / `pi/models.json`：
 
 | 配置键 | 协议 / 模型 | 网关分组 |
 |---|---|---|
 | `claude-newapi.apiKey` | anthropic / claude | claude code |
 | `codex-newapi.apiKey` | openai responses / gpt | codex |
 | `anthropic-newapi.apiKey` | anthropic / 国产模型 | coding anthropic |
+| `gemini-newapi.apiKey` | google-generative-ai / gemini | gemini |
 
 | 其余输入 | 协议 / 分组 | 写入位置 |
 |---|---|---|
@@ -275,7 +276,7 @@ Pi、OpenCode、Codex 三个 setup 脚本统一收集、填入凭据；目标文
 | claude-mem key | openai chat completions / 任意模型 / 建议 coding openai 分组 | `~/.claude-mem/settings.json` → `CLAUDE_MEM_OPENROUTER_API_KEY` |
 | mcphub MCP host | — | Pi `~/.pi/agent/mcp.json`、OpenCode `opencode.json` → web `url` |
 
-同一模板的三处 `<YOUR_NEWAPI_API_KEY>` 按 provider 名就近替换，不串位。
+同一模板的四处 `<YOUR_NEWAPI_API_KEY>` 按 provider 名就近替换，不串位。
 
 ### 无人值守与手工补填
 
@@ -286,6 +287,7 @@ Pi、OpenCode、Codex 三个 setup 脚本统一收集、填入凭据；目标文
 | `PI_CLAUDE_NEWAPI_API_KEY` | claude-newapi |
 | `PI_CODEX_NEWAPI_API_KEY` | codex-newapi |
 | `PI_ANTHROPIC_NEWAPI_API_KEY` | anthropic-newapi |
+| `PI_GEMINI_NEWAPI_API_KEY` | gemini-newapi |
 | `PI_EMBEDDING_API_KEY` | embedding |
 | `PI_CLAUDE_MEM_API_KEY` | claude-mem |
 | `MCPHUB_HOST` | mcphub MCP host |
@@ -432,11 +434,11 @@ skills 重跑套件同步器即可；共享目录的更新也影响 OpenCode。c
 
 | 文件 | 内容 |
 |---|---|
-| `~/.pi/agent/models.json` | claude-newapi（anthropic）、codex-newapi（openai-responses）、anthropic-newapi |
+| `~/.pi/agent/models.json` | claude-newapi（anthropic）、codex-newapi（openai-responses）、anthropic-newapi（anthropic）、gemini-newapi（google-generative-ai） |
 | `~/.pi/agent/settings.json` | 默认 provider/model/thinking；`defaultTools` 补 `grep/find/ls`（默认仅 read/bash/edit/write）；`packages` 由 `pi install` 维护 |
 | `~/.pi/agent/auth.json` | 内置 coding-plan provider 的 key；权限 600；模板含 `zai-coding-cn` / `kimi-coding` 占位符 |
 
-- **anthropic `baseUrl` 填根域**：Pi 自动补 `/v1/messages`，填 `/v1` 会 404；openai 带 `/v1`
+- **anthropic `baseUrl` 填根域**：Pi 自动补 `/v1/messages`，填 `/v1` 会 404；openai 带 `/v1`；gemini 带 `/v1beta`（`google-generative-ai` 的 baseUrl 必须自带版本段）
 - 兼容项：`compat.supportsStore:false`、`thinkingLevelMap`（xhigh/max，对应 OpenCode variants）
 - 不写 Pi `compaction` 开关：magic-context 在 `session_before_compact` cancel 原生压缩，与官方 `setup --harness pi` 一致
 - `auth.json`：字段级合并，已填 key 不覆盖，仅初始化缺失文件

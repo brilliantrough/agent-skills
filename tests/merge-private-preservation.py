@@ -18,7 +18,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCRIPT = re.compile(r'python3 - "\$dest" "\$tmp" "\$cand" <<\'PYEOF\'\n(.*?)\nPYEOF', re.S)
 OC_MERGE = re.compile(r'python3 - "\$CFG/opencode\.json" "\$CFG/opencode\.jsonc" "\$oc_tpl" "\$oc_cand" "\$OC_MAJOR" "\$oc_force_manual" <<\'PYEOF\'\n(.*?)\nPYEOF', re.S)
 OC_UPDATE = re.compile(r"python3 - \"\$oc_target\" \"\$OC_MAJOR\" <<'PY_OC_UPDATE'\n(.*?)\nPY_OC_UPDATE", re.S)
-FILL = re.compile(r'python3 - "\$1" "\$GW_BASE" "\$K_CLAUDE" "\$K_CODEX" "\$K_ANTHROPIC" "\$K_EMBED" "\$K_MEM" "\$MCPHUB_HOST" <<\'PYEOF\'\n(.*?)\nPYEOF', re.S)
+FILL = re.compile(r'python3 - "\$1" "\$GW_BASE" "\$K_CLAUDE" "\$K_CODEX" "\$K_ANTHROPIC" "\$K_GEMINI" "\$K_EMBED" "\$K_MEM" "\$MCPHUB_HOST" <<\'PYEOF\'\n(.*?)\nPYEOF', re.S)
 
 LOCAL = {
     "apiKey": "sk-LOCAL",
@@ -109,8 +109,8 @@ def run_engine(body, tmp):
 
 
 GW = "https://api.pezayo.com/v1"
-KEYS = ("sk-claude", "sk-codex", "sk-anth", "sk-embed", "sk-mem")
-PROVIDERS = ("claude-newapi", "codex-newapi", "anthropic-newapi")
+KEYS = ("sk-claude", "sk-codex", "sk-anth", "sk-gemini", "sk-embed", "sk-mem")
+PROVIDERS = ("claude-newapi", "codex-newapi", "anthropic-newapi", "gemini-newapi")
 P_SLOT = "<YOUR_NEWAPI_API_KEY>"
 BASE_SLOT = "https://<YOUR_GATEWAY_HOST>/v1"
 SAMPLE_OC = {
@@ -137,7 +137,7 @@ def run_fill(body, tmp, name, data):
 
 
 def check_fill(script, body, tmp):
-    """5 个 key 必须各归各处(三个 newapi provider 不能串,embedding 与 claude-mem 不能串)。"""
+    """6 个 key 必须各归各处(四个 newapi provider 不能串,embedding 与 claude-mem 不能串)。"""
     fails = []
     oc = run_fill(body, tmp, "opencode.json", SAMPLE_OC)
     for i, prov in enumerate(PROVIDERS):
@@ -155,14 +155,14 @@ def check_fill(script, body, tmp):
             fails.append(f"{script}: models.json {prov} 的 apiKey = {pi['providers'][prov]['apiKey']!r},期望 {KEYS[i]!r}")
 
     mc = run_fill(body, tmp, "magic-context.json", SAMPLE_MC)
-    if mc["embedding"]["api_key"] != KEYS[3]:
-        fails.append(f"{script}: embedding api_key = {mc['embedding']['api_key']!r},期望 {KEYS[3]!r}")
+    if mc["embedding"]["api_key"] != KEYS[4]:
+        fails.append(f"{script}: embedding api_key = {mc['embedding']['api_key']!r},期望 {KEYS[4]!r}")
     if mc["embedding"]["endpoint"] != GW:
         fails.append(f"{script}: embedding endpoint = {mc['embedding']['endpoint']!r},期望 {GW!r}")
 
     mem = run_fill(body, tmp, "claude-mem.settings.json", SAMPLE_MEM)
-    if mem["CLAUDE_MEM_OPENROUTER_API_KEY"] != KEYS[4]:
-        fails.append(f"{script}: claude-mem 的 key = {mem['CLAUDE_MEM_OPENROUTER_API_KEY']!r},期望 {KEYS[4]!r}")
+    if mem["CLAUDE_MEM_OPENROUTER_API_KEY"] != KEYS[5]:
+        fails.append(f"{script}: claude-mem 的 key = {mem['CLAUDE_MEM_OPENROUTER_API_KEY']!r},期望 {KEYS[5]!r}")
     if mem["CLAUDE_MEM_OPENROUTER_BASE_URL"] != GW:
         fails.append(f"{script}: claude-mem 的 BASE_URL 没填上")
 
@@ -324,7 +324,7 @@ def main():
         print("\n".join(f"FAIL {f}" for f in failures))
         return 1
     print("PASS: 私密键(api key/url/host/*_KEY)保留本机值,claude-mem 模型随模板,本地独有键不丢,列表键走并集,"
-          "todowrite 由模板接管,5 个 key 各归各处")
+          "todowrite 由模板接管,6 个 key 各归各处")
     return 0
 
 

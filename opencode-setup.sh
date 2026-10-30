@@ -55,7 +55,7 @@ resolve_python3() { # python3 就绪返回 0;否则 python → py → uv 自管�
 
 # -y/--yes(或环境变量 ASSUME_YES=1)「默认安装」:不再逐项确认,一律取默认值 —— 默认 Y 的照做
 # (装缺件、字段级合并写配置、刷新 base skills),默认 N 的跳过(notify 首装、算力/知识组、无代理继续、AGENTS.md 注入)。
-# 唯一还会问的是凭据(网关 + 5 个 api key);没有终端时静默跳过、占位符保留(无人值守用环境变量预填)。
+# 唯一还会问的是凭据(网关 + 6 个 api key);没有终端时静默跳过、占位符保留(无人值守用环境变量预填)。
 ASSUME_YES="${ASSUME_YES:-}"
 PLUGINS_ONLY=0; CHECK_ONLY=0
 while [ $# -gt 0 ]; do
@@ -199,6 +199,7 @@ GW_BASE="${PI_GATEWAY_BASE_URL:-}"; MCPHUB_HOST="${MCPHUB_HOST:-}"
 K_CLAUDE="${PI_CLAUDE_NEWAPI_API_KEY:-${PI_GATEWAY_API_KEY:-}}"
 K_CODEX="${PI_CODEX_NEWAPI_API_KEY:-${PI_GATEWAY_API_KEY:-}}"
 K_ANTHROPIC="${PI_ANTHROPIC_NEWAPI_API_KEY:-${PI_GATEWAY_API_KEY:-}}"
+K_GEMINI="${PI_GEMINI_NEWAPI_API_KEY:-${PI_GATEWAY_API_KEY:-}}"
 K_EMBED="${PI_EMBEDDING_API_KEY:-${PI_GATEWAY_API_KEY:-}}"
 K_MEM="${PI_CLAUDE_MEM_API_KEY:-${PI_GATEWAY_API_KEY:-}}"
 
@@ -238,11 +239,12 @@ collect_gateway_values() {
   [ -z "$K_CLAUDE" ]    && ask_value "claude-newapi 的 API key(anthropic 协议 · claude 模型 · 网关 claude code 分组)" K_CLAUDE 1
   [ -z "$K_CODEX" ]     && ask_value "codex-newapi 的 API key(openai responses 协议 · gpt 模型 · 网关 codex 分组)" K_CODEX 1
   [ -z "$K_ANTHROPIC" ] && ask_value "anthropic-newapi 的 API key(anthropic 协议 · 国产模型 · 网关 coding anthropic 分组)" K_ANTHROPIC 1
+  [ -z "$K_GEMINI" ]    && ask_value "gemini-newapi 的 API key(gemini 原生协议 · gemini 模型 · 网关 gemini 分组)" K_GEMINI 1
   [ -z "$K_EMBED" ]     && ask_value "magic-context embedding 的 API key(openai 协议 · 嵌入模型 · 任意分组)" K_EMBED 1
   [ -z "$K_MEM" ]       && ask_value "claude-mem 的 API key(openai chat completions · mem-1 · coding openai / coding anthropic / codex / default 分组均可)" K_MEM 1
   [ -z "$MCPHUB_HOST" ] && ask_value "mcphub MCP host(如 mcp.example.com)" MCPHUB_HOST
   local m=""
-  for kv in "claude:$K_CLAUDE" "codex:$K_CODEX" "anthropic:$K_ANTHROPIC" "embedding:$K_EMBED" "claude-mem:$K_MEM"; do
+  for kv in "claude:$K_CLAUDE" "codex:$K_CODEX" "anthropic:$K_ANTHROPIC" "gemini:$K_GEMINI" "embedding:$K_EMBED" "claude-mem:$K_MEM"; do
     [ -n "${kv#*:}" ] || m="$m ${kv%%:*}"
   done
   echo "凭据:网关 $GW_BASE;留空(占位符保留)的 key:${m:-无}"
@@ -252,13 +254,13 @@ collect_gateway_values() {
 # 把已提供的值填进模板(python 负责 JSON 转义);未提供则原样保留占位符。
 # <YOUR_GATEWAY_HOST> 填到主机名:pi 的 anthropic-messages provider 要根域(/v1 会 404),
 # 而模板里的 <YOUR_GATEWAY_HOST>/v1 正好给 opencode/embedding/claude-mem 这类要 /v1 的。
-# 三个 <YOUR_NEWAPI_API_KEY> 在同一份模板里对应不同 key,只能按 provider 块就近替换
+# 四个 <YOUR_NEWAPI_API_KEY> 在同一份模板里对应不同 key,只能按 provider 块就近替换
 # (不能全局 replace);embedding(magic-context 的 "api_key")与 claude-mem 按各自键名替,同样不全局换。
 fill_template_placeholders() {
-  [ -z "$GW_BASE$K_CLAUDE$K_CODEX$K_ANTHROPIC$K_EMBED$K_MEM$MCPHUB_HOST" ] && return 0
-  python3 - "$1" "$GW_BASE" "$K_CLAUDE" "$K_CODEX" "$K_ANTHROPIC" "$K_EMBED" "$K_MEM" "$MCPHUB_HOST" <<'PYEOF'
+  [ -z "$GW_BASE$K_CLAUDE$K_CODEX$K_ANTHROPIC$K_GEMINI$K_EMBED$K_MEM$MCPHUB_HOST" ] && return 0
+  python3 - "$1" "$GW_BASE" "$K_CLAUDE" "$K_CODEX" "$K_ANTHROPIC" "$K_GEMINI" "$K_EMBED" "$K_MEM" "$MCPHUB_HOST" <<'PYEOF'
 import json, re, sys
-p, base, k_claude, k_codex, k_anth, k_embed, k_mem, mcphub = sys.argv[1:9]
+p, base, k_claude, k_codex, k_anth, k_gemini, k_embed, k_mem, mcphub = sys.argv[1:10]
 base = base.rstrip('/')
 def esc(v): return json.dumps(v)[1:-1]
 t = open(p, encoding='utf-8').read()
@@ -267,15 +269,16 @@ if base:
     # 因为 pi 的 anthropic-messages provider 要根域(/v1 会 404),模板自己在后面接 /v1。
     host = re.match(r'^(https?://[^/]+)', base)
     host = host.group(1) if host else base
+    t = t.replace('https://<YOUR_GATEWAY_HOST>/v1beta', esc(host + '/v1beta'))
     t = t.replace('https://<YOUR_GATEWAY_HOST>/v1', esc(base))
     t = t.replace('<YOUR_GATEWAY_HOST>/v1', esc(base))
     t = t.replace('<YOUR_GATEWAY_HOST>', esc(re.sub(r'^https?://', '', host)))
     t = t.replace('<YOUR_NEWAPI_BASE_URL>', esc(base))
 slot = '"apiKey": "<YOUR_NEWAPI_API_KEY>"'
-names = {'claude-newapi': k_claude, 'codex-newapi': k_codex, 'anthropic-newapi': k_anth}
+names = {'claude-newapi': k_claude, 'codex-newapi': k_codex, 'anthropic-newapi': k_anth, 'gemini-newapi': k_gemini}
 # 按 provider 名切块(到下一个 provider 名之前):只填该 provider 自己那处 apiKey,
 # 已填过的块里没有槽位,不会把隔壁 provider 的 key 抢过来填。
-blocks = [(m.start(), m.group(1)) for m in re.finditer(r'"(claude-newapi|codex-newapi|anthropic-newapi)"\s*:', t)]
+blocks = [(m.start(), m.group(1)) for m in re.finditer(r'"(claude-newapi|codex-newapi|anthropic-newapi|gemini-newapi)"\s*:', t)]
 for n, (start, name) in enumerate(blocks):
     end = blocks[n + 1][0] if n + 1 < len(blocks) else len(t)
     if names[name] and slot in t[start:end]:
@@ -299,7 +302,7 @@ merge_cfg() {
   fi
   # 操作员在提示里给了网关/密钥:先把本地文件里的占位符补上(改前存 .bak),再走正常合并
   # (补进去的是敏感键,合并会原样保留)。目标文件不存在时由模板侧的 fill_template_placeholders 负责。
-  if [ -f "$dest" ] && [ -n "$GW_BASE$K_CLAUDE$K_CODEX$K_ANTHROPIC$K_EMBED$K_MEM$MCPHUB_HOST" ] && grep -q '<YOUR_' "$dest" 2>/dev/null; then
+  if [ -f "$dest" ] && [ -n "$GW_BASE$K_CLAUDE$K_CODEX$K_ANTHROPIC$K_GEMINI$K_EMBED$K_MEM$MCPHUB_HOST" ] && grep -q '<YOUR_' "$dest" 2>/dev/null; then
     cp -p "$dest" "$dest.bak-$(date +%Y%m%d%H%M%S)"
     fill_template_placeholders "$dest"
     echo "filled placeholders: $dest"
@@ -664,7 +667,7 @@ if [ "$oc_cur_update" = "auto" ] && ask "OpenCode 当前允许自动更新(升�
   oc_force_manual=1
 fi
 # 上次跳过的 key 这次补上:先填本地文件里的占位符(改前存 .bak),再走正常合并(live 优先)
-if [ -f "$CFG/opencode.json" ] && [ -n "$GW_BASE$K_CLAUDE$K_CODEX$K_ANTHROPIC$K_EMBED$K_MEM$MCPHUB_HOST" ] \
+if [ -f "$CFG/opencode.json" ] && [ -n "$GW_BASE$K_CLAUDE$K_CODEX$K_ANTHROPIC$K_GEMINI$K_EMBED$K_MEM$MCPHUB_HOST" ] \
    && grep -q '<YOUR_' "$CFG/opencode.json" 2>/dev/null; then
   cp -p "$CFG/opencode.json" "$CFG/opencode.json.bak-$(date +%Y%m%d%H%M%S)"
   fill_template_placeholders "$CFG/opencode.json"
@@ -1185,7 +1188,7 @@ fi
 echo ""
 echo "== done. 需要你手工完成的 =="
 n=1
-echo "$n. 网关/凭据:脚本启动时已问过「统一网关 + 5 个 api key」并填进各配置(可用环境变量预填、非交互跑:PI_GATEWAY_BASE_URL / PI_GATEWAY_API_KEY / MCPHUB_HOST)"; n=$((n+1))
+echo "$n. 网关/凭据:脚本启动时已问过「统一网关 + 6 个 api key」并填进各配置(可用环境变量预填、非交互跑:PI_GATEWAY_BASE_URL / PI_GATEWAY_API_KEY / MCPHUB_HOST)"; n=$((n+1))
 echo "   当时跳过了才会剩下占位符(<YOUR_*>):"
 _ph=0
 for _f in "$SETTINGS" "$MC_CFG" "$CFG/opencode.json"; do

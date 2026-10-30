@@ -151,7 +151,7 @@ PYEOF
 DEFAULT_GW="https://api.pezayo.com/v1"
 GW_BASE="${PI_GATEWAY_BASE_URL:-}"
 K_MEM="${PI_CLAUDE_MEM_API_KEY:-${PI_GATEWAY_API_KEY:-}}"
-K_CLAUDE=""; K_CODEX=""; K_ANTHROPIC=""; K_EMBED=""
+K_CLAUDE=""; K_CODEX=""; K_ANTHROPIC=""; K_GEMINI=""; K_EMBED=""
 # codex 侧不配 mcphub;此变量仅为与 pi/opencode 的 merge_cfg 保持逐字节一致
 MCPHUB_HOST="${MCPHUB_HOST:-}"
 
@@ -191,13 +191,13 @@ collect_gateway_values() {
 }
 
 # 把已提供的值填进文件(python 负责 JSON 转义);未提供则原样保留占位符。
-# 5 个槽位与 pi/opencode 逐字节一致(codex 只用 GW_BASE/K_MEM);三个 <YOUR_NEWAPI_API_KEY>
+# 5 个槽位与 pi/opencode 逐字节一致(codex 只用 GW_BASE/K_MEM);四个 <YOUR_NEWAPI_API_KEY>
 # 在同一份模板里对应不同 key,只能按 provider 块就近替换;embedding/claude-mem 按各自键名替。
 fill_template_placeholders() {
-  [ -z "$GW_BASE$K_CLAUDE$K_CODEX$K_ANTHROPIC$K_EMBED$K_MEM$MCPHUB_HOST" ] && return 0
-  python3 - "$1" "$GW_BASE" "$K_CLAUDE" "$K_CODEX" "$K_ANTHROPIC" "$K_EMBED" "$K_MEM" "$MCPHUB_HOST" <<'PYEOF'
+  [ -z "$GW_BASE$K_CLAUDE$K_CODEX$K_ANTHROPIC$K_GEMINI$K_EMBED$K_MEM$MCPHUB_HOST" ] && return 0
+  python3 - "$1" "$GW_BASE" "$K_CLAUDE" "$K_CODEX" "$K_ANTHROPIC" "$K_GEMINI" "$K_EMBED" "$K_MEM" "$MCPHUB_HOST" <<'PYEOF'
 import json, re, sys
-p, base, k_claude, k_codex, k_anth, k_embed, k_mem, mcphub = sys.argv[1:9]
+p, base, k_claude, k_codex, k_anth, k_gemini, k_embed, k_mem, mcphub = sys.argv[1:10]
 base = base.rstrip('/')
 def esc(v): return json.dumps(v)[1:-1]
 t = open(p, encoding='utf-8').read()
@@ -206,15 +206,16 @@ if base:
     # 因为 pi 的 anthropic-messages provider 要根域(/v1 会 404),模板自己在后面接 /v1。
     host = re.match(r'^(https?://[^/]+)', base)
     host = host.group(1) if host else base
+    t = t.replace('https://<YOUR_GATEWAY_HOST>/v1beta', esc(host + '/v1beta'))
     t = t.replace('https://<YOUR_GATEWAY_HOST>/v1', esc(base))
     t = t.replace('<YOUR_GATEWAY_HOST>/v1', esc(base))
     t = t.replace('<YOUR_GATEWAY_HOST>', esc(re.sub(r'^https?://', '', host)))
     t = t.replace('<YOUR_NEWAPI_BASE_URL>', esc(base))
 slot = '"apiKey": "<YOUR_NEWAPI_API_KEY>"'
-names = {'claude-newapi': k_claude, 'codex-newapi': k_codex, 'anthropic-newapi': k_anth}
+names = {'claude-newapi': k_claude, 'codex-newapi': k_codex, 'anthropic-newapi': k_anth, 'gemini-newapi': k_gemini}
 # 按 provider 名切块(到下一个 provider 名之前):只填该 provider 自己那处 apiKey,
 # 已填过的块里没有槽位,不会把隔壁 provider 的 key 抢过来填。
-blocks = [(m.start(), m.group(1)) for m in re.finditer(r'"(claude-newapi|codex-newapi|anthropic-newapi)"\s*:', t)]
+blocks = [(m.start(), m.group(1)) for m in re.finditer(r'"(claude-newapi|codex-newapi|anthropic-newapi|gemini-newapi)"\s*:', t)]
 for n, (start, name) in enumerate(blocks):
     end = blocks[n + 1][0] if n + 1 < len(blocks) else len(t)
     if names[name] and slot in t[start:end]:
@@ -237,7 +238,7 @@ merge_cfg() {
   fi
   # 操作员在提示里给了网关/密钥:先把本地文件里的占位符补上(改前存 .bak),再走正常合并
   # (补进去的是敏感键,合并会原样保留)。目标文件不存在时由模板侧的 fill_template_placeholders 负责。
-  if [ -f "$dest" ] && [ -n "$GW_BASE$K_CLAUDE$K_CODEX$K_ANTHROPIC$K_EMBED$K_MEM$MCPHUB_HOST" ] && grep -q '<YOUR_' "$dest" 2>/dev/null; then
+  if [ -f "$dest" ] && [ -n "$GW_BASE$K_CLAUDE$K_CODEX$K_ANTHROPIC$K_GEMINI$K_EMBED$K_MEM$MCPHUB_HOST" ] && grep -q '<YOUR_' "$dest" 2>/dev/null; then
     cp -p "$dest" "$dest.bak-$(date +%Y%m%d%H%M%S)"
     fill_template_placeholders "$dest"
     echo "filled placeholders: $dest"
@@ -533,7 +534,7 @@ else
   mem_ok=1
   collect_gateway_values
   # 已存在但仍含占位符时按提示补上(改前存 .bak);不存在则由下面的内嵌模板写入后再补
-  if [ -f "$SETTINGS" ] && [ -n "$GW_BASE$K_CLAUDE$K_CODEX$K_ANTHROPIC$K_EMBED$K_MEM$MCPHUB_HOST" ] && grep -q '<YOUR_' "$SETTINGS" 2>/dev/null; then
+  if [ -f "$SETTINGS" ] && [ -n "$GW_BASE$K_CLAUDE$K_CODEX$K_ANTHROPIC$K_GEMINI$K_EMBED$K_MEM$MCPHUB_HOST" ] && grep -q '<YOUR_' "$SETTINGS" 2>/dev/null; then
     backup "$SETTINGS" >/dev/null || true
     fill_template_placeholders "$SETTINGS"
     echo "filled placeholders: $SETTINGS"
