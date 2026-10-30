@@ -6,7 +6,7 @@ import { DESCRIPTION, TOOL, configPath, generate } from "../../image-gen/core.mj
 export default {
   id: "agent-skills.image-gen",
   async setup(ctx) {
-    return ctx.tool.transform((editor) =>
+    const registration = await ctx.tool.transform((editor) =>
       editor.add({
         name: TOOL,
         options: { codemode: true },
@@ -31,5 +31,6 @@ export default {
         },
       }),
     );
+    return () => registration.dispose();
   },
 };

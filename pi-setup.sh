@@ -887,11 +887,6 @@ PYEOF
   fi
   # 本仓库自身作为 Pi 包:UI + later + message-timing + context-rewrite + one-dark
   pi_install git:github.com/brilliantrough/agent-skills
-  # context-rewrite 运行期依赖 acp-kernel;git 包不带 node_modules,缺了扩展会加载失败
-  if [ -f "$REPO_PI_PKG/context-rewrite/package.json" ] && [ ! -d "$REPO_PI_PKG/context-rewrite/node_modules/acp-kernel" ]; then
-    npm ci --prefix "$REPO_PI_PKG/context-rewrite" >/dev/null 2>&1 \
-      || echo "WARN: context-rewrite 依赖安装失败(acp-kernel);该扩展会加载失败" >&2
-  fi
   report_repo_pi_pkg
 
   # ---- 3.1 magic-context:共享 context.db 的版本守卫(不一致时 Pi 主回合会被拒绝) ----

@@ -120,16 +120,26 @@ bash opencode-setup.sh --plugins-only  # 更新插件，不更新通用 skills�
 
 当前是共用核心、两套宿主适配与分发资产，不是单一双入口包。setup 只迁移插件／配置；宿主会话库由 OpenCode 管理，已有外置正文不因插件升级而删除。跨机器迁移会话时仍需同时迁移正文文件。
 
-### Pi：本机试用
+### Pi：随包安装
 
-Pi 尚未接入根包清单，仍可在仓库根目录试用：
+已纳入根包的 `pi.extensions`；`acp-kernel` 由根 `dependencies` 声明，Pi 安装／更新包时自动安装：
+
+```bash
+pi install git:github.com/brilliantrough/agent-skills
+# 已安装时更新：
+pi update git:github.com/brilliantrough/agent-skills
+```
+
+随后 `/reload`。无需再登记单独的扩展路径。
+
+仅开发调试，在仓库根目录运行：
 
 ```bash
 npm --prefix context-rewrite ci --ignore-scripts
-pi -e ./pi/extensions/context-rewrite.ts
+pi --no-extensions -e ./pi/extensions/context-rewrite.ts
 ```
 
-Pi 长期本机试用：把该文件的绝对路径加入 `~/.pi/agent/settings.json` 的 `extensions` 数组，保留其他条目，随后 `/reload`。不要同时以两种方式加载。
+不要同时加载已安装包中的入口与工作区入口。
 
 ### OpenCode v1：仅开发调试
 

@@ -4,6 +4,9 @@
   "description": "Personal Pi UI: sidebar, composer, usage and tasks, plus scheduled prompts and One Dark",
   "type": "module",
   "license": "MIT",
+  "dependencies": {
+    "acp-kernel": "0.0.101"
+  },
   "pi": {
     "extensions": [
       "pi/extensions/pretty-tui/index.ts",
