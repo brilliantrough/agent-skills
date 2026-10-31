@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 把 cookie 注入 Agent Reach 的无头浏览器（不需要桌面、不需要扫码窗口）。
-# 用法: bash xhs-login.sh [cookies.json]
+# 用法: bash inject-cookies.sh [cookies.json]
 # 也可用环境变量 XHS_COOKIE=<路径>；默认读 ~/.config/agent-reach/xhs-cookies.json
 # cookie 文件为 JSON 数组或 {"cookies":[...]}，元素含 name/value/domain/path。
 # 只写入 cookie，不删除已有登录态；重复执行结果相同。

@@ -66,7 +66,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.com/brilliantrough/agent-skills/main/skills-sync.sh)" -- base
 ```
 
-`base` 安装基础 19 个；`base research` 追加 7 个算法研究 skill；`all` 安装四组共 35 个。也可把 `research`、`accel`、`kb` 作为额外参数传给 `skills-sync.sh`。所有组都默认补装四个外部设计 skill，并更新已登记第三方。需要 curl、git、Node/npx；安装位置 `~/.agents/skills/`，重开会话生效。
+`base` 安装基础 20 个；`base research` 追加 7 个算法研究 skill；`all` 安装四组共 36 个。也可把 `research`、`accel`、`kb` 作为额外参数传给 `skills-sync.sh`。所有组都默认补装四个外部设计 skill，并更新已登记第三方。需要 curl、git、Node/npx；安装位置 `~/.agents/skills/`，重开会话生效。
 
 **Codex（best effort）**
 
@@ -95,9 +95,9 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/pi-setup.sh)"
 ```
 
-## Skills（本仓 35 个）
+## Skills（本仓 36 个）
 
-基础 19 个；算法研究 7 个；算力模板 7 个与公共知识 2 个按需选装。`research` 与 `kb` 随仓库刷新，`accel` 缺才装；另有三个设计依赖来自上游仓库（装时装前询问，默认 Y），不复制到本仓。
+基础 20 个；算法研究 7 个；算力模板 7 个与公共知识 2 个按需选装。`research` 与 `kb` 随仓库刷新，`accel` 缺才装；另有三个设计依赖来自上游仓库（装时装前询问，默认 Y），不复制到本仓。
 
 ### 工程技能
 
@@ -206,11 +206,11 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 | `editable-vector-slides` | SVG/PDF 科研图 → 可编辑矢量 PDF + 原生 PPTX；保留路径/文字/渐变/阴影，非截图；含依赖安装、验收与踩坑清单 |
 | `image-gen` | `image_gen` 工具说明：文生图、参考图编辑、多张参考图、参数与默认值、返回与落盘、宿主差异、失败含义。只讲接口不规定风格 |
 
-### 外部工具（官方包，随 setup 缺才装）
+### 外部工具（官方包，setup 询问，默认 N）
 
 | Skill | 用途 | 安装方式 |
 |---|---|---|
-| `agent-reach-install` | Agent Reach 官方 CLI 安装与用法（只读检索小红书/Reddit/X/B站等） | `pi-setup.sh` / `opencode-setup.sh` 在 skills 同步后调用其 `scripts/install.sh`；缺 `agent-reach` 才装官方包，已装跳过，不动凭据与登录态 |
+| `agent-reach-install` | Agent Reach 官方 CLI 安装与用法（只读检索小红书/Reddit/X/B站等） | `pi-setup.sh` / `opencode-setup.sh` 在 skills 同步后询问（默认 N）；确认且缺 `agent-reach` 才调其 `scripts/install.sh` 装官方包，已装跳过，不动凭据与登录态 |
 
 ## 依赖
 
@@ -645,7 +645,7 @@ bash /tmp/opencode-setup.sh --plugins-only
 
 | 模式 | 处理范围 |
 | --- | --- |
-| 默认完整安装 | 插件、配置、依赖与通用 skills；默认 base 19 个，交互可选 research、accel、kb，全部选中时为 35 个，另同步外部设计 skills |
+| 默认完整安装 | 插件、配置、依赖与通用 skills；默认 base 20 个，交互可选 research、accel、kb，全部选中时为 36 个，另同步外部设计 skills |
 | `--plugins-only` | 旧配置转原生 V2、自维护插件、context-mode 及其 skills、官方包登记、claude-mem runtime／入口／MCP；不更新模型／Python／通用 skills |
 | `--check` | 下载校验自维护包，检查配置，查询 Ponytail／Magic Context 本地与 npm 版本；不询问、不改配置、认证或数据库 |
 

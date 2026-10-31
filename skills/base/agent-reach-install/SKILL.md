@@ -11,7 +11,7 @@ description: 安装与使用 Agent Reach（agent-reach CLI），只读检索各�
 
 ## 安装
 
-**随 `pi-setup.sh` / `opencode-setup.sh` 自动安装**：这两个脚本在 skills 同步后调用
+**可选**：`pi-setup.sh` / `opencode-setup.sh` 在 skills 同步后会询问（默认 N），确认后才调用
 `scripts/install.sh`，缺 `agent-reach` 才装，已装则跳过（与 strictdoc 同一规则）。
 
 手工安装等价于：

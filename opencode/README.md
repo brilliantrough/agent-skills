@@ -19,7 +19,7 @@ bash /tmp/opencode-setup.sh --plugins-only
 | `--plugins-only` | 旧配置转原生 V2、自维护包、context-mode 及其 skills、官方包登记、claude-mem runtime／入口／MCP、旧入口迁移 | 模型模板、Python 环境、通用 skills、按键统一 |
 | `--check` | 下载校验自维护发布包，检查配置与 Magic Context，查询 Ponytail／Magic Context 版本，列出管理路径和待退役项 | 部署、更改配置／认证／数据库；也不试运行插件或检查全部依赖 |
 
-- 完整安装默认同步 base 19 个 skills；交互可分别选择 research、accel、kb，全部选中时为 35 个，另同步三个外部设计 skills。实体位于 `~/.agents/skills/`；context-mode 自带 skills 位于 `$CFG/skill/`。
+- 完整安装默认同步 base 20 个 skills；交互可分别选择 research、accel、kb，全部选中时为 36 个，另同步三个外部设计 skills。实体位于 `~/.agents/skills/`；context-mode 自带 skills 位于 `$CFG/skill/`。
 - `-y`／`--yes` 取各项默认值，**不是全部同意**；research、accel、kb 组默认跳过。查看输出中的 WARN，缺包或网络失败后重跑。
 - 两个精简模式要求已有 Python 3、curl、Bun；完整安装可补齐 Bun。`--check` 仍联网，宿主 `--version` 可能写日志，不是零文件系统写入。
 - `$CFG`：`OPENCODE_CONFIG_DIR` 优先，否则 `$XDG_CONFIG_HOME/opencode` 或 `~/.config/opencode`。Windows 用 Git Bash；本轮 v1/v2 迁移尚未做 Windows 实机验收。
