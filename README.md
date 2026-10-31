@@ -66,7 +66,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.com/brilliantrough/agent-skills/main/skills-sync.sh)" -- base
 ```
 
-`base` 安装基础 18 个；`base research` 追加 7 个算法研究 skill；`all` 安装四组共 34 个。也可把 `research`、`accel`、`kb` 作为额外参数传给 `skills-sync.sh`。所有组都默认补装四个外部设计 skill，并更新已登记第三方。需要 curl、git、Node/npx；安装位置 `~/.agents/skills/`，重开会话生效。
+`base` 安装基础 19 个；`base research` 追加 7 个算法研究 skill；`all` 安装四组共 35 个。也可把 `research`、`accel`、`kb` 作为额外参数传给 `skills-sync.sh`。所有组都默认补装四个外部设计 skill，并更新已登记第三方。需要 curl、git、Node/npx；安装位置 `~/.agents/skills/`，重开会话生效。
 
 **Codex（best effort）**
 
@@ -95,9 +95,9 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/pi-setup.sh)"
 ```
 
-## Skills（本仓 34 个）
+## Skills（本仓 35 个）
 
-基础 18 个；算法研究 7 个；算力模板 7 个与公共知识 2 个按需选装。`research` 与 `kb` 随仓库刷新，`accel` 缺才装；另有三个设计依赖来自上游仓库（装时装前询问，默认 Y），不复制到本仓。
+基础 19 个；算法研究 7 个；算力模板 7 个与公共知识 2 个按需选装。`research` 与 `kb` 随仓库刷新，`accel` 缺才装；另有三个设计依赖来自上游仓库（装时装前询问，默认 Y），不复制到本仓。
 
 ### 工程技能
 
@@ -110,6 +110,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 | `tdd` | 红-绿-重构 |
 | `diagnosing-bugs` | bug 诊断：先建反馈回路，再假设原因 |
 | `code-review` | 双轴审查：规范符合度 + spec 忠实度 |
+| `teach` | 工作区内交互式教学新技能/概念；任务书、术语表、学习记录，跨会话推进 |
 
 ### 三层记忆（自制）
 
@@ -638,7 +639,7 @@ bash /tmp/opencode-setup.sh --plugins-only
 
 | 模式 | 处理范围 |
 | --- | --- |
-| 默认完整安装 | 插件、配置、依赖与通用 skills；默认 base 18 个，交互可选 research、accel、kb，全部选中时为 34 个，另同步外部设计 skills |
+| 默认完整安装 | 插件、配置、依赖与通用 skills；默认 base 19 个，交互可选 research、accel、kb，全部选中时为 35 个，另同步外部设计 skills |
 | `--plugins-only` | 旧配置转原生 V2、自维护插件、context-mode 及其 skills、官方包登记、claude-mem runtime／入口／MCP；不更新模型／Python／通用 skills |
 | `--check` | 下载校验自维护包，检查配置，查询 Ponytail／Magic Context 本地与 npm 版本；不询问、不改配置、认证或数据库 |
 
