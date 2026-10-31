@@ -22,7 +22,7 @@
 | DeepSeek Harness | 固定兼容组合；原生 DeepSeek 通道、TUI 与套件工具 |
 | Codex | best effort；复用 skills 原文，不改工作流 |
 
-[快速安装](#快速安装) · [Skills](#skills本仓-37-个) · [首次部署](#首次部署只需要网关--5-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [DSH](dsh/README.md) · [OpenCode](#opencode-安装与迁移) · [更新](#更新)
+[快速安装](#快速安装) · [Skills](#skills本仓-37-个) · [首次部署](#首次部署只需要网关--5-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [DSH](dsh/README.md) · [OpenCode](#opencode-安装与迁移) · [更新](#更新) · [贡献](CONTRIBUTING.md)
 
 ## 快速安装
 
