@@ -838,62 +838,6 @@ else
 fi
 rm -f "$oc_tpl" "$oc_cand"
 
-# ---- 4.2 codegraph MCP(预索引代码知识图谱;CLI 提供 graph,MCP 只是入口)----
-if ! command -v codegraph >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/codegraph" ] && [ ! -x "$HOME/.local/bin/codegraph.exe" ]; then
-  echo "未检测到 codegraph(代码知识图谱,MCP 需要 CLI 提供 graph)。"
-  if [ "$IS_WIN" = 1 ]; then
-    # codegraph 官方 install.sh 明确不支持 Windows(只认 Darwin/Linux),README 给的 Windows 路径是 npm
-    if ! command -v npm >/dev/null 2>&1; then
-      echo "跳过 codegraph:未检测到 npm"
-    elif ask "是否安装 codegraph CLI(npm i -g @colbymchenry/codegraph@latest)?" Y; then
-      npm install -g @colbymchenry/codegraph@latest || echo "WARN: codegraph 安装失败,请看上方输出" >&2
-    fi
-  elif ask "是否安装 codegraph CLI(curl 官方 install.sh)?" Y; then
-    cg_sh="$(mktemp)"
-    if curl -fsSL --connect-timeout 8 -m 60 -o "$cg_sh" https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh; then
-      sh "$cg_sh" || echo "WARN: codegraph 安装脚本退出码非 0,请看上方输出" >&2
-    else
-      echo "WARN: codegraph 安装脚本下载失败(检查代理)" >&2
-    fi
-    rm -f "$cg_sh"
-    export PATH="$HOME/.local/bin:$PATH"
-  fi
-fi
-CG_BIN="$(command -v codegraph 2>/dev/null || true)"; [ -n "$CG_BIN" ] || CG_BIN="$HOME/.local/bin/codegraph$BIN_EXT"
-[ -x "$CG_BIN" ] || CG_BIN=codegraph
-if [ -x "$CG_BIN" ]; then
-  if ! grep -qs '"codegraph"' "$CFG/opencode.json" "$CFG/opencode.jsonc" 2>/dev/null && \
-     ask "在 $CFG/opencode.json 添加 codegraph MCP 条目?" Y; then
-    CG_NODE=""; CG_JS=""
-    if [ "$IS_WIN" = 1 ] && command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
-      _cg_js="$(npm root -g 2>/dev/null)/@colbymchenry/codegraph/npm-shim.js"
-      if [ -f "$_cg_js" ]; then
-        CG_NODE="$(nbin "$(realpath "$(command -v node)")")"
-        CG_JS="$(npath "$(realpath "$_cg_js")")"
-      fi
-    fi
-    python3 - "$CFG/opencode.json" "$(nbin "$CG_BIN")" "$CG_NODE" "$CG_JS" <<'PYEOF'
-import json, sys
-path, bin_, node, shim = sys.argv[1:5]
-try:
-    with open(path) as f:
-        text = f.read()
-    cfg = json.loads(text) if text.strip() else {"$schema": "https://opencode.ai/config.json"}
-except FileNotFoundError:
-    cfg = {"$schema": "https://opencode.ai/config.json"}
-servers = cfg.setdefault("mcp", {}).setdefault("servers", {})
-if "codegraph" in servers:
-    sys.exit(0)
-cmd = [node, shim] if node and shim else [bin_]
-servers["codegraph"] = {"type": "local", "command": cmd + ["serve", "--mcp"], "disabled": False}
-with open(path, "w") as f:
-    json.dump(cfg, f, indent=2, ensure_ascii=False)
-    f.write("\n")
-print(f"added: mcp.codegraph -> {path}")
-PYEOF
-  fi
-fi
-
 fi # 完整安装的环境／配置步骤
 
 # ---- 5. context-mode 独立产物：v1 自动入口；v2 由版本适配包加载 ----
@@ -1178,7 +1122,7 @@ else
 fi
 rm -f "$_ss"
 
-# ---- 8. uv(可选)+ strictdoc(.sdoc 校验依赖)----
+# ---- 8. uv(可选;strictdoc 由 modules/strictdoc 安装)----
 UVP="$HOME/.local/bin/uv$BIN_EXT"
 if ! command -v uv >/dev/null 2>&1 && [ ! -x "$UVP" ]; then
   if ask "未检测到 uv,安装 uv(astral.sh 官方脚本,装到 ~/.local/bin)?" Y; then
@@ -1221,13 +1165,8 @@ if [ -x "$UV_BIN" ]; then
     printf '%s\n' 'index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"' > "$UVCFG"
     echo "wrote: $UVCFG"
   fi
-  if command -v strictdoc >/dev/null 2>&1; then
-    echo "strictdoc 已存在,跳过(升级: uv tool upgrade strictdoc)"
-  elif ask "用 uv 全局安装 strictdoc==0.28.1(.sdoc 校验依赖)?" Y; then
-    "$UV_BIN" tool install strictdoc==0.28.1 || echo "WARN: strictdoc 安装失败(可稍后重试)" >&2
-  fi
 else
-  echo "提示: 未检测到 uv,跳过 strictdoc 安装(.sdoc 校验依赖);装好 uv 后重跑本脚本即可"
+  echo "提示: 未检测到 uv;strictdoc 模块会跳过安装(.sdoc 校验依赖),装好 uv 后重跑本脚本即可"
 fi
 
 # ---- 可选模块:统一分发(新增模块只加 modules/<名>/,本脚本不用改)----

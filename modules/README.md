@@ -49,9 +49,11 @@ modules/<名>/
 
 ## 已有模块
 
-| 模块 | 默认 | 说明 |
-| --- | --- | --- |
-| `agent-reach` | N | 官方只读检索 CLI + 无头浏览器；安装器来自 base 组的 `agent-reach-install` skill |
+| 模块 | 默认 | 宿主 | 说明 |
+| --- | --- | --- | --- |
+| `strictdoc` | Y | any | `.sdoc` 校验工具（`uv tool install strictdoc==0.28.1`）；无 uv 时跳过提示 |
+| `codegraph` | Y | pi,opencode,codex | 代码知识图谱 CLI + MCP 注册；Pi 的条目由配置模板提供 |
+| `agent-reach` | N | any | 官方只读检索 CLI + 无头浏览器；安装器来自 base 组的 `agent-reach-install` skill |
 
 ## 迁移节奏
 

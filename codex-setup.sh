@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # codex-setup.sh — Codex 插件配置(best effort;本仓库仍以 OpenCode 为主)
 # 0. 检查 Codex >=0.128.0 及插件命令、Python 3.11+、网络;不安装/升级 Codex 本体
-# 1. 缺失时询问安装 Node LTS、Bun、uv;可选安装 strictdoc==0.28.1
+# 1. 缺失时询问安装 Node LTS、Bun、uv;strictdoc 由 modules/strictdoc 装
 # 2. claude-mem:优先复用本机 runtime;缺失时运行官方 codex-cli 安装器
 #    安装器会修改共享配置并停止 worker;恢复 settings.json/原 Codex 配置,再原生注册;
 #    settings.json 用 dot_file 模板做字段级合并(与 pi/opencode 两侧同一份,敏感值保留)
@@ -443,11 +443,6 @@ if ! command -v bun >/dev/null && ask '安装 Bun(claude-mem runtime)?' Y; then
 fi
 if ! command -v uv >/dev/null && ask '安装 uv(claude-mem/StrictDoc 依赖)?' Y; then
   UV_INSTALL_DIR="$HOME/.local/bin" UV_NO_MODIFY_PATH=1 download_run https://astral.sh/uv/install.sh || warn 'uv 安装失败'
-fi
-if command -v uv >/dev/null && ! command -v strictdoc >/dev/null; then
-  if ask '用 uv 全局安装 strictdoc==0.28.1?' Y; then
-    uv tool install strictdoc==0.28.1 || warn 'StrictDoc 安装失败'
-  fi
 fi
 
 # ---- 2. claude-mem:复用资产可避免改动共享 worker/provider ----

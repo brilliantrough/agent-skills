@@ -33,7 +33,7 @@
 #   5. claude-mem 官方 runtime 与宿主入口同步——Pi/OpenCode 分别由官方安装器部署，settings 保留本机值
 #   6. subagent 定义 ~/.pi/agent/agents/{explore,general}.md(对应 opencode 的两个 agent)
 #   7. skills:本仓 base/kb 刷新(漂移先备份)、accel 缺才装；补装外部设计依赖、更新第三方;pi 原生读 ~/.agents/skills
-#   8. uv(缺则装;含自升级与清华 PyPI 镜像)+ strictdoc(用 uv tool 全局安装,.sdoc 校验依赖)
+#   8. strictdoc 由 modules/strictdoc 装(.sdoc 校验依赖;uv 的安装/自升级/镜像见 1.3)
 #
 # 用法:bash pi-setup.sh [-y|--yes]   (-y 默认安装:不再逐项确认、一律取默认——默认 Y 的照做,默认 N 的跳过
 #       (pi update --all、插件缓存清理、magic-context 强启用、AGENTS.md 注入),只问一次凭据;遵循 PI_CODING_AGENT_DIR,与 pi 一致)
@@ -750,7 +750,7 @@ if [ -x "$UV_BIN" ]; then
     echo "wrote: $UVCFG"
   fi
 else
-  echo "提示: 未检测到 uv,跳过 strictdoc 安装(.sdoc 校验依赖);装好 uv 后重跑本脚本即可"
+  echo "提示: 未检测到 uv;strictdoc 模块会跳过安装(.sdoc 校验依赖),装好 uv 后重跑本脚本即可"
 fi
 
 # ---- 2. pi 本体 ----
@@ -1091,26 +1091,6 @@ EOF
   fi
   [ -f "$AUTH" ] && chmod 600 "$AUTH"
 
-  # ---- 4.1 codegraph MCP 需要的 CLI(可选)----
-  if [ ! -x "$CG_BIN" ]; then
-    echo "未检测到 codegraph(代码知识图谱,MCP 需要 CLI 提供 graph)。"
-    if [ "$IS_WIN" = 1 ]; then
-      # codegraph 官方 install.sh 明确不支持 Windows(只认 Darwin/Linux),README 给的 Windows 路径是 npm
-      if ! command -v npm >/dev/null 2>&1; then
-        echo "跳过 codegraph:未检测到 npm"
-      elif ask "是否安装 codegraph CLI(npm i -g @colbymchenry/codegraph@latest)?" Y; then
-        npm install -g @colbymchenry/codegraph@latest || echo "WARN: codegraph 安装失败,请看上方输出" >&2
-      fi
-    elif ask "是否安装 codegraph CLI(curl 官方 install.sh)?" Y; then
-      cg_sh="$(mktemp)"
-      if curl -fsSL --connect-timeout 8 -m 60 -o "$cg_sh" https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh; then
-        sh "$cg_sh" || echo "WARN: codegraph 安装脚本退出码非 0,请看上方输出" >&2
-      else
-        echo "WARN: codegraph 安装脚本下载失败(检查代理)" >&2
-      fi
-      rm -f "$cg_sh"
-    fi
-  fi
 fi
 
 # 画图凭据放在 models.json 合并之后:检测要读的是填好 key 的那份
@@ -1305,18 +1285,6 @@ else
   echo "WARN: skills-sync.sh 下载失败,跳过(检查代理)" >&2
 fi
 rm -f "$_ss"
-
-# ---- 8. strictdoc(.sdoc 校验依赖;uv 已在 1.3 检查/安装)----
-UV_BIN="$(command -v uv 2>/dev/null || echo "$UVP")"
-if [ -x "$UV_BIN" ]; then
-  if command -v strictdoc >/dev/null 2>&1; then
-    echo "strictdoc 已存在,跳过(升级: uv tool upgrade strictdoc)"
-  elif ask "用 uv 全局安装 strictdoc==0.28.1(.sdoc 校验依赖)?" Y; then
-    "$UV_BIN" tool install strictdoc==0.28.1 || echo "WARN: strictdoc 安装失败(可稍后重试)" >&2
-  fi
-else
-  echo "提示: 未检测到 uv,跳过 strictdoc 安装(.sdoc 校验依赖);装好 uv 后重跑本脚本即可"
-fi
 
 # ---- 可选模块:统一分发(新增模块只加 modules/<名>/,本脚本不用改)----
 _amod="$(cd "$(dirname "$0")" 2>/dev/null && pwd)/modules/run.sh"
