@@ -1259,39 +1259,23 @@ echo "   提示:claude-mem 走 openrouter(OpenAI 协议),它的 key 与 magic-co
 echo "$n. 重启 claude-mem worker 并验证:"; n=$((n+1))
 echo "      cd ~/.claude/plugins/marketplaces/thedotmack && npm run worker:restart"
 echo "      curl -s http://$(mem_worker_url)/api/health   # 端口取自 $SETTINGS(见下方提示)"
-# ---- 项目接入记忆系统(可选,默认不写):把 memory-system 块写到当前目录的 AGENTS.md 最尾部 ----
+# ---- 项目接入记忆系统(可选,默认不写):把 memory-system 块写到当前目录 AGENTS.md 最尾部 ----
+# 实现在仓库根 agents-md.sh(四个 setup 共用,幂等:同块不动/旧块原位替换/无块追加)。
 PROJ_AGENTS="$PWD/AGENTS.md"
-AGENTS_SRC="$(cd "$(dirname "$0")" 2>/dev/null && pwd)/AGENTS.tail.md"
-AGENTS_URL="$SELF_RAW/AGENTS.tail.md"
 if ask "把记忆系统规范块写进 $PROJ_AGENTS 的最尾部(项目自身内容在前)?" N; then
-  _tmp="$(mktemp)"; _ok=0
-  # 本地 AGENTS.tail.md 只有在确实含规范块、且不是目标文件本身时才算源;否则一律下载
-  if [ -f "$AGENTS_SRC" ] && [ "$AGENTS_SRC" != "$PROJ_AGENTS" ] && grep -q '<!-- memory-system:start -->' "$AGENTS_SRC"; then
-    cp "$AGENTS_SRC" "$_tmp" && _ok=1
-  elif curl -fsSL --connect-timeout 8 -m 60 -o "$_tmp" "$AGENTS_URL" 2>/dev/null \
-    && grep -q '<!-- memory-system:start -->' "$_tmp"; then _ok=1
+  _am_dir="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
+  _am="$_am_dir/agents-md.sh"; _am_tmp=""
+  if [ ! -f "$_am" ]; then
+    _am_tmp="$(mktemp)"; _am=""
+    curl -fsSL --connect-timeout 8 -m 60 -o "$_am_tmp" "$SELF_RAW/agents-md.sh" 2>/dev/null && _am="$_am_tmp"
   fi
-  if [ "$_ok" = 1 ]; then
-    python3 - "$_tmp" "$PROJ_AGENTS" <<'PYEOF'
-import re, sys, pathlib
-src = pathlib.Path(sys.argv[1]).read_text(encoding="utf8")
-m = re.search(r"<!-- memory-system:start -->.*?<!-- memory-system:end -->", src, re.S)
-if not m:
-    sys.exit("取到的源文件里找不到 memory-system 块")
-block = m.group(0)
-p = pathlib.Path(sys.argv[2])
-old = p.read_text(encoding="utf8") if p.exists() else ""
-cur = re.search(r"<!-- memory-system:start -->.*?<!-- memory-system:end -->", old, re.S)
-if cur and cur.group(0) == block:
-    print("已是最新: " + str(p)); raise SystemExit(0)
-new = (old[:cur.start()] + block + old[cur.end():]) if cur else (old.rstrip("\n") + "\n\n" + block + "\n" if old else block + "\n")
-pathlib.Path(sys.argv[2]).write_text(new, encoding="utf8")
-print(("已更新: " if cur else "已追加: ") + str(p))
-PYEOF
+  if [ -n "$_am" ]; then
+    bash "$_am" "$PROJ_AGENTS" --source "$_am_dir/AGENTS.tail.md" --raw "$SELF_RAW" \
+      || echo "WARN: AGENTS.md 注入失败(可手动粘 AGENTS.tail.md 的 memory-system 块)" >&2
   else
-    echo "WARN: 取不到规范块(不在仓库目录且下载失败),跳过" >&2
+    echo "WARN: 取不到 agents-md.sh,跳过记忆规范块注入" >&2
   fi
-  rm -f "$_tmp"
+  [ -z "$_am_tmp" ] || rm -f "$_am_tmp"
 fi
 echo "$n. 项目接入记忆系统(可选):上一步若跳过,可手动把本仓库 AGENTS.tail.md 的 memory-system 块粘到项目 AGENTS.md 的最尾部"; n=$((n+1))
 if [ -x "$CG_BIN" ]; then

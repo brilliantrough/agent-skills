@@ -644,6 +644,25 @@ if [ -f "$AR_INSTALL" ]; then
   fi
 fi
 
+# ---- 项目接入记忆系统(可选,默认不写):把 memory-system 块写到当前目录 AGENTS.md 最尾部 ----
+# 实现在仓库根 agents-md.sh(四个 setup 共用,幂等:同块不动/旧块原位替换/无块追加)。
+PROJ_AGENTS="$PWD/AGENTS.md"
+if ask '把记忆系统规范块写进当前目录 AGENTS.md 的最尾部(项目自身内容在前)？' N; then
+  _am_dir="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
+  _am="$_am_dir/agents-md.sh"; _am_tmp=""
+  if [ ! -f "$_am" ]; then
+    _am_tmp="$(mktemp)"; _am=""
+    curl -fsSL --connect-timeout 8 -m 60 -o "$_am_tmp" "$SELF_RAW/agents-md.sh" 2>/dev/null && _am="$_am_tmp"
+  fi
+  if [ -n "$_am" ]; then
+    bash "$_am" "$PROJ_AGENTS" --source "$_am_dir/AGENTS.tail.md" --raw "$SELF_RAW" \
+      || printf 'WARN: AGENTS.md 注入失败(可手动粘 AGENTS.tail.md 的 memory-system 块)\n' >&2
+  else
+    printf 'WARN: 取不到 agents-md.sh,跳过记忆规范块注入\n' >&2
+  fi
+  [ -z "$_am_tmp" ] || rm -f "$_am_tmp"
+fi
+
 echo '== 配置步骤结束 =='
 echo '1. 在 Codex /hooks 审阅并信任插件 hooks,然后重开会话;更新 hooks 后可能需要重新信任。'
 echo '2. 用 /mcp 检查连接,实际调用 claude-mem 查询和 CodeGraph 工具。'
