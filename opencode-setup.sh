@@ -1229,6 +1229,18 @@ else
   echo "提示: 未检测到 uv,跳过 strictdoc 安装(.sdoc 校验依赖);装好 uv 后重跑本脚本即可"
 fi
 
+# ---- 8.5 agent-reach(官方只读检索 CLI;与 strictdoc 同规则:缺才装,已装跳过)----
+# 安装器随 skills/base/agent-reach-install 同步到 ~/.agents/skills 后调用;
+# 已安装时不重装,不触碰 ~/.agent-reach 里的 X token 与浏览器登录态。
+AR_INSTALL="$HOME/.agents/skills/agent-reach-install/scripts/install.sh"
+if [ -f "$AR_INSTALL" ]; then
+  if command -v agent-reach >/dev/null 2>&1 || [ -x "$HOME/.local/bin/agent-reach" ]; then
+    echo "agent-reach 已存在,跳过(升级: agent-reach update)"
+  elif ask "安装 Agent Reach(官方 CLI + 无头浏览器,只读检索小红书/Reddit/X 等)?" Y; then
+    bash "$AR_INSTALL" || echo "WARN: agent-reach 安装失败(可稍后重试)" >&2
+  fi
+fi
+
 # ---- 完成:占位符清单 + 收尾动作 ----
 echo ""
 echo "== done. 需要你手工完成的 =="
