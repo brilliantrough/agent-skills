@@ -17,13 +17,20 @@
 
 <!-- 例如：没在 Windows 实机跑；只解冲突未改口径；素材权利未经审计 -->
 
+## 两条硬规则
+
+- [ ] **以引用方式引入**：新能力是外部 skill / CLI / 插件，本仓只做「装它 + 配它 + 说明它」；未把第三方源码搬进本仓
+- [ ] **未大改本仓**：未重写 `skills-sync.sh` 分组策略、合并引擎或分发链路（若确实需要，已在 issue 说明理由）
+- [ ] **已脱敏 · 路径**：无本地绝对路径、用户名、主机名、内网 IP、隧道域名
+- [ ] **已脱敏 · 凭据**：无 api key、token、password、**cookie**、登录态、会话或数据库样本（字段名可以留，值不行）
+
 ## 范围
 
 - [ ] 新增 skill，已放入对应组目录（`base` / `research` / `accel` / `kb` / `ppt`）
-- [ ] 改了 `*-setup.sh` 或 `skills-sync.sh` / `skills-external.sh`，新增选项**默认 N**
+- [ ] 新增外部依赖，已登记在 `skills-external.sh` 名字表或 `package.json` 的 `pi.extensions`
+- [ ] 改了 `*-setup.sh`，新增选项**默认 N**
 - [ ] 改了文档计数（README 标题、目录锚点、`all` 合计、`opencode/README.md`）
 - [ ] 新增第三方代码或素材，已更新 `NOTICE.md` / `ASSETS-NOTICE.md`
-- [ ] 未提交真实凭据、内网地址、个人绝对路径、会话数据
 - [ ] 未在分发链路里新增"取源"快捷方式
 
 ## 是否要合并

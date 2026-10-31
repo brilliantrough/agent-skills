@@ -74,15 +74,17 @@ hits=""
 while IFS= read -r f; do
   [ -f "$f" ] || continue
   h=$(grep -nE '(/home/[a-z]+/|C:/Users/[A-Za-z0-9_.-]+/|192\.168\.[0-9]+\.[0-9]+|10\.[0-9]+\.[0-9]+\.[0-9]+|sk-[A-Za-z0-9]{16,})' "$f" 2>/dev/null)
-  [ -z "$h" ] || hits="${hits}${f}:
-${h}
+  # 类密钥字面量：引号内 20+ 位 ASCII 串（排除 $VAR 与 <占位符>）；以及带真实值的 Cookie 头
+  h2=$(grep -nE '(api[_-]?key|secret|password|passwd|token|cookie|authorization)[[:space:]]*[:=][[:space:]]*["'"'"'][A-Za-z0-9_./+=-]{20,}["'"'"']|cookie:[[:space:]]*[A-Za-z0-9_%=-]{10,}' "$f" 2>/dev/null)
+  [ -z "$h$h2" ] || hits="${hits}${f}:
+${h}${h2}
 "
 done <<< "$files"
 if [ -n "$hits" ]; then
-  err "疑似个人路径/内网地址/密钥,逐条确认（示例与文档说明可豁免,硬编码进脚本不可）:
+  err "疑似个人路径 / 内网地址 / 密钥或 cookie 字面量，逐条确认（文档示例与字段名可豁免，真实值不可）:
 $hits"
 else
-  info "未发现个人路径与内网地址"
+  info "未发现个人路径、内网地址、密钥或 cookie 字面量"
 fi
 
 # ---- 5. 分发链路纪律 ----
