@@ -127,7 +127,7 @@ if [ "$PLUGINS_ONLY" = 0 ] && ask "更新 OpenCode 到最新版(opencode upgrade
 fi
 RAW="https://raw.githubusercontent.com/brilliantrough/dot_file/master"
 # 本仓原始文件入口：skills 同步器、项目规范块等；插件产物从固定 release 获取。
-SELF_RAW="https://raw.githubusercontent.com/brilliantrough/agent-skills/main"
+SELF_RAW="https://raw.githubusercontent.com/${AGENT_SKILLS_REPO:-brilliantrough/agent-skills}/${AGENT_SKILLS_REF:-main}"
 # merge_cfg <url> <dest> — 拉 dot_file 模板后做「字段级」合并,而非整文件覆盖:
 #   模板中的非敏感字段值优先 → 新默认值能下发到服务器;
 #   隐私内容永不覆盖:敏感键(api key / secret / token / password / credential / bearer / auth /
@@ -1161,7 +1161,7 @@ PYEOF
 fi
 
 # ---- 7. skills 本体 ----
-# 分组 = 仓库 skills/{base,research,accel,kb}/ 目录,策略由 skills-sync.sh 执行:
+# 分组 = 仓库 skills/{base,research,accel,kb,ppt}/ 目录,策略由 skills-sync.sh 执行:
 # base/research 每次刷新且漂移先备份;accel 缺才装(本机特化不覆盖);kb 每次刷新。
 # 客户端实体直落 ~/.agents/skills/<名>(装了 Claude Code 时同步 ~/.claude/skills/<名>)。
 # 同步器随后用 npx skills 补装外部设计依赖、更新已登记第三方。
@@ -1171,6 +1171,7 @@ if curl -fsSL --connect-timeout 8 -m 60 -o "$_ss" "$SELF_RAW/skills-sync.sh"; th
   ask "安装/更新 research 组(算法研究、实验、PyTorch 性能与 kernel;每次刷新·漂移自动备份)?" N && SKILL_GROUPS+=(research)
   ask "安装/更新 accel 组(算力平台模板;缺才装·本机特化不覆盖)?" N && SKILL_GROUPS+=(accel)
   ask "安装/更新 kb 组(公共算力知识;每次刷新)?" N && SKILL_GROUPS+=(kb)
+  ask "安装/更新 ppt 组(南京大学模板、ppt-master 与独立 Python 核心依赖;需 Python 3.10+)?" N && SKILL_GROUPS+=(ppt)
   bash "$_ss" "${SKILL_GROUPS[@]}" || echo "WARN: skills 同步未完全成功" >&2
 else
   echo "WARN: skills-sync.sh 下载失败,跳过(检查代理)" >&2
@@ -1261,7 +1262,7 @@ echo "      curl -s http://$(mem_worker_url)/api/health   # 端口取自 $SETTIN
 # ---- 项目接入记忆系统(可选,默认不写):把 memory-system 块写到当前目录的 AGENTS.md 最尾部 ----
 PROJ_AGENTS="$PWD/AGENTS.md"
 AGENTS_SRC="$(cd "$(dirname "$0")" 2>/dev/null && pwd)/AGENTS.tail.md"
-AGENTS_URL="https://raw.githubusercontent.com/brilliantrough/agent-skills/main/AGENTS.tail.md"
+AGENTS_URL="$SELF_RAW/AGENTS.tail.md"
 if ask "把记忆系统规范块写进 $PROJ_AGENTS 的最尾部(项目自身内容在前)?" N; then
   _tmp="$(mktemp)"; _ok=0
   # 本地 AGENTS.tail.md 只有在确实含规范块、且不是目标文件本身时才算源;否则一律下载

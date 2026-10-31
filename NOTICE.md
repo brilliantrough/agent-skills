@@ -47,5 +47,12 @@ The OpenCode configuration migration bundle uses the official normalizer from
 `@opencode/core` 2.2.3 and its dependencies, plus `jsonc-parser` 3.3.1.
 Source: https://github.com/anomalyco/opencode. The release includes dependency
 license texts under `config-licenses/`.
+`skills/ppt/nju-ppt/assets/` includes user-supplied Nanjing University template
+artwork and derived slide layouts. The contributor confirmed permission for public
+distribution on 2026-10-29, including feature-branch installation testing.
+The repository MIT license does not grant rights to that artwork or its marks.
+See `skills/ppt/nju-ppt/ASSETS-NOTICE.md`. This is not a university-endorsed product.
+The external `hugohe3/ppt-master` engine is installed separately, not vendored here;
+its license and attribution requirements remain applicable.
 
 All other files are original works of brilliantrough.

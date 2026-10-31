@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # 三套 setup 经 skills-sync.sh 调用；也可单跑。
-# 补装三个设计依赖并更新已登记第三方；--uninstall 反安装；--yes 免询问。
+# 三个设计依赖安装前询问；--ppt另补PPT引擎；--uninstall反安装设计依赖；--yes免询问。
 # 第三方副本由上游管理；个人改动放回本仓 skill。同名本地/其他源保留并告警。
 set -euo pipefail
+with_ppt=0
 command -v npx >/dev/null 2>&1 && command -v node >/dev/null 2>&1 || {
   echo "WARN: 缺少 Node/npx，外部 skill 未安装/更新" >&2; exit 1;
 }
@@ -20,6 +21,8 @@ for arg in "$@"; do
   case "$arg" in
     -y|--yes) ASSUME_YES=1 ;;
     --uninstall) UNINSTALL=1 ;;
+    --ppt) with_ppt=1 ;;
+    *) echo "用法: $0 [--ppt] [--yes] [--uninstall]" >&2; exit 2 ;;
   esac
 done
 
@@ -82,18 +85,20 @@ fi
 migrate_obsolete_skills
 
 # 非交互（管道、CI）默认安装，保持原行为；SKILLS_EXTERNAL=skip 只跳安装，不跳迁移。
+with_design=1
 if [ "${SKILLS_EXTERNAL:-install}" = skip ]; then
   echo "SKILLS_EXTERNAL=skip：跳过外部设计依赖安装"
-  exit 0
+  with_design=0
 fi
-if [ "$ASSUME_YES" = 0 ] && [ -t 0 ]; then
+if [ "$with_design" = 1 ] && [ "$ASSUME_YES" = 0 ] && [ -t 0 ]; then
   printf '外部设计依赖（3 个）：%s\n' "$DESIGN_SKILLS"
   printf 'personal-ui-taste 按需引用；不装则降级为内置方法。安装/更新？[Y/n] '
   read -r ans || ans=y
   case "${ans:-y}" in
-    [Nn]*) echo "已跳过；稍后安装：bash $ROOT/skills-external.sh"; exit 0 ;;
+    [Nn]*) echo "已跳过设计依赖；稍后安装：bash $ROOT/skills-external.sh"; with_design=0 ;;
   esac
 fi
+[ "$with_design" = 1 ] || [ "$with_ppt" = 1 ] || exit 0
 
 claude_safe() {
   local canonical="$HOME/.agents/skills/$1" mirror="$HOME/.claude/skills/$1"
@@ -130,9 +135,12 @@ JS
   fi
 }
 
-ensure_skill nextlevelbuilder/ui-ux-pro-max-skill ui-ux-pro-max
-ensure_skill alchaincyf/huashu-design huashu-design
-ensure_skill Leonxlnx/taste-skill design-taste-frontend
+if [ "$with_design" = 1 ]; then
+  ensure_skill nextlevelbuilder/ui-ux-pro-max-skill ui-ux-pro-max
+  ensure_skill alchaincyf/huashu-design huashu-design
+  ensure_skill Leonxlnx/taste-skill design-taste-frontend
+fi
+[ "$with_ppt" = 0 ] || ensure_skill hugohe3/ppt-master ppt-master
 
 third=$(node - "$ROOT" <<'JS'
 const fs = require('node:fs');
@@ -141,14 +149,16 @@ const lockPath = path.join(require('node:os').homedir(), '.agents', '.skill-lock
 const skills = fs.existsSync(lockPath) ? JSON.parse(fs.readFileSync(lockPath, 'utf8')).skills : {};
 const mine = 'brilliantrough/agent-skills';
 const own = new Set();
-for (const group of ['base', 'research', 'accel', 'kb']) {
+for (const group of ['base', 'research', 'accel', 'kb', 'ppt']) {
   const dir = path.join(process.argv[2], 'skills', group);
+  if (!fs.existsSync(dir)) continue;
   for (const name of fs.readdirSync(dir)) if (fs.existsSync(path.join(dir, name, 'SKILL.md'))) own.add(name);
 }
 const expected = {
   'ui-ux-pro-max': 'nextlevelbuilder/ui-ux-pro-max-skill',
   'huashu-design': 'alchaincyf/huashu-design',
-  'design-taste-frontend': 'Leonxlnx/taste-skill'
+  'design-taste-frontend': 'Leonxlnx/taste-skill',
+  'ppt-master': 'hugohe3/ppt-master'
 };
 // 上游已把它并入 design-taste-frontend；旧机器上的残留目录不进入更新列表。
 const obsolete = new Set(['redesign-existing-projects']);
