@@ -22,6 +22,16 @@
 | DeepSeek Harness | 固定兼容组合；原生 DeepSeek 通道、TUI 与套件工具 |
 | Codex | best effort；复用 skills 原文，不改工作流 |
 
+**四宿主的 skills 与第三方依赖是同一份**：skill 实体、设计依赖、`ppt-master` 引擎、`nju-ppt` 的独立 venv、`agent-reach` CLI（`~/.local/bin`）都装在 `~/.agents/skills` 或 `~/.local` 下，四个宿主都能用。差异只在安装入口：
+
+| 能力 | OpenCode | Pi | DSH | Codex |
+|---|---|---|---|---|
+| skills 基础组 + `research`/`accel`/`kb`/`ppt` 可选组 | ✓ | ✓ | ✓ | ✓ |
+| `agent-reach` 只读检索 CLI（询问，默认 N） | ✓ | ✓ | ✓ | ✓ |
+| 记忆规范块写进项目 `AGENTS.md` | ✓ | ✓ | — | — |
+
+DSH 与 Codex 的入口只负责装 skills 与 CLI，不含配置合并；`AGENTS.md` 规范块在 DSH/Codex 里手工粘，或先跑一次 Pi/OpenCode 安装。
+
 [快速安装](#快速安装) · [Skills](#skills本仓-37-个) · [首次部署](#首次部署只需要网关--5-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [DSH](dsh/README.md) · [OpenCode](#opencode-安装与迁移) · [更新](#更新) · [贡献](CONTRIBUTING.md)
 
 ## 快速安装

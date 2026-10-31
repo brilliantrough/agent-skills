@@ -2,7 +2,7 @@
 # DeepSeek Harness 套件安装：独立 Node/运行目录，保留已有 profile、凭据与会话。
 set -euo pipefail
 RAW=https://raw.githubusercontent.com/brilliantrough/dot_file/master
-SELF_RAW=https://raw.githubusercontent.com/brilliantrough/agent-skills/main
+SELF_RAW=https://raw.githubusercontent.com/${AGENT_SKILLS_REPO:-brilliantrough/agent-skills}/${AGENT_SKILLS_REF:-main}
 YES=0
 for arg in "$@"; do
   case "$arg" in
@@ -136,7 +136,22 @@ if [[ -n "$previous" && -L "$previous" ]]; then
 fi
 if ask '同步基础 skills（base；复用 ~/.agents/skills）？' Y; then
   curl -fsSL --connect-timeout 8 -m 60 "$SELF_RAW/skills-sync.sh" -o "$STAGE/skills-sync.sh"
-  bash "$STAGE/skills-sync.sh" base
+  SKILL_GROUPS=(base)
+  ask '安装/更新 research 组（算法研究、实验、PyTorch 性能与 kernel；每次刷新·漂移自动备份）？' N && SKILL_GROUPS+=(research)
+  ask '安装/更新 accel 组（算力平台模板；缺才装·本机特化不覆盖）？' N && SKILL_GROUPS+=(accel)
+  ask '安装/更新 kb 组（公共算力知识；每次刷新）？' N && SKILL_GROUPS+=(kb)
+  ask '安装/更新 ppt 组（南京大学模板、ppt-master 与独立 Python 核心依赖；需 Python 3.10+）？' N && SKILL_GROUPS+=(ppt)
+  bash "$STAGE/skills-sync.sh" "${SKILL_GROUPS[@]}" || printf 'WARN: skills 同步未完全成功\n' >&2
+
+  # agent-reach：官方只读检索 CLI；缺才装、已装跳过，不触碰 ~/.agent-reach 里的凭据与登录态
+  AR_INSTALL="$HOME/.agents/skills/agent-reach-install/scripts/install.sh"
+  if [[ -f "$AR_INSTALL" ]]; then
+    if command -v agent-reach >/dev/null 2>&1 || [[ -x "$HOME/.local/bin/agent-reach" ]]; then
+      printf 'agent-reach 已存在，跳过（升级： agent-reach update）\n'
+    elif ask '安装 Agent Reach（官方 CLI + 无头浏览器，只读检索小红书/Reddit/X 等；体积较大）？' N; then
+      bash "$AR_INSTALL" || printf 'WARN: agent-reach 安装失败（可稍后重试）\n' >&2
+    fi
+  fi
 fi
 printf '\n安装完成。新终端运行 dsh tui；批处理运行 dsh --profile headless "任务"。\n'
 if [[ ! -f "$claude_bundle/lib/index.js" ]]; then

@@ -57,7 +57,7 @@ dsh web
 | context-mode fork | 官方 DSH MCP 客户端，复用本仓 release | `ctxm_*` 工具；配套 skills 自动挂载 |
 | Magic Context | `wk544863858/dsh-plugin-magic-context` 固定源码构建 | DSH 专属 `home/magic-context/`；不打开 Pi/OpenCode 的共享库 |
 | claude-mem | 已安装的官方 `@claude-mem/dsh` | 复用现有 worker，官方 recall 工具；转录采集通过官方 schema |
-| skills、项目指令 | DSH 原生发现 | `~/.agents/skills`、项目 `.agents/skills`、`AGENTS.md` |
+| skills、项目指令 | DSH 原生发现 | `~/.agents/skills`、项目 `.agents/skills`、`AGENTS.md`；`dsh-setup.sh` 可选装 `base` 与 `research`/`accel`/`kb`/`ppt` 组（均默认 N），并可询问安装 `agent-reach` |
 
 Ponytail 使用[上游原版](https://github.com/DietrichGebert/ponytail)，通过现有 `pi2dsh` 扩展桥加载；TUI、Web、headless 共用这一份包，默认启用 full。TUI 常用命令：
 

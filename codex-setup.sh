@@ -632,6 +632,18 @@ else
 fi
 rm -f "$_ss"
 
+# ---- 5.5 agent-reach(官方只读检索 CLI;缺才装,已装跳过;默认不装,要装需确认)----
+# 安装器随 skills/base/agent-reach-install 同步到 ~/.agents/skills 后调用;
+# 已安装时不重装,不触碰 ~/.agent-reach 里的 X token 与浏览器登录态。
+AR_INSTALL="$HOME/.agents/skills/agent-reach-install/scripts/install.sh"
+if [ -f "$AR_INSTALL" ]; then
+  if command -v agent-reach >/dev/null 2>&1 || [ -x "$HOME/.local/bin/agent-reach" ]; then
+    echo 'agent-reach 已存在,跳过(升级: agent-reach update)'
+  elif ask '安装 Agent Reach(官方 CLI + 无头浏览器,只读检索小红书/Reddit/X 等;体积较大)?' N; then
+    bash "$AR_INSTALL" || warn 'agent-reach 安装失败(可稍后重试)'
+  fi
+fi
+
 echo '== 配置步骤结束 =='
 echo '1. 在 Codex /hooks 审阅并信任插件 hooks,然后重开会话;更新 hooks 后可能需要重新信任。'
 echo '2. 用 /mcp 检查连接,实际调用 claude-mem 查询和 CodeGraph 工具。'
