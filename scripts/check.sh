@@ -11,7 +11,7 @@ info() { printf '  %s\n' "$*"; }
 
 # ---- 1. 脚本语法 ----
 echo "== 1. 语法 =="
-for f in pi-setup.sh opencode-setup.sh codex-setup.sh dsh-setup.sh skills-sync.sh skills-external.sh scripts/check.sh; do
+for f in pi-setup.sh opencode-setup.sh codex-setup.sh dsh-setup.sh skills-sync.sh skills-external.sh modules/run.sh scripts/check.sh; do
   [ -f "$f" ] || { err "缺文件 $f"; continue; }
   bash -n "$f" 2>/dev/null || err "bash -n 失败: $f"
 done
@@ -99,6 +99,21 @@ for f in pi-setup.sh opencode-setup.sh codex-setup.sh dsh-setup.sh; do
   grep -q 'memory-system:start' "$f" && err "$f 里又出现了记忆规范块实现（应只在 skills-sync.sh）"
 done
 info "记忆规范块注入只在 skills-sync.sh"
+
+# 模块契约：元数据齐全、默认 N（写 Y 必须在 desc 里说明）、四个 setup 都走通用分发
+for d in modules/*/; do
+  [ -f "$d/setup.sh" ] || continue
+  n="$(sed -n 's/^# module:[[:space:]]*//p' "$d/setup.sh" | head -1)"
+  [ "$n" = "$(basename "$d")" ] || err "$d 的 # module: 与目录名不一致（得到 '${n:-空}'）"
+  sed -n 's/^# desc:[[:space:]]*//p' "$d/setup.sh" | grep -q . || err "$d 缺 # desc:"
+  def="$(sed -n 's/^# default:[[:space:]]*//p' "$d/setup.sh" | head -1)"
+  case "$def" in N|Y) ;; *) err "$d 的 # default: 缺失或不是 N/Y（得到 '${def:-空}'）" ;; esac
+  sed -n 's/^# hosts:[[:space:]]*//p' "$d/setup.sh" | grep -q . || err "$d 缺 # hosts:"
+done
+for f in pi-setup.sh opencode-setup.sh codex-setup.sh dsh-setup.sh; do
+  grep -q 'modules/run.sh' "$f" || err "$f 未接通用模块分发（modules/run.sh）"
+done
+info "模块契约与通用分发入口检查完成"
 
 echo
 if [ "$fail" = 0 ]; then echo "PASS: 公开体检通过"; else echo "FAIL: 见上方 ERROR"; fi

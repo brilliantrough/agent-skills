@@ -143,15 +143,19 @@ if ask '同步基础 skills（base；复用 ~/.agents/skills）？' Y; then
   ask '安装/更新 ppt 组（南京大学模板、ppt-master 与独立 Python 核心依赖；需 Python 3.10+）？' N && SKILL_GROUPS+=(ppt)
   ASSUME_YES="$YES" bash "$STAGE/skills-sync.sh" "${SKILL_GROUPS[@]}" || printf 'WARN: skills 同步未完全成功\n' >&2
 
-  # agent-reach：官方只读检索 CLI；缺才装、已装跳过，不触碰 ~/.agent-reach 里的凭据与登录态
-  AR_INSTALL="$HOME/.agents/skills/agent-reach-install/scripts/install.sh"
-  if [[ -f "$AR_INSTALL" ]]; then
-    if command -v agent-reach >/dev/null 2>&1 || [[ -x "$HOME/.local/bin/agent-reach" ]]; then
-      printf 'agent-reach 已存在，跳过（升级： agent-reach update）\n'
-    elif ask '安装 Agent Reach（官方 CLI + 无头浏览器，只读检索小红书/Reddit/X 等；体积较大）？' N; then
-      bash "$AR_INSTALL" || printf 'WARN: agent-reach 安装失败（可稍后重试）\n' >&2
-    fi
-  fi
+# ---- 可选模块:统一分发(新增模块只加 modules/<名>/,本脚本不用改)----
+_amod="$(cd "$(dirname "$0")" 2>/dev/null && pwd)/modules/run.sh"
+if [ ! -f "$_amod" ]; then
+  _amod="$(mktemp)"
+  curl -fsSL --connect-timeout 8 -m 60 -o "$_amod" "$SELF_RAW/modules/run.sh" 2>/dev/null || _amod=""
+fi
+_mod_yes=""; [ "$YES" = 1 ] && _mod_yes="--yes"
+if [ -n "$_amod" ]; then
+  bash "$_amod" --host dsh --repo "${AGENT_SKILLS_REPO:-brilliantrough/agent-skills}" \
+    --ref "${AGENT_SKILLS_REF:-main}" $_mod_yes || printf 'WARN: 模块安装未完全成功\n' >&2
+else
+  printf 'WARN: 取不到 modules/run.sh,跳过可选模块\n' >&2
+fi
 fi
 printf '\n安装完成。新终端运行 dsh tui；批处理运行 dsh --profile headless "任务"。\n'
 if [[ ! -f "$claude_bundle/lib/index.js" ]]; then

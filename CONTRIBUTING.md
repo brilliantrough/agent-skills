@@ -53,7 +53,7 @@ description: 一句话说明用途与触发场景。
 | 官方 CLI / 引擎（如 `ppt-master`） | setup 里按精确 repo 名安装 + 写配置 | vendored 源码、改上游全局索引或用户全局状态 |
 | 宿主插件 / 主题 | `package.json` 的 `pi.extensions` / `pi.themes` 登记，配置走模板 | 复制上游插件源码后大改 |
 | 默认值、开关 | 配置模板里加字段，由合并引擎分发 | 改合并引擎本身 |
-| 新的安装选项 | `ask "..." N` 一行 + 装/配 | 重写 `skills-sync.sh` 的分组与策略 |
+| 可选能力（要装东西或写配置） | 加一个 `modules/<名>/`，根脚本零改动 | 在四个 `*-setup.sh` 里各写一份 |
 
 配套约定：
 
@@ -62,6 +62,32 @@ description: 一句话说明用途与触发场景。
 - **确实需要大改同步器、合并引擎或分发链路**时，先开 issue 说明为什么一行引用做不到；不要直接在 PR 里重写。
 
 整目录复制第三方源码不接受：上游一更新，本地改动静默消失。
+
+### 可选能力走 modules/
+
+四个 `*-setup.sh` 共 3900 行，绝大部分是宿主特有的配置合并。新能力不要再往这四个文件里加块——今天加一个能力要改四处，实测漏掉过一个宿主的。
+
+做法：加一个目录，根脚本不用动。
+
+```text
+modules/<名>/
+  setup.sh         必须；文件头四行元数据
+  README.md        建议；装什么、怎么退、怎么验
+  AGENTS.block.md  可选；默认不写，见下
+```
+
+```bash
+# module: <名>        与目录名一致
+# desc: <一句话>       提问时显示
+# default: N          默认 N；写 Y 要有理由
+# hosts: any          或 pi,opencode,codex,dsh
+```
+
+`setup.sh` 的契约与 `modules/README.md` 一致：接收 `--host`、自身不提问、幂等、只改自己负责的东西、不留半成品。完整条目见 [modules/README.md](modules/README.md)。
+
+**AGENTS.block.md 默认不写。** `AGENTS.tail.md` 的内容会进每个项目、每次会话的提示，只有"每轮都在起作用"的约定才配占这个位置（记忆三件套、技术写作口径、上下文纪律）。显式调用的工具——`ppt-master` 做 PPT、`image_gen` 画图、`agent-reach` 读帖——靠 skill 的 `description` 就能被选中，写进去只是让所有人每一轮都为它付 token。判定：**每轮都在起作用，还是被叫到时才起作用？**
+
+现有内联块（codegraph、strictdoc、notify 插件等）暂时不动，改到时顺手搬一个；不做一次性大迁移。
 
 ## 三、改动 setup 脚本
 
