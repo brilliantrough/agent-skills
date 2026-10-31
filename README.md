@@ -206,6 +206,12 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 | `editable-vector-slides` | SVG/PDF 科研图 → 可编辑矢量 PDF + 原生 PPTX；保留路径/文字/渐变/阴影，非截图；含依赖安装、验收与踩坑清单 |
 | `image-gen` | `image_gen` 工具说明：文生图、参考图编辑、多张参考图、参数与默认值、返回与落盘、宿主差异、失败含义。只讲接口不规定风格 |
 
+### 外部工具（官方包，随 setup 缺才装）
+
+| Skill | 用途 | 安装方式 |
+|---|---|---|
+| `agent-reach-install` | Agent Reach 官方 CLI 安装与用法（只读检索小红书/Reddit/X/B站等） | `pi-setup.sh` / `opencode-setup.sh` 在 skills 同步后调用其 `scripts/install.sh`；缺 `agent-reach` 才装官方包，已装跳过，不动凭据与登录态 |
+
 ## 依赖
 
 | 类别 | 依赖 |
