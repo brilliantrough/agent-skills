@@ -1,85 +1,103 @@
 ---
 name: image-gen
-description: 出位图作为可选手段：用宿主自带的 image_gen 工具画示意图、概念图、海报、图标，或在用户明确要图时出图。Use when the user asks for a picture, poster, illustration, icon, cover, or when one bitmap conveys a concept faster than text — and to avoid the common mistake of drawing a flowchart that should have been vector. Covers prompt structure, size/quality/cost trade-offs, reference-image editing, host differences (Pi/OpenCode/DSH) and failure messages. 画图只是可选项，先判断能不能矢量。
+description: image_gen 工具说明：用宿主自带的 image_gen 画图或改图，覆盖文生图、参考图编辑、多张参考图、size/quality/background/model 参数、返回与落盘、宿主差异、失败含义。只描述工具接口与行为，不规定项目的审美、风格或出图流程。Use when the user asks for a picture, poster, illustration, icon or cover, or when you need the tool's exact parameters, host behavior or failure meanings.
 ---
 
 # image-gen
 
 工具：`image_gen(prompt, reference?, size?, quality?, background?, model?)`，三宿主同名（Pi / OpenCode v2 / DSH）。凭据与默认值在 `~/.local/share/agent-skills/image-gen.json`。
 
-## 1. 先判断该不该出位图
+本 skill 只说明工具能力与行为。画什么、用什么风格、要不要画，由调用方（项目自己的规范或用户 prompt）决定。
 
-画图是**可选项**，不是回答的默认配饰。
+## 1. 能做什么
 
-值得画：
-
-- 用户明确要图（海报、封面、图标、插图、示意图）
-- 一个概念用文字要多段，一张概念图能一句话说清
-- 需要"氛围/风格"，而不是精确结构
-
-**不要画**：
-
-| 需求 | 用什么 |
+| 能力 | 说明 |
 | --- | --- |
-| 流程、架构、时序、网络拓扑 | `drawio`（矢量、可改、文字清晰） |
-| 论文/汇报图，要进 PPT 或 PDF | `editable-vector-slides`（原生可编辑） |
-| 图里有精确代码、公式、长句 | HTML/SVG 或 drawio；gpt-image 画字会糊、会拼错 |
-| 图要能二次编辑 | 同左：位图不能改 |
-| 用户没要，你觉得"配一张更好看" | 最多主动提议一次，别直接画 |
+| 文生图 | 给 `prompt` 即走 `/images/generations`，返回一张位图 |
+| 参考图编辑 | 给 `reference`（绝对路径数组）即走 `/images/edits`，可传一张或多张 |
+| 透明底 | `background: "transparent"` |
+| 尺寸与画质 | `size`、`quality` 透传给渠道 |
+| 指定模型 | `model` 覆盖默认模型 |
 
-一句话判据：**要精确、要改、要文字 → 矢量；要观感、要氛围 → 位图。**
+不能做：
 
-## 2. 写 prompt
+- **只出位图**，不是可编辑矢量/SVG；需要精确文字、公式、真实数据或二次编辑时，位图不合适
+- **一次调用一张图**（内部固定 `n: 1`）；要几张就调几次
+- 不保证图中文字正确 —— 生成模型自身的限制，调 `quality` 或 `size` 都不改变这一点
 
-自己写，不要贴聊天原文或把整段需求扔进去。顺序：
+## 2. 文生图
 
-1. 主体与数量：画面里到底有什么，几个
-2. 结构与构图：横向流程 / 中心辐射 / 左右对比 / 三分法；有没有分栏、编号、箭头方向
-3. 必须出现的文字：逐条列出，越少越好，每条几个字，不要句子
-4. 风格一句话：扁平矢量插画 / 极简线稿 / 拟物 3D / 手绘白板 / 摄影级实拍
-5. 配色：明度与主色（"深蓝底 + 青色高亮"），或点名一个既有色板
-6. 不要什么：不要水印、不要乱码文字、不要装饰边框
+```json
+{ "prompt": "希望画面里出现的内容" }
+```
 
-风格方向从**已加载的设计 skill** 取（`personal-ui-taste`、`design-taste-frontend`、`huashu-design`、`ui-ux-pro-max`），取其一句结论落进 prompt；不要在 prompt 里复述整套设计规范。
+## 3. 参考图编辑
 
-## 3. 参数
+```json
+{ "prompt": "保留什么、只改什么", "reference": ["/abs/path/a.png", "/abs/path/b.png"] }
+```
 
-| 参数 | 选择 |
-| --- | --- |
-| `size` | 默认 `1024x1024`；横向流程图 `1536x1024`；横幅/封面 `2048x1152`；最大到 `3840x2160` |
-| `quality` | 草稿 `low`；文档与说明图 `medium`（默认）；封面海报 `high` 以上；`auto` 交渠道决定 |
-| `background` | 图标、贴图、要贴到深色底上 → `transparent` |
-| `model` | 不填按有无参考图取默认：文生图 `gpt-image-2.5-flare`（快）；给了参考图走精修 `gpt-image-2.5-sunburst`（慢但编辑更可控） |
-| `reference` | 绝对路径数组，给了就走图生图 |
+多张参考图一起传；不给 `reference` 就是文生图。编辑结果可能与原图有未要求的差异，原图请自行保留。
 
-成本纪律：按张计费、随 `size × quality` 上升；单图几百 KB 会进会话历史。**同一次对话里不要连画多张**，先用 `low` 定构图再升档出成品。
+## 4. 参数
 
-## 4. 参考图（改图/换风格）
+| 参数 | 类型与取值 | 说明 |
+| --- | --- | --- |
+| `prompt` | 字符串，必填 | 画面内容；参考图编辑时写修改要求 |
+| `reference` | 字符串数组（绝对路径） | 给了走参考图编辑 |
+| `size` | 如 `1024x1024`、`1536x1024`、`2048x1152` | 默认取配置（`1024x1024`）；本机实测可用到 `3840x2160`，实际支持范围由渠道决定 |
+| `quality` | `auto` / `low` / `medium` / `high` / `xhigh` / `max` | 默认取配置（`medium`）；档位越高越慢越贵，不改变像素尺寸 |
+| `background` | `transparent` / `opaque` | 透明底用于图标、贴图 |
+| `model` | 字符串 | 默认：文生图 `gpt-image-2.5-flare`，有参考图时 `gpt-image-2.5-sunburst` |
 
-给绝对路径即走 `/images/edits`，默认换用 `gpt-image-2.5-sunburst`：改配色、换风格、加元素，比重新描述一遍稳。多个参考图一起给。改局部时 prompt 说清"保留什么、只改什么"。
+## 5. 返回与落盘
 
-只在要大改构图时退回 `flare`（快）：细修一次不满意就再修一次，比一次高画质重画便宜。
+返回三项：落盘路径、一行 `模型 · 尺寸 · 画质 · 格式 · 体积` 摘要、图片本身（宿主是否把它交给模型见第 6 节）。
 
-## 5. 宿主差异
+- 目录：`output_dir`，默认项目 cwd 下的 `images/`，不存在则创建
+- 文件名：ISO 时间戳 + prompt 前 40 字，扩展名取渠道返回的 `output_format`
+- 单图几百 KB，会进会话历史
+
+## 6. 宿主差异
 
 | 宿主 | 差异 |
 | --- | --- |
-| Pi | 视觉模型直接看到图；纯文本模型只拿到路径和说明 |
-| OpenCode v2 | 图以 `data:` 附件进会话；**要在 TUI 里看到预览需 `session.image_preview` 为 true**（默认关） |
-| DSH | 走 DSH 原生附件 |
+| Pi | 当前模型 input 含 `image` 时把图作为附件返回；纯文本模型只拿到路径与摘要，会附一句提示 |
+| OpenCode v2 | 图以 `data:` 文件附件进会话；TUI 里显示预览需 `session.image_preview=true`（默认关） |
+| DSH | 同一 Pi 扩展经 `pi2dsh` 转成 DSH 原生附件 |
 
-模型看不了图时，把落盘路径给用户，让他自己打开；不要说"已画好，见上"。
+模型看不到图时，把路径交给用户自己打开，不要说"图在下面"。
 
-## 6. 失败怎么读
+## 7. 失败怎么读
 
-| 现象 | 原因 |
+工具**不自动重试**，失败即抛错，需要重试就自己再调一次。
+
+| 报错 | 含义 |
 | --- | --- |
-| `503 ... 无可用渠道` / `model_not_found` | 网关没给这个 key 开图像渠道，或模型名写错；换 key 分组或改名，别改 prompt |
-| `401` | key 无效 |
-| `缺少图像接口凭据` | `image-gen.json` 没填；写 `base_url` + `api_key`，或装机器时设 `PI_IMAGE_GEN_API_KEY` |
-| 返回里没图 | 渠道返回格式不对，看报错原文前 300 字 |
-| 超时 | 大尺寸 + 高画质；降到 `medium` 或 `1024x1024` 重试 |
+| `图像接口 503 … 无可用渠道` / `model_not_found` | 网关没给这个 key 开该模型渠道，或模型名写错 |
+| `图像接口 401` | key 无效 |
+| `缺少图像接口凭据` | `image-gen.json` 缺 `base_url` 或 `api_key` |
+| `图像接口返回非 JSON（HTTP …）` | 渠道返回了 HTML/网关页，原文附在前 300 字 |
+| `图像接口没返回图片` | 返回体里没有 `data[0].b64_json`，原文附在前 300 字 |
+| 超时 / 中断 | 大尺寸或高画质；`signal` 取消或降档重试 |
 
-## 7. 落盘
+## 8. 配置
 
-图存到项目内 `images/`（配置项 `output_dir`），文件名带时间戳和 prompt 摘要。项目不需要留图时提示用户 `.gitignore` 它。
+`~/.local/share/agent-skills/image-gen.json`（`0600`，`IMAGE_GEN_CONFIG` 可改路径）：
+
+```json
+{
+  "base_url": "https://api.example.com/v1",
+  "api_key": "...",
+  "model": "gpt-image-2.5-flare",
+  "edit_model": "gpt-image-2.5-sunburst",
+  "output_dir": "images",
+  "size": "1024x1024",
+  "quality": "medium"
+}
+```
+
+- 文件不存在时，从 `~/.pi/agent/models.json` 里挑第一个 `api` 以 `openai` 开头、凭据和 `baseUrl` 都填好的 provider 自动写入；挑不到就写空模板并报错
+- `pi-setup.sh` / `opencode-setup.sh` 会补齐缺字段，已有的 `base_url` / `api_key` 一律保留
+- 无人值守可用 `PI_IMAGE_GEN_API_KEY` 预填
+- 参数优先级：单次调用参数 > `image-gen.json` > 内置默认值

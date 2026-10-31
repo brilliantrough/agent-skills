@@ -203,7 +203,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 | Skill | 用途 |
 |---|---|
 | `editable-vector-slides` | SVG/PDF 科研图 → 可编辑矢量 PDF + 原生 PPTX；保留路径/文字/渐变/阴影，非截图；含依赖安装、验收与踩坑清单 |
-| `image-gen` | 出位图作为可选手段：示意图/概念图/海报/图标；prompt 结构、尺寸与画质成本、图生图、宿主差异、失败对照。先判断能不能矢量 |
+| `image-gen` | `image_gen` 工具说明：文生图、参考图编辑、多张参考图、参数与默认值、返回与落盘、宿主差异、失败含义。只讲接口不规定风格 |
 
 ## 依赖
 
@@ -495,7 +495,7 @@ skills 重跑套件同步器即可；共享目录的更新也影响 OpenCode。c
 
 - 首次运行自动从 Pi 的 `models.json` 挑一个 OpenAI 协议 provider，写 `~/.local/share/agent-skills/image-gen.json`（`0600`）；填 `base_url`、`api_key`，可选 `model`／`output_dir`／`size`／`quality`
 - `pi-setup.sh`／`opencode-setup.sh` 会把缺的字段补上（已有值保留）；拿不到 key 就不建文件——画图是**可选能力**，不阻塞安装，无人值守用 `PI_IMAGE_GEN_API_KEY`
-- 什么时候该画、prompt 怎么写、尺寸与画质成本、失败对照：`skills/base/image-gen`（base 组，随 skills 一起装）
+- 工具接口、参数、返回与落盘、宿主差异、失败含义：`skills/base/image-gen`（base 组，随 skills 一起装；只说明能力，画什么与风格由调用方决定）
 - 默认 `gpt-image-2.5-flare`；支持 `gpt-image-2.5-sunburst`、`gpt-image-2`、`gpt-image-1.5` 等网关已售模型
 - 文生图走 `POST /v1/images/generations`；给参考图走 `POST /v1/images/edits`（multipart `image[]`）
 - 图片存到项目 `images/`，同时作为图片内容返回模型；纯文本模型（如 `deepseek-flash`）不附图，只回路径并提示用户自己看
