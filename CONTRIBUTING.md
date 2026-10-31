@@ -85,35 +85,25 @@ ask "安装/更新 X 组(说明;缺才装·本机特化不覆盖)?" N && GROUPS+
 
 ## 五、提交前自检
 
-仓库的完整自检脚本不随分发，可跑下面这些等价的最小检查：
+仓库的完整自检脚本不随分发；这一半是公开的，提交前跑：
 
 ```bash
-bash -n pi-setup.sh opencode-setup.sh codex-setup.sh dsh-setup.sh skills-sync.sh skills-external.sh
-python3 -m py_compile skills/*/*/scripts/*.py 2>/dev/null
-
-# 结构：组目录只能是这五个；每个 skill 目录必须有 SKILL.md；不跨组重名
-python3 - <<'PY'
-import os, collections
-G = {"base", "research", "accel", "kb", "ppt"}
-seen, bad = collections.Counter(), []
-for g in sorted(os.listdir("skills")):
-    if not os.path.isdir(f"skills/{g}"):
-        continue
-    if g not in G:
-        bad.append(f"未知组目录 {g}")
-        continue
-    for s in sorted(os.listdir(f"skills/{g}")):
-        d = f"skills/{g}/{s}"
-        if os.path.isdir(d):
-            if not os.path.exists(f"{d}/SKILL.md"):
-                bad.append(f"{d} 缺 SKILL.md")
-            seen[s] += 1
-bad += [f"{s} 跨组重名" for s, c in seen.items() if c > 1]
-print("\n".join(bad) or "结构 OK")
-PY
+bash scripts/check.sh
 ```
 
-再人眼确认：`README.md` 的计数与 `skills/` 实际数量一致。
+它检查：脚本语法、skills 组结构（组目录白名单 / `SKILL.md` 必在 / 不跨组重名）、README 计数与实际数量一致、已入库文件里的个人路径与内网地址、`skills-sync.sh` 取源仍走 GitHub。
+
+再跑与改动相关的回归（不联网、不碰真实 `HOME`）：
+
+```bash
+python3 tests/merge-private-preservation.py   # 私密值保留
+python3 tests/nju-ppt-install.py              # 安装与分组策略
+node tests/pretty-tui-grouping.mjs            # 或其它 tests/*.mjs
+```
+
+只改文档时也要跑 `check.sh`：计数漂移在那一步就能发现。
+
+PR 推送后 GitHub Actions 会跑同样的检查；红着不要合。
 
 ## 六、PR 要求
 
