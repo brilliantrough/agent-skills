@@ -626,7 +626,7 @@ if curl -fsSL --connect-timeout 8 -m 60 -o "$_ss" "$SELF_RAW/skills-sync.sh"; th
   ask "安装/更新 accel 组(算力平台模板;缺才装·本机特化不覆盖)?" N && SKILL_GROUPS+=(accel)
   ask "安装/更新 kb 组(公共算力知识;每次刷新)?" N && SKILL_GROUPS+=(kb)
   ask "安装/更新 ppt 组(南京大学模板、ppt-master 与独立 Python 核心依赖;需 Python 3.10+)?" N && SKILL_GROUPS+=(ppt)
-  bash "$_ss" "${SKILL_GROUPS[@]}" || warn 'skills 同步未完全成功'
+  ASSUME_YES="${ASSUME_YES:-0}" bash "$_ss" "${SKILL_GROUPS[@]}" || warn 'skills 同步未完全成功'
 else
   warn 'skills-sync.sh 下载失败,跳过 skills 同步'
 fi
@@ -642,25 +642,6 @@ if [ -f "$AR_INSTALL" ]; then
   elif ask '安装 Agent Reach(官方 CLI + 无头浏览器,只读检索小红书/Reddit/X 等;体积较大)?' N; then
     bash "$AR_INSTALL" || warn 'agent-reach 安装失败(可稍后重试)'
   fi
-fi
-
-# ---- 项目接入记忆系统(可选,默认不写):把 memory-system 块写到当前目录 AGENTS.md 最尾部 ----
-# 实现在仓库根 agents-md.sh(四个 setup 共用,幂等:同块不动/旧块原位替换/无块追加)。
-PROJ_AGENTS="$PWD/AGENTS.md"
-if ask '把记忆系统规范块写进当前目录 AGENTS.md 的最尾部(项目自身内容在前)？' N; then
-  _am_dir="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
-  _am="$_am_dir/agents-md.sh"; _am_tmp=""
-  if [ ! -f "$_am" ]; then
-    _am_tmp="$(mktemp)"; _am=""
-    curl -fsSL --connect-timeout 8 -m 60 -o "$_am_tmp" "$SELF_RAW/agents-md.sh" 2>/dev/null && _am="$_am_tmp"
-  fi
-  if [ -n "$_am" ]; then
-    bash "$_am" "$PROJ_AGENTS" --source "$_am_dir/AGENTS.tail.md" --raw "$SELF_RAW" \
-      || printf 'WARN: AGENTS.md 注入失败(可手动粘 AGENTS.tail.md 的 memory-system 块)\n' >&2
-  else
-    printf 'WARN: 取不到 agents-md.sh,跳过记忆规范块注入\n' >&2
-  fi
-  [ -z "$_am_tmp" ] || rm -f "$_am_tmp"
 fi
 
 echo '== 配置步骤结束 =='

@@ -28,9 +28,9 @@
 |---|---|---|---|---|
 | skills 基础组 + `research`/`accel`/`kb`/`ppt` 可选组 | ✓ | ✓ | ✓ | ✓ |
 | `agent-reach` 只读检索 CLI（询问，默认 N） | ✓ | ✓ | ✓ | ✓ |
-| 记忆规范块写进项目 `AGENTS.md` | ✓ | ✓ | — | — |
+| 记忆规范块写进项目 `AGENTS.md`（询问，默认 N） | ✓ | ✓ | ✓ | ✓ |
 
-DSH 与 Codex 的入口只负责装 skills 与 CLI，不含配置合并；`AGENTS.md` 规范块在 DSH/Codex 里手工粘，或先跑一次 Pi/OpenCode 安装。
+表格里后半段三项都由共用脚本实现（`skills-sync.sh`、`skills-external.sh`），四个入口只负责问一次并透传选择；宿主特有的部分留在各自的 `*-setup.sh`。DSH 与 Codex 不含配置合并，`AGENTS.md` 规范块随 skills 同步一问，不再需要手工粘。
 
 [快速安装](#快速安装) · [Skills](#skills本仓-37-个) · [首次部署](#首次部署只需要网关--5-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [DSH](dsh/README.md) · [OpenCode](#opencode-安装与迁移) · [更新](#更新) · [贡献](CONTRIBUTING.md)
 

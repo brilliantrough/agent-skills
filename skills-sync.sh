@@ -143,4 +143,39 @@ prepare_ppt() {
 }
 
 if [ "$with_ppt" = 1 ]; then prepare_ppt || status=1; fi
+
+# ---- 项目接入记忆系统(可选,默认不写):把 memory-system 块写进当前目录 AGENTS.md 最尾部 ----
+# 通用步骤,四个 setup 都经本脚本执行;源用本次已下载的 tarball,不额外联网;
+# 幂等:同块不动 / 旧块原位替换 / 无块追加,文件其余内容原样保留。
+# -y(ASSUME_YES=1) 与非交互(无控制终端)一律跳过,不新增提问。
+inject_agents_md() {
+  local tail_src="$source_root/AGENTS.tail.md" target="$PWD/AGENTS.md" ans=""
+  [ -f "$tail_src" ] || { echo "WARN: 源里没有 AGENTS.tail.md,跳过记忆规范块" >&2; return 0; }
+  [ "${ASSUME_YES:-0}" = 1 ] && return 0
+  { : </dev/tty; } 2>/dev/null || return 0
+  printf '把记忆系统规范块写进 %s 的最尾部(项目自身内容在前)? [y/N] ' "$target"
+  read -r ans </dev/tty || ans=""
+  case "${ans:-N}" in [Yy]*) ;; *) return 0 ;; esac
+  python3 - "$tail_src" "$target" <<'PY'
+import pathlib, re, sys
+
+src = pathlib.Path(sys.argv[1]).read_text(encoding="utf8")
+m = re.search(r"<!-- memory-system:start -->.*?<!-- memory-system:end -->", src, re.S)
+if not m:
+    sys.exit("源文件里找不到 memory-system 块")
+block = m.group(0)
+
+p = pathlib.Path(sys.argv[2])
+old = p.read_text(encoding="utf8") if p.exists() else ""
+cur = re.search(r"<!-- memory-system:start -->.*?<!-- memory-system:end -->", old, re.S)
+if cur and cur.group(0) == block:
+    print("记忆规范块已是最新: " + str(p))
+    raise SystemExit(0)
+new = (old[:cur.start()] + block + old[cur.end():]) if cur else (old.rstrip("\n") + "\n\n" + block + "\n" if old else block + "\n")
+p.write_text(new, encoding="utf8")
+print(("记忆规范块已更新: " if cur else "记忆规范块已追加: ") + str(p))
+PY
+}
+inject_agents_md || status=1
+
 exit "$status"

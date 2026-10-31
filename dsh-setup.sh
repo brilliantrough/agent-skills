@@ -141,7 +141,7 @@ if ask '同步基础 skills（base；复用 ~/.agents/skills）？' Y; then
   ask '安装/更新 accel 组（算力平台模板；缺才装·本机特化不覆盖）？' N && SKILL_GROUPS+=(accel)
   ask '安装/更新 kb 组（公共算力知识；每次刷新）？' N && SKILL_GROUPS+=(kb)
   ask '安装/更新 ppt 组（南京大学模板、ppt-master 与独立 Python 核心依赖；需 Python 3.10+）？' N && SKILL_GROUPS+=(ppt)
-  bash "$STAGE/skills-sync.sh" "${SKILL_GROUPS[@]}" || printf 'WARN: skills 同步未完全成功\n' >&2
+  ASSUME_YES="$YES" bash "$STAGE/skills-sync.sh" "${SKILL_GROUPS[@]}" || printf 'WARN: skills 同步未完全成功\n' >&2
 
   # agent-reach：官方只读检索 CLI；缺才装、已装跳过，不触碰 ~/.agent-reach 里的凭据与登录态
   AR_INSTALL="$HOME/.agents/skills/agent-reach-install/scripts/install.sh"
@@ -153,25 +153,6 @@ if ask '同步基础 skills（base；复用 ~/.agents/skills）？' Y; then
     fi
   fi
 fi
-# ---- 项目接入记忆系统(可选,默认不写):把 memory-system 块写到当前目录 AGENTS.md 最尾部 ----
-# 实现在仓库根 agents-md.sh(四个 setup 共用,幂等:同块不动/旧块原位替换/无块追加)。
-PROJ_AGENTS="$PWD/AGENTS.md"
-if ask '把记忆系统规范块写进当前目录 AGENTS.md 的最尾部(项目自身内容在前)？' N; then
-  _am_dir="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
-  _am="$_am_dir/agents-md.sh"; _am_tmp=""
-  if [ ! -f "$_am" ]; then
-    _am_tmp="$(mktemp)"; _am=""
-    curl -fsSL --connect-timeout 8 -m 60 -o "$_am_tmp" "$SELF_RAW/agents-md.sh" 2>/dev/null && _am="$_am_tmp"
-  fi
-  if [ -n "$_am" ]; then
-    bash "$_am" "$PROJ_AGENTS" --source "$_am_dir/AGENTS.tail.md" --raw "$SELF_RAW" \
-      || printf 'WARN: AGENTS.md 注入失败(可手动粘 AGENTS.tail.md 的 memory-system 块)\n' >&2
-  else
-    printf 'WARN: 取不到 agents-md.sh,跳过记忆规范块注入\n' >&2
-  fi
-  [ -z "$_am_tmp" ] || rm -f "$_am_tmp"
-fi
-
 printf '\n安装完成。新终端运行 dsh tui；批处理运行 dsh --profile headless "任务"。\n'
 if [[ ! -f "$claude_bundle/lib/index.js" ]]; then
   printf 'claude-mem 官方安装命令：DSH_HOME=%q npx -y claude-mem@latest install --ide dsh --dsh-profile tui --no-auto-start\n' "${DSH_HOME:-$ROOT/home}"

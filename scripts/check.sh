@@ -11,7 +11,7 @@ info() { printf '  %s\n' "$*"; }
 
 # ---- 1. 脚本语法 ----
 echo "== 1. 语法 =="
-for f in pi-setup.sh opencode-setup.sh codex-setup.sh dsh-setup.sh skills-sync.sh skills-external.sh agents-md.sh scripts/check.sh; do
+for f in pi-setup.sh opencode-setup.sh codex-setup.sh dsh-setup.sh skills-sync.sh skills-external.sh scripts/check.sh; do
   [ -f "$f" ] || { err "缺文件 $f"; continue; }
   bash -n "$f" 2>/dev/null || err "bash -n 失败: $f"
 done
@@ -93,11 +93,12 @@ grep -q 'codeload.github.com' skills-sync.sh || err "skills-sync.sh 不再从 Gi
 grep -qE 'agent-skills-main/|本地克隆当源' skills-sync.sh && err "skills-sync.sh 出现本地克隆取源"
 info "取源仍走 GitHub tarball"
 
-# 通用能力必须四个入口都接，否则同一套安装在不同宿主上少一块
+# 通用步骤只在共用脚本里实现一次；setup 里各写一份就会逐渐走偏
+grep -q 'memory-system:start' skills-sync.sh || err "skills-sync.sh 缺记忆规范块注入（四个 setup 共用）"
 for f in pi-setup.sh opencode-setup.sh codex-setup.sh dsh-setup.sh; do
-  grep -q 'agents-md.sh' "$f" || err "$f 未调用共用 agents-md.sh（四宿主应一致）"
+  grep -q 'memory-system:start' "$f" && err "$f 里又出现了记忆规范块实现（应只在 skills-sync.sh）"
 done
-info "共用脚本 agents-md.sh：四个入口均已接入"
+info "记忆规范块注入只在 skills-sync.sh"
 
 echo
 if [ "$fail" = 0 ]; then echo "PASS: 公开体检通过"; else echo "FAIL: 见上方 ERROR"; fi
