@@ -41,7 +41,7 @@ prompt 一律用英文写，**包括要出现在图上的文字**：这些 gpt-i
 ## 3. 参考图编辑
 
 ```json
-{ "prompt": "保留什么、只改什么", "reference": ["/abs/path/a.png", "/abs/path/b.png"] }
+{ "prompt": "what to keep and exactly what to change", "reference": ["/abs/path/a.png", "/abs/path/b.png"] }
 ```
 
 多张参考图一起传；不给 `reference` 就是文生图。编辑的 `prompt` 同样一律用英文。编辑结果可能与原图有未要求的差异，原图请自行保留。
