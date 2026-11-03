@@ -1,6 +1,6 @@
 ---
 name: image-gen
-description: image_gen 工具说明：用宿主自带的 image_gen 画图或改图，覆盖文生图、参考图编辑、多张参考图、size/quality/background/model 参数、返回与落盘、宿主差异、失败含义。只描述工具接口与行为，不规定项目的审美、风格或出图流程。Use when the user asks for a picture, poster, illustration, icon or cover, or when you need the tool's exact parameters, host behavior or failure meanings.
+description: image_gen 工具说明：用宿主自带的 image_gen 画图或改图，覆盖文生图、参考图编辑、多张参考图、size/quality/background/model 参数、返回与落盘、宿主差异、失败含义，以及 prompt 一律用英文（含图上文字）的规范。只描述工具接口与行为，不规定项目的审美、风格或出图流程。Use when the user asks for a picture, poster, illustration, icon or cover, or when you need the tool's exact parameters, host behavior or failure meanings.
 ---
 
 # image-gen
@@ -28,8 +28,15 @@ description: image_gen 工具说明：用宿主自带的 image_gen 画图或改�
 ## 2. 文生图
 
 ```json
-{ "prompt": "希望画面里出现的内容" }
+{ "prompt": "what the picture must show, in English" }
 ```
+
+prompt 一律用英文写，**包括要出现在图上的文字**：这些 gpt-image 模型对英文的理解明显好过中文，中文 prompt 更容易出错字、笔画畸形和中英混杂。
+
+- 图上的标注默认也用英文（`text "Data Ingestion" in the top box`）
+- 用户明确要中文标注时才在 prompt 里写中文字面量，并接受更高的出错率
+- 只有传给模型的 `prompt` 是英文；给用户看的回复、落盘文件名解释仍是中文
+- prompt 里写清：主体、布局、必须出现的文字（用引号给原文）、风格与配色；不要把聊天内容整段粘进去
 
 ## 3. 参考图编辑
 
@@ -37,7 +44,7 @@ description: image_gen 工具说明：用宿主自带的 image_gen 画图或改�
 { "prompt": "保留什么、只改什么", "reference": ["/abs/path/a.png", "/abs/path/b.png"] }
 ```
 
-多张参考图一起传；不给 `reference` 就是文生图。编辑结果可能与原图有未要求的差异，原图请自行保留。
+多张参考图一起传；不给 `reference` 就是文生图。编辑的 `prompt` 同样一律用英文。编辑结果可能与原图有未要求的差异，原图请自行保留。
 
 ## 4. 参数
 

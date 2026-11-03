@@ -10,7 +10,7 @@ export default function (pi: ExtensionAPI) {
     label: "Image gen · 画图",
     description: `${DESCRIPTION} 凭据与默认模型在 ${configPath()}。`,
     parameters: Type.Object({
-      prompt: Type.String({ minLength: 1, description: "你写好的绘图提示词：主体、结构、需要出现的文字标签、风格与配色" }),
+      prompt: Type.String({ minLength: 1, description: "你写好的绘图提示词，一律用英文（含图上文字）：主体、结构、需要出现的文字标签、风格与配色" }),
       reference: Type.Optional(Type.Array(Type.String(), { description: "参考图绝对路径；给了就改图/换风格（走 /images/edits，默认 sunburst 精修模型），不给就是文生图" })),
       size: Type.Optional(Type.String({ description: "如 1024x1024、1536x1024、2048x1152；默认取配置" })),
       quality: Type.Optional(Type.Union([

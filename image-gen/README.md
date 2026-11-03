@@ -2,6 +2,8 @@
 
 把知识、对比、流程画成图：`image_gen(prompt, reference?, size?, quality?, background?, model?)`。
 
+**prompt 用英文写，包括图上文字**：gpt-image 模型对英文的理解明显好过中文。
+
 一个核心 `core.mjs`，三个宿主薄适配：
 
 | 宿主 | 入口 | 图片如何回到模型 |

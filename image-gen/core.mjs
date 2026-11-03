@@ -9,10 +9,12 @@ export const DESCRIPTION =
   "Draw a picture with an image model and show it to the user. " +
   "Use when knowledge, a comparison, a flow or a concept is easier to grasp as a picture than as text, " +
   "and when the user asks for a diagram, overview, illustration, poster or icon. " +
-  "Write the prompt yourself in the user's language: say what the picture must make obvious, name the " +
-  "labels to appear in the image, and pick a readable style; never paste raw chat text as the prompt. " +
-  "Pass reference images (absolute paths) to edit or restyle them. The tool returns the image itself plus " +
-  "the saved path. Prefer one clear picture over many; ask before drawing something large.";
+  "Always write the prompt in English — including any text that must appear inside the image — even when " +
+  "the user writes Chinese; these models follow English instructions far better. Say what the picture must " +
+  "make obvious, name the labels, and pick a readable style; never paste raw chat text as the prompt. " +
+  "Pass reference images (absolute paths) to edit or restyle them. Output is one bitmap per call, and text " +
+  "inside it is not guaranteed accurate — use SVG/HTML when exact text matters. The tool returns the image " +
+  "itself plus the saved path. Prefer one clear picture over many; ask before drawing something large.";
 
 const CONFIG = process.env.IMAGE_GEN_CONFIG || join(homedir(), ".local/share/agent-skills/image-gen.json");
 const MODELS = join(homedir(), ".pi/agent/models.json");
