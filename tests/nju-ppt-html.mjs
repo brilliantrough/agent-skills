@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { args, prepareHtml } from '../skills/ppt/nju-ppt/scripts/prepare_html.mjs';
+import { args, prepareHtml, renameRuntime } from '../skills/ppt/nju-ppt/scripts/prepare_html.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const skill = path.join(root, 'skills/ppt/nju-ppt');
@@ -20,6 +20,35 @@ const parent = path.join(os.tmpdir(), 'opencode');
 fs.mkdirSync(parent, { recursive: true });
 const temp = fs.mkdtempSync(path.join(parent, 'nju-html-check-'));
 try {
+  const from = path.join(temp, 'staged'), to = path.join(temp, 'published');
+  fs.mkdirSync(from);
+  fs.writeFileSync(path.join(from, 'keep.txt'), 'runtime');
+  const rename = fs.renameSync;
+  let calls = 0;
+  try {
+    fs.renameSync = (...args) => {
+      calls++;
+      if (calls < 3) throw Object.assign(new Error('busy'), { code: 'EPERM' });
+      return rename(...args);
+    };
+    if (process.platform === 'win32') {
+      renameRuntime(from, to);
+      assert.equal(calls, 3);
+      assert.equal(fs.readFileSync(path.join(to, 'keep.txt'), 'utf8'), 'runtime');
+    } else {
+      assert.throws(() => renameRuntime(from, to), /busy/);
+      assert.equal(calls, 1, 'Other platforms must not retry Windows errors');
+    }
+    for (const code of ['EPERM', 'EBUSY', 'EACCES']) {
+      calls = 0;
+      const error = Object.assign(new Error(code), { code });
+      fs.renameSync = () => { calls++; throw error; };
+      assert.throws(() => renameRuntime(from, to), caught => caught === error);
+      assert.equal(calls, process.platform === 'win32' && code !== 'EACCES' ? 6 : 1);
+    }
+  } finally {
+    fs.renameSync = rename;
+  }
   assert.deepEqual(args(['--home', temp, '--install']), { home: temp, install: true });
   assert.throws(() => prepareHtml({ home: temp }), /Dashi is missing/);
   const source = path.join(temp, '.agents/skills/dashi-ppt/project');

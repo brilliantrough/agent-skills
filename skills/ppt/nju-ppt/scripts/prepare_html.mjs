@@ -14,6 +14,19 @@ export function run(command, args, options = {}) {
   return result.stdout;
 }
 
+export function renameRuntime(source, target) {
+  // Windows can briefly retain a directory handle after npm/tsx exits.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      fs.renameSync(source, target);
+      return;
+    } catch (error) {
+      if (process.platform !== 'win32' || !['EPERM', 'EBUSY'].includes(error.code) || attempt === 5) throw error;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100 * (attempt + 1));
+    }
+  }
+}
+
 export function prepareHtml({ dashi, home = os.homedir(), workDir, install = false } = {}) {
   if (Number(process.versions.node.split('.')[0]) < 20) throw new Error('HTML requires Node.js 20+');
   const source = path.resolve(dashi || process.env.DASHI_PPT_ROOT || path.join(home, '.agents/skills/dashi-ppt'));
@@ -75,7 +88,7 @@ export function prepareHtml({ dashi, home = os.homedir(), workDir, install = fal
     const result = { version: REQUIRED_VERSION, fingerprint, dashi_root: source, project: target, node: process.execPath };
     fs.writeFileSync(path.join(staging, 'nju-runtime.json'), JSON.stringify(result, null, 2) + '\n');
     if (fs.existsSync(root)) fs.rmdirSync(root);
-    fs.renameSync(staging, root);
+    renameRuntime(staging, root);
     return result;
   } finally {
     fs.rmSync(staging, { recursive: true, force: true });
