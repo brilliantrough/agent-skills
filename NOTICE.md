@@ -55,4 +55,11 @@ See `skills/ppt/nju-ppt/ASSETS-NOTICE.md`. This is not a university-endorsed pro
 The external `hugohe3/ppt-master` engine is installed separately, not vendored here;
 its license and attribution requirements remain applicable.
 
+The external `chuspeeism/dashi-ppt-skill` HTML presentation engine is also installed
+separately, pinned to commit `21dc7e5fc8c3a0d7f6a94948153dd1ee954f4e64`
+(Dashi 0.4.14). Its root LICENSE is GNU AGPL v3. Dashi source is not vendored in
+this repository; its license obligations still apply to the locally adapted runtime
+and any generated artifacts containing its code. The repository MIT license does
+not relicense those components.
+
 All other files are original works of brilliantrough.

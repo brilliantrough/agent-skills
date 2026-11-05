@@ -45,7 +45,7 @@ SRC="$source_root/skills"
 with_ppt=0
 case " $SYNC_GROUPS " in
   *" ppt "*)
-    [ -f "$SRC/ppt/nju-ppt/scripts/prepare.py" ] || {
+    [ -f "$SRC/ppt/nju-ppt/scripts/prepare.py" ] && [ -f "$SRC/ppt/nju-ppt/scripts/prepare_html.mjs" ] || {
       echo "ERROR: 下载的 $ref 尚不包含完整 ppt 组；不要用旧版或仅有 SKILL.md 的副本冒充安装成功" >&2; exit 1;
     }
     with_ppt=1 ;;
@@ -143,6 +143,15 @@ prepare_ppt() {
 }
 
 if [ "$with_ppt" = 1 ]; then prepare_ppt || status=1; fi
+
+if [ "$with_ppt" = 1 ]; then
+  echo "== ppt: 准备独立 HTML 环境与 Node 依赖（不修改共享 Dashi） =="
+  home_native="$HOME"; html_script="$LIVE/nju-ppt/scripts/prepare_html.mjs"
+  if command -v cygpath >/dev/null 2>&1; then
+    home_native="$(cygpath -w "$home_native")"; html_script="$(cygpath -w "$html_script")"
+  fi
+  node "$html_script" --home "$home_native" --install || status=1
+fi
 
 # ---- 项目接入记忆系统(可选,默认不写):把 memory-system 块写进当前目录 AGENTS.md 最尾部 ----
 # 通用步骤,四个 setup 都经本脚本执行;源用本次已下载的 tarball,不额外联网;

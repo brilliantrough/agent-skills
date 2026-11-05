@@ -67,7 +67,7 @@ def external_checks(tmp, env):
         return p, text
 
     p, text = check()
-    assert p.returncode == 0 and "ppt-master" not in text, (p.stdout, p.stderr, text)
+    assert p.returncode == 0 and "ppt-master" not in text and "dashi-ppt" not in text, (p.stdout, p.stderr, text)
     assert "nju-ppt" not in text, "本仓ppt条目不得交给第三方更新"
     assert "redesign-existing-projects" not in text, "上游已移除的skill不再代装或代更新"
     assert not (shared / "redesign-existing-projects").exists(), "沿用上游迁移已登记旧副本"
@@ -76,6 +76,7 @@ def external_checks(tmp, env):
     p, text = check("--ppt")
     assert p.returncode == 0, p.stderr
     assert "add hugohe3/ppt-master --skill ppt-master -g -y --agent pi" in text, text
+    assert "add https://github.com/chuspeeism/dashi-ppt-skill/tree/21dc7e5fc8c3a0d7f6a94948153dd1ee954f4e64 --skill dashi-ppt -g -y --agent pi" in text, text
     assert (shared / "redesign-existing-projects/SKILL.md").read_text() == "unregistered local copy\n"
     calls.unlink(missing_ok=True)
     e["SKILLS_EXTERNAL"] = "skip"
@@ -88,6 +89,25 @@ def external_checks(tmp, env):
     p, text = check("--ppt")
     assert p.returncode != 0 and "ppt-master" in p.stderr and "ppt-master" not in text
     assert (shared / "ppt-master/SKILL.md").read_text() == "local custom engine\n"
+    write(shared / "dashi-ppt/SKILL.md", "local custom Dashi\n")
+    calls.unlink(missing_ok=True)
+    p, text = check("--ppt")
+    assert p.returncode != 0 and "dashi-ppt" in p.stderr and "dashi-ppt" not in text
+    assert (shared / "dashi-ppt/SKILL.md").read_text() == "local custom Dashi\n"
+    data = json.loads(lock.read_text())
+    data["skills"]["dashi-ppt"] = {"source": "chuspeeism/dashi-ppt-skill", "ref": "21dc7e5fc8c3a0d7f6a94948153dd1ee954f4e64"}
+    state_lock = tmp / "state/skills/.skill-lock.json"
+    write(state_lock, json.dumps(data))
+    e["XDG_STATE_HOME"] = str(tmp / "state")
+    calls.unlink(missing_ok=True)
+    p, text = check("--ppt")
+    assert "present: dashi-ppt" in p.stdout and "dashi-ppt" not in text, (p.stdout, text)
+    data["skills"]["dashi-ppt"]["ref"] = "different-baseline"
+    write(state_lock, json.dumps(data))
+    calls.unlink(missing_ok=True)
+    p, text = check("--ppt")
+    assert p.returncode != 0 and "dashi-ppt" in p.stderr and "dashi-ppt" not in text
+    assert (shared / "dashi-ppt/SKILL.md").read_text() == "local custom Dashi\n"
     print("PASS real external script: precise optional engine add, own-name exclusion, local-source conflict preserved")
 
 
@@ -119,14 +139,22 @@ if [ "$1" = -c ]; then exit 0; fi
 printf '%s\\n' "$*" >> "$PREPARE_LOG"
 exit "${PREPARE_EXIT:-0}"
 ''')
+        write(bindir / "node", '''#!/usr/bin/env bash
+if [[ "${1:-}" = *prepare_html.mjs ]]; then
+  printf '%s\\n' "$*" >> "$HTML_LOG"
+  exit "${HTML_EXIT:-0}"
+fi
+exec "$REAL_NODE" "$@"
+''')
         env = dict(os.environ)
         env.update({
             "FIXTURE_ARCHIVE": posix(package), "EXTERNAL_LOG": posix(tmp / "external.log"),
             "PREPARE_LOG": posix(tmp / "prepare.log"),
             "FIXTURE_BIN": posix(bindir),
             "NJU_PPT_PYTHON": posix(bindir / "fixture-python"),
+            "HTML_LOG": posix(tmp / "html.log"), "REAL_NODE": posix(Path(shutil.which("node"))),
         })
-        for name in ["BASH_ENV", "ENV"]:
+        for name in ["BASH_ENV", "ENV", "XDG_STATE_HOME"]:
             env.pop(name, None)
 
         def install(home, *groups, success=True, extra=None):
@@ -147,6 +175,7 @@ exit "${PREPARE_EXIT:-0}"
         assert (base / ".agents/skills/steady-do/SKILL.md").exists()
         assert not (base / ".agents/skills/nju-ppt").exists()
         assert not (tmp / "prepare.log").exists()
+        assert not (tmp / "html.log").exists()
         print("PASS base: no PPT files or environment preparation")
 
         home = tmp / "PPT 独立 HOME"
@@ -156,6 +185,8 @@ exit "${PREPARE_EXIT:-0}"
         assert not (home / ".agents/skills/steady-do").exists()
         assert "--ppt" in (tmp / "external.log").read_text()
         assert "--home" in (tmp / "prepare.log").read_text()
+        assert "--install" in (tmp / "html.log").read_text() and "--home" in (tmp / "html.log").read_text()
+        assert (skill / "scripts/prepare_html.mjs").is_file()
         branch_home = tmp / "branch HOME"
         branch_result = install(branch_home, "ppt", extra={"AGENT_SKILLS_REF": "feat/nju-ppt-optional"})
         assert "feat/nju-ppt-optional tarball" in branch_result.stdout
@@ -177,19 +208,21 @@ exit "${PREPARE_EXIT:-0}"
         install(home, "all", "ppt", success=False)
         install(tmp / "no python", "ppt", success=False, extra={"NJU_PPT_PYTHON": "/usr/bin/false"})
         install(tmp / "failed prepare", "ppt", success=False, extra={"PREPARE_EXIT": "1"})
+        install(tmp / "failed html", "ppt", success=False, extra={"HTML_EXIT": "1"})
         (source / "skills/ppt/nju-ppt/scripts/prepare.py").unlink()
         archive(package, source)
         p = install(tmp / "old main", "ppt", success=False)
         assert "main" in p.stderr and "ppt" in p.stderr
         print("PASS all/invalid groups/missing Python/failed preparation/old main error propagation")
 
-        for name in ["opencode-setup.sh", "pi-setup.sh", "codex-setup.sh"]:
+        for name in ["opencode-setup.sh", "pi-setup.sh", "codex-setup.sh", "dsh-setup.sh"]:
             text = (ROOT / name).read_text(encoding="utf-8")
-            assert re.search(r'ask "[^"\n]*ppt 组[^"\n]*" N && SKILL_GROUPS\+=\(ppt\)', text), name
+            assert re.search(r'''ask ['"][^'"\n]*ppt 组[^'"\n]*['"] N && SKILL_GROUPS\+=\(ppt\)''', text), name
+            assert "Dashi" in next(line for line in text.splitlines() if "ask " in line and "ppt 组" in line), name
             assert "SKILL_GROUPS=(base)" in text
             assert '${AGENT_SKILLS_REF:-main}' in text, name
             assert '${AGENT_SKILLS_REPO:-brilliantrough/agent-skills}' in text, name
-        print("PASS three setup entry points: PPT defaults to N; base remains default")
+        print("PASS four setup entry points: PPT declares Dashi, defaults to N; base remains default")
         external_checks(tmp, env)
         print("NOTE: non-PPT payload, download, external stage and Python invocation were fixtures; not a real GitHub install")
 
