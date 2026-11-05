@@ -40,7 +40,8 @@ if [[ -z "$NODE" ]]; then
   NODE="$ROOT/node/bin/node"
 fi
 NODE=$("$NODE" -p 'process.execPath')
-export PATH="$(dirname "$NODE"):$PATH"
+_node_dir="$(dirname "$NODE")"
+export PATH="$_node_dir:$PATH"
 if [[ ! -f "${DSH_HOME:-$ROOT/home}/profiles/headless/cordis.patch.yml" ]]; then
   for route in claude-newapi codex-newapi anthropic-newapi gemini-newapi; do
     prefix=$(printf '%s' "$route" | tr 'a-z-' 'A-Z_')
