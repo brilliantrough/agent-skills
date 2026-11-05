@@ -141,7 +141,7 @@ if ask '同步基础 skills（base；复用 ~/.agents/skills）？' Y; then
   ask '安装/更新 research 组（算法研究、实验、PyTorch 性能与 kernel；每次刷新·漂移自动备份）？' N && SKILL_GROUPS+=(research)
   ask '安装/更新 accel 组（算力平台模板；缺才装·本机特化不覆盖）？' N && SKILL_GROUPS+=(accel)
   ask '安装/更新 kb 组（公共算力知识；每次刷新）？' N && SKILL_GROUPS+=(kb)
-  ask '安装/更新 ppt 组（南京大学模板、ppt-master 与独立 Python 核心依赖；需 Python 3.10+）？' N && SKILL_GROUPS+=(ppt)
+  ask '安装/更新 ppt 组（南大 HTML/PPTX、Dashi、ppt-master 与独立依赖；需 Node 20+、Python 3.10+）？' N && SKILL_GROUPS+=(ppt)
   ASSUME_YES="$YES" bash "$STAGE/skills-sync.sh" "${SKILL_GROUPS[@]}" || printf 'WARN: skills 同步未完全成功\n' >&2
 
 # ---- 可选模块:统一分发(新增模块只加 modules/<名>/,本脚本不用改)----

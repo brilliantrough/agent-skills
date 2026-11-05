@@ -215,13 +215,14 @@ exec "$REAL_NODE" "$@"
         assert "main" in p.stderr and "ppt" in p.stderr
         print("PASS all/invalid groups/missing Python/failed preparation/old main error propagation")
 
-        for name in ["opencode-setup.sh", "pi-setup.sh", "codex-setup.sh"]:
+        for name in ["opencode-setup.sh", "pi-setup.sh", "codex-setup.sh", "dsh-setup.sh"]:
             text = (ROOT / name).read_text(encoding="utf-8")
-            assert re.search(r'ask "[^"\n]*ppt 组[^"\n]*" N && SKILL_GROUPS\+=\(ppt\)', text), name
+            assert re.search(r'''ask ['"][^'"\n]*ppt 组[^'"\n]*['"] N && SKILL_GROUPS\+=\(ppt\)''', text), name
+            assert "Dashi" in next(line for line in text.splitlines() if "ask " in line and "ppt 组" in line), name
             assert "SKILL_GROUPS=(base)" in text
             assert '${AGENT_SKILLS_REF:-main}' in text, name
             assert '${AGENT_SKILLS_REPO:-brilliantrough/agent-skills}' in text, name
-        print("PASS three setup entry points: PPT defaults to N; base remains default")
+        print("PASS four setup entry points: PPT declares Dashi, defaults to N; base remains default")
         external_checks(tmp, env)
         print("NOTE: non-PPT payload, download, external stage and Python invocation were fixtures; not a real GitHub install")
 
