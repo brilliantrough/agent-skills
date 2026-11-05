@@ -224,19 +224,19 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 
 ### 南京大学演示文稿（ppt 组，可选）
 
-**当前为功能分支试装版：main尚未发布该组。** 素材提供者已确认可公开，确认范围与权利边界见 [素材说明](skills/ppt/nju-ppt/ASSETS-NOTICE.md)。main入口仅在合并后可用；合并前使用下方分支命令。
+PPTX 已在 main；本分支新增 HTML 与 Dashi 自动准备，合并发布后 main 入口才包含这些新增能力。素材提供者已确认可公开，确认范围与权利边界见 [素材说明](skills/ppt/nju-ppt/ASSETS-NOTICE.md)。
 
 | Skill | 用途 |
 | --- | --- |
-| [`nju-ppt`](skills/ppt/nju-ppt/SKILL.md) | 银杏金＋清浅蓝固定模板；凝练文案，11页型，调用外部 `ppt-master` 生成原生可编辑图表、表格与备注 |
+| [`nju-ppt`](skills/ppt/nju-ppt/SKILL.md) | 银杏金＋清浅蓝、11页型；PPTX 调用外部 `ppt-master`；HTML 通过外部 Dashi 的隔离适配生成，可改文案和数据并保存 |
 
-首次安装或更新时，运行**不带 `-y`** 的完整setup，在“南京大学模板、ppt-master”选项输入 `y`（默认N）：
+首次安装或更新时，运行**不带 `-y`** 的完整setup，在“ppt 组”选项输入 `y`（默认N）：
 
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/opencode-setup.sh)"
 ```
 
-同一入口既能首次选装，也能更新已安装的PPT组。输入N则本次不安装／更新该组，不卸载原有skill；带 `-y` 仍默认跳过PPT。主分支发布前，该线上命令尚不会出现新选项。
+同一入口支持首次安装和更新；老用户缺少 Dashi 时也会自动补装。输入 N 则本次不安装／更新该组，不卸载原有 skill；带 `-y` 仍默认跳过 PPT。HTML 自动准备以包含本分支改动的版本为准。
 
 只安装／更新PPT、不改插件和模型配置：
 
@@ -245,32 +245,31 @@ bash skills-sync.sh ppt
 ```
 
 - 同步器默认下载GitHub main，不读取本地工作树；分支验收可设 `AGENT_SKILLS_REF`，入口URL也须指向同一分支；Fork 验收另设 `AGENT_SKILLS_REPO=用户/agent-skills`
-- 选中PPT即允许准备其外部skill与核心Python包；需要Python 3.10+，可用 `NJU_PPT_PYTHON` 指定单个解释器路径
-- 独立环境位于 `~/.local/share/agent-skills/nju-ppt/venv`；不改系统Python，不安装Office／字体／系统代理
+- 选中 PPT 即允许安装缺失的 `ppt-master`、Dashi 及独立 Python／Node 依赖；需要 Node.js 20+、npm、Python 3.10+，可用 `NJU_PPT_PYTHON` 指定单个解释器路径
+- Python 环境位于 `~/.local/share/agent-skills/nju-ppt/venv`，HTML 环境位于同级 `html/<指纹>/project`；不改系统 Python 或共享 Dashi 源码，不安装 Office／字体／系统代理
 - 模板随 `nju-ppt` 打包，用完整外部root安装到本次项目，不修改 `ppt-master` 全局索引
-- `ppt-master` 同名本地或不同源副本保留并告警；手动指定已确认引擎及缺件处理见 [运行环境](skills/ppt/nju-ppt/references/runtime.md)
+- `ppt-master`、Dashi 的同名本地或不同源副本保留并告警，不静默覆盖；Dashi 固定到已验证的 `0.4.14` 提交，不随通用第三方更新漂移
 - `.md/.txt`基础路径无需AI图像API密钥；DOCX/PDF/旁白等沿用上游按需依赖与许可
 - 单独用其它skill管理器复制本包，不代表引擎、Python依赖已自动准备
 
-功能分支试装（不改main，不安装／更新插件和模型配置；仅同步PPT组及公共外部skill依赖）：
+功能分支推送后试装（不改 main，不改插件和模型配置）：入口 URL、`AGENT_SKILLS_REPO` 和 `AGENT_SKILLS_REF` 必须指向同一 Fork 与分支，不能只执行本地 setup 后仍下载 main：
 
 ```bash
-AGENT_SKILLS_REF=feat/nju-ppt-optional bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.com/brilliantrough/agent-skills/feat/nju-ppt-optional/skills-sync.sh)" -- ppt
-```
-
-测试完整setup时，同样在命令前设置 `AGENT_SKILLS_REF=feat/nju-ppt-optional` 并将入口URL的 `main` 换成该分支；不带 `-y`，PPT组选Y。公开分支不限制学生身份，素材说明不代表校方背书。
-
-从 Fork 试装时，把入口 URL 和 `AGENT_SKILLS_REPO` 都指向 Fork；同步器据此从同一 Fork 下载完整包：
-
-```bash
-AGENT_SKILLS_REPO=The2813509163/agent-skills AGENT_SKILLS_REF=feat/nju-ppt-optional bash -c "$(curl -fsSL https://raw.githubusercontent.com/The2813509163/agent-skills/feat/nju-ppt-optional/skills-sync.sh)" -- ppt
+AGENT_SKILLS_REPO=The2813509163/agent-skills AGENT_SKILLS_REF=html bash -c "$(curl -fsSL https://raw.githubusercontent.com/The2813509163/agent-skills/html/skills-sync.sh)" -- ppt
 ```
 
 使用示例：
 
 > 用南京大学模板，把这份Markdown做成PPT，面向初学者，15页。
 
-固定视觉不再询问。内容确认按 `ppt-master` 和本用户授权处理；需要直接完成可明确说“无需大纲确认，直接生成”，不继承模板作者的授权。
+是否使用南大模板与输出 HTML／PPTX 分别确认：缺哪项问哪项，两项都缺就一次问清，两项均明确后再制作。已明确选择南大模板则不再询问视觉。PPTX 的内容确认按 `ppt-master` 和本用户授权处理；需要直接完成可明确说“无需大纲确认，直接生成”，不继承模板作者的授权。
+
+HTML 分支：
+
+- “用南大模板做 HTML PPT”：固定银杏金，每页一个方案，复用已安装 Dashi 的播放器与浏览器编辑／保存
+- 只说 HTML、没说是否使用南大模板：先问模板；用户明确非南大后才交给 `dashi-ppt` 内置主题。内容提到南京大学不代表选择南大模板
+- setup 的 PPT 组自动安装外部 Dashi `0.4.14`，并在南大独立缓存运行 `npm ci`；共享 Dashi 不被改写。单独运行 HTML 不依赖 Python／ppt-master
+- 用法、输入 JSON、隔离缓存与保存回读见 [HTML 运行说明](skills/ppt/nju-ppt/references/html-runtime.md)；上游版本变化、公开分发许可与真实在线更新须另验收
 
 | 平台／能力 | 新分发链验证状态 |
 | --- | --- |
@@ -290,7 +289,7 @@ AGENT_SKILLS_REPO=The2813509163/agent-skills AGENT_SKILLS_REF=feat/nju-ppt-optio
 | 工作流 / 技术写作 | 无硬依赖 |
 | personal-ui-taste | 四个外部设计 skill；默认安装，按任务读取，缺失时说明降级 |
 | research skill | PyTorch与实验执行方法；kernel-knowledge按需自行安装/阅读，Atrex等引擎仅在目标环境已就绪时使用 |
-| nju-ppt（仅ppt组） | 外部 `hugohe3/ppt-master` 精确skill＋Python 3.10+独立venv；[核心依赖](skills/ppt/nju-ppt/requirements-core.txt)，不复制引擎 |
+| nju-ppt（仅ppt组） | 外部 `hugohe3/ppt-master`＋`chuspeeism/dashi-ppt-skill`（固定0.4.14）；Python 3.10+独立venv＋Node 20+独立缓存，不把第三方源码纳入本仓 |
 
 - `.sdoc` 校验需要 `strictdoc`：脚本末尾检查 `uv`，缺则安装；可选全局安装 `uv tool install strictdoc==0.28.1`，升级用 `uv tool upgrade strictdoc`
 - 项目接入记忆系统：使用 [AGENTS.tail.md](AGENTS.tail.md) 中 `memory-system:start/end` 引导块

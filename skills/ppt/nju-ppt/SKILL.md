@@ -1,11 +1,25 @@
 ---
 name: nju-ppt
-description: "用南京大学固定银杏金模板把 Markdown/TXT 文档做成 PPT；凝练文案，固定页型，生成原生可编辑图表表格。Use when the user says 用南大模板、南京大学模板、南大 PPT，或要求按南京大学风格制作演示文稿。Requires the external ppt-master skill; this skill supplies the NJU template and content rules, not a separate PPT engine."
+description: "用南京大学银杏金模板制作 HTML 网页演示或原生可编辑 PPTX。Use when the user says 用南大模板、南京大学模板、南大 PPT、南大 HTML PPT，或明确使用 nju-ppt。是否使用南大模板与 HTML/PPTX 格式分别确认，缺哪项问哪项，两项均明确才制作；明确不使用南大的 HTML 请求交给外部 dashi-ppt 内置主题。HTML 依赖 dashi-ppt；PPTX 依赖 ppt-master，不互相替代。"
 ---
 
 # Nanjing University fixed-style presentations
 
-This skill owns content compression, the fixed NJU template, and acceptance checks. **Load the actual `ppt-master` skill for authoring and export.** Do not build another engine or duplicate its workflow.
+This skill owns content compression, the fixed NJU template, and acceptance checks. HTML reuses external Dashi through an isolated NJU adapter; PPTX uses the actual `ppt-master`. Do not build another engine.
+
+## 0. 模板与格式分别确认
+
+- 两项互不推导：①是否使用南大模板；②输出 HTML／网页还是 PPTX／PowerPoint。两项均明确后才制作
+- 已明确的照做，不重复问；只缺模板选择就问“是否使用南大模板”，只缺格式就问“HTML 还是 PPTX”，两项都缺就一次问清并等待答复
+- 仅说“PPT”不算明确文件格式；仅说“HTML”不算选定非南大模板，不能直接交给 Dashi
+- 明确选择南大模板＋HTML：走 `references/html-runtime.md`；每页一个固定方案，不另选视觉主题
+- 明确不使用南大模板＋HTML：加载实际 `dashi-ppt`，按它的内置主题与标准流程制作；主题未定时按其规则展示风格图并询问
+- 内容提到南京大学、仅点名 `nju-ppt` 均不等于选择南大模板；用户已明确指定其他模板时尊重该选择，不再询问是否南大
+- 明确南大＋PPTX：继续下面现有流程。普通 PPTX 不自动附加南大品牌
+- 格式或模板要求冲突时，只追问冲突项。不修改第三方 skill 来强占触发
+- HTML 分支不运行 Python/PPTX 环境检查；不要因缺少 ppt-master 阻断 HTML
+
+**以下第 1–5 节仅用于南大 PPTX。** HTML 的环境、内容格式、编辑保存与验收只按 `references/html-runtime.md`。
 
 ## 1. Resolve the runtime
 
@@ -65,6 +79,7 @@ Read `references/qa-checklist.md`: no text overflow, gold titles and matching nu
 
 ## References
 
+- `references/html-runtime.md`: HTML 路由、隔离 Dashi、单方案生成与编辑保存
 - `references/style-contract.md`: palette, typography, grid, and prototype capacity
 - `references/content-brief.md`: brief format, page budget, selection, and sources
 - `references/qa-checklist.md`: content, native objects, and actual software checks

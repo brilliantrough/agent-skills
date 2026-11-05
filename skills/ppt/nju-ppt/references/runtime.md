@@ -1,5 +1,7 @@
 # 环境准备与平台边界
 
+本页仅用于 PPTX。HTML 使用 `html-runtime.md` 的 Node/Dashi 路径，不依赖本页 Python venv 或 ppt-master。是否使用南大模板与输出格式分别确认，缺哪项问哪项，两项均明确后才制作。
+
 ## 正常安装
 
 在套件完整setup中选择 `ppt` 组，或使用 `bash skills-sync.sh ppt`。同步器会精确补装 `hugohe3/ppt-master` 中的 `ppt-master`，再创建独立venv；不复制引擎源码，不接管不同源的同名skill。
