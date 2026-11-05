@@ -448,7 +448,7 @@ with open(p, 'w', encoding='utf-8') as f:
 PY_MINTTY_MODE
   fi
   if [ "$mode" = mcp ]; then
-    python3 - "$tmp" "$(npath "$HOME")" "$(nbin "$BUN_BIN")" "$(nbin "$CG_BIN")" <<'PYEOF'
+    python3 - "$tmp" "$(npath "$HOME")" "$(nbin "$BUN_BIN")" "$(nbin "${CG_BIN:-codegraph}")" <<'PYEOF'
 import sys
 p, home, bun, cg = sys.argv[1:5]
 t = open(p, encoding='utf-8').read()
@@ -552,7 +552,8 @@ else:
 PYEOF
 )"
   rm -f "$tmp"
-  local bak="$dest.bak-$(date +%Y%m%d%H%M%S)"
+  local bak
+  bak="$dest.bak-$(date +%Y%m%d%H%M%S)"
   case "$out" in
     unchanged) echo "unchanged: $dest(已与模板一致,无需改动)"; rm -f "$cand" ;;
     "")        echo "WARN: $dest 合并失败,保留原文件" >&2; rm -f "$cand"; return 1 ;;
