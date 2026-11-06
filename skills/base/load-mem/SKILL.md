@@ -9,6 +9,13 @@ description: Recover project context when starting or resuming work, revisiting 
 
 Recover enough context to work as a continuing project partner, without making the user repeat earlier decisions or loading the entire history. Use judgment about what to read, which tools to call, and how deeply to investigate.
 
+## Orient with the project profile first
+
+- After project instructions, read the current project profile from the registered entry; the StrictDoc default is `docs/handbook/project-profile.sdoc`. An existing equivalent architecture overview takes precedence over creating or searching for a second copy. Reuse it if already read and unchanged.
+- Build the overall model first — purpose, main flow, module responsibilities, key design constraints and code locations — then retrieve task-relevant decisions, history and specialist documents. Follow `project-profile` for establishing or maintaining this file, not for an extra inventory on every load.
+- Check its last verification scope and unknowns; a profile is navigation, not proof of live behavior or a replacement for effective norms. Verify the relevant implementation before editing; report or correct consequential drift within scope.
+- If no profile exists, continue normal targeted recall and suggest creating one when useful. Do not make startup depend on generating one or silently expand into a full-repository survey.
+
 ## Available memory
 
 | Source | What it offers | Typical access |

@@ -30,6 +30,7 @@ The companion `save-mem` skill describes memory maintenance and StrictDoc mechan
 | `docs/strictdoc_config.py` | The StrictDoc project configuration |
 
 - Adapt this layout to what already exists. Missing docs or a missing skeleton are normal starting conditions; an existing docs directory is not an invitation to overwrite it.
+- Establish a single current project profile with `project-profile`, reusing this survey and any equivalent existing overview. The StrictDoc default is `docs/handbook/project-profile.sdoc`; register its actual path in the project entry so `load-mem` reads it first. Follow that skill for content and verification rather than duplicating a template here.
 - Distill enough knowledge to make the project understandable. Prefer a small useful baseline over a document for every module or every past action.
 - Make **current StrictDoc norms the source of truth**, distinguishable from historical journal entries and reports. Statuses such as Active, Proposed, Deprecated, and Superseded help preserve this distinction as the project evolves.
 - When sources conflict or the intended rule is unclear, surface the consequential question. Avoid inventing a rationale or presenting inferred policy as confirmed. If a settled decision has genuinely changed, maintain the current norm and briefly tell the user rather than waiting for a separate documentation command; ordinary memory and explanatory cleanup can be more flexible.

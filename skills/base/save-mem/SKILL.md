@@ -33,6 +33,10 @@ Leave memory that helps both the next Agent and the human reader understand **wh
 - With claude-mem MCP, `save_memory` (`text`, optional `title`/`project`) saves a local-worker note. In OpenCode v2 Code Mode, for server key `claude-mem`, that is `tools["claude-mem"].save_memory(...)`; direct exposure can be `claude-mem_save_memory`. An additionally configured Pi MCP can expose `mcp__claude_mem__save_memory`. Use the actual catalog, not a guessed name.
 - In server runtime, use `observation_add` only when exposed for the intended server/project; `save_memory` does not write server notes. Native Pi alone has no explicit write tool in the verified 13.39.0 interface (2026-10-14): continue with available stores, without inventing `mem_save` or installing extra integrations just to finish a save.
 
+## Keep the current project profile useful
+
+When a settled change affects the project’s overall shape, use `project-profile` to update the affected parts of its existing profile (StrictDoc default: `docs/handbook/project-profile.sdoc`). Check the related code/config and state the actual verification scope; do not rewrite it for every save, local edit or experiment. If missing, suggest establishing one instead of silently adding a repository-wide survey. The profile explains what exists now; decisions and history retain the evidence and reasons.
+
 ## Keep current truth distinguishable from history
 
 **StrictDoc is the source of truth for current project norms when records disagree.** Magic Context and claude-mem may legitimately contain earlier or conflicting accounts; useful overlap does not imply equal authority for every historical statement.

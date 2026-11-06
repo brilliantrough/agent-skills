@@ -3,8 +3,8 @@
 
 This project uses a three-layer memory system (Magic Context + StrictDoc + claude-mem).
 
-- **At session start**: run the `load-mem` skill before doing substantial work.
-- **At milestones and before ending work**: run the `save-mem` skill.
+- **At session start**: run `load-mem`; after project instructions, read the existing project profile first (default `docs/handbook/project-profile.sdoc`, or the registered equivalent), then task-relevant memory and source. If absent, continue targeted recall; do not automatically survey the whole repo.
+- **At milestones and before ending work**: run `save-mem`; when the project’s overall shape changes, use `project-profile` to update the affected parts of its existing profile. Initialization via `migrate-mem`, periodic alignment via `consolidator`; content rules live only in `project-profile`.
 
 ### Memory intent
 
