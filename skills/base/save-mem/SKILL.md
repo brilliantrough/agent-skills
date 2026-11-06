@@ -38,7 +38,7 @@ Leave memory that helps both the next Agent and the human reader understand **wh
 **StrictDoc is the source of truth for current project norms when records disagree.** Magic Context and claude-mem may legitimately contain earlier or conflicting accounts; useful overlap does not imply equal authority for every historical statement.
 
 - Keep current rules and their scope easy to identify. In the bundled grammar, decisions use `Active`, `Proposed`, `Deprecated`, or `Superseded`; dated journal entries describe experience rather than policy.
-- **Active norms are maintainable, but historical nodes are not erased.** When the user changes a decision, or a settled change is clear from the conversation and evidence, add a successor when useful, mark the old node `Superseded`, and briefly tell the user. Do not change the canon for guesses, temporary experiments, or every task. Ordinary explanatory docs and non-normative memories may be revised more freely.
+- **Active norms are maintainable; historical facts and decision meaning must survive.** When the user changes a decision, or a settled change is clear from the conversation and evidence, add a successor when useful, mark the old node `Superseded`, and briefly tell the user. Do not change the canon for guesses, temporary experiments, or every task. Ordinary explanatory docs and non-normative memories may be revised more freely.
 - Keep meaningful decision changes understandable. A journal note, revision context, or successor decision may preserve what mattered about the previous approach; choose the lightest suitable form rather than requiring a new node for every edit. Follow any project-specific history-preservation rules.
 - Capture the reason when known: evidence, constraints, alternatives, or the user's intent. An unknown reason is better acknowledged than invented.
 - Distinguish accepted decisions, observed behavior, pending work, and unverified claims. A working implementation may still differ from the intended rule.
@@ -53,7 +53,8 @@ Leave memory that helps both the next Agent and the human reader understand **wh
 Before drafting or revising memory prose, load `readable-docs` for the shared project writing style. It applies to all human-facing technical records, not only memory: Chinese by default, phrases, lists, and compact tables without losing facts or conditions.
 
 - For history, preserve outcomes, evidence, lessons, and remaining questions rather than a tool-by-tool diary. Link to original detail when useful.
-- Distill readable current guidance; preserve original evidence and historical nodes instead of rewriting them merely for style.
+- Daily saving is not append-only: update the relevant existing entry when appropriate instead of repeating its background and status. Preserve original evidence and meaningful history, not every old sentence.
+- Explicit periodic memory restructuring belongs to `consolidator`, with **Ponytail** taste: keep the main thread clear, compress incidental process, and retain a recoverable baseline and traceable facts. Follow its rewrite/merge checks; do not automatically launch it on save. Pure expression changes do not require successor decisions.
 
 ## Practical StrictDoc reference
 

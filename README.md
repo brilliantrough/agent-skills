@@ -157,7 +157,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 
 ### 阶段整理与独立审查
 
-手动说“用 consolidator 整理这次改动”：主 Agent 整理代码、报告和记忆，再委派 `consolidation-reviewer` 只读审查；不自动运行，不新增调度器。
+手动说“用 consolidator 整理这次改动”，或“只整理 `docs/project_memory`”：主 Agent 按 **Ponytail** 风格整理，再委派 `consolidation-reviewer` 只读审查；不自动运行，不新增调度器。记忆整理原位重组正文，主线讲清、次要过程简述；保留可恢复基线、实质信息和必要证据，不只是另加摘要，也不追求压缩率。
 
 - `skills/base/consolidator/` 随 base 安装，含唯一审查规范 `references/reviewer.md`。
 - Pi：像 explore/general 一样，由 setup 安装 Markdown 定义；继续使用原版 `pi-subagents-j0k3r`。
