@@ -35,7 +35,22 @@ Leave memory that helps both the next Agent and the human reader understand **wh
 
 ## Keep the current project profile useful
 
-When a settled change affects the project’s overall shape, use `project-profile` to update the affected parts of its existing profile (StrictDoc default: `docs/handbook/project-profile.sdoc`). Check the related code/config and state the actual verification scope; do not rewrite it for every save, local edit or experiment. If missing, suggest establishing one instead of silently adding a repository-wide survey. The profile explains what exists now; decisions and history retain the evidence and reasons.
+When a settled change affects the project’s overall shape, use `project-profile` to update the affected parts of its existing profile (StrictDoc default: `docs/handbook/project-profile.sdoc`). Check the related code/config and state the actual verification scope; do not rewrite it for every save, local edit or experiment. If missing, suggest establishing one instead of silently adding a repository-wide survey. The profile explains what exists now and its essential design rationale; decisions and history retain the fuller reasoning and evidence.
+
+## 设计知识与记录分工
+
+按读者要回答的问题组织知识，不强求一事实只存一处，也不为每类信息新建文件。画像是当前整体视图；决策、经历与风险各有职责；`consolidator`／reviewer 是维护与检查，不是新的记录类别。
+
+| 现有载体 | 保存什么 |
+| --- | --- |
+| 项目画像 | 当前形态、必要设计理由与代码入口；内容规则归 `project-profile` |
+| handbook／专题说明 | 当前机制、跨模块约束、接口与运行方法，按主题解释而非按日期追加 |
+| decisions | 重要选择的背景、理由、实际取舍、正负后果及适用／重议条件；不是每个实现动作一条决策 |
+| journal | 重要经历、转折、失败与验证证据；不作为当前设计的唯一说明 |
+| 现有风险记录位置 | 仍影响判断的未知、假设和技术债，按下文状态字段维护；不代替普通待办 |
+
+- 仍指导开发的理由若只埋在 journal，将有依据的当前解释补入画像或现有专题，保留历史来由与证据引用。允许短说明与详细记录交叠，不复制整份文档；局部技巧无需自动升格为架构决策。
+- 代码／配置／真实运行证据说明实现事实，有效决策说明意图与约束；不一致时明确偏差，不用规范文字代替实现验证。API 参考、操作手册、需求和实验原始产物仍沿用专业载体，记忆只保留必要结论与入口。
 
 ## Keep current truth distinguishable from history
 
