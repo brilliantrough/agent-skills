@@ -201,6 +201,13 @@ export async function deploy({ root, source, template: templatePath, contextMode
     if (!Array.isArray(current)) throw new Error(`补丁必须是列表：${patchPath}`);
     const additions = [...template, { id: "pi2dsh", config: { packages: [join(bundle, "dsh/pi"), "@dietrichgebert/ponytail"], visionCompanions: false } }];
     const result = merge(current, additions);
+    if (!prior.dsh.profile.bundles.includes("@deepseek-ai/dsh-web-app") &&
+        !result.some((row) => row.insert?.some((entry) => entry.name === "@deepseek-ai/dsh-agent-preset-registry"))) {
+      result.push({ insert: [
+        { id: "agent-preset-registry", name: "@deepseek-ai/dsh-agent-preset-registry", config: { default: "agent-skills-host" } },
+        { id: "agent-skills-host", name: "@deepseek-ai/dsh-agent-preset", config: { id: "agent-skills-host", plugins: [] } },
+      ] });
+    }
     if (!isDeepStrictEqual(current, result)) await writeChanged(patchPath, YAML.stringify(result));
   }
   const launcher = join(root, "dsh");

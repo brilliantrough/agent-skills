@@ -31,7 +31,7 @@
 #      旧 adapter 配置先预览,确认后备份迁移;~/.agents/mcp.json 不修改
 #      以及共用配置 ~/.claude-mem/settings.json、~/.config/cortexkit/magic-context.jsonc(含 historian.pi/dreamer.pi)
 #   5. claude-mem 官方 runtime 与宿主入口同步——Pi/OpenCode 分别由官方安装器部署，settings 保留本机值
-#   6. subagent 定义 ~/.pi/agent/agents/{explore,general}.md(对应 opencode 的两个 agent)
+#   6. subagent 定义 ~/.pi/agent/agents/{explore,general,consolidation-reviewer}.md
 #   7. skills:本仓 base/kb 刷新(漂移先备份)、accel 缺才装；补装外部设计依赖、更新第三方;pi 原生读 ~/.agents/skills
 #   8. strictdoc 由 modules/strictdoc 装(.sdoc 校验依赖;uv 的安装/自升级/镜像见 1.3)
 #
@@ -1267,6 +1267,7 @@ if [ "$PI_OK" -eq 1 ]; then
   deploy_file "$RAW/pi/keybindings.json" "$AGENT_DIR/keybindings.json" "按键(Enter 发送、Shift+Enter 换行等)" || true
   deploy_file "$RAW/pi/agents/explore.md" "$AGENT_DIR/agents/explore.md" "explore 子代理" || true
   deploy_file "$RAW/pi/agents/general.md" "$AGENT_DIR/agents/general.md" "general 子代理" || true
+  deploy_file "$RAW/pi/agents/consolidation-reviewer.md" "$AGENT_DIR/agents/consolidation-reviewer.md" "整理审查子代理" || true
 fi
 
 # ---- 7. skills 本体 ----

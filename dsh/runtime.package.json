@@ -13,6 +13,9 @@
   },
   "dependencies": {
     "@deepseek-ai/dsh": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-agent-preset-registry": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-tool-subagent": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-persona": "0.2.1-rc.2",
     "@xmoon76/dsh-pi-tui": "0.5.3",
     "pi2dsh": "0.27.1",
     "@dietrichgebert/ponytail": "5.3.2",

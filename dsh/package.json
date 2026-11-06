@@ -3,6 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "exports": "./index.mjs",
+  "exports": { ".": "./index.mjs", "./reviewer-policy": "./reviewer-policy.mjs" },
   "dsh": { "bundle": { "patch": "./bundle.yml" } }
 }

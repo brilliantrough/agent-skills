@@ -615,6 +615,31 @@ fi
 
 # ---- 5. skills:共用同步器刷新 base/research(漂移先备份)、补装外部设计依赖并更新第三方 ----
 SELF_RAW="https://raw.githubusercontent.com/${AGENT_SKILLS_REPO:-brilliantrough/agent-skills}/${AGENT_SKILLS_REF:-main}"
+# Codex 0.158.0 的插件不注册 agent roles；使用原生 agents TOML。
+if ask '安装/更新 consolidation-reviewer（Codex 原生只读审查代理）?' Y; then
+  if python3 - "$version" <<'PY_REVIEWER_VERSION'
+import re, sys
+m = re.search(r'(\d+)\.(\d+)\.(\d+)', sys.argv[1])
+sys.exit(not m or tuple(map(int, m.groups())) < (0, 158, 0))
+PY_REVIEWER_VERSION
+  then
+    _reviewer="$(mktemp)"
+    _agent="$CFG/agents/consolidation-reviewer.toml"
+    if [ -L "$_agent" ] || [ -L "$CFG/agents" ]; then
+      warn "跳过符号链接：$_agent"
+    elif curl -fsSL --connect-timeout 8 -m 60 -o "$_reviewer" "$RAW/codex/agents/consolidation-reviewer.toml" &&
+         python3 -c 'import sys,tomllib;tomllib.load(open(sys.argv[1],"rb"))' "$_reviewer"; then
+      if [ -f "$_agent" ] && cmp -s "$_reviewer" "$_agent"; then
+        echo "unchanged: $_agent"
+      else
+        mkdir -p "$CFG/agents"
+        [ ! -f "$_agent" ] || cp -p "$_agent" "$_agent.bak-$(date +%Y%m%d%H%M%S)"
+        mv "$_reviewer" "$_agent"; echo "wrote: $_agent"
+      fi
+    else warn '审查代理下载或解析失败，未修改原配置'; fi
+    rm -f "$_reviewer"
+  else warn '审查代理接入要求已验证的 Codex >=0.158.0；未自动升级宿主'; fi
+fi
 _ss="$(mktemp --suffix=.sh 2>/dev/null || mktemp)"
 if curl -fsSL --connect-timeout 8 -m 60 -o "$_ss" "$SELF_RAW/skills-sync.sh"; then
   SKILL_GROUPS=(base)

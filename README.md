@@ -32,7 +32,7 @@
 
 表格里后半段三项都由共用脚本实现（`skills-sync.sh`、`skills-external.sh`），四个入口只负责问一次并透传选择；宿主特有的部分留在各自的 `*-setup.sh`。DSH 与 Codex 不含配置合并，`AGENTS.md` 规范块随 skills 同步一问，不再需要手工粘。
 
-[快速安装](#快速安装) · [Skills](#skills本仓-37-个) · [首次部署](#首次部署只需要网关--5-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [DSH](dsh/README.md) · [OpenCode](#opencode-安装与迁移) · [更新](#更新) · [贡献](CONTRIBUTING.md)
+[快速安装](#快速安装) · [Skills](#skills本仓-38-个) · [首次部署](#首次部署只需要网关--5-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [DSH](dsh/README.md) · [OpenCode](#opencode-安装与迁移) · [更新](#更新) · [贡献](CONTRIBUTING.md)
 
 ## 快速安装
 
@@ -76,7 +76,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.com/brilliantrough/agent-skills/main/skills-sync.sh)" -- base
 ```
 
-`base` 安装基础 20 个；`base research` 追加 7 个算法研究 skill；`all` 或无参数安装五组共 37 个，含 PPT 组及其独立 Python 依赖。也可把 `research`、`accel`、`kb`、`ppt` 作为额外参数传给 `skills-sync.sh`。所有组都默认补装三个外部设计 skill，并更新已登记第三方；只有选中 `ppt` 才补装 `ppt-master` 并准备独立环境。需要 curl、git、Node/npx；安装位置 `~/.agents/skills/`，重开会话生效。
+`base` 安装基础 21 个；`base research` 追加 7 个算法研究 skill；`all` 或无参数安装五组共 38 个，含 PPT 组及其独立 Python 依赖。也可把 `research`、`accel`、`kb`、`ppt` 作为额外参数传给 `skills-sync.sh`。所有组都默认补装三个外部设计 skill，并更新已登记第三方；只有选中 `ppt` 才补装 `ppt-master` 并准备独立环境。需要 curl、git、Node/npx；安装位置 `~/.agents/skills/`，重开会话生效。
 
 **Codex（best effort）**
 
@@ -105,9 +105,9 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/pi-setup.sh)"
 ```
 
-## Skills（本仓 37 个）
+## Skills（本仓 38 个）
 
-基础 20 个；算法研究 7 个；算力模板 7 个、公共知识 2 个与 PPT 1 个按需选装。`research`、`kb` 与 `ppt` 随仓库刷新，`accel` 缺才装；另有三个设计依赖来自上游仓库（装时装前询问，默认 Y），不复制到本仓。
+基础 21 个；算法研究 7 个；算力模板 7 个、公共知识 2 个与 PPT 1 个按需选装。`research`、`kb` 与 `ppt` 随仓库刷新，`accel` 缺才装；另有三个设计依赖来自上游仓库（装时装前询问，默认 Y），不复制到本仓。
 
 ### 工程技能
 
@@ -154,6 +154,17 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 | [`writing-skill`](skills/base/writing-skill/SKILL.md) | 通用 skill 编写与组织；项目经验成库先联动 `distill-project-kb`，不重复筛选确认 |
 
 知识库可保留带条件的案例、阴性结果和一次昂贵踩坑；模型/硬件/版本是适用条件，个人路径、凭据和运行状态留在项目记录。使用后的补条件、反例和更正回到唯一维护源，不要求每次贡献都新建skill；历史快照与安装副本不独立演化。
+
+### 阶段整理与独立审查
+
+手动说“用 consolidator 整理这次改动”：主 Agent 整理代码、报告和记忆，再委派 `consolidation-reviewer` 只读审查；不自动运行，不新增调度器。
+
+- `skills/base/consolidator/` 随 base 安装，含唯一审查规范 `references/reviewer.md`。
+- Pi：像 explore/general 一样，由 setup 安装 Markdown 定义；继续使用原版 `pi-subagents-j0k3r`。
+- OpenCode：原生 `agents.consolidation-reviewer` 配置，完整 setup 接入；仅 `--plugins-only` 不更新代理配置。
+- Codex ≥0.158.0：setup 安装 `agents/consolidation-reviewer.toml`，只读 sandbox；不是插件注册。
+- DSH：原生 preset + `consolidation_review` 委派工具；沿用 spawn，不新增执行器。
+- 代理配置来自 `dot_file`；Pi/Codex 文件有变化先备份，OpenCode 保留本地既有配置。只装 skill 不等于已经注册子代理。
 
 ### 任务工作流（自制）
 
@@ -715,7 +726,7 @@ bash /tmp/opencode-setup.sh --plugins-only
 
 | 模式 | 处理范围 |
 | --- | --- |
-| 默认完整安装 | 插件、配置、依赖与通用 skills；默认 base 20 个，交互可选 research、accel、kb、ppt，全部选中时为 37 个，另同步外部设计 skills；选 ppt 另补引擎与独立 Python 环境 |
+| 默认完整安装 | 插件、配置、依赖与通用 skills；默认 base 21 个，交互可选 research、accel、kb、ppt，全部选中时为 38 个，另同步外部设计 skills；选 ppt 另补引擎与独立 Python 环境 |
 | `--plugins-only` | 旧配置转原生 V2、自维护插件、context-mode 及其 skills、官方包登记、claude-mem runtime／入口／MCP；不更新模型／Python／通用 skills |
 | `--check` | 下载校验自维护包，检查配置，查询 Ponytail／Magic Context 本地与 npm 版本；不询问、不改配置、认证或数据库 |
 

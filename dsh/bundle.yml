@@ -3,6 +3,17 @@
 - insert:
     - id: agent-skills-context
       name: agent-skills-dsh
+    - id: agent-skills-reviewer
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: consolidation-reviewer
+    - id: tool-consolidation-review
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: spawn
+        toolName: consolidation_review
+        agentPreset: consolidation-reviewer
+        allowedAgentPresets: [consolidation-reviewer]
     - id: mcp-context-mode
       name: '@deepseek-ai/dsh-mcp-client'
       disabled: true
