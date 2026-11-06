@@ -1,0 +1,23 @@
+{
+  "title": "南大 HTML 编辑验证",
+  "slides": [
+    {
+      "id": "cover", "type": "cover",
+      "fields": {"PAGE_TITLE": "南京大学", "TITLE": "让研究汇报更易修改", "SUBTITLE": "南大 HTML 演示 · 功能验证", "AUTHOR": "验收示例，不代表研究结果", "DATE": "2026 年 11 月"}
+    },
+    {
+      "id": "points", "type": "points3",
+      "fields": {"PAGE_TITLE": "演示与编辑共用一份内容", "POINT_1_NO": "01", "POINT_1_TITLE": "保留底板", "POINT_1_LINE_1": "校徽、银杏与建筑保持原样", "POINT_2_NO": "02", "POINT_2_TITLE": "直接改字", "POINT_2_LINE_1": "在浏览器里修改标题与正文", "POINT_3_NO": "03", "POINT_3_TITLE": "保存回读", "POINT_3_LINE_1": "重新打开仍保留修改", "TAKEAWAY_LABEL": "验证目标", "TAKEAWAY": "修改后的文件才是本次交付依据"}
+    },
+    {
+      "id": "chart", "type": "chart_column",
+      "fields": {"PAGE_TITLE": "数据修改应同步更新图形", "SOURCE": "数据来源：功能验收自拟示例；单位：次", "TAKEAWAY_LABEL": "验证目标", "TAKEAWAY": "直接编辑柱体上方数值，再保存并重开"},
+      "chart": {"categories": ["第一轮", "第二轮", "第三轮"], "series": [{"name": "验证次数", "values": [24, 36, 48]}]}
+    },
+    {
+      "id": "table", "type": "table",
+      "fields": {"PAGE_TITLE": "表格数据也能独立修改", "SOURCE": "数据来源：功能验收自拟示例", "TAKEAWAY_LABEL": "验证目标", "TAKEAWAY": "文字与数值可改，三线表结构保持"},
+      "table": {"headers": ["项目", "初值", "目标"], "rows": [["正文", 1, 1], ["图表", 24, 42], ["表格", 10, 20]]}
+    }
+  ]
+}

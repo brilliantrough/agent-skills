@@ -1,0 +1,1431 @@
+[
+  {
+    "name": "cover",
+    "backgroundSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1280\" height=\"720\" viewBox=\"0 0 1280 720\" font-family=\"'Microsoft YaHei','微软雅黑',sans-serif\" data-pptx-master=\"nju_ginkgo_white\" data-pptx-master-name=\"NJU Ginkgo White\" data-pptx-layout=\"cover\" data-pptx-layout-name=\"NJU Ginkgo Cover\"><rect x=\"0\" y=\"0\" width=\"1280\" height=\"720\" fill=\"#FFFFFF\" id=\"white-background\" data-pptx-layer=\"master\" data-pptx-editable=\"false\" /><svg x=\"-17\" y=\"-26.53\" width=\"169.54\" height=\"183.87\" viewBox=\"0 0 0.60914 1\" preserveAspectRatio=\"none\" overflow=\"hidden\" id=\"nju-original-logo\" data-pptx-layer=\"master\" data-pptx-editable=\"false\"><image href=\"assets/nju/images/nju-logo.png\" x=\"0\" y=\"0\" width=\"1\" height=\"1\" preserveAspectRatio=\"none\" /></svg>\n<image href=\"assets/nju/images/ginkgo-leaf.png\" x=\"471.9\" y=\"49.21\" width=\"55.2\" height=\"50.85\" preserveAspectRatio=\"none\" transform=\"rotate(286.62248333 499.5 74.63) translate(499.5 74.63) scale(-1 1) translate(-499.5 -74.63)\" id=\"nju-original-ginkgo\" data-pptx-layer=\"master\" data-pptx-editable=\"false\" />\n<line id=\"cover-rule\" data-pptx-layer=\"layout\" data-pptx-editable=\"false\" x1=\"96\" y1=\"354\" x2=\"176\" y2=\"354\" stroke=\"#579AB9\" stroke-width=\"3\" /><image id=\"campus-decoration\" data-icon-style=\"preserve-color\" data-pptx-asset-role=\"decoration\" x=\"0\" y=\"0\" width=\"1280\" height=\"720\" href=\"assets/nju/icons/imported/nju-campus.svg\" /></svg>",
+    "fields": [
+      {
+        "key": "PAGE_TITLE",
+        "x": 532.2,
+        "y": 54.463800000000006,
+        "width": 620.0,
+        "height": 34.67100000000001,
+        "size": 26.67,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "TITLE",
+        "x": 96.0,
+        "y": 259.28,
+        "width": 1088.0,
+        "height": 67.60000000000001,
+        "size": 52.0,
+        "color": "#B38B4A",
+        "weight": "bold",
+        "align": "left"
+      },
+      {
+        "key": "SUBTITLE",
+        "x": 96.0,
+        "y": 387.64,
+        "width": 1088.0,
+        "height": 33.800000000000004,
+        "size": 26.0,
+        "color": "#738693",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "AUTHOR",
+        "x": 96.0,
+        "y": 464.8,
+        "width": 1088.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "DATE",
+        "x": 96.0,
+        "y": 511.52,
+        "width": 1088.0,
+        "height": 23.400000000000002,
+        "size": 18.0,
+        "color": "#757575",
+        "weight": "normal",
+        "align": "left"
+      }
+    ],
+    "slots": {}
+  },
+  {
+    "name": "points3",
+    "backgroundSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1280\" height=\"720\" viewBox=\"0 0 1280 720\" font-family=\"'Microsoft YaHei','微软雅黑',sans-serif\" data-pptx-master=\"nju_ginkgo_white\" data-pptx-master-name=\"NJU Ginkgo White\" data-pptx-layout=\"points3\" data-pptx-layout-name=\"NJU Ginkgo Three Points\"><rect x=\"0\" y=\"0\" width=\"1280\" height=\"720\" fill=\"#FFFFFF\" id=\"white-background\" data-pptx-layer=\"master\" data-pptx-editable=\"false\" /><svg x=\"-17\" y=\"-26.53\" width=\"169.54\" height=\"183.87\" viewBox=\"0 0 0.60914 1\" preserveAspectRatio=\"none\" overflow=\"hidden\" id=\"nju-original-logo\" data-pptx-layer=\"master\" data-pptx-editable=\"false\"><image href=\"assets/nju/images/nju-logo.png\" x=\"0\" y=\"0\" width=\"1\" height=\"1\" preserveAspectRatio=\"none\" /></svg>\n<image href=\"assets/nju/images/ginkgo-leaf.png\" x=\"471.9\" y=\"49.21\" width=\"55.2\" height=\"50.85\" preserveAspectRatio=\"none\" transform=\"rotate(286.62248333 499.5 74.63) translate(499.5 74.63) scale(-1 1) translate(-499.5 -74.63)\" id=\"nju-original-ginkgo\" data-pptx-layer=\"master\" data-pptx-editable=\"false\" />\n<line x1=\"96\" y1=\"292\" x2=\"416\" y2=\"292\" stroke=\"#D8EAF2\" stroke-width=\"1\" id=\"column-1-rule\" data-pptx-layer=\"layout\" data-pptx-editable=\"false\" /><line x1=\"480\" y1=\"292\" x2=\"800\" y2=\"292\" stroke=\"#D8EAF2\" stroke-width=\"1\" id=\"column-2-rule\" data-pptx-layer=\"layout\" data-pptx-editable=\"false\" /><line x1=\"864\" y1=\"292\" x2=\"1184\" y2=\"292\" stroke=\"#D8EAF2\" stroke-width=\"1\" id=\"column-3-rule\" data-pptx-layer=\"layout\" data-pptx-editable=\"false\" /><image id=\"campus-decoration\" data-icon-style=\"preserve-color\" data-pptx-asset-role=\"decoration\" x=\"0\" y=\"0\" width=\"1280\" height=\"720\" href=\"assets/nju/icons/imported/nju-campus.svg\" /><rect x=\"96\" y=\"480\" width=\"1088\" height=\"80\" fill=\"#F0F8FC\" id=\"takeaway-field\" data-pptx-role=\"decoration\" /><rect x=\"96\" y=\"480\" width=\"4\" height=\"80\" fill=\"#579AB9\" id=\"takeaway-accent\" data-pptx-role=\"decoration\" /></svg>",
+    "fields": [
+      {
+        "key": "PAGE_TITLE",
+        "x": 532.2,
+        "y": 54.463800000000006,
+        "width": 620.0,
+        "height": 34.67100000000001,
+        "size": 26.67,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "POINT_1_NO",
+        "x": 96.0,
+        "y": 189.88,
+        "width": 320.0,
+        "height": 54.6,
+        "size": 42.0,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "POINT_1_TITLE",
+        "x": 96.0,
+        "y": 252.64,
+        "width": 320.0,
+        "height": 33.800000000000004,
+        "size": 26.0,
+        "color": "#B38B4A",
+        "weight": "bold",
+        "align": "left"
+      },
+      {
+        "key": "POINT_1_LINE_1",
+        "x": 96.0,
+        "y": 320.8,
+        "width": 320.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "POINT_1_LINE_2",
+        "x": 96.0,
+        "y": 356.8,
+        "width": 320.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "POINT_1_LINE_3",
+        "x": 96.0,
+        "y": 392.8,
+        "width": 320.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "POINT_2_NO",
+        "x": 480.0,
+        "y": 189.88,
+        "width": 320.0,
+        "height": 54.6,
+        "size": 42.0,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "POINT_2_TITLE",
+        "x": 480.0,
+        "y": 252.64,
+        "width": 320.0,
+        "height": 33.800000000000004,
+        "size": 26.0,
+        "color": "#B38B4A",
+        "weight": "bold",
+        "align": "left"
+      },
+      {
+        "key": "POINT_2_LINE_1",
+        "x": 480.0,
+        "y": 320.8,
+        "width": 320.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "POINT_2_LINE_2",
+        "x": 480.0,
+        "y": 356.8,
+        "width": 320.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "POINT_2_LINE_3",
+        "x": 480.0,
+        "y": 392.8,
+        "width": 320.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "POINT_3_NO",
+        "x": 864.0,
+        "y": 189.88,
+        "width": 320.0,
+        "height": 54.6,
+        "size": 42.0,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "POINT_3_TITLE",
+        "x": 864.0,
+        "y": 252.64,
+        "width": 320.0,
+        "height": 33.800000000000004,
+        "size": 26.0,
+        "color": "#B38B4A",
+        "weight": "bold",
+        "align": "left"
+      },
+      {
+        "key": "POINT_3_LINE_1",
+        "x": 864.0,
+        "y": 320.8,
+        "width": 320.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "POINT_3_LINE_2",
+        "x": 864.0,
+        "y": 356.8,
+        "width": 320.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "POINT_3_LINE_3",
+        "x": 864.0,
+        "y": 392.8,
+        "width": 320.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "TAKEAWAY_LABEL",
+        "x": 120.0,
+        "y": 495.82,
+        "width": 1040.0,
+        "height": 16.900000000000002,
+        "size": 13.0,
+        "color": "#8B662F",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "TAKEAWAY",
+        "x": 120.0,
+        "y": 522.08,
+        "width": 1040.0,
+        "height": 28.6,
+        "size": 22.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "PAGE_NUM",
+        "x": 1120.0,
+        "y": 568.82,
+        "width": 64.0,
+        "height": 16.900000000000002,
+        "size": 13.0,
+        "color": "#757575",
+        "weight": "normal",
+        "align": "right"
+      }
+    ],
+    "slots": {}
+  },
+  {
+    "name": "toc",
+    "backgroundSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1280\" height=\"720\" viewBox=\"0 0 1280 720\" font-family=\"'Microsoft YaHei','微软雅黑',sans-serif\" data-pptx-master=\"nju_ginkgo_white\" data-pptx-master-name=\"NJU Ginkgo White\" data-pptx-layout=\"toc\" data-pptx-layout-name=\"NJU Ginkgo Contents\"><rect x=\"0\" y=\"0\" width=\"1280\" height=\"720\" fill=\"#FFFFFF\" id=\"white-background\" data-pptx-layer=\"master\" data-pptx-editable=\"false\" /><svg x=\"-17\" y=\"-26.53\" width=\"169.54\" height=\"183.87\" viewBox=\"0 0 0.60914 1\" preserveAspectRatio=\"none\" overflow=\"hidden\" id=\"nju-original-logo\" data-pptx-layer=\"master\" data-pptx-editable=\"false\"><image href=\"assets/nju/images/nju-logo.png\" x=\"0\" y=\"0\" width=\"1\" height=\"1\" preserveAspectRatio=\"none\" /></svg>\n<image href=\"assets/nju/images/ginkgo-leaf.png\" x=\"471.9\" y=\"49.21\" width=\"55.2\" height=\"50.85\" preserveAspectRatio=\"none\" transform=\"rotate(286.62248333 499.5 74.63) translate(499.5 74.63) scale(-1 1) translate(-499.5 -74.63)\" id=\"nju-original-ginkgo\" data-pptx-layer=\"master\" data-pptx-editable=\"false\" />\n<line id=\"toc-rule-0\" data-pptx-layer=\"layout\" data-pptx-editable=\"false\" x1=\"96\" y1=\"221\" x2=\"1184\" y2=\"221\" stroke=\"#D8EAF2\" stroke-width=\"1\" /><line id=\"toc-rule-1\" data-pptx-layer=\"layout\" data-pptx-editable=\"false\" x1=\"96\" y1=\"299\" x2=\"1184\" y2=\"299\" stroke=\"#D8EAF2\" stroke-width=\"1\" /><line id=\"toc-rule-2\" data-pptx-layer=\"layout\" data-pptx-editable=\"false\" x1=\"96\" y1=\"377\" x2=\"1184\" y2=\"377\" stroke=\"#D8EAF2\" stroke-width=\"1\" /><line id=\"toc-rule-3\" data-pptx-layer=\"layout\" data-pptx-editable=\"false\" x1=\"96\" y1=\"455\" x2=\"1184\" y2=\"455\" stroke=\"#D8EAF2\" stroke-width=\"1\" /><line id=\"toc-rule-4\" data-pptx-layer=\"layout\" data-pptx-editable=\"false\" x1=\"96\" y1=\"533\" x2=\"1184\" y2=\"533\" stroke=\"#D8EAF2\" stroke-width=\"1\" /><image id=\"campus-decoration\" data-icon-style=\"preserve-color\" data-pptx-asset-role=\"decoration\" x=\"0\" y=\"0\" width=\"1280\" height=\"720\" href=\"assets/nju/icons/imported/nju-campus.svg\" /></svg>",
+    "fields": [
+      {
+        "key": "PAGE_TITLE",
+        "x": 532.2,
+        "y": 54.463800000000006,
+        "width": 620.0,
+        "height": 34.67100000000001,
+        "size": 26.67,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "TOC_ITEM_1_NO",
+        "x": 96.0,
+        "y": 172.48,
+        "width": 64.0,
+        "height": 41.6,
+        "size": 32.0,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "TOC_ITEM_1_TITLE",
+        "x": 180.0,
+        "y": 175.64,
+        "width": 340.0,
+        "height": 33.800000000000004,
+        "size": 26.0,
+        "color": "#B38B4A",
+        "weight": "bold",
+        "align": "left"
+      },
+      {
+        "key": "TOC_ITEM_1_DESC",
+        "x": 560.0,
+        "y": 179.8,
+        "width": 624.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#757575",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "TOC_ITEM_2_NO",
+        "x": 96.0,
+        "y": 250.48,
+        "width": 64.0,
+        "height": 41.6,
+        "size": 32.0,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "TOC_ITEM_2_TITLE",
+        "x": 180.0,
+        "y": 253.64,
+        "width": 340.0,
+        "height": 33.800000000000004,
+        "size": 26.0,
+        "color": "#B38B4A",
+        "weight": "bold",
+        "align": "left"
+      },
+      {
+        "key": "TOC_ITEM_2_DESC",
+        "x": 560.0,
+        "y": 257.8,
+        "width": 624.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#757575",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "TOC_ITEM_3_NO",
+        "x": 96.0,
+        "y": 328.48,
+        "width": 64.0,
+        "height": 41.6,
+        "size": 32.0,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "TOC_ITEM_3_TITLE",
+        "x": 180.0,
+        "y": 331.64,
+        "width": 340.0,
+        "height": 33.800000000000004,
+        "size": 26.0,
+        "color": "#B38B4A",
+        "weight": "bold",
+        "align": "left"
+      },
+      {
+        "key": "TOC_ITEM_3_DESC",
+        "x": 560.0,
+        "y": 335.8,
+        "width": 624.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#757575",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "TOC_ITEM_4_NO",
+        "x": 96.0,
+        "y": 406.48,
+        "width": 64.0,
+        "height": 41.6,
+        "size": 32.0,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "TOC_ITEM_4_TITLE",
+        "x": 180.0,
+        "y": 409.64,
+        "width": 340.0,
+        "height": 33.800000000000004,
+        "size": 26.0,
+        "color": "#B38B4A",
+        "weight": "bold",
+        "align": "left"
+      },
+      {
+        "key": "TOC_ITEM_4_DESC",
+        "x": 560.0,
+        "y": 413.8,
+        "width": 624.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#757575",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "TOC_ITEM_5_NO",
+        "x": 96.0,
+        "y": 484.48,
+        "width": 64.0,
+        "height": 41.6,
+        "size": 32.0,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "TOC_ITEM_5_TITLE",
+        "x": 180.0,
+        "y": 487.64,
+        "width": 340.0,
+        "height": 33.800000000000004,
+        "size": 26.0,
+        "color": "#B38B4A",
+        "weight": "bold",
+        "align": "left"
+      },
+      {
+        "key": "TOC_ITEM_5_DESC",
+        "x": 560.0,
+        "y": 491.8,
+        "width": 624.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#757575",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "PAGE_NUM",
+        "x": 1120.0,
+        "y": 568.82,
+        "width": 64.0,
+        "height": 16.900000000000002,
+        "size": 13.0,
+        "color": "#757575",
+        "weight": "normal",
+        "align": "right"
+      }
+    ],
+    "slots": {}
+  },
+  {
+    "name": "chapter",
+    "backgroundSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1280\" height=\"720\" viewBox=\"0 0 1280 720\" font-family=\"'Microsoft YaHei','微软雅黑',sans-serif\" data-pptx-master=\"nju_ginkgo_white\" data-pptx-master-name=\"NJU Ginkgo White\" data-pptx-layout=\"chapter\" data-pptx-layout-name=\"NJU Ginkgo Chapter\"><rect x=\"0\" y=\"0\" width=\"1280\" height=\"720\" fill=\"#FFFFFF\" id=\"white-background\" data-pptx-layer=\"master\" data-pptx-editable=\"false\" /><svg x=\"-17\" y=\"-26.53\" width=\"169.54\" height=\"183.87\" viewBox=\"0 0 0.60914 1\" preserveAspectRatio=\"none\" overflow=\"hidden\" id=\"nju-original-logo\" data-pptx-layer=\"master\" data-pptx-editable=\"false\"><image href=\"assets/nju/images/nju-logo.png\" x=\"0\" y=\"0\" width=\"1\" height=\"1\" preserveAspectRatio=\"none\" /></svg>\n<image href=\"assets/nju/images/ginkgo-leaf.png\" x=\"471.9\" y=\"49.21\" width=\"55.2\" height=\"50.85\" preserveAspectRatio=\"none\" transform=\"rotate(286.62248333 499.5 74.63) translate(499.5 74.63) scale(-1 1) translate(-499.5 -74.63)\" id=\"nju-original-ginkgo\" data-pptx-layer=\"master\" data-pptx-editable=\"false\" />\n<line id=\"chapter-rule\" data-pptx-layer=\"layout\" data-pptx-editable=\"false\" x1=\"96\" y1=\"402\" x2=\"176\" y2=\"402\" stroke=\"#579AB9\" stroke-width=\"3\" /><image id=\"campus-decoration\" data-icon-style=\"preserve-color\" data-pptx-asset-role=\"decoration\" x=\"0\" y=\"0\" width=\"1280\" height=\"720\" href=\"assets/nju/icons/imported/nju-campus.svg\" /></svg>",
+    "fields": [
+      {
+        "key": "PAGE_TITLE",
+        "x": 532.2,
+        "y": 54.463800000000006,
+        "width": 620.0,
+        "height": 34.67100000000001,
+        "size": 26.67,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "CHAPTER_NUM",
+        "x": 96.0,
+        "y": 179.32,
+        "width": 1088.0,
+        "height": 114.4,
+        "size": 88.0,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "CHAPTER_TITLE",
+        "x": 96.0,
+        "y": 328.88,
+        "width": 1088.0,
+        "height": 54.6,
+        "size": 42.0,
+        "color": "#B38B4A",
+        "weight": "bold",
+        "align": "left"
+      },
+      {
+        "key": "CHAPTER_DESC",
+        "x": 96.0,
+        "y": 445.36,
+        "width": 1088.0,
+        "height": 31.200000000000003,
+        "size": 24.0,
+        "color": "#738693",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "PAGE_NUM",
+        "x": 1120.0,
+        "y": 568.82,
+        "width": 64.0,
+        "height": 16.900000000000002,
+        "size": 13.0,
+        "color": "#757575",
+        "weight": "normal",
+        "align": "right"
+      }
+    ],
+    "slots": {}
+  },
+  {
+    "name": "pillars4",
+    "backgroundSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1280\" height=\"720\" viewBox=\"0 0 1280 720\" font-family=\"'Microsoft YaHei','微软雅黑',sans-serif\" data-pptx-master=\"nju_ginkgo_white\" data-pptx-master-name=\"NJU Ginkgo White\" data-pptx-layout=\"pillars4\" data-pptx-layout-name=\"NJU Ginkgo Four Pillars\"><rect x=\"0\" y=\"0\" width=\"1280\" height=\"720\" fill=\"#FFFFFF\" id=\"white-background\" data-pptx-layer=\"master\" data-pptx-editable=\"false\" /><svg x=\"-17\" y=\"-26.53\" width=\"169.54\" height=\"183.87\" viewBox=\"0 0 0.60914 1\" preserveAspectRatio=\"none\" overflow=\"hidden\" id=\"nju-original-logo\" data-pptx-layer=\"master\" data-pptx-editable=\"false\"><image href=\"assets/nju/images/nju-logo.png\" x=\"0\" y=\"0\" width=\"1\" height=\"1\" preserveAspectRatio=\"none\" /></svg>\n<image href=\"assets/nju/images/ginkgo-leaf.png\" x=\"471.9\" y=\"49.21\" width=\"55.2\" height=\"50.85\" preserveAspectRatio=\"none\" transform=\"rotate(286.62248333 499.5 74.63) translate(499.5 74.63) scale(-1 1) translate(-499.5 -74.63)\" id=\"nju-original-ginkgo\" data-pptx-layer=\"master\" data-pptx-editable=\"false\" />\n<line id=\"pillar-rule-1\" data-pptx-layer=\"layout\" data-pptx-editable=\"false\" x1=\"96\" y1=\"280\" x2=\"350\" y2=\"280\" stroke=\"#D8EAF2\" stroke-width=\"1\" /><line id=\"pillar-rule-2\" data-pptx-layer=\"layout\" data-pptx-editable=\"false\" x1=\"374\" y1=\"280\" x2=\"628\" y2=\"280\" stroke=\"#D8EAF2\" stroke-width=\"1\" /><line id=\"pillar-rule-3\" data-pptx-layer=\"layout\" data-pptx-editable=\"false\" x1=\"652\" y1=\"280\" x2=\"906\" y2=\"280\" stroke=\"#D8EAF2\" stroke-width=\"1\" /><line id=\"pillar-rule-4\" data-pptx-layer=\"layout\" data-pptx-editable=\"false\" x1=\"930\" y1=\"280\" x2=\"1184\" y2=\"280\" stroke=\"#D8EAF2\" stroke-width=\"1\" /><image id=\"campus-decoration\" data-icon-style=\"preserve-color\" data-pptx-asset-role=\"decoration\" x=\"0\" y=\"0\" width=\"1280\" height=\"720\" href=\"assets/nju/icons/imported/nju-campus.svg\" /><rect id=\"takeaway-field\" x=\"96\" y=\"480\" width=\"1088\" height=\"80\" fill=\"#F0F8FC\" data-pptx-role=\"decoration\" /><rect id=\"takeaway-accent\" x=\"96\" y=\"480\" width=\"4\" height=\"80\" fill=\"#579AB9\" data-pptx-role=\"decoration\" /></svg>",
+    "fields": [
+      {
+        "key": "PAGE_TITLE",
+        "x": 532.2,
+        "y": 54.463800000000006,
+        "width": 620.0,
+        "height": 34.67100000000001,
+        "size": 26.67,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "PILLAR_1_NO",
+        "x": 96.0,
+        "y": 185.32,
+        "width": 254.0,
+        "height": 49.4,
+        "size": 38.0,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "PILLAR_1_TITLE",
+        "x": 96.0,
+        "y": 246.36,
+        "width": 254.0,
+        "height": 31.200000000000003,
+        "size": 24.0,
+        "color": "#B38B4A",
+        "weight": "bold",
+        "align": "left"
+      },
+      {
+        "key": "PILLAR_1_BODY_1",
+        "x": 96.0,
+        "y": 315.8,
+        "width": 254.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "PILLAR_1_BODY_2",
+        "x": 96.0,
+        "y": 351.8,
+        "width": 254.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "PILLAR_2_NO",
+        "x": 374.0,
+        "y": 185.32,
+        "width": 254.0,
+        "height": 49.4,
+        "size": 38.0,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "PILLAR_2_TITLE",
+        "x": 374.0,
+        "y": 246.36,
+        "width": 254.0,
+        "height": 31.200000000000003,
+        "size": 24.0,
+        "color": "#B38B4A",
+        "weight": "bold",
+        "align": "left"
+      },
+      {
+        "key": "PILLAR_2_BODY_1",
+        "x": 374.0,
+        "y": 315.8,
+        "width": 254.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "PILLAR_2_BODY_2",
+        "x": 374.0,
+        "y": 351.8,
+        "width": 254.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "PILLAR_3_NO",
+        "x": 652.0,
+        "y": 185.32,
+        "width": 254.0,
+        "height": 49.4,
+        "size": 38.0,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "PILLAR_3_TITLE",
+        "x": 652.0,
+        "y": 246.36,
+        "width": 254.0,
+        "height": 31.200000000000003,
+        "size": 24.0,
+        "color": "#B38B4A",
+        "weight": "bold",
+        "align": "left"
+      },
+      {
+        "key": "PILLAR_3_BODY_1",
+        "x": 652.0,
+        "y": 315.8,
+        "width": 254.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "PILLAR_3_BODY_2",
+        "x": 652.0,
+        "y": 351.8,
+        "width": 254.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "PILLAR_4_NO",
+        "x": 930.0,
+        "y": 185.32,
+        "width": 254.0,
+        "height": 49.4,
+        "size": 38.0,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "PILLAR_4_TITLE",
+        "x": 930.0,
+        "y": 246.36,
+        "width": 254.0,
+        "height": 31.200000000000003,
+        "size": 24.0,
+        "color": "#B38B4A",
+        "weight": "bold",
+        "align": "left"
+      },
+      {
+        "key": "PILLAR_4_BODY_1",
+        "x": 930.0,
+        "y": 315.8,
+        "width": 254.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "PILLAR_4_BODY_2",
+        "x": 930.0,
+        "y": 351.8,
+        "width": 254.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "TAKEAWAY_LABEL",
+        "x": 120.0,
+        "y": 495.82,
+        "width": 1040.0,
+        "height": 16.900000000000002,
+        "size": 13.0,
+        "color": "#8B662F",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "TAKEAWAY",
+        "x": 120.0,
+        "y": 522.08,
+        "width": 1040.0,
+        "height": 28.6,
+        "size": 22.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "PAGE_NUM",
+        "x": 1120.0,
+        "y": 568.82,
+        "width": 64.0,
+        "height": 16.900000000000002,
+        "size": 13.0,
+        "color": "#757575",
+        "weight": "normal",
+        "align": "right"
+      }
+    ],
+    "slots": {}
+  },
+  {
+    "name": "two_col",
+    "backgroundSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1280\" height=\"720\" viewBox=\"0 0 1280 720\" font-family=\"'Microsoft YaHei','微软雅黑',sans-serif\" data-pptx-master=\"nju_ginkgo_white\" data-pptx-master-name=\"NJU Ginkgo White\" data-pptx-layout=\"two_col\" data-pptx-layout-name=\"NJU Ginkgo Two Column\"><rect x=\"0\" y=\"0\" width=\"1280\" height=\"720\" fill=\"#FFFFFF\" id=\"white-background\" data-pptx-layer=\"master\" data-pptx-editable=\"false\" /><svg x=\"-17\" y=\"-26.53\" width=\"169.54\" height=\"183.87\" viewBox=\"0 0 0.60914 1\" preserveAspectRatio=\"none\" overflow=\"hidden\" id=\"nju-original-logo\" data-pptx-layer=\"master\" data-pptx-editable=\"false\"><image href=\"assets/nju/images/nju-logo.png\" x=\"0\" y=\"0\" width=\"1\" height=\"1\" preserveAspectRatio=\"none\" /></svg>\n<image href=\"assets/nju/images/ginkgo-leaf.png\" x=\"471.9\" y=\"49.21\" width=\"55.2\" height=\"50.85\" preserveAspectRatio=\"none\" transform=\"rotate(286.62248333 499.5 74.63) translate(499.5 74.63) scale(-1 1) translate(-499.5 -74.63)\" id=\"nju-original-ginkgo\" data-pptx-layer=\"master\" data-pptx-editable=\"false\" />\n<image id=\"campus-decoration\" data-icon-style=\"preserve-color\" data-pptx-asset-role=\"decoration\" x=\"0\" y=\"0\" width=\"1280\" height=\"720\" href=\"assets/nju/icons/imported/nju-campus.svg\" /><rect id=\"takeaway-field\" x=\"96\" y=\"480\" width=\"1088\" height=\"80\" fill=\"#F0F8FC\" data-pptx-role=\"decoration\" /><rect id=\"takeaway-accent\" x=\"96\" y=\"480\" width=\"4\" height=\"80\" fill=\"#579AB9\" data-pptx-role=\"decoration\" /></svg>",
+    "fields": [
+      {
+        "key": "PAGE_TITLE",
+        "x": 532.2,
+        "y": 54.463800000000006,
+        "width": 620.0,
+        "height": 34.67100000000001,
+        "size": 26.67,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "BULLET_1_TITLE",
+        "x": 96.0,
+        "y": 175.36,
+        "width": 488.0,
+        "height": 31.200000000000003,
+        "size": 24.0,
+        "color": "#B38B4A",
+        "weight": "bold",
+        "align": "left"
+      },
+      {
+        "key": "BULLET_1_DESC",
+        "x": 96.0,
+        "y": 218.8,
+        "width": 488.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "BULLET_2_TITLE",
+        "x": 96.0,
+        "y": 273.36,
+        "width": 488.0,
+        "height": 31.200000000000003,
+        "size": 24.0,
+        "color": "#B38B4A",
+        "weight": "bold",
+        "align": "left"
+      },
+      {
+        "key": "BULLET_2_DESC",
+        "x": 96.0,
+        "y": 316.8,
+        "width": 488.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "BULLET_3_TITLE",
+        "x": 96.0,
+        "y": 371.36,
+        "width": 488.0,
+        "height": 31.200000000000003,
+        "size": 24.0,
+        "color": "#B38B4A",
+        "weight": "bold",
+        "align": "left"
+      },
+      {
+        "key": "BULLET_3_DESC",
+        "x": 96.0,
+        "y": 414.8,
+        "width": 488.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "FIGURE_TITLE",
+        "x": 640.0,
+        "y": 263.64,
+        "width": 544.0,
+        "height": 33.800000000000004,
+        "size": 26.0,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "center"
+      },
+      {
+        "key": "FIGURE_DESC",
+        "x": 640.0,
+        "y": 312.52,
+        "width": 544.0,
+        "height": 23.400000000000002,
+        "size": 18.0,
+        "color": "#757575",
+        "weight": "normal",
+        "align": "center"
+      },
+      {
+        "key": "FIG_CAPTION",
+        "x": 640.0,
+        "y": 452.96,
+        "width": 544.0,
+        "height": 18.2,
+        "size": 14.0,
+        "color": "#757575",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "TAKEAWAY_LABEL",
+        "x": 120.0,
+        "y": 495.82,
+        "width": 1040.0,
+        "height": 16.900000000000002,
+        "size": 13.0,
+        "color": "#8B662F",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "TAKEAWAY",
+        "x": 120.0,
+        "y": 522.08,
+        "width": 1040.0,
+        "height": 28.6,
+        "size": 22.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "PAGE_NUM",
+        "x": 1120.0,
+        "y": 568.82,
+        "width": 64.0,
+        "height": 16.900000000000002,
+        "size": 13.0,
+        "color": "#757575",
+        "weight": "normal",
+        "align": "right"
+      }
+    ],
+    "slots": {}
+  },
+  {
+    "name": "timeline",
+    "backgroundSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1280\" height=\"720\" viewBox=\"0 0 1280 720\" font-family=\"'Microsoft YaHei','微软雅黑',sans-serif\" data-pptx-master=\"nju_ginkgo_white\" data-pptx-master-name=\"NJU Ginkgo White\" data-pptx-layout=\"timeline\" data-pptx-layout-name=\"NJU Ginkgo Timeline\"><rect x=\"0\" y=\"0\" width=\"1280\" height=\"720\" fill=\"#FFFFFF\" id=\"white-background\" data-pptx-layer=\"master\" data-pptx-editable=\"false\" /><svg x=\"-17\" y=\"-26.53\" width=\"169.54\" height=\"183.87\" viewBox=\"0 0 0.60914 1\" preserveAspectRatio=\"none\" overflow=\"hidden\" id=\"nju-original-logo\" data-pptx-layer=\"master\" data-pptx-editable=\"false\"><image href=\"assets/nju/images/nju-logo.png\" x=\"0\" y=\"0\" width=\"1\" height=\"1\" preserveAspectRatio=\"none\" /></svg>\n<image href=\"assets/nju/images/ginkgo-leaf.png\" x=\"471.9\" y=\"49.21\" width=\"55.2\" height=\"50.85\" preserveAspectRatio=\"none\" transform=\"rotate(286.62248333 499.5 74.63) translate(499.5 74.63) scale(-1 1) translate(-499.5 -74.63)\" id=\"nju-original-ginkgo\" data-pptx-layer=\"master\" data-pptx-editable=\"false\" />\n<line id=\"timeline-axis\" data-pptx-layer=\"layout\" data-pptx-editable=\"false\" x1=\"120\" y1=\"254\" x2=\"1160\" y2=\"254\" stroke=\"#D8EAF2\" stroke-width=\"2\" /><circle id=\"timeline-node-1\" data-pptx-layer=\"layout\" data-pptx-editable=\"false\" cx=\"120\" cy=\"254\" r=\"7\" fill=\"#B38B4A\" /><circle id=\"timeline-node-2\" data-pptx-layer=\"layout\" data-pptx-editable=\"false\" cx=\"398\" cy=\"254\" r=\"7\" fill=\"#B38B4A\" /><circle id=\"timeline-node-3\" data-pptx-layer=\"layout\" data-pptx-editable=\"false\" cx=\"676\" cy=\"254\" r=\"7\" fill=\"#B38B4A\" /><circle id=\"timeline-node-4\" data-pptx-layer=\"layout\" data-pptx-editable=\"false\" cx=\"954\" cy=\"254\" r=\"7\" fill=\"#B38B4A\" /><image id=\"campus-decoration\" data-icon-style=\"preserve-color\" data-pptx-asset-role=\"decoration\" x=\"0\" y=\"0\" width=\"1280\" height=\"720\" href=\"assets/nju/icons/imported/nju-campus.svg\" /><rect id=\"takeaway-field\" x=\"96\" y=\"480\" width=\"1088\" height=\"80\" fill=\"#F0F8FC\" data-pptx-role=\"decoration\" /><rect id=\"takeaway-accent\" x=\"96\" y=\"480\" width=\"4\" height=\"80\" fill=\"#579AB9\" data-pptx-role=\"decoration\" /></svg>",
+    "fields": [
+      {
+        "key": "PAGE_TITLE",
+        "x": 532.2,
+        "y": 54.463800000000006,
+        "width": 620.0,
+        "height": 34.67100000000001,
+        "size": 26.67,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "NODE_1_DATE",
+        "x": 96.0,
+        "y": 192.8,
+        "width": 254.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "NODE_1_TITLE",
+        "x": 96.0,
+        "y": 295.36,
+        "width": 254.0,
+        "height": 31.200000000000003,
+        "size": 24.0,
+        "color": "#B38B4A",
+        "weight": "bold",
+        "align": "left"
+      },
+      {
+        "key": "NODE_1_BODY_1",
+        "x": 96.0,
+        "y": 352.8,
+        "width": 254.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "NODE_1_BODY_2",
+        "x": 96.0,
+        "y": 388.8,
+        "width": 254.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "NODE_2_DATE",
+        "x": 374.0,
+        "y": 192.8,
+        "width": 254.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "NODE_2_TITLE",
+        "x": 374.0,
+        "y": 295.36,
+        "width": 254.0,
+        "height": 31.200000000000003,
+        "size": 24.0,
+        "color": "#B38B4A",
+        "weight": "bold",
+        "align": "left"
+      },
+      {
+        "key": "NODE_2_BODY_1",
+        "x": 374.0,
+        "y": 352.8,
+        "width": 254.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "NODE_2_BODY_2",
+        "x": 374.0,
+        "y": 388.8,
+        "width": 254.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "NODE_3_DATE",
+        "x": 652.0,
+        "y": 192.8,
+        "width": 254.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "NODE_3_TITLE",
+        "x": 652.0,
+        "y": 295.36,
+        "width": 254.0,
+        "height": 31.200000000000003,
+        "size": 24.0,
+        "color": "#B38B4A",
+        "weight": "bold",
+        "align": "left"
+      },
+      {
+        "key": "NODE_3_BODY_1",
+        "x": 652.0,
+        "y": 352.8,
+        "width": 254.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "NODE_3_BODY_2",
+        "x": 652.0,
+        "y": 388.8,
+        "width": 254.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "NODE_4_DATE",
+        "x": 930.0,
+        "y": 192.8,
+        "width": 254.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "NODE_4_TITLE",
+        "x": 930.0,
+        "y": 295.36,
+        "width": 254.0,
+        "height": 31.200000000000003,
+        "size": 24.0,
+        "color": "#B38B4A",
+        "weight": "bold",
+        "align": "left"
+      },
+      {
+        "key": "NODE_4_BODY_1",
+        "x": 930.0,
+        "y": 352.8,
+        "width": 254.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "NODE_4_BODY_2",
+        "x": 930.0,
+        "y": 388.8,
+        "width": 254.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "TAKEAWAY_LABEL",
+        "x": 120.0,
+        "y": 495.82,
+        "width": 1040.0,
+        "height": 16.900000000000002,
+        "size": 13.0,
+        "color": "#8B662F",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "TAKEAWAY",
+        "x": 120.0,
+        "y": 522.08,
+        "width": 1040.0,
+        "height": 28.6,
+        "size": 22.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "PAGE_NUM",
+        "x": 1120.0,
+        "y": 568.82,
+        "width": 64.0,
+        "height": 16.900000000000002,
+        "size": 13.0,
+        "color": "#757575",
+        "weight": "normal",
+        "align": "right"
+      }
+    ],
+    "slots": {}
+  },
+  {
+    "name": "chart_column",
+    "backgroundSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1280\" height=\"720\" viewBox=\"0 0 1280 720\" font-family=\"'Microsoft YaHei','微软雅黑',sans-serif\" data-pptx-master=\"nju_ginkgo_white\" data-pptx-master-name=\"NJU Ginkgo White\" data-pptx-layout=\"chart_column\" data-pptx-layout-name=\"NJU Ginkgo Column Chart\"><rect x=\"0\" y=\"0\" width=\"1280\" height=\"720\" fill=\"#FFFFFF\" id=\"white-background\" data-pptx-layer=\"master\" data-pptx-editable=\"false\" /><svg x=\"-17\" y=\"-26.53\" width=\"169.54\" height=\"183.87\" viewBox=\"0 0 0.60914 1\" preserveAspectRatio=\"none\" overflow=\"hidden\" id=\"nju-original-logo\" data-pptx-layer=\"master\" data-pptx-editable=\"false\"><image href=\"assets/nju/images/nju-logo.png\" x=\"0\" y=\"0\" width=\"1\" height=\"1\" preserveAspectRatio=\"none\" /></svg>\n<image href=\"assets/nju/images/ginkgo-leaf.png\" x=\"471.9\" y=\"49.21\" width=\"55.2\" height=\"50.85\" preserveAspectRatio=\"none\" transform=\"rotate(286.62248333 499.5 74.63) translate(499.5 74.63) scale(-1 1) translate(-499.5 -74.63)\" id=\"nju-original-ginkgo\" data-pptx-layer=\"master\" data-pptx-editable=\"false\" />\n<image id=\"campus-decoration\" data-icon-style=\"preserve-color\" data-pptx-asset-role=\"decoration\" x=\"0\" y=\"0\" width=\"1280\" height=\"720\" href=\"assets/nju/icons/imported/nju-campus.svg\" /><rect id=\"takeaway-field\" x=\"96\" y=\"480\" width=\"1088\" height=\"80\" fill=\"#F0F8FC\" data-pptx-role=\"decoration\" /><rect id=\"takeaway-accent\" x=\"96\" y=\"480\" width=\"4\" height=\"80\" fill=\"#579AB9\" data-pptx-role=\"decoration\" /></svg>",
+    "fields": [
+      {
+        "key": "PAGE_TITLE",
+        "x": 532.2,
+        "y": 54.463800000000006,
+        "width": 620.0,
+        "height": 34.67100000000001,
+        "size": 26.67,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "SOURCE",
+        "x": 96.0,
+        "y": 462.68,
+        "width": 1088.0,
+        "height": 15.600000000000001,
+        "size": 12.0,
+        "color": "#757575",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "TAKEAWAY_LABEL",
+        "x": 120.0,
+        "y": 495.82,
+        "width": 1040.0,
+        "height": 16.900000000000002,
+        "size": 13.0,
+        "color": "#8B662F",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "TAKEAWAY",
+        "x": 120.0,
+        "y": 522.08,
+        "width": 1040.0,
+        "height": 28.6,
+        "size": 22.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "PAGE_NUM",
+        "x": 1120.0,
+        "y": 568.82,
+        "width": 64.0,
+        "height": 16.900000000000002,
+        "size": 13.0,
+        "color": "#757575",
+        "weight": "normal",
+        "align": "right"
+      }
+    ],
+    "slots": {
+      "chart": [
+        96.0,
+        152.0,
+        1088.0,
+        304.0
+      ]
+    }
+  },
+  {
+    "name": "chart_combo",
+    "backgroundSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1280\" height=\"720\" viewBox=\"0 0 1280 720\" font-family=\"'Microsoft YaHei','微软雅黑',sans-serif\" data-pptx-master=\"nju_ginkgo_white\" data-pptx-master-name=\"NJU Ginkgo White\" data-pptx-layout=\"chart_combo\" data-pptx-layout-name=\"NJU Ginkgo Combo Chart\"><rect x=\"0\" y=\"0\" width=\"1280\" height=\"720\" fill=\"#FFFFFF\" id=\"white-background\" data-pptx-layer=\"master\" data-pptx-editable=\"false\" /><svg x=\"-17\" y=\"-26.53\" width=\"169.54\" height=\"183.87\" viewBox=\"0 0 0.60914 1\" preserveAspectRatio=\"none\" overflow=\"hidden\" id=\"nju-original-logo\" data-pptx-layer=\"master\" data-pptx-editable=\"false\"><image href=\"assets/nju/images/nju-logo.png\" x=\"0\" y=\"0\" width=\"1\" height=\"1\" preserveAspectRatio=\"none\" /></svg>\n<image href=\"assets/nju/images/ginkgo-leaf.png\" x=\"471.9\" y=\"49.21\" width=\"55.2\" height=\"50.85\" preserveAspectRatio=\"none\" transform=\"rotate(286.62248333 499.5 74.63) translate(499.5 74.63) scale(-1 1) translate(-499.5 -74.63)\" id=\"nju-original-ginkgo\" data-pptx-layer=\"master\" data-pptx-editable=\"false\" />\n<image id=\"campus-decoration\" data-icon-style=\"preserve-color\" data-pptx-asset-role=\"decoration\" x=\"0\" y=\"0\" width=\"1280\" height=\"720\" href=\"assets/nju/icons/imported/nju-campus.svg\" /><rect id=\"takeaway-field\" x=\"96\" y=\"480\" width=\"1088\" height=\"80\" fill=\"#F0F8FC\" data-pptx-role=\"decoration\" /><rect id=\"takeaway-accent\" x=\"96\" y=\"480\" width=\"4\" height=\"80\" fill=\"#579AB9\" data-pptx-role=\"decoration\" /></svg>",
+    "fields": [
+      {
+        "key": "PAGE_TITLE",
+        "x": 532.2,
+        "y": 54.463800000000006,
+        "width": 620.0,
+        "height": 34.67100000000001,
+        "size": 26.67,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "AXIS_Y",
+        "x": 96.0,
+        "y": 129.96,
+        "width": 492.0,
+        "height": 18.2,
+        "size": 14.0,
+        "color": "#757575",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "AXIS_Y2",
+        "x": 692.0,
+        "y": 129.96,
+        "width": 492.0,
+        "height": 18.2,
+        "size": 14.0,
+        "color": "#757575",
+        "weight": "normal",
+        "align": "right"
+      },
+      {
+        "key": "SOURCE",
+        "x": 96.0,
+        "y": 462.68,
+        "width": 1088.0,
+        "height": 15.600000000000001,
+        "size": 12.0,
+        "color": "#757575",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "TAKEAWAY_LABEL",
+        "x": 120.0,
+        "y": 495.82,
+        "width": 1040.0,
+        "height": 16.900000000000002,
+        "size": 13.0,
+        "color": "#8B662F",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "TAKEAWAY",
+        "x": 120.0,
+        "y": 522.08,
+        "width": 1040.0,
+        "height": 28.6,
+        "size": 22.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "PAGE_NUM",
+        "x": 1120.0,
+        "y": 568.82,
+        "width": 64.0,
+        "height": 16.900000000000002,
+        "size": 13.0,
+        "color": "#757575",
+        "weight": "normal",
+        "align": "right"
+      }
+    ],
+    "slots": {
+      "chart": [
+        96.0,
+        152.0,
+        1088.0,
+        304.0
+      ]
+    }
+  },
+  {
+    "name": "table",
+    "backgroundSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1280\" height=\"720\" viewBox=\"0 0 1280 720\" font-family=\"'Microsoft YaHei','微软雅黑',sans-serif\" data-pptx-master=\"nju_ginkgo_white\" data-pptx-master-name=\"NJU Ginkgo White\" data-pptx-layout=\"table\" data-pptx-layout-name=\"NJU Ginkgo Table\"><rect x=\"0\" y=\"0\" width=\"1280\" height=\"720\" fill=\"#FFFFFF\" id=\"white-background\" data-pptx-layer=\"master\" data-pptx-editable=\"false\" /><svg x=\"-17\" y=\"-26.53\" width=\"169.54\" height=\"183.87\" viewBox=\"0 0 0.60914 1\" preserveAspectRatio=\"none\" overflow=\"hidden\" id=\"nju-original-logo\" data-pptx-layer=\"master\" data-pptx-editable=\"false\"><image href=\"assets/nju/images/nju-logo.png\" x=\"0\" y=\"0\" width=\"1\" height=\"1\" preserveAspectRatio=\"none\" /></svg>\n<image href=\"assets/nju/images/ginkgo-leaf.png\" x=\"471.9\" y=\"49.21\" width=\"55.2\" height=\"50.85\" preserveAspectRatio=\"none\" transform=\"rotate(286.62248333 499.5 74.63) translate(499.5 74.63) scale(-1 1) translate(-499.5 -74.63)\" id=\"nju-original-ginkgo\" data-pptx-layer=\"master\" data-pptx-editable=\"false\" />\n<image id=\"campus-decoration\" data-icon-style=\"preserve-color\" data-pptx-asset-role=\"decoration\" x=\"0\" y=\"0\" width=\"1280\" height=\"720\" href=\"assets/nju/icons/imported/nju-campus.svg\" /><rect id=\"takeaway-field\" x=\"96\" y=\"480\" width=\"1088\" height=\"80\" fill=\"#F0F8FC\" data-pptx-role=\"decoration\" /><rect id=\"takeaway-accent\" x=\"96\" y=\"480\" width=\"4\" height=\"80\" fill=\"#579AB9\" data-pptx-role=\"decoration\" /></svg>",
+    "fields": [
+      {
+        "key": "PAGE_TITLE",
+        "x": 532.2,
+        "y": 54.463800000000006,
+        "width": 620.0,
+        "height": 34.67100000000001,
+        "size": 26.67,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "SOURCE",
+        "x": 96.0,
+        "y": 451.68,
+        "width": 1088.0,
+        "height": 15.600000000000001,
+        "size": 12.0,
+        "color": "#757575",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "TAKEAWAY_LABEL",
+        "x": 120.0,
+        "y": 495.82,
+        "width": 1040.0,
+        "height": 16.900000000000002,
+        "size": 13.0,
+        "color": "#8B662F",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "TAKEAWAY",
+        "x": 120.0,
+        "y": 522.08,
+        "width": 1040.0,
+        "height": 28.6,
+        "size": 22.0,
+        "color": "#404040",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "PAGE_NUM",
+        "x": 1120.0,
+        "y": 568.82,
+        "width": 64.0,
+        "height": 16.900000000000002,
+        "size": 13.0,
+        "color": "#757575",
+        "weight": "normal",
+        "align": "right"
+      }
+    ],
+    "slots": {
+      "table": [
+        96.0,
+        164.0,
+        1088.0,
+        260.0
+      ]
+    }
+  },
+  {
+    "name": "ending",
+    "backgroundSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1280\" height=\"720\" viewBox=\"0 0 1280 720\" font-family=\"'Microsoft YaHei','微软雅黑',sans-serif\" data-pptx-master=\"nju_ginkgo_white\" data-pptx-master-name=\"NJU Ginkgo White\" data-pptx-layout=\"ending\" data-pptx-layout-name=\"NJU Ginkgo Ending\"><rect x=\"0\" y=\"0\" width=\"1280\" height=\"720\" fill=\"#FFFFFF\" id=\"white-background\" data-pptx-layer=\"master\" data-pptx-editable=\"false\" /><svg x=\"-17\" y=\"-26.53\" width=\"169.54\" height=\"183.87\" viewBox=\"0 0 0.60914 1\" preserveAspectRatio=\"none\" overflow=\"hidden\" id=\"nju-original-logo\" data-pptx-layer=\"master\" data-pptx-editable=\"false\"><image href=\"assets/nju/images/nju-logo.png\" x=\"0\" y=\"0\" width=\"1\" height=\"1\" preserveAspectRatio=\"none\" /></svg>\n<image href=\"assets/nju/images/ginkgo-leaf.png\" x=\"471.9\" y=\"49.21\" width=\"55.2\" height=\"50.85\" preserveAspectRatio=\"none\" transform=\"rotate(286.62248333 499.5 74.63) translate(499.5 74.63) scale(-1 1) translate(-499.5 -74.63)\" id=\"nju-original-ginkgo\" data-pptx-layer=\"master\" data-pptx-editable=\"false\" />\n<line id=\"ending-rule\" data-pptx-layer=\"layout\" data-pptx-editable=\"false\" x1=\"96\" y1=\"354\" x2=\"176\" y2=\"354\" stroke=\"#579AB9\" stroke-width=\"3\" /><image id=\"campus-decoration\" data-icon-style=\"preserve-color\" data-pptx-asset-role=\"decoration\" x=\"0\" y=\"0\" width=\"1280\" height=\"720\" href=\"assets/nju/icons/imported/nju-campus.svg\" /></svg>",
+    "fields": [
+      {
+        "key": "PAGE_TITLE",
+        "x": 532.2,
+        "y": 54.463800000000006,
+        "width": 620.0,
+        "height": 34.67100000000001,
+        "size": 26.67,
+        "color": "#B38B4A",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "THANK_YOU",
+        "x": 96.0,
+        "y": 252.4,
+        "width": 1088.0,
+        "height": 78.0,
+        "size": 60.0,
+        "color": "#B38B4A",
+        "weight": "bold",
+        "align": "left"
+      },
+      {
+        "key": "ENDING_SUBTITLE",
+        "x": 96.0,
+        "y": 391.64,
+        "width": 1088.0,
+        "height": 33.800000000000004,
+        "size": 26.0,
+        "color": "#738693",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "CONTACT_INFO",
+        "x": 96.0,
+        "y": 472.8,
+        "width": 1088.0,
+        "height": 26.0,
+        "size": 20.0,
+        "color": "#757575",
+        "weight": "normal",
+        "align": "left"
+      },
+      {
+        "key": "PAGE_NUM",
+        "x": 1120.0,
+        "y": 568.82,
+        "width": 64.0,
+        "height": 16.900000000000002,
+        "size": 13.0,
+        "color": "#757575",
+        "weight": "normal",
+        "align": "right"
+      }
+    ],
+    "slots": {}
+  }
+]

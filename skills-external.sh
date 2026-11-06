@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 三套 setup 经 skills-sync.sh 调用；也可单跑。
-# 三个设计依赖安装前询问；--ppt另补PPT引擎；--uninstall反安装设计依赖；--yes免询问。
+# 三个设计依赖安装前询问；--ppt另补PPT引擎与固定版本Dashi；--uninstall反安装设计依赖；--yes免询问。
 # 第三方副本由上游管理；个人改动放回本仓 skill。同名本地/其他源保留并告警。
 set -euo pipefail
 with_ppt=0
@@ -9,6 +9,9 @@ command -v npx >/dev/null 2>&1 && command -v node >/dev/null 2>&1 || {
 }
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# 与 skills CLI 使用同一来源登记文件（新版也支持 XDG_STATE_HOME）。
+SKILLS_LOCK_FILE="$(node -e 'const p=require("node:path"),o=require("node:os"); console.log(process.env.XDG_STATE_HOME ? p.join(process.env.XDG_STATE_HOME,"skills/.skill-lock.json") : p.join(o.homedir(),".agents/.skill-lock.json"))')"
+export SKILLS_LOCK_FILE
 agents=(pi)
 [ ! -d "$HOME/.claude" ] || agents+=(claude-code)
 status=0
@@ -33,7 +36,7 @@ const path = require('node:path');
 const os = require('node:os');
 const home = process.argv[2];
 const names = ['ui-ux-pro-max', 'huashu-design', 'design-taste-frontend', 'redesign-existing-projects'];
-const lockPath = path.join(home, '.agents', '.skill-lock.json');
+const lockPath = process.env.SKILLS_LOCK_FILE;
 const lock = fs.existsSync(lockPath) ? JSON.parse(fs.readFileSync(lockPath, 'utf8')) : {};
 const skills = lock.skills || {};
 let removed = 0;
@@ -58,7 +61,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const home = process.argv[2];
 const name = 'redesign-existing-projects';
-const lockPath = path.join(home, '.agents', '.skill-lock.json');
+const lockPath = process.env.SKILLS_LOCK_FILE;
 const lock = fs.existsSync(lockPath) ? JSON.parse(fs.readFileSync(lockPath, 'utf8')) : {};
 const skills = lock.skills || {};
 const dirs = [path.join(home, '.agents', 'skills', name), path.join(home, '.claude', 'skills', name)];
@@ -109,27 +112,31 @@ claude_safe() {
 }
 
 ensure_skill() {
-  local repo="$1" name="$2" missing
+  local repo="$1" name="$2" ref="${3:-}" missing source="$1"
+  [ -z "$ref" ] || source="https://github.com/$repo/tree/$ref"
   claude_safe "$name" || return 0
-  if ! missing=$(node - "$repo" "$name" <<'JS'
+  if ! missing=$(node - "$repo" "$name" "$ref" <<'JS'
 const fs = require('node:fs');
 const path = require('node:path');
 const home = require('node:os').homedir();
 const base = path.join(home, '.agents');
-const lockPath = path.join(base, '.skill-lock.json');
-const skills = fs.existsSync(lockPath) ? JSON.parse(fs.readFileSync(lockPath, 'utf8')).skills : {};
-const [repo, name] = process.argv.slice(2);
+const lockPath = process.env.SKILLS_LOCK_FILE;
+const skills = fs.existsSync(lockPath) ? JSON.parse(fs.readFileSync(lockPath, 'utf8')).skills || {} : {};
+const [repo, name, ref] = process.argv.slice(2);
 const installed = fs.existsSync(path.join(base, 'skills', name, 'SKILL.md'));
 const entry = skills[name];
 if ((entry && entry.source !== repo) || (installed && !entry)) {
   console.error(`WARN: ${name} 来自 ${entry?.source || '未登记本地副本'}，保留；需要时手工确认 npx skills add ${repo} --skill ${name} -g -y`);
+  process.exitCode = 1;
+} else if (installed && ref && entry.ref !== ref) {
+  console.error(`WARN: ${name} 不是本次适配的固定基线，保留现有副本；请比较并确认后安装 https://github.com/${repo}/tree/${ref}`);
   process.exitCode = 1;
 } else console.log(!installed || (fs.existsSync(path.join(home, '.claude')) &&
   !fs.existsSync(path.join(home, '.claude', 'skills', name, 'SKILL.md'))) ? 'missing' : 'present');
 JS
   ); then status=1; return 0; fi
   if [ "$missing" = missing ]; then
-    npx -y skills@latest add "$repo" --skill "$name" -g -y --agent "${agents[@]}" || status=1
+    NODE_USE_ENV_PROXY="${NODE_USE_ENV_PROXY:-1}" npx -y skills@latest add "$source" --skill "$name" -g -y --agent "${agents[@]}" || status=1
   else
     echo "present: $name"
   fi
@@ -140,13 +147,17 @@ if [ "$with_design" = 1 ]; then
   ensure_skill alchaincyf/huashu-design huashu-design
   ensure_skill Leonxlnx/taste-skill design-taste-frontend
 fi
-[ "$with_ppt" = 0 ] || ensure_skill hugohe3/ppt-master ppt-master
+if [ "$with_ppt" = 1 ]; then
+  ensure_skill hugohe3/ppt-master ppt-master
+  # 只升级随南大适配一起验证的基线，不让通用 update 漂移到不兼容版本。
+  ensure_skill chuspeeism/dashi-ppt-skill dashi-ppt 21dc7e5fc8c3a0d7f6a94948153dd1ee954f4e64
+fi
 
 third=$(node - "$ROOT" <<'JS'
 const fs = require('node:fs');
 const path = require('node:path');
-const lockPath = path.join(require('node:os').homedir(), '.agents', '.skill-lock.json');
-const skills = fs.existsSync(lockPath) ? JSON.parse(fs.readFileSync(lockPath, 'utf8')).skills : {};
+const lockPath = process.env.SKILLS_LOCK_FILE;
+const skills = fs.existsSync(lockPath) ? JSON.parse(fs.readFileSync(lockPath, 'utf8')).skills || {} : {};
 const mine = 'brilliantrough/agent-skills';
 const own = new Set();
 for (const group of ['base', 'research', 'accel', 'kb', 'ppt']) {
@@ -160,10 +171,10 @@ const expected = {
   'design-taste-frontend': 'Leonxlnx/taste-skill',
   'ppt-master': 'hugohe3/ppt-master'
 };
-// 上游已把它并入 design-taste-frontend；旧机器上的残留目录不进入更新列表。
-const obsolete = new Set(['redesign-existing-projects']);
+// 废弃 skill 不更新；Dashi 跟随已验证提交，不参加通用 update。
+const skipUpdate = new Set(['redesign-existing-projects', 'dashi-ppt']);
 console.log(Object.entries(skills).filter(([name, e]) =>
-  !own.has(name) && !obsolete.has(name) && !(e.source || '').includes(mine) && !(e.sourceUrl || '').includes(mine) &&
+  !own.has(name) && !skipUpdate.has(name) && !(e.source || '').includes(mine) && !(e.sourceUrl || '').includes(mine) &&
   (!expected[name] || e.source === expected[name])
 ).map(([name]) => name).join(' '));
 JS
@@ -174,7 +185,7 @@ for name in $third; do
 done
 if [ "${#names[@]}" -gt 0 ]; then
   echo "更新检查沿用上游 CLI；网络检查错误以其原始输出为准，退出 0 不保证全部最新。"
-  npx -y skills@latest update -g "${names[@]}" || status=1
+  NODE_USE_ENV_PROXY="${NODE_USE_ENV_PROXY:-1}" npx -y skills@latest update -g "${names[@]}" || status=1
 fi
 [ "$status" = 0 ] || echo "WARN: 外部 skill 未完全就绪，请检查上方输出后重跑" >&2
 exit "$status"
