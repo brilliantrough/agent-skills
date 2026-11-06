@@ -35,7 +35,7 @@ Leave memory that helps both the next Agent and the human reader understand **wh
 
 ## Keep the current project profile useful
 
-When a settled change affects the project’s overall shape, use `project-profile` to update the affected parts of its existing profile (StrictDoc default: `docs/handbook/project-profile.sdoc`). Check the related code/config and state the actual verification scope; do not rewrite it for every save, local edit or experiment. If missing, suggest establishing one instead of silently adding a repository-wide survey. The profile explains what exists now and its essential design rationale; decisions and history retain the fuller reasoning and evidence.
+When the project’s overall shape, major research routes or key understanding changes, use `project-profile` to update the affected parts of its existing profile (StrictDoc default: `docs/handbook/project-profile.sdoc`). Check the related implementation or research evidence and state the verification scope; do not rewrite it for every save, local edit or experiment. If missing, suggest establishing one instead of silently adding a repository-wide survey. The profile explains what exists and is understood now; decisions and history retain the fuller reasoning and evidence.
 
 ## 设计知识与记录分工
 
@@ -43,14 +43,20 @@ When a settled change affects the project’s overall shape, use `project-profil
 
 | 现有载体 | 保存什么 |
 | --- | --- |
-| 项目画像 | 当前形态、必要设计理由与代码入口；内容规则归 `project-profile` |
-| handbook／专题说明 | 当前机制、跨模块约束、接口与运行方法，按主题解释而非按日期追加 |
+| 项目画像 | 当前形态、必要设计理由、研究路线与证据概况；内容规则归 `project-profile` |
+| handbook／专题说明 | 当前机制、跨模块约束、接口、运行方法及研究思路／推导，按主题解释而非按日期追加 |
 | decisions | 重要选择的背景、理由、实际取舍、正负后果及适用／重议条件；不是每个实现动作一条决策 |
 | journal | 重要经历、转折、失败与验证证据；不作为当前设计的唯一说明 |
 | 现有风险记录位置 | 仍影响判断的未知、假设和技术债，按下文状态字段维护；不代替普通待办 |
 
 - 仍指导开发的理由若只埋在 journal，将有依据的当前解释补入画像或现有专题，保留历史来由与证据引用。允许短说明与详细记录交叠，不复制整份文档；局部技巧无需自动升格为架构决策。
 - 代码／配置／真实运行证据说明实现事实，有效决策说明意图与约束；不一致时明确偏差，不用规范文字代替实现验证。API 参考、操作手册、需求和实验原始产物仍沿用专业载体，记忆只保留必要结论与入口。
+
+### 科研记录：按路线关联，不把方案选择当科学结论
+
+- 沿用项目的路线名称或标识，在已有记录中关联问题／假设、推导或实验条件、证据与结论边界；`project-profile` 维护全景，专题解释方法，journal按路线和阶段记关键转折。没有代码也能保存，不为每条思路新建决策或文件。
+- decisions记录研究协议、预算与路线取舍等已确认选择；“决定研究A”不证明A正确。风险标清影响单条路线还是共享前提；推进状态与认识状态按 `project-profile` 分开，不能套用决策的Active／Proposed来表示科学可信度。
+- 保留矛盾、反例、暂停原因和重开条件；一条路线的证据不得移作另一条的结论，跨路线综合需说明依据。共用结果引用同一来源，原始产物留原处；画像更新按 `project-profile` 的触发条件局部进行，不逐次抄实验流水。
 
 ## Keep current truth distinguishable from history
 
@@ -61,7 +67,7 @@ When a settled change affects the project’s overall shape, use `project-profil
 - Keep meaningful decision changes understandable. A journal note, revision context, or successor decision may preserve what mattered about the previous approach; choose the lightest suitable form rather than requiring a new node for every edit. Follow any project-specific history-preservation rules.
 - Capture the reason when known: evidence, constraints, alternatives, or the user's intent. An unknown reason is better acknowledged than invented.
 - Distinguish accepted decisions, observed behavior, pending work, and unverified claims. A working implementation may still differ from the intended rule.
-- Research and experiment records must state their stage (e.g. proxy study, single-model fast iteration, multi-model full-scale validation). Stages differ in scale, the question answered, and the strength of the conclusion: a lower-stage result guides decisions but is not a higher-stage conclusion, and a higher stage checks semantic consistency. Never mix results from different stages in one report, journal entry, or database record, or substitute one for another.
+- Research and experiment records must identify the route and evidence stage (e.g. derivation under stated assumptions, proxy study, single-model iteration, multi-model validation). Stages answer different questions and support different claims, not one universal ladder. Keep conditions, observations, inferences and conclusions distinguishable; a cross-stage synthesis may compare explicitly attributed evidence, never merge it into one undifferentiated result or treat local support as general validity.
 - Harvest living negative knowledge, not only outcomes. At milestones — and after any feasibility discussion, including side sessions — record open concerns, unproven feasibility assumptions, known method weaknesses, shortcuts and the risks they carry, dead ends and why they were abandoned, and one line on the remaining distance to the goal. A concern discussed but never recorded is lost; a worry the user voices is worth recording even before there is evidence for it.
 - Risk lenses are prompts to think, not quotas — record only real items: algorithm mechanism (do the premises hold?), real execution (does the trick survive a real implementation; any disallowed cost?), data and scale (is the dataset available and extensible; can the model scale up?), training process (convergence preconditions, generalization), and value placement (is this the real bottleneck of the actual task — judge that with the `goal-first` skill and record only its outcome here).
 - Field semantics are fixed, organization is free. Every risk or concern entry carries its status (Open/Mitigated/Resolved/Accepted), stage, the decision it blocks, current evidence, and the condition that would resolve it; the prose layout is the writer's choice. Where the project keeps a risk register (e.g. `docs/project_memory/risks.sdoc`), update entries in place as they evolve and leave a short journal note per change; otherwise record the same fields in StrictDoc prose or a database entry.

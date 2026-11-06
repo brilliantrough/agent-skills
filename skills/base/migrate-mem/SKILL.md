@@ -1,19 +1,19 @@
 ---
 name: migrate-mem
-description: Establish useful memory for a project that already has development history, or improve an incomplete memory setup. Survey the project and its existing evidence, then initialize or enrich human-readable StrictDoc docs/ with current norms and historical context. Use Magic Context and other available memory alongside it where useful. No previous workflow, legacy folder convention, or pre-existing StrictDoc skeleton is assumed.
+description: Establish useful memory for a project that already has development or research history, or improve an incomplete memory setup. Survey the project and its existing evidence, then initialize or enrich human-readable StrictDoc docs/ with current norms and historical context. Use Magic Context and other available memory alongside it where useful. No previous workflow, legacy folder convention, or pre-existing StrictDoc skeleton is assumed.
 ---
 
 # Migrate Memory
 
 ## Intent
 
-Help an already-developed project acquire a readable, trustworthy memory foundation. The emphasis is **understanding the project and initializing useful StrictDoc documentation**, not moving old files or converting every artifact.
+Help an existing project acquire a readable, trustworthy memory foundation. The emphasis is **understanding the project and initializing useful StrictDoc documentation**, not moving old files or converting every artifact.
 
 Use judgment about investigation depth, document structure, storage overlap, and which questions need the user's input. There is no fixed inventory, mandatory classification report, or approval ceremony for every initialization.
 
 ## Understand the project as it exists
 
-- Look across project instructions, README, main modules, entry points, configuration, existing docs, and relevant development history. Follow the evidence far enough to understand purpose, architecture, conventions, current state, and unfinished work.
+- Look across project instructions, README, relevant implementation, research notes and history. Understand purpose, architecture or research question, current state and unfinished work. For research, recover the major routes and their evidence from existing derivations, observations and results, not only code; organize them through `project-profile` and `save-mem`, without choosing a sole winner or inventing missing evidence.
 - Existing Magic Context memories and claude-mem observations can recover decisions or experiences not visible in code. Their absence does not prevent initializing StrictDoc.
 - Read the useful sources in context rather than assuming particular note names, plan directories, or an older development methodology. Generated output and exhaustive transcripts rarely need the same attention as key code and decisions.
 - Separate intended policy, observed implementation, past experience, and unresolved questions. Newer evidence can reveal change without automatically settling what the current rule ought to be.

@@ -126,9 +126,9 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 
 | Skill | 用途 |
 |---|---|
-| [`project-profile`](skills/base/project-profile/SKILL.md) | 单文件项目现状画像：目标、主流程、模块与代码位置、关键设计、变更入口；按 Ponytail 风格维护 |
+| [`project-profile`](skills/base/project-profile/SKILL.md) | 单文件当前画像：工程结构与设计，科研问题、并行路线及证据现状；按 Ponytail 风格维护 |
 | `load-mem` | 启动/接续时先读已有画像，再按任务恢复相关记忆；区分现行规范与历史 |
-| `save-mem` | 保存知识；项目形态变化时局部更新已有画像，不每轮重建 |
+| `save-mem` | 保存知识；项目形态、主要研究路线或关键认识变化时局部更新画像，不每轮重建 |
 | `migrate-mem` | 为已有项目建立/补全记忆，初始化可读的 StrictDoc 文档；不假定旧工作流、不搬原文件 |
 
 - 三层互补、允许交叠；决策可同时存入 StrictDoc 与 Magic Context，不强制分流
@@ -136,7 +136,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 - 明确决策后更新规范并简短告知；不因猜测或每次任务频繁改动
 - 文档默认中文；调查、存取路径由 Agent 判断
 
-说“用 project-profile 为这个项目建立画像”，即可建立单文件整体说明；默认 `docs/handbook/project-profile.sdoc`，已有等价架构说明则原位完善。`migrate-mem` 负责初建时接入，`load-mem` 先读，`save-mem` 随形态变化局部更新，`consolidator` 阶段校准；不新增插件或后台扫描。画像帮助定位，修改前仍需核实相关源码。已有项目需同步更新 AGENTS 规范块，不能只装 skill 就假定入口已接好。
+说“用 project-profile 为这个项目建立画像”，即可建立单文件整体说明；默认 `docs/handbook/project-profile.sdoc`，已有等价说明则原位完善。`migrate-mem` 初建接入，`load-mem` 先读，`save-mem` 随形态或关键研究认识变化局部更新，`consolidator` 阶段校准；不新增插件或后台扫描。科研主线可为同一个问题，多条路线并行，推进状态与证据强度分开；没有代码也能建立画像。画像帮助定位，行动前仍需核实相关实现或研究证据。已有项目需同步更新 AGENTS 规范块，不能只装 skill 就假定入口已接好。
 
 ### 技术写作（自制）
 

@@ -11,8 +11,8 @@ Recover enough context to work as a continuing project partner, without making t
 
 ## Orient with the project profile first
 
-- After project instructions, read the current project profile from the registered entry; the StrictDoc default is `docs/handbook/project-profile.sdoc`. An existing equivalent architecture overview takes precedence over creating or searching for a second copy. Reuse it if already read and unchanged.
-- Build the overall model first — purpose, main flow, module responsibilities, key design constraints and code locations — then retrieve task-relevant decisions, history and specialist documents. Follow `project-profile` for establishing or maintaining this file, not for an extra inventory on every load.
+- After project instructions, read the current project profile from the registered entry; the StrictDoc default is `docs/handbook/project-profile.sdoc`. An existing equivalent project overview takes precedence over creating or searching for a second copy. Reuse it if already read and unchanged.
+- Build the overall model first — purpose, main flow, module responsibilities and key design; for research, the shared question, major routes, their relations and evidence limits — then retrieve task-relevant decisions, history and specialist documents. Follow `project-profile` for this view, not an extra inventory on every load. Resume the relevant route without assuming the latest or currently leading one is the whole project.
 - Check its last verification scope and unknowns; a profile is navigation, not proof of live behavior or a replacement for effective norms. Verify the relevant implementation before editing; report or correct consequential drift within scope.
 - If no profile exists, continue normal targeted recall and suggest creating one when useful. Do not make startup depend on generating one or silently expand into a full-repository survey.
 
