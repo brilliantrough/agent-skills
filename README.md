@@ -165,9 +165,20 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 - `skills/base/consolidator/` 随 base 安装，含唯一审查规范 `references/reviewer.md`。
 - Pi：像 explore/general 一样，由 setup 安装 Markdown 定义；继续使用原版 `pi-subagents-j0k3r`。
 - OpenCode：原生 `agents.consolidation-reviewer` 配置，完整 setup 接入；仅 `--plugins-only` 不更新代理配置。
-- Codex ≥0.158.0：setup 安装 `agents/consolidation-reviewer.toml`，只读 sandbox；不是插件注册。
+- Codex ≥0.158.0：setup 安装 `agents/consolidation-reviewer.toml`；只读职责由提示词约束，provider／sandbox 继承父会话，角色文件中的 `sandbox_mode` 不建立独立只读沙箱。
 - DSH：原生 preset + `consolidation_review` 委派工具；沿用 spawn，不新增执行器。
-- 代理配置来自 `dot_file`；Pi/Codex 文件有变化先备份，OpenCode 保留本地既有配置。只装 skill 不等于已经注册子代理。
+- 代理配置来自 `dot_file`；Pi/Codex 文件有变化先备份，OpenCode 完整 setup 经确认刷新 reviewer 的模型／档位，其它角色及本地字段保留。只装 skill 不等于已经注册子代理。
+
+审查角色统一使用 **GPT 6.1 Sol + max**；只改 `consolidation-reviewer`，不改变 `explore/general` 或主会话默认值：
+
+| 宿主 | 模型与思考强度的配置位置／字段 |
+| --- | --- |
+| Pi | `pi/agents/consolidation-reviewer.md`：`model: codex-newapi/gpt-6.1-sol`、`effort: max` |
+| OpenCode V2 | `opencode/opencode.json`：`agents.consolidation-reviewer.model = "codex-newapi/gpt-6.1-sol#max"`，选择模型目录中 `reasoningEffort: "max"` 的 variant |
+| DSH | `dsh/cordis.patch.json` 的 `tool-consolidation-review.config.agentOptions`：`provider: "codex-newapi"`、`model: "gpt-6.1-sol"`、`reasoningEffort: "max"` |
+| Codex | `codex/agents/consolidation-reviewer.toml`：`model = "gpt-6.1-sol"`、`model_reasoning_effort = "max"`；provider 沿用父会话，不能在角色中单独切换 |
+
+上述路径均相对 `dot_file`。Pi 同名 `model_profiles` 或项目角色可覆盖全局定义，更新后用 `subagent_list_agents` 核对；DSH 的固定选择属于专用 `consolidation_review` 入口，不是 preset 的全局模型锁。`max` 不是 `xhigh` 的别名；还需所选模型目录和服务端支持该值，配置解析成功不等于网关已接受。
 
 ### 任务工作流（自制）
 
@@ -1057,7 +1068,7 @@ bash skills-external.sh --ppt  # 另补缺ppt-master；不代替ppt组和独立P
 
 | 文件 | 更新策略 / 特例 |
 |---|---|
-| `~/.config/opencode/opencode.json` | 先备份并转换旧字段，再在线获取 V2 模板；完整 setup 刷新 `providers.<名称>.models`，保留已有 provider 的 `settings`、headers 等本地字段。插件模式仅转换格式与规范登记；路径遵循 `OPENCODE_CONFIG_DIR`／XDG |
+| `~/.config/opencode/opencode.json` | 先备份并转换旧字段，再在线获取 V2 模板；完整 setup 刷新 `providers.<名称>.models` 和套件 reviewer 的模型／档位，保留已有 provider 的 `settings`、headers 等本地字段及其它角色。插件模式仅转换格式与规范登记；路径遵循 `OPENCODE_CONFIG_DIR`／XDG |
 | `~/.claude-mem/settings.json` | `CLAUDE_MEM_*_MODEL` 随模板统一为 `mem-1`；API key、Base URL、port／host 保留，缺失键按模板补齐；`CLAUDE_MEM_PROVIDER` 仍强制 `openrouter` |
 | `~/.config/cortexkit/magic-context.jsonc` | 模型及其他非敏感字段仍随模板；historian／dreamer 的 OpenCode、Pi 默认模型为 `codex-newapi/gpt-6-luna`，embedding 不变 |
 | `~/.pi/agent/{settings,models,mcp}.json` | 非敏感字段随模板，由 `pi-setup.sh` 处理；已有 `tuiMode` 保留本地选择；mcp.json 本地命令路径在合并前替换；旧共享 MCP 只读迁移，不再部署 |
@@ -1067,7 +1078,7 @@ bash skills-external.sh --ppt  # 另补缺ppt-master；不代替ppt组和独立P
 
 - 键名命中 `SENSITIVE`，或模板值为 `<占位符>`：机器上已有值永不覆盖
 - `SENSITIVE`：`api[_-]?key` / `secret` / `token` / `password` / `credential` / `bearer` / `auth` / `cookie` / `ingest` / `webhook` / `base[_-]?url` / `url` / `endpoint` / `host` / 以 `key` 结尾
-- OpenCode 配置的本地值优先；插件登记按主版本规范化、退役旧入口，provider 模型按上表单独更新
+- OpenCode 配置的本地值优先；插件登记规范化，provider 模型与套件 reviewer 路由按上表单独刷新，其它角色选择保留
 - 模型字段中，`CLAUDE_MEM_*_MODEL` 随模板统一为 `mem-1`；API key、Base URL、port／host 保留。Magic Context 的 model 仍由脚本接管但本轮不改值。
 - 整文件覆盖的 `agent-skills-ui.json` / `agent-skills-editor.json` / `keybindings.json` 不含隐私内容
 

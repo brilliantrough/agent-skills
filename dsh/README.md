@@ -77,6 +77,8 @@ Magic Context 使用自己的 DSH 语料库，`memory: {}` 启用记忆车道；
 
 ## 原生功能与可选扩展
 
+专用 `consolidation_review` 通过 `tool-consolidation-review.config.agentOptions` 固定审查模型与 `reasoningEffort`，不改父会话或其它子代理；具体字段见[阶段整理与独立审查](../README.md#阶段整理与独立审查)。外层 `config.provider: spawn` 是委派后端，内层 `agentOptions.provider` 才是 LLM provider。其它入口选择同一 preset 不会自动继承这组固定值。
+
 基础组合已有子代理 spawn/fork、todo、goal、计划模式；TUI 提供模型切换、会话浏览及任务视图。
 
 | 需求 | 官方能力 | 接入状态 |

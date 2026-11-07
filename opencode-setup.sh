@@ -9,7 +9,7 @@
 # 第三方 npm 插件先查本地/npm latest；Ponytail 常规更新默认 Y，Magic Context 单独默认 N；claude-mem 由官方安装器更新 runtime 与宿主入口。
 # 确认后只备份移走对应 latest 缓存并改回官方包登记；下次宿主启动下载。
 # 不启动服务、不迁移数据库；宿主升级在本脚本里问一次(默认 Y)后执行(opencode upgrade)，自动更新默认关闭；官方 npm 缺包由宿主启动时下载。
-# 配置：本地私密值保留；provider.models 随模板刷新；v2 原生 providers 不改写。
+# 配置：本地私密值保留；provider.models 与套件 reviewer 的模型/档位随模板刷新；v2 原生 providers 不改写。
 # -y 采用各项默认选择（默认 N 仍跳过）；凭据可交互输入或通过环境变量填写。
 # OPENCODE_CONFIG_DIR 优先，其次 XDG_CONFIG_HOME/opencode。Windows 使用 Git Bash。
 
@@ -678,7 +678,7 @@ EOF
 fi
 
 # ---- 4. opencode.json(来自 dot_file 仓库:providers/agents/mcp/插件条目/compaction)----
-# 已转换为 V2；只覆盖各 providers 的 models，settings(apiKey/网关)等本地字段保留。
+# 已转换为 V2；刷新 provider.models 和套件 reviewer 的模型/档位，保留 settings、其它角色等本地字段。
 # 老 opencode.jsonc 的值自动并入 opencode.json 后退役为 .migrated.bak
 # 自动更新默认关闭；已有 notify/disable 保留，auto 问一次。
 oc_tpl="$(mktemp "$oc_stage/template.XXXXXX")"; oc_cand="$(mktemp)"
@@ -787,7 +787,10 @@ live = deep_merge(live_json, live_jsonc, layered=True)
 tpl.pop('plugins', None)  # 插件登记由 deploy.py 管理。
 
 merged = deep_merge(tpl, live)
-# 已有档位保留，只有用户确认后才关闭 auto。
+reviewer = (tpl.get('agents') or {}).get('consolidation-reviewer', {})
+if 'model' in reviewer:
+    merged['agents']['consolidation-reviewer']['model'] = reviewer['model']
+# 已有更新策略保留，只有用户确认后才关闭 auto。
 major, force_manual = sys.argv[5], sys.argv[6] == '1'
 if major != '2':
     raise SystemExit('ERROR: 配置模板仅支持 OpenCode V2')
@@ -809,7 +812,7 @@ msgs = []
 if not same:
     with open(sys.argv[4], 'w', encoding='utf-8') as f:
         f.write(out)
-    msgs.append(('%d 个 provider 的 models 按模板覆盖,本地字段保留' % len(tpl_prov)) if live else '首次写入(含占位符)')
+    msgs.append(('%d 个 provider 的 models 和 reviewer 模型/档位按模板刷新,其余本地字段保留' % len(tpl_prov)) if live else '首次写入(含占位符)')
 if os.path.exists(jsonc_p):
     msgs.append('退役 opencode.jsonc(值已并入)')
 print(';'.join(msgs) if msgs else 'unchanged')
