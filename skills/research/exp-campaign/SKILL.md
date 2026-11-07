@@ -23,8 +23,9 @@ Use bounded rounds of frontier questions — only what the settled decisions hav
 
 Ask about and surface, in frontier order:
 
-- **The claim:** what exactly should the final plot/table show? Which comparison would change the researcher's mind?
+- **The claim:** what exactly should the final plot/table show? Which comparison would change the researcher's mind? For explanatory claims, connect claim → competing explanation → discriminating control → interpretation; an ablation that also changes compute/data does not isolate a mechanism.
 - **The axes:** which factors matter (method, model, dataset, precision, seed, lr, …), and which levels per factor.
+- **Units and analysis:** define the experimental/observation units, pairing or clusters, and what counts as an independent repeat. For confirmatory work, settle primary metrics, exclusions, stopping and relevant multiplicity handling before inspecting outcomes; label post-hoc changes. Use [evidence interpretation](../exp-workflow/references/evidence-interpretation.md) as needed, not a new checklist for every run.
 - **The matrix's purpose:** exploration, attribution or formal validation; for Pareto studies, define objectives, directions, constraints and comparable cost/quality measurements. Do not require a predicted winner or a separate decision for each cell.
 - **Overlooked details the researcher may have missed:** evaluation split, calibration vs eval data leakage, callback-vs-reload metric consistency, seed variance, degenerate baselines (e.g., all-same-answer collapse), early/late checkpoint selection, and platform/numeric equivalence. Propose these explicitly; researchers under-specify them.
 - **Budgets:** device hours, wall-clock deadline, storage; which runs are formal vs exploratory.
@@ -56,7 +57,7 @@ Compare information value, validity and total cost. A bounded real-model matrix 
 One Markdown document, tables over prose:
 
 1. **Claim and scope** — the scientific question, acceptance, budget and stopping conditions; table schema and requested figures. Every planned run must support the agreed claim or resolve a live decision, not merely occupy a cell or curve.
-2. **Current evidence** — what is already measured, with pointers.
+2. **Current evidence** — what is already measured, with source/version pointers, conditions and unresolved alternatives. Missing evidence is not a negative result.
 3. **Matrix and required coverage** from §3, including formal baselines, ranges, interactions and repeatability needed by the claim.
 4. **Stages matched to the question:** after execution-path readiness, start with either a proxy or an exploratory matrix, then the necessary analysis/confirmatory matrix. A settled paper protocol may go directly to its scoped matrix. Specify commands, cost, observations, live-selected device resources and any real decision gates; do not fabricate preliminary studies. Every run still uses `exp-batch` preflight.
 5. **Coverage and pruning ledger** — assumptions, included/omitted conditions, evidence and confidence; no requirement to prune a sound matrix.

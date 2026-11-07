@@ -54,6 +54,7 @@ modules/<名>/
 | `strictdoc` | Y | any | `.sdoc` 校验工具（`uv tool install strictdoc==0.28.1`）；无 uv 时跳过提示 |
 | `codegraph` | Y | pi,opencode,codex | 代码知识图谱 CLI + MCP 注册；Pi 的条目由配置模板提供 |
 | `agent-reach` | N | any | 官方只读检索 CLI + 无头浏览器；安装器来自 base 组的 `agent-reach-install` skill |
+| [`light-science`](light-science/README.md) | N | any | 需 research 组；固定版 literature-search／light-chart，不装整包或 Python／R 环境；含非商业许可资源 |
 
 ## 迁移节奏
 

@@ -62,4 +62,15 @@ this repository; its license obligations still apply to the locally adapted runt
 and any generated artifacts containing its code. The repository MIT license does
 not relicense those components.
 
+Research evidence guidance in `skills/research/exp-*` and the version-aware
+research memory rule in `skills/base/save-mem` were informed by Light-Science
+(https://github.com/Light0305/Light-Science, commit
+`6597430ad09d8f7c3518ec4cb08829be2b417e18`) and rewritten for this suite.
+No upstream scripts, templates or galleries are vendored here.
+The optional `literature-search` and `light-chart` skills are installed separately
+from that source. Light-Science is not uniformly MIT: Chart includes
+figures4papers material under CC BY-NC 4.0 and other separately licensed resources.
+Consult the installed third-party notices and licenses before commercial use or
+redistribution; this repository does not relicense those components.
+
 All other files are original works of brilliantrough.

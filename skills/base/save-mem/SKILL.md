@@ -57,6 +57,7 @@ When the project’s overall shape, major research routes or key understanding c
 - 沿用项目的路线名称或标识，在已有记录中关联问题／假设、推导或实验条件、证据与结论边界；`project-profile` 维护全景，专题解释方法，journal按路线和阶段记关键转折。没有代码也能保存，不为每条思路新建决策或文件。
 - decisions记录研究协议、预算与路线取舍等已确认选择；“决定研究A”不证明A正确。风险标清影响单条路线还是共享前提；推进状态与认识状态按 `project-profile` 分开，不能套用决策的Active／Proposed来表示科学可信度。
 - 保留矛盾、反例、暂停原因和重开条件；一条路线的证据不得移作另一条的结论，跨路线综合需说明依据。共用结果引用同一来源，原始产物留原处；画像更新按 `project-profile` 的触发条件局部进行，不逐次抄实验流水。
+- 关键主张关联实际依据及版本（原文锚点、run ID、源码／数据／评分协议等现有标识）。依据被更正、撤回或换版时，标出受影响的结论／图／稿件与待复核范围，保留历史成立条件；先核对影响，不把旧摘要沿用成新证据，也不因任意文件变化重跑全部研究。
 
 ## Keep current truth distinguishable from history
 

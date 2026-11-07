@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# 三套 setup 经 skills-sync.sh 调用；也可单跑。
-# 三个设计依赖安装前询问；--ppt另补PPT引擎与固定版本Dashi；--uninstall反安装设计依赖；--yes免询问。
+# 四套 setup 经 skills-sync.sh 调用；也可单跑。
+# --ppt补PPT引擎；--light-science仅补固定版文献/数据图；--uninstall反安装设计依赖；--yes免设计询问。
 # 第三方副本由上游管理；个人改动放回本仓 skill。同名本地/其他源保留并告警。
 set -euo pipefail
 with_ppt=0
+with_light_science=0
+LIGHT_SCIENCE_REF=6597430ad09d8f7c3518ec4cb08829be2b417e18
 command -v npx >/dev/null 2>&1 && command -v node >/dev/null 2>&1 || {
   echo "WARN: 缺少 Node/npx，外部 skill 未安装/更新" >&2; exit 1;
 }
@@ -25,9 +27,13 @@ for arg in "$@"; do
     -y|--yes) ASSUME_YES=1 ;;
     --uninstall) UNINSTALL=1 ;;
     --ppt) with_ppt=1 ;;
-    *) echo "用法: $0 [--ppt] [--yes] [--uninstall]" >&2; exit 2 ;;
+    --light-science) with_light_science=1 ;;
+    *) echo "用法: $0 [--ppt] [--yes] [--uninstall] | --light-science" >&2; exit 2 ;;
   esac
 done
+if [ "$with_light_science" = 1 ] && { [ "$with_ppt" = 1 ] || [ "$UNINSTALL" = 1 ]; }; then
+  echo "ERROR: --light-science 不与 --ppt/--uninstall 混用" >&2; exit 2
+fi
 
 uninstall_design_skills() {
   node - "$HOME" <<'JS'
@@ -85,23 +91,26 @@ if [ "$UNINSTALL" = 1 ]; then
   exit 0
 fi
 
-migrate_obsolete_skills
+with_design=0
+if [ "$with_light_science" = 0 ]; then
+  migrate_obsolete_skills
 
-# 非交互（管道、CI）默认安装，保持原行为；SKILLS_EXTERNAL=skip 只跳安装，不跳迁移。
-with_design=1
-if [ "${SKILLS_EXTERNAL:-install}" = skip ]; then
-  echo "SKILLS_EXTERNAL=skip：跳过外部设计依赖安装"
-  with_design=0
+  # 非交互默认安装；SKILLS_EXTERNAL=skip 只跳安装，不跳迁移。
+  with_design=1
+  if [ "${SKILLS_EXTERNAL:-install}" = skip ]; then
+    echo "SKILLS_EXTERNAL=skip：跳过外部设计依赖安装"
+    with_design=0
+  fi
+  if [ "$with_design" = 1 ] && [ "$ASSUME_YES" = 0 ] && [ -t 0 ]; then
+    printf '外部设计依赖（3 个）：%s\n' "$DESIGN_SKILLS"
+    printf 'personal-ui-taste 按需引用；不装则降级为内置方法。安装/更新？[Y/n] '
+    read -r ans || ans=y
+    case "${ans:-y}" in
+      [Nn]*) echo "已跳过设计依赖；稍后安装：bash $ROOT/skills-external.sh"; with_design=0 ;;
+    esac
+  fi
 fi
-if [ "$with_design" = 1 ] && [ "$ASSUME_YES" = 0 ] && [ -t 0 ]; then
-  printf '外部设计依赖（3 个）：%s\n' "$DESIGN_SKILLS"
-  printf 'personal-ui-taste 按需引用；不装则降级为内置方法。安装/更新？[Y/n] '
-  read -r ans || ans=y
-  case "${ans:-y}" in
-    [Nn]*) echo "已跳过设计依赖；稍后安装：bash $ROOT/skills-external.sh"; with_design=0 ;;
-  esac
-fi
-[ "$with_design" = 1 ] || [ "$with_ppt" = 1 ] || exit 0
+[ "$with_design" = 1 ] || [ "$with_ppt" = 1 ] || [ "$with_light_science" = 1 ] || exit 0
 
 claude_safe() {
   local canonical="$HOME/.agents/skills/$1" mirror="$HOME/.claude/skills/$1"
@@ -112,24 +121,26 @@ claude_safe() {
 }
 
 ensure_skill() {
-  local repo="$1" name="$2" ref="${3:-}" missing source="$1"
-  [ -z "$ref" ] || source="https://github.com/$repo/tree/$ref"
+  local repo="$1" name="$2" ref="${3:-}" subpath="${4:-}" missing source="$1"
+  [ -z "$ref" ] || source="https://github.com/$repo/tree/$ref${subpath:+/$subpath}"
   claude_safe "$name" || return 0
-  if ! missing=$(node - "$repo" "$name" "$ref" <<'JS'
+  if ! missing=$(node - "$repo" "$name" "$ref" "$source" <<'JS'
 const fs = require('node:fs');
 const path = require('node:path');
 const home = require('node:os').homedir();
 const base = path.join(home, '.agents');
 const lockPath = process.env.SKILLS_LOCK_FILE;
 const skills = fs.existsSync(lockPath) ? JSON.parse(fs.readFileSync(lockPath, 'utf8')).skills || {} : {};
-const [repo, name, ref] = process.argv.slice(2);
-const installed = fs.existsSync(path.join(base, 'skills', name, 'SKILL.md'));
+const [repo, name, ref, source] = process.argv.slice(2);
+const target = path.join(base, 'skills', name);
+const present = fs.lstatSync(target, { throwIfNoEntry: false }) !== undefined;
+const installed = fs.existsSync(path.join(target, 'SKILL.md'));
 const entry = skills[name];
-if ((entry && entry.source !== repo) || (installed && !entry)) {
-  console.error(`WARN: ${name} 来自 ${entry?.source || '未登记本地副本'}，保留；需要时手工确认 npx skills add ${repo} --skill ${name} -g -y`);
+if ((entry && entry.source !== repo) || (present && !entry)) {
+  console.error(`WARN: ${name} 来自 ${entry?.source || '未登记本地副本'}，保留；需要时手工确认 npx skills add ${source} --skill ${name} -g -y`);
   process.exitCode = 1;
-} else if (installed && ref && entry.ref !== ref) {
-  console.error(`WARN: ${name} 不是本次适配的固定基线，保留现有副本；请比较并确认后安装 https://github.com/${repo}/tree/${ref}`);
+} else if (entry && ref && entry.ref !== ref) {
+  console.error(`WARN: ${name} 不是本次适配的固定基线，保留现有副本；请比较并确认后安装 ${source} --skill ${name}`);
   process.exitCode = 1;
 } else console.log(!installed || (fs.existsSync(path.join(home, '.claude')) &&
   !fs.existsSync(path.join(home, '.claude', 'skills', name, 'SKILL.md'))) ? 'missing' : 'present');
@@ -141,6 +152,18 @@ JS
     echo "present: $name"
   fi
 }
+
+if [ "$with_light_science" = 1 ]; then
+  [ -f "$HOME/.agents/skills/research-evidence/SKILL.md" ] || {
+    echo "ERROR: 先用 skills-sync.sh research 安装 research-evidence 适配入口，再选择 Light-Science 模块" >&2; exit 1;
+  }
+  echo "Light-Science：仅 literature-search / light-chart，固定 $LIGHT_SCIENCE_REF；不安装 Python/R 依赖"
+  echo "许可：Chart 含 CC BY-NC 4.0 资源；商业使用/再分发须逐项核对，不受本仓 MIT 授权覆盖"
+  ensure_skill Light0305/Light-Science literature-search "$LIGHT_SCIENCE_REF" light-literature
+  ensure_skill Light0305/Light-Science light-chart "$LIGHT_SCIENCE_REF" light-chart/skills/light-chart
+  [ "$status" = 0 ] || echo "WARN: Light-Science 未完全就绪，现有冲突副本已保留" >&2
+  exit "$status"
+fi
 
 if [ "$with_design" = 1 ]; then
   ensure_skill nextlevelbuilder/ui-ux-pro-max-skill ui-ux-pro-max
@@ -171,9 +194,10 @@ const expected = {
   'design-taste-frontend': 'Leonxlnx/taste-skill',
   'ppt-master': 'hugohe3/ppt-master'
 };
-// 废弃 skill 不更新；Dashi 跟随已验证提交，不参加通用 update。
+// 废弃 skill 不更新；Dashi 与 Light-Science 跟随固定基线，不参加通用 update。
 const skipUpdate = new Set(['redesign-existing-projects', 'dashi-ppt']);
 console.log(Object.entries(skills).filter(([name, e]) =>
+  !(e.source === 'Light0305/Light-Science' && ['literature-search', 'light-chart'].includes(name)) &&
   !own.has(name) && !skipUpdate.has(name) && !(e.source || '').includes(mine) && !(e.sourceUrl || '').includes(mine) &&
   (!expected[name] || e.source === expected[name])
 ).map(([name]) => name).join(' '));

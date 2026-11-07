@@ -18,7 +18,7 @@ This is the **idea-only discussion layer** of the experiment family. The researc
 - **Conversation first, no planning artifacts.** No plan files, experiment matrices or commands. Use `save-mem` for meaningful route/hypothesis changes at handoff or parking, not every conversational turn; a promising idea must not disappear just because it was not parked.
 - **Grill to stimulate, not to gate.** Ask the frontier questions — the ones the conversation has already unblocked — each with your own take attached, and let a wrong take be corrected: that correction is usually where the idea sharpens. Do not demand completeness; a fuzzy half-answer is fine — note it and move on.
 - **Rounds, not a quota.** After each answer, recompute what it unblocked and ask the next round. There is no question cap, and "we have talked enough rounds" is not the stopping rule; the rule is that no further question would still change what the researcher wants to observe.
-- **Bring evidence into the talk.** Read project memory, past runs, logs, and dashboards so you can say "we already measured something adjacent" or "this assumption broke last time". Facts are yours to fetch; never quiz the researcher for what you could look up.
+- **Bring evidence into the talk.** Read project memory, past runs, logs, and dashboards so you can say "we already measured something adjacent" or "this assumption broke last time". Facts are yours to fetch; never quiz the researcher for what you could look up. When novelty or a literature claim matters, check the closest actual work and its limits; use `research-evidence` for targeted retrieval/reading, not a mandatory full review.
 
 ## What to draw out
 
@@ -27,7 +27,7 @@ Work these threads as the conversation allows, in whatever order the idea sugges
 1. **The actual want:** what would the researcher want to understand or establish — a pattern, explanation, derivation, counterexample or measured comparison? The question need not be a metric to beat.
 2. **Why now:** what existing result or anomaly triggered this idea? The motivation usually contains the real hypothesis.
 3. **Hidden assumptions:** what would have to be true for the idea to work? Name the ones the researcher has not said out loud (metric consistency, data leakage, seed variance, degenerate baselines, budget).
-4. **Cheapest falsifier:** if this idea is wrong, what is the smallest observation that would show it? This question alone often decides the route.
+4. **Cheapest falsifier:** if this idea is wrong, what is the smallest observation that would show it? Name a plausible competing explanation and what would distinguish it; do not treat an improved metric alone as proof of the proposed mechanism. This question often decides the route.
 5. **Scope edge:** what is explicitly NOT part of this idea? Vague scope now becomes a bloated campaign later.
 
 ## Routing
