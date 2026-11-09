@@ -45,6 +45,7 @@ Use the user's language, Chinese by default. Keep established technical terms st
 - Front-load the differentiator: “仅首次安装询问”, not “需要说明的是，在首次安装的情况下，系统会进行询问”.
 - State actions and effects directly: “保留本机值”, not “通过相应机制实现对本机值的有效保留”.
 - Remove empty setup, praise, and unsupported significance: “下面将详细介绍”, “值得注意的是”, “显著提升”, “奠定坚实基础”. These are editing signals, not banned words; keep wording that carries actual meaning.
+- 去掉审计式、责任规避式表达：不堆工具流水、hash／字节 diff／manifest 台账、逐文件核对记录或“保险起见”的笼统风险；验证只留结论和必要证据入口，真实风险写清影响与条件。明确审计或字节契约要求除外。
 - Replace vague claims with facts already supported by the source. If evidence is absent, say so or omit the claim; do not manufacture numbers or testimonials.
 - Use occasional adjacent `PS:` notes for secondary rationale. Required precautions, exceptions, and failure handling belong in the main text, not an aside.
 - Use emphasis sparingly. Do not bold every bullet label, add decorative icons everywhere, force three points, alternate sentence lengths mechanically, or impose word-count quotas.

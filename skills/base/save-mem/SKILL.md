@@ -1,13 +1,13 @@
 ---
 name: save-mem
-description: Preserve useful project knowledge at milestones, after a resolved failure or settled decision, when a feasibility concern or user worry surfaces, and before ending work. Use StrictDoc, Magic Context, and claude-mem together; when a claude-mem write tool is available, explicitly save important decisions, corrections, and handoff facts rather than assuming automatic capture succeeded. Harvest living negative knowledge (open concerns, risks, distance to goal) into the project's risk register. Keep current norms distinguishable from history, allow useful overlap, and choose storage, detail, and timing with judgment.
+description: Preserve useful project knowledge at milestones, after a resolved failure or settled decision, when a feasibility concern or user worry surfaces, and before ending work. Every save performs lightweight in-place cleanup rather than append-only accumulation. Use StrictDoc, Magic Context, and claude-mem together; when a claude-mem write tool is available, explicitly save important decisions, corrections, and handoff facts rather than assuming automatic capture succeeded. Harvest living negative knowledge (open concerns, risks, distance to goal) into the project's risk register. Keep current norms distinguishable from history, allow useful overlap, and choose storage, detail, and timing with judgment.
 ---
 
 # Save Memory
 
 ## Intent
 
-Leave memory that helps both the next Agent and the human reader understand **what applies now, why, and how the project got here**. Preserve useful knowledge rather than reproducing the conversation. Decide what deserves saving and where; the following are guidance, not a storage pipeline or a checklist for every save.
+Leave memory that helps both the next Agent and the human reader understand **what applies now, why, and how the project got here**. Preserve useful knowledge rather than reproducing the conversation. **Saving is maintenance, not accumulation:** every save includes obvious local cleanup; directly rewrite, merge, or remove repeated and stale wording instead of waiting for `consolidator`. Decide what deserves saving and where; the following are guidance, not a storage pipeline or a checklist for every save.
 
 ## Use the stores together
 
@@ -71,16 +71,16 @@ When the project’s overall shape, major research routes or key understanding c
 - Research and experiment records must identify the route and evidence stage (e.g. derivation under stated assumptions, proxy study, single-model iteration, multi-model validation). Stages answer different questions and support different claims, not one universal ladder. Keep conditions, observations, inferences and conclusions distinguishable; a cross-stage synthesis may compare explicitly attributed evidence, never merge it into one undifferentiated result or treat local support as general validity.
 - Harvest living negative knowledge, not only outcomes. At milestones — and after any feasibility discussion, including side sessions — record open concerns, unproven feasibility assumptions, known method weaknesses, shortcuts and the risks they carry, dead ends and why they were abandoned, and one line on the remaining distance to the goal. A concern discussed but never recorded is lost; a worry the user voices is worth recording even before there is evidence for it.
 - Risk lenses are prompts to think, not quotas — record only real items: algorithm mechanism (do the premises hold?), real execution (does the trick survive a real implementation; any disallowed cost?), data and scale (is the dataset available and extensible; can the model scale up?), training process (convergence preconditions, generalization), and value placement (is this the real bottleneck of the actual task — judge that with the `goal-first` skill and record only its outcome here).
-- Field semantics are fixed, organization is free. Every risk or concern entry carries its status (Open/Mitigated/Resolved/Accepted), stage, the decision it blocks, current evidence, and the condition that would resolve it; the prose layout is the writer's choice. Where the project keeps a risk register (e.g. `docs/project_memory/risks.sdoc`), update entries in place as they evolve and leave a short journal note per change; otherwise record the same fields in StrictDoc prose or a database entry.
+- Field semantics are fixed, organization is free. Every risk or concern entry carries its status (Open/Mitigated/Resolved/Accepted), stage, the decision it blocks, current evidence, and the condition that would resolve it; the prose layout is the writer's choice. Where the project keeps a risk register (e.g. `docs/project_memory/risks.sdoc`), update entries in place as they evolve; add a journal entry only for an independently meaningful event or turning point, not mechanically for every status change. Otherwise record the same fields in StrictDoc prose or a database entry.
 - Where useful, reconcile known stale database claims and link related records. This does not call for auditing every store on every save.
 
 ## Human-readable writing
 
 Before drafting or revising memory prose, load `readable-docs` for the shared project writing style. It applies to all human-facing technical records, not only memory: Chinese by default, phrases, lists, and compact tables without losing facts or conditions.
 
-- For history, preserve outcomes, evidence, lessons, and remaining questions rather than a tool-by-tool diary. Link to original detail when useful.
-- Daily saving is not append-only: update the relevant existing entry when appropriate instead of repeating its background and status. Preserve original evidence and meaningful history, not every old sentence.
-- Explicit periodic memory restructuring belongs to `consolidator`, with **Ponytail** taste: keep the main thread clear, compress incidental process, and retain a recoverable baseline and traceable facts. Follow its rewrite/merge checks; do not automatically launch it on save. Pure expression changes do not require successor decisions.
+- **每次保存先做轻整理**：找到应承担该知识的现有位置，直接改写、合并、重排或删除重复／失效表达；能更新旧句就不新增，能并入同主题就不加新日期段。普通说明与非规范记忆无需为此另行请示或等待 `consolidator`；历史事实、有效决策状态、独有证据和未闭合风险不因精简消失。
+- **去掉防御性编程风味**：不写工具调用流水、hash／字节 diff／manifest 台账、逐文件核对账，以及“保险起见”“暂不敢改”等责任规避套话。验证只留结论与必要证据入口；真实风险直接写影响与重开条件，不把每次保存写成审计报告，也不以“尚未证明绝对安全”为保留冗文的理由。
+- 跨主题、长周期或需要完整原文对照的阶段重组才交给 `consolidator`，按 **Ponytail** 风格保持主线、压缩次要过程并保留可恢复基线。明显的局部改写与合并不必等它，也不因保存而自动启动；纯表达整理无需 successor decisions。
 
 ## Practical StrictDoc reference
 
