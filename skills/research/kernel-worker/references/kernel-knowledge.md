@@ -7,10 +7,10 @@
 | 本套件负责 | 领域库负责 |
 |---|---|
 | `pytorch-perf-tuning`选热点、采集负载、接回整模 | 算子工程、硬件/DSL、计量、优化机制与证据 |
-| `kernel-worker`约定输入/数值/预算、隔离资源、接收交付 | `kernel-profiling-pipeline`与平台技能组织专业实现和验证 |
+| `kernel-worker`约定输入/数值/预算、隔离资源、接收交付 | `kernel-optimization-pipeline`与平台技能组织专业实现和验证 |
 | `distill-project-kb`识别跨项目知识价值 | 按领域入库规范维护技术事实、代码、案例与发布 |
 
-领域库支持直接阅读，也发布六个常用技能：`kernel-profiling-pipeline`、`ascend-910b-arch`、`tilelang-ascend`、`triton-ascend`、`msprof-ascend`、`ascend-kernel-roofline`（2026-10-25；以后以其发布清单为准）。跨平台方法不等于所有平台已有实测。
+领域库支持直接阅读，也发布六个常用技能：`kernel-optimization-pipeline`、`ascend-910b-arch`、`tilelang-ascend`、`triton-ascend`、`msprof-ascend`、`ascend-kernel-roofline`（2026-10-25；以后以其发布清单为准）。跨平台方法不等于所有平台已有实测。
 
 ## 定位与安装
 
@@ -22,7 +22,7 @@
 
 ## 使用与降级
 
-- 从`INDEX.md`找到当前维护入口；通用流程在`skills/kernel-profiling-pipeline/SKILL.md`，按任务读取工程基础、计量及目标平台内容。
+- 从`INDEX.md`找到当前维护入口；通用流程在`skills/kernel-optimization-pipeline/SKILL.md`，按任务读取工程基础、计量及目标平台内容。
 - brief记录已核对的来源/版本、支持范围、数值和计量契约。eager/plain、dummy、graph与端到端分别报告；不因知识库中有旧成绩就视作本次已通过。
 - 未安装但仓库可读：直接引用仓库。仓库不可用：说明能力缺口，可用项目现有正确参考、计时器及官方资料完成有界任务；依赖专用工具/证据而缺失时返回阻塞，不臆造内容或自动部署平台。
 - Atrex/KLineage是可选方法资源；按领域库导读及实际版本使用。完整Atrex引擎只有在后端、evaluator和预算均就绪时才可启动，不与外层worker竞争写入。
