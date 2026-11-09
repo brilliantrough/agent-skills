@@ -49,6 +49,7 @@ Use the bounded, round-based grilling method below; it is self-contained and doe
 
 - Keep the smallest working change: reuse existing code, then stdlib/native features, then installed dependencies. Do not add dependencies for simple problems.
 - No over-encapsulation, speculative abstractions, defensive boilerplate, redundant checks, future scaffolding, or unrelated cleanup.
+- Finish with a clean tree: scratch scripts, probes, temporary tests, logs and derived outputs either become a minimal real asset or are deleted. Do not preserve them for hypothetical reuse; if a small detail is needed later, rebuild it then. Spend effort on the highest-value behavior, not on maintaining leftovers.
 - Fix root causes along the real call chain, not just the reported symptom; inspect sibling callers of shared logic.
 - Preserve necessary trust-boundary validation, security, accessibility, data protection, and error handling that prevents data loss.
 

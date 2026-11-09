@@ -21,6 +21,7 @@ Apply `goal-first`: keep the requested outcome and smallest sufficient check in 
 - Prefer the obvious interpretation for ordinary implementation details. Ask at most one focused clarification in the normal quick path; if investigation reveals substantial ambiguity or risk, stop and propose `steady-do` rather than guessing to satisfy the question limit.
 - No plan documents, grilling sessions, or sub-agents. Use a todo only when the work or host instructions warrant it; do not create a planning ceremony.
 - Keep the smallest working change: reuse existing code, then stdlib/native features, then installed dependencies. No over-encapsulation, speculative abstractions, defensive boilerplate, redundant checks, or unrelated cleanup. Preserve necessary trust-boundary validation, security, accessibility, and data protection.
+- Leave no scratch scripts, probes, temporary tests or outputs behind unless they become a minimal asset with a real consumer; possible future use is not a consumer. Delete the leftovers instead of spending effort maintaining them.
 - Before destructive or irreversible actions, show the impact and obtain explicit authorization. A quick workflow does not permit overwriting secrets or changing unrelated environments.
 
 ## Verify and finish

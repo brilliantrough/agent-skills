@@ -59,6 +59,7 @@ Recap the agreed scope, approach, and verification briefly, then write the plan 
 Apply ponytail directly (spelling the rules out here is enough):
 
 - Plan the smallest working change: reuse existing code, then stdlib/native features, then installed dependencies. No over-encapsulation, speculative abstraction, defensive boilerplate, redundant re-validation, future scaffolding, or unrelated cleanup.
+- Choose the highest-value outcome, not the plan that avoids every possible small rework. Do not plan speculative defenses or preserve scratch artifacts; finish with a clean tree and re-add a small detail only when a real need returns.
 - Fix root causes along the real call chains and account for sibling callers of shared logic. Preserve trust-boundary validation, security, accessibility, data protection, and error handling that prevents data loss.
 - Include authorization gates for destructive or irreversible operations; permission to execute the plan is not permission to overwrite secrets or change unrelated environments. Functional code that runs correctly is DONE.
 
@@ -93,7 +94,7 @@ When the user returns saying the executor finished (or drops the report path), a
 
 1. Read the plan doc and the report side by side. Spot-check the code only where a claim needs evidence.
 2. Build a 核对表: per plan step — report claim / evidence / verdict (符合 / 存疑 / 不符).
-3. Audit 规范遵循: environment activation, step order, scope, ponytail taste, chosen verification mode, authorization gates, test-script restraint. Judge each deviation with its reason instead of assuming every deviation is wrong.
+3. Audit 规范遵循: environment activation, step order, scope, ponytail taste, chosen verification mode, authorization gates, test-script restraint. Flag both defects and "should delete but remains": speculative defenses, temporary artifacts, duplicate implementations and unused compatibility paths. Judge each deviation with its reason instead of assuming every deviation is wrong; fix the specific omission without recreating scaffolding.
 4. Verdict (符合 / 部分符合 / 不符合), then concrete prioritized minimal fixes in ponytail style.
 5. Write `<slug>.review.md` beside the plan in the user's language and print it in chat. NEVER edit the executor's report — it is their artifact.
 6. If fixes are needed, produce a new self-contained launcher prompt (Phase 5 rules) re-dispatching exactly the fix items; it must point at the review file, the plan, and the previous report. Re-review changes and affected dependents using prior evidence for unchanged scope; repeat the full matrix only when required by the agreed acceptance or blast radius. Separate source-semantic defects from verification-environment defects before ordering regeneration.
