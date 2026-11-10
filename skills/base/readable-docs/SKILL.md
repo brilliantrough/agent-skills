@@ -36,6 +36,7 @@ Put the useful conclusion, status, or next action first. Use headings that tell 
 - Use tables for lookup or comparison, not as boxes for paragraphs. Move long rationale below the table or into the relevant subsection; keep the essential condition beside the claim.
 - If a list item contains several independent points, split it. If it needs deep nesting, regroup under a concrete heading. Keep qualifications with the point they qualify.
 - Avoid headings with no content, repeated introductions and conclusions, and multiple formats repeating the same information. A short overview can point to necessary detail instead of duplicating it.
+- 任务核心、违背代价高的纪律在不同决策点的短促复现，是有意的行为提示，不属于重复介绍；不得仅为表面精简删掉。
 
 ## 3. Write phrases, not filler
 

@@ -79,6 +79,7 @@ When the project’s overall shape, major research routes or key understanding c
 Before drafting or revising memory prose, load `readable-docs` for the shared project writing style. It applies to all human-facing technical records, not only memory: Chinese by default, phrases, lists, and compact tables without losing facts or conditions.
 
 - **每次保存先做轻整理**：找到应承担该知识的现有位置，直接改写、合并、重排或删除重复／失效表达；能更新旧句就不新增，能并入同主题就不加新日期段。普通说明与非规范记忆无需为此另行请示或等待 `consolidator`；历史事实、有效决策状态、独有证据和未闭合风险不因精简消失。
+- **关键纪律不因轻整理去重**：任务核心、违背代价高的规则在不同决策点的重复提醒要保留；精简重复内容时，只清理与任务无关的细节、失效表达和不改变动作的同义复述。
 - **去掉防御性编程风味**：不写工具调用流水、hash／字节 diff／manifest 台账、逐文件核对账，以及“保险起见”“暂不敢改”等责任规避套话。验证只留结论与必要证据入口；真实风险直接写影响与重开条件，不把每次保存写成审计报告，也不以“尚未证明绝对安全”为保留冗文的理由。
 - 跨主题、长周期或需要完整原文对照的阶段重组才交给 `consolidator`，按 **Ponytail** 风格保持主线、压缩次要过程并保留可恢复基线。明显的局部改写与合并不必等它，也不因保存而自动启动；纯表达整理无需 successor decisions。
 
