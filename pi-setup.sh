@@ -13,7 +13,7 @@
 #      bun(缺 → 征得同意装,claude-mem runtime 与 context-mode 所需依赖)、uv(可选,.sdoc 校验用)
 #   2. pi 本体与已装包更新:已装 → 默认 Y,逐包 pi update(不用 --all,它会连带升 magic-context)
 #      唯独不碰 magic-context:它与 opencode 侧共享 context.db,升级要迁移 DB、会打断正在跑的
-#      进程,所以是独立一问、默认 N(步骤 3.1),要升请放到两边都没人使用的时段
+#      进程,所以独立一问、默认 Y(步骤 3.1);仍须确认两边都没人使用
 #   3. pi 包(pi install,幂等):@dietrichgebert/ponytail / pi-subagents-j0k3r /
 #      pi-lens / @juicesharp/rpiv-ask-user-question / pi-autoname@0.6.8 / @cortexkit/pi-magic-context /
 #      git:github.com/brilliantrough/agent-skills(本仓库自身;含个性化 UI、later、任务耗时扩展、
@@ -80,13 +80,13 @@ nbin() { # 可执行文件的宿主路径:MSYS 的 command -v 会去掉 .exe,宿
 }
 
 # -y/--yes(或环境变量 ASSUME_YES=1)「默认安装」:不再逐项确认,一律取默认值 —— 默认 Y 的照做
-# (装缺件、字段级合并写配置、刷新 skills),默认 N 的跳过(升级本体、覆盖缓存、版本守卫、无代理继续、AGENTS.md 注入)。
+# (装缺件、字段级合并写配置、刷新 skills),默认 N 的跳过(覆盖缓存、版本不一致时强启用、无代理继续、AGENTS.md 注入)。
 # 唯一还会问的是凭据(网关 + 6 个 api key);没有终端时静默跳过、占位符保留(无人值守用环境变量预填)。
 ASSUME_YES="${ASSUME_YES:-}"
 while [ $# -gt 0 ]; do
   case "$1" in
     -y|--yes) ASSUME_YES=1 ;;
-    -h|--help) echo "用法: bash <本脚本> [-y|--yes]   # -y 跳过默认 Y 的确认项,默认 N 的仍人工确认"; exit 0 ;;
+    -h|--help) echo "用法: bash <本脚本> [-y|--yes]   # -y 跳过默认 Y 的确认项,默认 N 的跳过"; exit 0 ;;
     *) echo "未知参数: $1(仅支持 -y|--yes / -h|--help)" >&2; exit 2 ;;
   esac
   shift
@@ -918,9 +918,9 @@ PYEOF
   mc_guard
   if pkg_installed npm:@cortexkit/pi-magic-context; then
     echo "已有: npm:@cortexkit/pi-magic-context(magic-context)"
-    # 单独一问、默认不升:升级会迁移两边共享的 context.db,必须在 OpenCode 与 Pi 都停用、
+    # 单独一问、默认 Y:升级会迁移两边共享的 context.db,必须在 OpenCode 与 Pi 都停用、
     # 没有会话在跑的时候做(夜里没人用的窗口),否则会打断正在使用的进程。
-    if ask "现在升级 magic-context?(会迁移与 opencode 共享的 context.db;请放到两边都没人在用的时段做,两边版本必须一起升)" N; then
+    if ask "现在升级 magic-context?(会迁移与 opencode 共享的 context.db;请放到两边都没人在用的时段做,两边版本必须一起升)" Y; then
       if "$PI_BIN" update npm:@cortexkit/pi-magic-context --no-approve < /dev/null; then
         echo "  已升 Pi 侧;opencode 侧需同步: 停掉 opencode 会话 → rm -rf \"$OC_MC_CACHE\" → 重启(会拉新版并迁移 DB)"
         mc_guard

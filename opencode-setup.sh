@@ -6,7 +6,7 @@
 # 完整安装含宿主升级(默认 Y)、配置、依赖与通用 skills；--plugins-only 仅插件及 context-mode skills；--check 下载校验后退出。
 # 配置默认关闭 OpenCode 自动更新(update:disable)，宿主只在本脚本里升级。
 # 更新前先退出 TUI 和后台服务；已知旧入口移到配置目录 .agent-skills-backups/。
-# 第三方 npm 插件先查本地/npm latest；Ponytail 常规更新默认 Y，Magic Context 单独默认 N；claude-mem 由官方安装器更新 runtime 与宿主入口。
+# 第三方 npm 插件先查本地/npm latest；Ponytail 常规更新默认 Y，Magic Context 单独默认 Y；claude-mem 由官方安装器更新 runtime 与宿主入口。
 # 确认后只备份移走对应 latest 缓存并改回官方包登记；下次宿主启动下载。
 # 不启动服务、不迁移数据库；宿主升级在本脚本里问一次(默认 Y)后执行(opencode upgrade)，自动更新默认关闭；官方 npm 缺包由宿主启动时下载。
 # 配置：本地私密值保留；provider.models 与套件 reviewer 的模型/档位随模板刷新；v2 原生 providers 不改写。
@@ -73,7 +73,7 @@ while [ $# -gt 0 ]; do
 先安装 OpenCode V2；V1 请先自行升级。精简模式需要已有 Python 3、curl、Bun。
 已知旧入口备份到 $CFG/.agent-skills-backups/；不启动宿主、不迁移数据库。
 查询 Ponytail/Magic Context 的本地版本与 npm latest；失败只警告。Ponytail 有新版默认 Y，钉版/本地路径默认 N。
-Magic Context 旧缓存路径自动迁回官方包名，保留当前缓存；--check 只预览。实际刷新另问、默认 N，确认后下次启动下载。
+Magic Context 旧缓存路径自动迁回官方包名，保留当前缓存；--check 只预览。实际刷新另问、默认 Y，确认后下次启动下载。
 官方 claude-mem 安装器更新 runtime/入口/MCP，会停止共享 worker；--check 只报告、不询问刷新，仍联网，宿主 --version 可能写日志。
 HELP
       exit 0 ;;
@@ -571,7 +571,7 @@ fi
 echo "Magic Context 旧缓存路径会迁回官方 @latest，保留已装缓存；自定义路径与钉版不动。"
 echo "如需更新插件，可另行确认刷新：备份移走 OpenCode 的 latest 缓存，下次启动重新下载。"
 echo "注意：新版首次加载可能迁移共享 context.db。确认前请退出 OpenCode/Desktop/Pi 并备份共享库；同机 Pi 版本需另行同步。"
-if ask "是否刷新 Magic Context（已确认相关宿主停用并备份）?" N; then
+if ask "是否刷新 Magic Context（已确认相关宿主停用并备份）?" Y; then
   plugin_args+=(--refresh-magic-context)
 else
   echo "跳过 Magic Context 刷新：保留缓存，仅迁移可安全复用的旧缓存路径登记；如有 WARN，启动前仍需处理。"

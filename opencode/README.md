@@ -1,6 +1,6 @@
 # OpenCode 插件分发
 
-仅维护 OpenCode V2；检测到 V1 时停止，提示先升级宿主。**完整 setup 询问执行 `opencode upgrade`（默认 Y），配置默认关闭自动更新**；不安装宿主、不启动服务、不迁移数据库。Magic Context 刷新单独询问，默认 N。
+仅维护 OpenCode V2；检测到 V1 时停止，提示先升级宿主。**完整 setup 询问执行 `opencode upgrade`（默认 Y），配置默认关闭自动更新**；不安装宿主、不启动服务、不迁移数据库。Magic Context 刷新单独询问，默认 Y。
 
 ## 安装与更新
 
@@ -44,7 +44,7 @@ bash /tmp/opencode-setup.sh --plugins-only
 | 对象 | setup 行为 |
 | --- | --- |
 | Ponytail | 查询本地版本与 npm latest；有新版时默认询问刷新，确认后备份移走对应缓存并登记官方 `@latest`，下次宿主启动下载；不运行宿主 plugin CLI |
-| Magic Context | 默认登记官方 `@latest`；旧缓存路径在可复用当前包时自动迁回包名。实际刷新另问，默认 N；确认后移走 latest 缓存，下次宿主启动下载 |
+| Magic Context | 默认登记官方 `@latest`；旧缓存路径在可复用当前包时自动迁回包名。实际刷新另问，默认 Y；确认后移走 latest 缓存，下次宿主启动下载 |
 | context-mode | 独立从 `releases/latest` 同步，放 `vendor/context-mode/`，不另加配置插件登记 |
 | notify | 旧入口备份停用，后续由 notify 项目适配 |
 
@@ -53,14 +53,14 @@ bash /tmp/opencode-setup.sh --plugins-only
 - 只检查套件引用的 Ponytail、Magic Context：按配置与当前宿主缓存读取本地实际版本，联网查询官方 npm `latest`。不扫描或更新用户自行安装的其他包。
 - Ponytail 稳定版有新版时询问，普通 npm／`@latest` 登记默认 Y；钉版或本地路径默认 N。版本一致不重装，本地更高不降级；非稳定版本只提示人工核对。缺包交宿主安装，已有缓存但版本未知可询问刷新。
 - 确认 Ponytail 刷新后，只备份移走其 `@latest` 缓存到 `.agent-skills-backups/<时间戳>/ponytail-cache/`，登记改为官方 `@latest`，保留 options。钉版缓存和任意本地源码目录不删除。
-- 查询失败：显示 WARN，不据此刷新；`--check` 不询问。`-y`／无终端采用各项默认值，Ponytail 普通登记可刷新，钉版／本地路径及 Magic Context 跳过。
+- 查询失败：显示 WARN，不据此刷新；`--check` 不询问。`-y`／无终端采用各项默认值，Ponytail 普通登记可刷新，钉版／本地路径跳过；Magic Context 按默认 Y 安排刷新，显式选 N 才保留缓存。
 - 此时仅**安排更新**；下载与加载发生在下次宿主启动。日常仍可用 OpenCode v2 `/plugins` 更新，不必每次运行 setup；版本一致不等于加载正常，npm latest 也不保证兼容任意旧宿主。
 
 Magic Context 操作：
 
 - **选 Y**：确认 OpenCode／Desktop／Pi 均已停用、共享库已备份。只将 OpenCode 两代布局中的 Magic Context `@latest` 缓存移到 `$CFG/.agent-skills-backups/<时间戳>/magic-context-cache/`；旧目录／钉版登记改为官方 npm `@latest`，保留插件 options。不删除任意本地源码目录、Pi 包、其他插件缓存或数据库。
 - OpenCode v2 的 npm cache 可能把 `@latest` 做成指向数字代次目录的符号链接；用户配置的 `$XDG_CACHE_HOME`（未设置时 `$HOME/.cache`）本身也可以是符号链接。刷新时只移动受管 `@latest` 叶子链接本身，不跟随目标目录；npm、scope、包目录等中间父路径仍受符号链接保护。
-- **选 N／`-y`／无终端**：不刷新缓存。旧缓存路径仍指向当前宿主可复用的官方包时，自动改为 `@cortexkit/opencode-magic-context@latest`，保留 options，写入前备份配置。失效路径、旧缓存代次或跨主版本缓存不可直接复用时，保留登记并 WARN；不借迁移之名下载新版。
+- **选 N**：不刷新缓存。旧缓存路径仍指向当前宿主可复用的官方包时，自动改为 `@cortexkit/opencode-magic-context@latest`，保留 options，写入前备份配置。失效路径、旧缓存代次或跨主版本缓存不可直接复用时，保留登记并 WARN；不借迁移之名下载新版。
 - **`--check`**：预览登记迁移与 WARN，不询问、不写入、不刷新。通过仅表示套装可部署，不代表 Magic Context 已可用。
 - 现有 npm 包名、精确版本和自定义源码路径保持原样，不再把包名改成本地缓存路径。新安装登记官方 `@latest`；已有共享库而当前宿主无 latest 缓存时，未确认刷新就不新增入口。
 - 日常更新由 OpenCode v2 `/plugins` 的 `Ctrl+U` 或 `opencode plugin update @cortexkit/opencode-magic-context@latest` 管理（目标须与配置一致）。v2 启动复用已有缓存、检查更新，不自动替换已装包；缺包仍会下载，更新前须协调 Pi 并备份共享库。
