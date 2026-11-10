@@ -15,6 +15,7 @@ Apply `goal-first`: anchor work to the agreed outcome, current uncertainty, next
 
 ## 1. Understand the request and project
 
+- **User discipline first:** check any root AGENTS `user-discipline` block, apply relevant rules to scope and design, and immediately activate a newly invoked rule in the current plan and related work.
 - Read the complete requirement and decisions already settled in this conversation. Separate explicit requirements from open questions; investigate before modifying files.
 - Read project rules, README, relevant entry points and modules. Trace the real flow, reuse opportunities, affected callers, and compatibility boundaries. Expand by relevance, not a whole-repo tour or a single-function guess.
 - **Look at the live site first (seconds, no approval):** activation command and interpreter, dependency versions that actually import now, launch commands, input/output formats, config paths, and whether anything relevant is already running. Inspect instead of assuming an interpreter or system Python. One cheap look buys the avoidance of a whole round of avoidable errors — skipping ceremony is the point, skipping this is not.
@@ -55,6 +56,7 @@ Use the bounded, round-based grilling method below; it is self-contained and doe
 
 ## 5. Verify and finish
 
+- **Discipline check:** verify each applicable user-discipline rule against the actual change and adjacent behavior; report violations rather than treating the block as background documentation.
 - Default to the smallest real execution path plus a reread of the change and affected adjacent behavior. Check the agreed observable outcome, not merely the absence of errors. For documentation-only changes, inspect content and applicable format checks.
 - Check the source contract before expensive generation or broad validation: pin the relevant source/version and verify meanings, shapes, state transitions or parameter order against that source, not merely against tables produced by your own code. Validate a representative vertical slice before scaling out; this does not waive the final agreed coverage.
 - When review is warranted, provide the baseline, changed scope, evidence paths and unresolved questions together. Stabilize shared components before repeated per-item reviews; re-review changed items and affected dependents, unless the agreed full review is required. Distinguish semantic defects from environment defects before regenerating artifacts.

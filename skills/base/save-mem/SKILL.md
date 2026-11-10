@@ -9,6 +9,10 @@ description: Preserve useful project knowledge at milestones, after a resolved f
 
 Leave memory that helps both the next Agent and the human reader understand **what applies now, why, and how the project got here**. Preserve useful knowledge rather than reproducing the conversation. **Saving is maintenance, not accumulation:** every save includes obvious local cleanup; directly rewrite, merge, or remove repeated and stale wording instead of waiting for `consolidator`. Decide what deserves saving and where; the following are guidance, not a storage pipeline or a checklist for every save.
 
+## Route explicit discipline out of ordinary memory
+
+When the user explicitly invokes `discipline`, use that skill: immediately activate the rule in the current task and write long-term discipline to the root AGENTS `user-discipline` block. Do not substitute a StrictDoc node, database entry or journal note and call that activation. `save-mem` may additionally preserve the reason or history, but only explicit user instruction may change the active block.
+
 ## Use the stores together
 
 | Store | Useful capabilities |
@@ -61,7 +65,7 @@ When the project’s overall shape, major research routes or key understanding c
 
 ## Keep current truth distinguishable from history
 
-**StrictDoc is the source of truth for current project norms when records disagree.** Magic Context and claude-mem may legitimately contain earlier or conflicting accounts; useful overlap does not imply equal authority for every historical statement.
+**Below live user instructions and any user-discipline block, StrictDoc is the source of truth among other project records when records disagree.** Magic Context and claude-mem may legitimately contain earlier or conflicting accounts; useful overlap does not imply equal authority for every historical statement.
 
 - Keep current rules and their scope easy to identify. In the bundled grammar, decisions use `Active`, `Proposed`, `Deprecated`, or `Superseded`; dated journal entries describe experience rather than policy.
 - **Active norms are maintainable; historical facts and decision meaning must survive.** When the user changes a decision, or a settled change is clear from the conversation and evidence, add a successor when useful, mark the old node `Superseded`, and briefly tell the user. Do not change the canon for guesses, temporary experiments, or every task. Ordinary explanatory docs and non-normative memories may be revised more freely.

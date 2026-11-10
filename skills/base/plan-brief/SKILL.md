@@ -28,7 +28,7 @@ Deliverables checklist — none of these may be skipped silently:
 
 ## Phase 1 — Survey the project
 
-- Read project rules (AGENTS.md), README, project memory and docs, entry points, and everything the requirement touches.
+- Read project rules (AGENTS.md), including any `user-discipline` block as binding constraints; then read README, project memory and docs, entry points, and everything the requirement touches.
 - Establish: what exists today, the real call chains, existing capabilities and reuse points, compatibility boundaries, and this project's own conventions (env managers, doc locations, run commands, who launches formal runs).
 - Investigate the facts yourself from code, config, memory, docs, and upstream source/issues. Never invent a command, API detail, or platform limit; ask the user for decisions, never for facts you can inspect.
 
@@ -71,7 +71,7 @@ One structured Markdown document in the user's language (Chinese headings by def
 2. **Current state** — what exists now and which parts get reused; Phase 1 findings.
 3. **Environment and prerequisites** — exact known commands, paths, versions; unresolved external blockers labeled as such.
 4. **Execution steps** — ordered; each step states what / the files or command / the expected result / its dependencies. Before bulk generation or a broad matrix, settle source/version and semantic contracts, then validate a representative vertical slice and shared components. Group independent work; do not weaken the final agreed coverage. Do not invent commands or API details that were not verified.
-5. **Constraints and known pitfalls** — compatibility, risks, and the authorization gates from Phase 3.
+5. **Constraints and known pitfalls** — applicable user discipline, compatibility, risks, and the authorization gates from Phase 3.
 6. **Verification** — name the chosen mode (TDD / smoke-and-read) and why; concrete acceptance evidence and who runs what. Distinguish static checks, successful loading, local calls, and real user interaction; never treat absence of errors as proof of the outcome.
 7. **Deliverables** — include `<plan-basename>.report.md` beside the plan. Required product docs and project memory still apply.
 
@@ -79,7 +79,7 @@ One structured Markdown document in the user's language (Chinese headings by def
 
 Append it to the plan doc inside a fenced block AND print it in chat for copying. It must be fully self-contained for a fresh session:
 
-- Point to the plan doc path; instruct the executor to read it plus AGENTS.md and the relevant project docs before acting.
+- Point to the plan doc path; instruct the executor to read it plus AGENTS.md, including the active `user-discipline` block, and the relevant project docs before acting.
 - Carry the agreed scope, environment, step order and dependencies, ponytail taste, verification mode, authorization gates, and deliverables. Follow the plan instead of restarting workflow selection or re-grilling settled decisions.
 - Keep current constraints, evidence paths and the active edit unit in the existing todo/context; recover only missing or changed material. Read exact source before editing, refresh after a match failure, and edit the generator rather than giant generated output when a source path exists.
 - Hard constraints: activate the specified environment before running anything; follow the plan's step order; no scope creep; stop and ask when the plan is ambiguous, new evidence invalidates it, or scope must change; resolve ordinary local implementation details without repeated approval.
@@ -94,7 +94,7 @@ When the user returns saying the executor finished (or drops the report path), a
 
 1. Read the plan doc and the report side by side. Spot-check the code only where a claim needs evidence.
 2. Build a 核对表: per plan step — report claim / evidence / verdict (符合 / 存疑 / 不符).
-3. Audit 规范遵循: environment activation, step order, scope, ponytail taste, chosen verification mode, authorization gates, test-script restraint. Flag both defects and "should delete but remains": speculative defenses, temporary artifacts, duplicate implementations and unused compatibility paths. Judge each deviation with its reason instead of assuming every deviation is wrong; fix the specific omission without recreating scaffolding.
+3. Audit 规范遵循: active user discipline, environment activation, step order, scope, ponytail taste, chosen verification mode, authorization gates, test-script restraint. Flag both defects and "should delete but remains": speculative defenses, temporary artifacts, duplicate implementations and unused compatibility paths. Judge each deviation with its reason instead of assuming every deviation is wrong; fix the specific omission without recreating scaffolding.
 4. Verdict (符合 / 部分符合 / 不符合), then concrete prioritized minimal fixes in ponytail style.
 5. Write `<slug>.review.md` beside the plan in the user's language and print it in chat. NEVER edit the executor's report — it is their artifact.
 6. If fixes are needed, produce a new self-contained launcher prompt (Phase 5 rules) re-dispatching exactly the fix items; it must point at the review file, the plan, and the previous report. Re-review changes and affected dependents using prior evidence for unchanged scope; repeat the full matrix only when required by the agreed acceptance or blast radius. Separate source-semantic defects from verification-environment defects before ordering regeneration.

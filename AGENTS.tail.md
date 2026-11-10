@@ -1,9 +1,16 @@
 <!-- memory-system:start -->
+## User Discipline (always applies)
+
+- A root `AGENTS.md` block marked `<!-- user-discipline:start -->` is binding user instruction, not background memory. Read it before planning or acting, and recheck applicable rules at stage transitions and final delivery. Within project records it outranks the profile, decisions, journal and database memories.
+- Use `discipline` only on explicit user invocation. Immediately check and adjust the current plan and related work; write long-term rules into the unique managed block, reread after editing, and carry the short rule into current todos and stage checks. Never merely save it to docs or a database, and never wait for the next session to apply it. Current-only discipline stays in the session.
+- Only explicit user instruction may add, change, demote or retire active discipline. Never remove it as clutter or redundant memory. Report conflicts and violations; "recorded" is not "followed".
+- Verify actual AGENTS injection on each host. If absent, use the host's existing native project-instruction entry rather than a new framework. This is a behavior protocol, not a sandbox or permission system.
+
 ## Project Memory System
 
 This project uses a three-layer memory system (Magic Context + StrictDoc + claude-mem).
 
-- **At session start**: run `load-mem`; after project instructions, read the existing project profile first (default `docs/handbook/project-profile.sdoc`, or the registered equivalent), then task-relevant memory and source. If absent, continue targeted recall; do not automatically survey the whole repo.
+- **At session start**: run `load-mem`; after project instructions and any user-discipline block, read the existing project profile first (default `docs/handbook/project-profile.sdoc`, or the registered equivalent), then task-relevant memory and source. If absent, continue targeted recall; do not automatically survey the whole repo.
 - **At milestones and before ending work**: run `save-mem`; when the project’s overall shape, major research routes or key understanding changes, use `project-profile` to update the affected parts of its existing profile. Initialization via `migrate-mem`, periodic alignment via `consolidator`; content rules live only in `project-profile`.
 
 ### Memory intent
@@ -11,7 +18,7 @@ This project uses a three-layer memory system (Magic Context + StrictDoc + claud
 - Use StrictDoc, Magic Context, and claude-mem together; their knowledge may intentionally overlap. Let the Agent choose useful storage, retrieval depth, and timing rather than enforcing a one-store-per-fact pipeline.
 - For prior decisions, attempted solutions, recurring failures, or cross-session work, proactively retrieve relevant claude-mem observations alongside StrictDoc and Magic Context before asking the user to repeat context or redoing past investigation. Injected memories are only a partial view; reuse sufficient evidence instead of querying every store on every turn.
 - The official claude-mem Pi extension exposes `mem_search`, `mem_timeline`, and `mem_get_observations`; OpenCode has `claude_mem_search` plus namespaced claude-mem MCP tools. These are claude-mem entry points, not unrelated memory systems. Use the actual tool catalog and schema; `load-mem` explains host-specific names and recall flows.
-- Among project records, **current StrictDoc norms are the source of truth** when memories disagree. The usual `docs/` layout separates `project_memory/` (decisions and journal) from `handbook/` (reference documents). `Active` decisions describe current rules; proposals, retired decisions, journal entries, and historical reports should remain distinguishable from them.
+- Below live user instructions and any user-discipline block, **current StrictDoc norms are the source of truth among other project records** when memories disagree. The usual `docs/` layout separates `project_memory/` (decisions and journal) from `handbook/` (reference documents). `Active` decisions describe current rules; proposals, retired decisions, journal entries, and historical reports should remain distinguishable from them.
 - Read the StrictDoc tree narrowly: grep it instead of loading whole files — list current decisions with `grep -B1 -A1 '^STATUS: Active' docs/project_memory/decisions.sdoc`, search one topic across `docs/project_memory/`, then read only the matched node. A full-tree read buries the answer and costs the session; `load-mem` gives the exact commands.
 - **当前规范可以维护，历史事实与决策含义不能抹掉。** 用户明确改变决定，或已确定的变化足够清晰时，可新增 successor、标记旧节点 `Superseded` 并简短告知；不因猜测、临时尝试或每次任务就改规范。普通说明文档和非规范记忆可更灵活整理。
 - **保存就是维护，不是积累。** 每次保存直接改写、合并、重排或删除现有位置中的重复／失效表达，明显的小整理立即完成，不等 `consolidator`；记录结论、真实约束、未闭合风险和必要证据，不写工具流水、hash/diff/manifest 台账、笼统安全免责或怕担责的冗文。历史事实与决策含义不变。

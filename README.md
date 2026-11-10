@@ -32,7 +32,7 @@
 
 表格里后半段三项都由共用脚本实现（`skills-sync.sh`、`skills-external.sh`），四个入口只负责问一次并透传选择；宿主特有的部分留在各自的 `*-setup.sh`。DSH 与 Codex 不含配置合并，`AGENTS.md` 规范块随 skills 同步一问，不再需要手工粘。
 
-[快速安装](#快速安装) · [Skills](#skills本仓-40-个) · [首次部署](#首次部署只需要网关--5-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [DSH](dsh/README.md) · [OpenCode](#opencode-安装与迁移) · [更新](#更新) · [贡献](CONTRIBUTING.md)
+[快速安装](#快速安装) · [Skills](#skills本仓-41-个) · [首次部署](#首次部署只需要网关--5-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [DSH](dsh/README.md) · [OpenCode](#opencode-安装与迁移) · [更新](#更新) · [贡献](CONTRIBUTING.md)
 
 ## 快速安装
 
@@ -76,7 +76,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.com/brilliantrough/agent-skills/main/skills-sync.sh)" -- base
 ```
 
-`base` 安装基础 22 个；`base research` 追加 8 个科研／算法研究 skill；`all` 或无参数安装五组共 40 个，含 PPT 组及其独立 Python 依赖。也可把 `research`、`accel`、`kb`、`ppt` 作为额外参数传给 `skills-sync.sh`。所有组都默认补装三个外部设计 skill，并更新符合条件的已登记第三方；只有选中 `ppt` 才补装 `ppt-master` 并准备独立环境。Light-Science 文献／数据图另走默认 N 的[可选模块](modules/light-science/README.md)，选 research 不自动安装它们。需要 curl、git、Node/npx；安装位置 `~/.agents/skills/`，重开会话生效。
+`base` 安装基础 23 个；`base research` 追加 8 个科研／算法研究 skill；`all` 或无参数安装五组共 41 个，含 PPT 组及其独立 Python 依赖。也可把 `research`、`accel`、`kb`、`ppt` 作为额外参数传给 `skills-sync.sh`。所有组都默认补装三个外部设计 skill，并更新符合条件的已登记第三方；只有选中 `ppt` 才补装 `ppt-master` 并准备独立环境。Light-Science 文献／数据图另走默认 N 的[可选模块](modules/light-science/README.md)，选 research 不自动安装它们。需要 curl、git、Node/npx；安装位置 `~/.agents/skills/`，重开会话生效。
 
 **Codex（best effort）**
 
@@ -105,9 +105,9 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/pi-setup.sh)"
 ```
 
-## Skills（本仓 40 个）
+## Skills（本仓 41 个）
 
-基础 22 个；科研／算法研究 8 个；算力模板 7 个、公共知识 2 个与 PPT 1 个按需选装。`research`、`kb` 与 `ppt` 随仓库刷新，`accel` 缺才装；外部设计依赖默认询问安装，Light-Science 精选集成另行选择，不复制到本仓、不计入上述数量。
+基础 23 个；科研／算法研究 8 个；算力模板 7 个、公共知识 2 个与 PPT 1 个按需选装。`research`、`kb` 与 `ppt` 随仓库刷新，`accel` 缺才装；外部设计依赖默认询问安装，Light-Science 精选集成另行选择，不复制到本仓、不计入上述数量。
 
 ### 工程技能
 
@@ -132,11 +132,21 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 | `migrate-mem` | 为已有项目建立/补全记忆，初始化可读的 StrictDoc 文档；不假定旧工作流、不搬原文件 |
 
 - 三层互补、允许交叠；决策可同时存入 StrictDoc 与 Magic Context，不强制分流
-- 冲突以 **StrictDoc 当前有效规范**为准
+- 用户纪律块优先；其余项目记录冲突以 **StrictDoc 当前有效规范**为准
 - 明确决策后更新规范并简短告知；不因猜测或每次任务频繁改动
 - 文档默认中文；调查、存取路径由 Agent 判断
 
 说“用 project-profile 为这个项目建立画像”，即可建立单文件整体说明；默认 `docs/handbook/project-profile.sdoc`，已有等价说明则原位完善。`migrate-mem` 初建接入，`load-mem` 先读，`save-mem` 随形态或关键研究认识变化局部更新，`consolidator` 阶段校准；不新增插件或后台扫描。科研主线可为同一个问题，多条路线并行，推进状态与证据强度分开；没有代码也能建立画像。画像帮助定位，行动前仍需核实相关实现或研究证据。已有项目需同步更新 AGENTS 规范块，不能只装 skill 就假定入口已接好。
+
+### 用户纪律（自制）
+
+| Skill | 用途 |
+|---|---|
+| [`discipline`](skills/base/discipline/SKILL.md) | 显式记录、修改或撤销用户强制纪律；立即作用于当前任务，长期写入根 AGENTS 顶部受管块 |
+
+- 用户明确说“用 discipline／记入纪律”才升格；普通记忆仍走 `save-mem`
+- 纪律不是第四套记忆：不另建 `DISCIPLINE.md`，只保存现行约束，规划、执行、审查与整理反复检查
+- 写入后重读并调整当前计划；不以“已保存”冒充“已遵守”，只有用户明确要求才能变更或撤销
 
 ### 技术写作（自制）
 
@@ -744,7 +754,7 @@ bash /tmp/opencode-setup.sh --plugins-only
 
 | 模式 | 处理范围 |
 | --- | --- |
-| 默认完整安装 | 插件、配置、依赖与通用 skills；默认 base 22 个，交互可选 research、accel、kb、ppt，全部选中时为 40 个，另同步外部设计 skills；选 ppt 另补引擎与独立 Python 环境 |
+| 默认完整安装 | 插件、配置、依赖与通用 skills；默认 base 23 个，交互可选 research、accel、kb、ppt，全部选中时为 41 个，另同步外部设计 skills；选 ppt 另补引擎与独立 Python 环境 |
 | `--plugins-only` | 旧配置转原生 V2、自维护插件、context-mode 及其 skills、官方包登记、claude-mem runtime／入口／MCP；不更新模型／Python／通用 skills |
 | `--check` | 下载校验自维护包，检查配置，查询 Ponytail／Magic Context 本地与 npm 版本；不询问、不改配置、认证或数据库 |
 
@@ -1021,7 +1031,7 @@ npm 缺失包在 OpenCode 启动时自动安装；已有包不会因重启自动
 
 | 组 | 策略 |
 |---|---|
-| base（品味/流程，22） | 每次随仓库刷新；本地有未回流改动先整目录备份到 `~/.local/share/agent-skills/.backups/` 再覆盖（回流后删备份） |
+| base（品味/流程，23） | 每次随仓库刷新；本地有未回流改动先整目录备份到 `~/.local/share/agent-skills/.backups/` 再覆盖（回流后删备份） |
 | research（科研／算法研究，8） | 每次随仓库刷新；本地有未回流改动先按组备份再覆盖 |
 | accel（算力平台模板，7） | 缺才装；本机特化后永不覆盖 |
 | kb（公共知识，2） | 每次随仓库刷新，不备份 |

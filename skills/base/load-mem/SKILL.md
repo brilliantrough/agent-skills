@@ -9,6 +9,11 @@ description: Recover project context when starting or resuming work, revisiting 
 
 Recover enough context to work as a continuing project partner, without making the user repeat earlier decisions or loading the entire history. Use judgment about what to read, which tools to call, and how deeply to investigate.
 
+## Apply user discipline before recall
+
+- After project instructions, check the root `AGENTS.md` `user-discipline` block when present. It is binding user instruction, not background memory; within project records it outranks the profile, decisions, journal and database memories. If it changed during this session, reread it instead of assuming the earlier injected copy is current.
+- Do not copy, demote or revise active discipline while loading memory. Surface conflicts with other records; only explicit user instruction changes the block.
+
 ## Orient with the project profile first
 
 - After project instructions, read the current project profile from the registered entry; the StrictDoc default is `docs/handbook/project-profile.sdoc`. An existing equivalent project overview takes precedence over creating or searching for a second copy. Reuse it if already read and unchanged.
@@ -50,7 +55,7 @@ These are entry points to **claude-mem**, not separate memory systems. Names bel
 
 ## Read with the right interpretation
 
-- **StrictDoc is the source of truth for current project norms.** Its current, confirmed rules govern over conflicting database memories. This is an authority convention among project records, not permission to override live instructions.
+- Below live user instructions and any user-discipline block, **StrictDoc is the source of truth among other project records**. Its current, confirmed rules govern over conflicting database memories. This authority convention does not override user discipline or live instructions.
 - `project_memory/decisions.sdoc` holds decisions; `journal.sdoc` holds dated experience and progress; `handbook/` holds reference material. Existing projects may organize these differently.
 - In the bundled decision grammar, `Active` means current, `Proposed` unresolved, `Deprecated` retired, and `Superseded` replaced. Follow replacement references when relevant. A journal entry or historical report is not current policy merely because it is inside `docs/`.
 - Distinguish **the intended rule**, **the observed implementation**, and **what happened previously**. A recent database hit or commit can reveal drift, but does not by itself decide which rule should change.

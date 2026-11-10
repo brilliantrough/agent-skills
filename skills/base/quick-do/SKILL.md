@@ -15,6 +15,7 @@ Apply `goal-first`: keep the requested outcome and smallest sufficient check in 
 
 ## Do the work
 
+- **User discipline first:** check any root AGENTS `user-discipline` block and apply relevant rules to this edit. A user invoking `discipline` requires immediate activation, not merely a memory save.
 - Read the request, applicable project rules, and affected files before editing. Inspect relevant callers when changing shared behavior; avoid unrelated exploration. Reuse unchanged context, keep the exact edit unit available, and refresh it after a match failure instead of guessing another patch.
 - **Look at the live site first (seconds, no approval):** env active, deps actually importable, files and callers as expected — one glance that prevents a whole round of avoidable errors. Skipping ceremony is the point here; skipping this look is not.
 - Fix the root cause, not the reported symptom: grep the callers of what you touch and fix where all of them route through — a guard repeated in every caller is a bigger diff and leaves siblings broken.
@@ -26,6 +27,7 @@ Apply `goal-first`: keep the requested outcome and smallest sufficient check in 
 
 ## Verify and finish
 
+- **Discipline check:** verify each applicable user-discipline rule against the actual change; report any violation instead of treating the block as background documentation.
 - Default to the smallest real execution path plus a reread of the change; check the requested behavior, not merely the absence of errors. For documentation-only changes, inspect content and applicable format checks.
 - Do not add tests, TDD, or verification scripts by default. Follow explicit user requests and mandatory project checks; those are not waived by this workflow.
 - Report only what actually ran. A static check, successful load, or injected input is not proof of end-to-end behavior. If execution is unavailable, state what remains unverified and the concrete user check.
