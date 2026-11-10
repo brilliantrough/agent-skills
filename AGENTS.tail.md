@@ -4,6 +4,7 @@
 - A root `AGENTS.md` block marked `<!-- user-discipline:start -->` is binding user instruction, not background memory. Read it before planning or acting, and recheck applicable rules at stage transitions and final delivery. Within project records it outranks the profile, decisions, journal and database memories.
 - Use `discipline` only on explicit user invocation. Immediately check and adjust the current plan and related work; write long-term rules into the unique managed block, reread after editing, and carry the short rule into current todos and stage checks. Never merely save it to docs or a database, and never wait for the next session to apply it. Current-only discipline stays in the session.
 - Only explicit user instruction may add, change, demote or retire active discipline. Never remove it as clutter or redundant memory. Report conflicts and violations; "recorded" is not "followed".
+- The optional Ponytail lifecycle preset is enabled only when the user explicitly asks `discipline` to enable it. Setup never writes or refreshes it as a user rule automatically. The preset lives only in `discipline`; detailed methods stay in the existing skills.
 - Verify actual AGENTS injection on each host. If absent, use the host's existing native project-instruction entry rather than a new framework. This is a behavior protocol, not a sandbox or permission system.
 
 ## Project Memory System

@@ -145,6 +145,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 | [`discipline`](skills/base/discipline/SKILL.md) | 显式记录、修改或撤销用户强制纪律；立即作用于当前任务，长期写入根 AGENTS 顶部受管块 |
 
 - 用户明确说“用 discipline／记入纪律”才升格；普通记忆仍走 `save-mem`
+- 可选预置：说“用 discipline 启用 Ponytail 预置纪律”，将全生命周期编程／记录风格写入纪律块；安装不自动启用，详细规则仍归现有 skills
 - 纪律不是第四套记忆：不另建 `DISCIPLINE.md`，只保存现行约束，规划、执行、审查与整理反复检查
 - 写入后重读并调整当前计划；不以“已保存”冒充“已遵守”，只有用户明确要求才能变更或撤销
 
