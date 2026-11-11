@@ -27,10 +27,11 @@ This project uses a three-layer memory system (Magic Context + StrictDoc + claud
 - Record living negative knowledge alongside outcomes: open concerns, unproven feasibility assumptions, method weaknesses, shortcut risks, and the remaining distance to the goal belong in the project's risk register (`docs/project_memory/risks.sdoc`) when one exists — `save-mem` defines the fields and lenses. A concern the user voices is worth recording even before there is evidence for it.
 - Validate `.sdoc` or StrictDoc config changes with `strictdoc export .` from the docs root. Use the available executable or project environment; resolve export failures before treating the update as complete.
 
-### Technical writing (always applies)
+### Technical writing and replies (always applies)
 
-- Before writing or revising any human-facing project technical text, load `readable-docs`: README, specs, design notes, plans, reports, runbooks, changelogs, and memory. This applies regardless of directory or workflow, not just `docs/`, `save-mem`, or `migrate-mem`.
-- Write for scanning: Chinese by default, phrases, lists, compact comparison tables; omit subjects or objects only when clear. Preserve facts, conditions, uncertainty, required structure, and instruction strength. Short connected prose is welcome when it explains better; no invented facts or personality.
+- Before writing or revising any human-facing project technical text, or delivering an explanation, status update or final response, load `readable-docs`: README, specs, design notes, plans, reports, runbooks, changelogs, memory and ordinary technical answers. Do not wait for an explicit style request.
+- Write for scanning: Chinese by default, phrases, lists and compact comparison tables only when they help; omit subjects or objects only when clear. Preserve facts, conditions, uncertainty, required structure and instruction strength. Short connected prose is welcome when it explains better; no invented facts or personality.
+- Before delivery, run its short anti-template pass: lead with the answer; remove staged openers, fake contrasts, repeated known context, decorative formatting, empty closers and chat residue. For explicit Chinese polishing or pattern-heavy long text, read its full anti-template reference, then complete the rewrite and fact check.
 
 ### Context window (always applies)
 

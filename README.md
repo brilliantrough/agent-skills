@@ -149,16 +149,17 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 - 纪律不是第四套记忆：不另建 `DISCIPLINE.md`，只保存现行约束，规划、执行、审查与整理反复检查
 - 写入后重读并调整当前计划；不以“已保存”冒充“已遵守”，只有用户明确要求才能变更或撤销
 
-### 技术写作（自制）
+### 技术写作与回复（自制）
 
 | Skill | 用途 |
 |---|---|
-| [`readable-docs`](skills/base/readable-docs/SKILL.md) | 面向人的技术文本：短语、分点、紧凑对比表；保留事实、条件与约束强度 |
+| [`readable-docs`](skills/base/readable-docs/SKILL.md) | 技术文本、解释与最终回复：保留事实和约束，默认去模板化；显式中文润色使用完整检查目录 |
 
-- **范围**：README、设计、计划、报告、runbook、变更记录、记忆文档；不限目录
-- **风格**：PPT 要点式扫读；单元格不塞长文，复杂因果留短段落；见[中文改写示例](skills/base/readable-docs/references/examples.md)
+- **范围**：README、设计、计划、报告、runbook、变更、记忆、技术回复与状态更新；不限目录
+- **风格**：结论先行，结构服务读者；不强行分点／列表／表格，保留复杂因果所需的短段落
+- **执行**：每次交付做短检查；润色、去 AI 味或问题密集长文读取[完整目录](skills/base/readable-docs/references/anti-ai-style.md)，重写后复核事实
 - **接入**：安装 skill，将 [AGENTS.tail.md](AGENTS.tail.md) 规范块合入项目 `AGENTS.md`；已有项目也需更新
-- **边界**：不批量重写旧文档，不改模板、规范强度、代码或原始证据
+- **边界**：默认只交最终稿；不批量重写旧文档，不改规范强度、代码或原始证据，不以 AI 检测分数验收
 
 ### Skill 编写与知识沉淀（自制）
 
