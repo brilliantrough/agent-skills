@@ -32,7 +32,7 @@
 
 表格里后半段三项都由共用脚本实现（`skills-sync.sh`、`skills-external.sh`），四个入口只负责问一次并透传选择；宿主特有的部分留在各自的 `*-setup.sh`。DSH 与 Codex 不含配置合并，`AGENTS.md` 规范块随 skills 同步一问，不再需要手工粘。
 
-[快速安装](#快速安装) · [Skills](#skills本仓-41-个) · [首次部署](#首次部署只需要网关--5-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [DSH](dsh/README.md) · [OpenCode](#opencode-安装与迁移) · [更新](#更新) · [贡献](CONTRIBUTING.md)
+[快速安装](#快速安装) · [Skills](#skills本仓-42-个) · [首次部署](#首次部署只需要网关--5-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [DSH](dsh/README.md) · [OpenCode](#opencode-安装与迁移) · [更新](#更新) · [贡献](CONTRIBUTING.md)
 
 ## 快速安装
 
@@ -76,7 +76,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.com/brilliantrough/agent-skills/main/skills-sync.sh)" -- base
 ```
 
-`base` 安装基础 23 个；`base research` 追加 8 个科研／算法研究 skill；`all` 或无参数安装五组共 41 个，含 PPT 组及其独立 Python 依赖。也可把 `research`、`accel`、`kb`、`ppt` 作为额外参数传给 `skills-sync.sh`。所有组都默认补装三个外部设计 skill，并更新符合条件的已登记第三方；只有选中 `ppt` 才补装 `ppt-master` 并准备独立环境。Light-Science 文献／数据图另走默认 N 的[可选模块](modules/light-science/README.md)，选 research 不自动安装它们。需要 curl、git、Node/npx；安装位置 `~/.agents/skills/`，重开会话生效。
+`base` 安装基础 23 个；`base research` 追加 9 个科研／算法研究 skill；`all` 或无参数安装五组共 42 个，含 PPT 组及其独立 Python 依赖。也可把 `research`、`accel`、`kb`、`ppt` 作为额外参数传给 `skills-sync.sh`。所有组都默认补装三个外部设计 skill，并更新符合条件的已登记第三方；只有选中 `ppt` 才补装 `ppt-master` 并准备独立环境。Light-Science 文献／数据图另走默认 N 的[可选模块](modules/light-science/README.md)，选 research 不自动安装它们。需要 curl、git、Node/npx；安装位置 `~/.agents/skills/`，重开会话生效。
 
 **Codex（best effort）**
 
@@ -105,9 +105,9 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/pi-setup.sh)"
 ```
 
-## Skills（本仓 41 个）
+## Skills（本仓 42 个）
 
-基础 23 个；科研／算法研究 8 个；算力模板 7 个、公共知识 2 个与 PPT 1 个按需选装。`research`、`kb` 与 `ppt` 随仓库刷新，`accel` 缺才装；外部设计依赖默认询问安装，Light-Science 精选集成另行选择，不复制到本仓、不计入上述数量。
+基础 23 个；科研／算法研究 9 个；算力模板 7 个、公共知识 2 个与 PPT 1 个按需选装。`research`、`kb` 与 `ppt` 随仓库刷新，`accel` 缺才装；外部设计依赖默认询问安装，Light-Science 精选集成另行选择，不复制到本仓、不计入上述数量。
 
 ### 工程技能
 
@@ -233,7 +233,8 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 | `exp-campaign` | 探索、消融、交互、Pareto 或论文矩阵 | 按研究问题设计覆盖与阶段；不因矩阵大就机械剪枝 |
 | `exp-batch` | 一条有界分支或已确定的矩阵阶段 | 整批预检环境/资源、代码就绪与成本；按项目惯例运行并落指标 |
 | `exp-probe` | 补数据点、失败重跑、sanity check、最小复现 | 一次聚焦检查；负结果也记录，不把代理结果外推成整模结论 |
-| `pytorch-perf-tuning` | PyTorch 评测慢、设备利用率低、显存浪费、批量预研 | 按证据处理同步、去重、batch、融合、多卡；正确且够用即收口 |
+| `pytorch-perf-tuning` | PyTorch 评测慢、设备利用率低、显存浪费、批量预研 | 连续定位→实施→验收→重判剩余关键路径；按目标、预算或明确阻塞收口 |
+| `eval-time-estimate` | 全量 benchmark 要跑多久、短测外推 | 真实代表短测、分层计量、冷暖成本分列；只估时，不自动全量或重开调优 |
 | `kernel-worker` | 有界算子任务的薄委派入口 | 真实负载、数值/计量契约、资源隔离与结果交接；专业能力按需引用独立kernel-knowledge |
 | [`research-evidence`](skills/research/research-evidence/SKILL.md) | 文献检索／精读、引用查证、真实实验数据图 | 按既有工作区调用 literature-search／light-chart；保留来源、独立单位与版本，不启用上游目录／记忆／总控 |
 
@@ -755,7 +756,7 @@ bash /tmp/opencode-setup.sh --plugins-only
 
 | 模式 | 处理范围 |
 | --- | --- |
-| 默认完整安装 | 插件、配置、依赖与通用 skills；默认 base 23 个，交互可选 research、accel、kb、ppt，全部选中时为 41 个，另同步外部设计 skills；选 ppt 另补引擎与独立 Python 环境 |
+| 默认完整安装 | 插件、配置、依赖与通用 skills；默认 base 23 个，交互可选 research、accel、kb、ppt，全部选中时为 42 个，另同步外部设计 skills；选 ppt 另补引擎与独立 Python 环境 |
 | `--plugins-only` | 旧配置转原生 V2、自维护插件、context-mode 及其 skills、官方包登记、claude-mem runtime／入口／MCP；不更新模型／Python／通用 skills |
 | `--check` | 下载校验自维护包，检查配置，查询 Ponytail／Magic Context 本地与 npm 版本；不询问、不改配置、认证或数据库 |
 
@@ -1033,7 +1034,7 @@ npm 缺失包在 OpenCode 启动时自动安装；已有包不会因重启自动
 | 组 | 策略 |
 |---|---|
 | base（品味/流程，23） | 每次随仓库刷新；本地有未回流改动先整目录备份到 `~/.local/share/agent-skills/.backups/` 再覆盖（回流后删备份） |
-| research（科研／算法研究，8） | 每次随仓库刷新；本地有未回流改动先按组备份再覆盖 |
+| research（科研／算法研究，9） | 每次随仓库刷新；本地有未回流改动先按组备份再覆盖 |
 | accel（算力平台模板，7） | 缺才装；本机特化后永不覆盖 |
 | kb（公共知识，2） | 每次随仓库刷新，不备份 |
 | ppt（南京大学PPT，1） | 默认不选；选中后刷新并先备份漂移，再补齐引擎和独立Python环境 |
