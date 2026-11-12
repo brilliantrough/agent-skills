@@ -327,7 +327,7 @@ def install(root, cfg, major, check=False, refresh_mc=False, refresh_ponytail=Fa
     obsolete = [cfg / p for p in [*LEGACY, *(V1_ONLY if major == 2 else [])] if (cfg / p).exists()]
     # 移走已知旧备份，不能留在 v2 会自动发现子目录的 plugins/ 下。
     obsolete += [p for p in (cfg / 'plugins').glob('context-mode.bak-*') if p.is_dir()]
-    for path in [target, cfg / 'opencode.jsonc', cli_path, cfg / 'tui.jsonc',
+    for path in [target, cli_path, cfg / 'tui.jsonc',
                  cfg / '.agent-skills-backups', cfg / 'plugins/context-mode',
                  cfg / 'plugins/context-mode.js', cfg / 'vendor/context-mode',
                  *(cfg / name for name in manifest['install']), *obsolete]:

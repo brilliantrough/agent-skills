@@ -81,7 +81,7 @@ Magic Context 操作：
 - v1→v2 退役：旧 wrapper／later／纠错、`plugins/zz-agent-skills.js`、`tui-plugins/later/`、`context-rewrite/`、旧 context-mode 入口与目录、notify、旧请求头插件。
 - 插件资产备份到 `$CFG/.agent-skills-backups/<时间戳>/<原相对路径>`；同时移走 `plugins/context-mode.bak-*` 遗留目录，避免被 v2 再次扫描。配置文件保留相邻 `.bak*` 备份。
 - 先把旧字段转为原生 V2，再在线获取模板。完整安装经确认刷新 `providers.<名称>.models` 和 `agents.consolidation-reviewer.model`（包含 `#max` variant）；已有 provider 的 `settings`、headers、私密值、本地独有 provider、其它角色及 reviewer 的提示词／权限保留。精简插件模式仅转换格式，不更新模型／代理配置。
-- `opencode.jsonc` 合并到 `opencode.json` 后备份退役。v2 已有 `cli.json` 时保留；没有时合并旧 `tui.json(c)` 为 `tui.json`，由宿主首启迁移 action、界面与 state。完整安装的按键设置另行确认。
+- `opencode.jsonc` 合并到 `opencode.json` 后备份退役；输入为符号链接时，只移动链接本身，目标文件不删除。v2 已有 `cli.json` 时保留；没有时合并旧 `tui.json(c)` 为 `tui.json`，由宿主首启迁移 action、界面与 state。完整安装的按键设置另行确认。
 - 除确认的 Ponytail／Magic Context 缓存刷新外，不清理 npm 插件缓存；认证、会话库与外置正文不动。**插件备份不是整机快照，也不替代数据库备份。**
 
 自维护发布包校验失败、未知宿主版本、配置无法解析或存在转换冲突时停止。`opencode.json` 支持写穿符号链接并保留链接；其他安装路径仍受链接保护。用户指定的缓存根可为符号链接，v2 npm cache 的 `@latest` 叶子链接仅在确认刷新时整体移走。Magic Context 兼容性问题以 WARN 和独立刷新询问处理。
