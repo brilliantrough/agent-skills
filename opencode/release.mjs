@@ -40,7 +40,7 @@ for (const major of [2]) {
   copy("opencode/deploy.py", "deploy.py");
   const config = await Bun.build({ entrypoints: [join(root, "opencode/migrate-config.mjs")], target: "bun", minify: true, metafile: true });
   if (!config.success) throw new AggregateError(config.logs, "配置迁移器构建失败");
-  await Bun.write(join(stage, "migrate-config.mjs"), config.outputs[0]);
+  await Bun.write(join(stage, "migrate-config.mjs"), (await config.outputs[0].text()).replace("// @bun\n", ""));
   copy("opencode/OPENCODE-LICENSE", "config-licenses/OPENCODE-LICENSE");
   const dependencies = new Set(Object.keys(config.metafile.inputs).flatMap(path => {
     const match = path.replaceAll("\\", "/").match(/^(.*node_modules\/((?:@[^/]+\/)?[^/]+))\//);

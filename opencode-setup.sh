@@ -94,7 +94,7 @@ if [[ "$OC_VERSION" =~ (^|[[:space:]])v?([12])\.[0-9]+\.[0-9]+ ]]; then OC_MAJOR
 else echo "ERROR: 无法识别或暂不支持的 OpenCode 版本: $OC_VERSION" >&2; exit 1; fi
 [ "$OC_MAJOR" = 2 ] || { echo "ERROR: 当前 setup 只维护 OpenCode V2；请先升级宿主，现有配置未改动。" >&2; exit 1; }
 echo "客户端: $OC_VERSION → v$OC_MAJOR 插件包；自动更新默认关闭,宿主只在本脚本里升级/不迁移数据库"
-OC_RELEASE="opencode-plugins-1.0.23"
+OC_RELEASE="opencode-plugins-1.0.24"
 CFG="${OPENCODE_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/opencode}"
 PLUGINS="$CFG/plugins"
 CLAUDE_PLUGIN="$PLUGINS/claude-mem.js"
