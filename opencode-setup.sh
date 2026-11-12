@@ -25,6 +25,11 @@ case "$(uname -s 2>/dev/null || true)" in MINGW*|MSYS*|CYGWIN*) IS_WIN=1 ;; esac
 npath() { # POSIX 路径 → 宿主路径(Git Bash 的 /c/Users/x 对原生程序无效,要 C:/Users/x)
   if [ "$IS_WIN" = 1 ] && command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s' "$1"; fi
 }
+rpath() { # 解析实际写入目标；更新内容时保留文件和父目录上的符号链接。
+  local p
+  p="$(python3 -c 'from pathlib import Path; import sys; print(Path(sys.argv[1]).resolve().as_posix())' "$(npath "$1")")" || return 1
+  if [ "$IS_WIN" = 1 ]; then cygpath -u "$p"; else printf '%s' "$p"; fi
+}
 nbin() { # 可执行文件的宿主路径:MSYS 的 command -v 会去掉 .exe,宿主 spawn 前显式补回
   if [ "$IS_WIN" = 1 ] && [ -f "$1.exe" ]; then npath "$1.exe"; else npath "$1"; fi
 }
@@ -89,7 +94,7 @@ if [[ "$OC_VERSION" =~ (^|[[:space:]])v?([12])\.[0-9]+\.[0-9]+ ]]; then OC_MAJOR
 else echo "ERROR: 无法识别或暂不支持的 OpenCode 版本: $OC_VERSION" >&2; exit 1; fi
 [ "$OC_MAJOR" = 2 ] || { echo "ERROR: 当前 setup 只维护 OpenCode V2；请先升级宿主，现有配置未改动。" >&2; exit 1; }
 echo "客户端: $OC_VERSION → v$OC_MAJOR 插件包；自动更新默认关闭,宿主只在本脚本里升级/不迁移数据库"
-OC_RELEASE="opencode-plugins-1.0.22"
+OC_RELEASE="opencode-plugins-1.0.23"
 CFG="${OPENCODE_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/opencode}"
 PLUGINS="$CFG/plugins"
 CLAUDE_PLUGIN="$PLUGINS/claude-mem.js"
@@ -136,7 +141,7 @@ SELF_RAW="https://raw.githubusercontent.com/${AGENT_SKILLS_REPO:-brilliantrough/
 #   模板里含 <占位符> 的值不覆盖本地已填内容;本地独有的键保留。
 #   列表键 packages/enabledModels 走并集(本地顺序 + 模板新增);其余键模板优先,数组整体替换。
 #   合并结果与本地一致时不写文件(幂等);有改动先存时间戳 .bak。
-#   dest 不存在则直接落模板。符号链接跳过(不穿透)。
+#   dest 不存在则直接落模板；符号链接写入实际目标，保留链接本身。
 # 把 worker 地址显式写进 settings(claude-mem 自身的默认是 37700 + uid%100,
 # 目的就是同一台服务器上不同用户互不冲突;写出来是为了可见、可查,不改变取值)。
 # 已存在的键一律保留(自定义端口/主机不被覆盖)。改前存 .bak。
@@ -341,11 +346,8 @@ PYEOF
 }
 
 merge_cfg() {
-  local url="$1" dest="$2" tmp cand out
-  if [ -L "$dest" ]; then
-    echo "跳过: $dest 是符号链接(指向 $(readlink "$dest")),不覆盖以免破坏链接目标"
-    return 1
-  fi
+  local url="$1" dest="$2" tmp cand out target
+  target="$(rpath "$dest")" || return 1
   # 操作员在提示里给了网关/密钥:先把本地文件里的占位符补上(改前存 .bak),再走正常合并
   # (补进去的是敏感键,合并会原样保留)。目标文件不存在时由模板侧的 fill_template_placeholders 负责。
   if [ -f "$dest" ] && [ -n "$GW_BASE$K_CLAUDE$K_CODEX$K_ANTHROPIC$K_GEMINI$K_EMBED$K_MEM$MCPHUB_HOST" ] && grep -q '<YOUR_' "$dest" 2>/dev/null; then
@@ -361,7 +363,7 @@ merge_cfg() {
   fill_template_placeholders "$tmp"
   if [ ! -f "$dest" ]; then
     if ask "写入 $dest(来自 dot_file 模板,含占位符)?" Y; then
-      mkdir -p "$(dirname "$dest")"; cp "$tmp" "$dest"; echo "wrote: $dest(含占位符)"
+      mkdir -p "$(dirname "$target")"; cp "$tmp" "$target"; echo "wrote: $dest(含占位符)"
     else
       echo "跳过: $dest 未创建"
       rm -f "$tmp"
@@ -446,7 +448,7 @@ PYEOF
     unchanged) echo "unchanged: $dest(已与模板一致,无需改动)"; rm -f "$cand" ;;
     "")        echo "WARN: $dest 合并失败,保留原文件" >&2; rm -f "$cand"; return 1 ;;
     *)         if ask "更新 $dest($out;api key 等敏感值保留,原文件存 $bak)?" Y; then
-                 cp "$dest" "$bak"; mv "$cand" "$dest"; echo "updated: $dest"
+                 cp "$dest" "$bak"; mv "$cand" "$target"; echo "updated: $dest"
                else
                  echo "保留原文件: $dest"; rm -f "$cand"; return 2
                fi ;;
@@ -456,8 +458,9 @@ PYEOF
 # 记忆后端必须走 OpenAI 兼容的 openrouter provider;安装器或旧配置写成 claude 时纠正。
 # 只改这一个键,模型/接口/凭据原样保留。
 ensure_mem_provider() {
-  local f="$1" tmp
-  [ -f "$f" ] && [ ! -L "$f" ] || return 0
+  local f="$1" tmp target
+  [ -f "$f" ] || return 0
+  target="$(rpath "$f")" || return 1
   grep -qE '"CLAUDE_MEM_PROVIDER"[[:space:]]*:[[:space:]]*"openrouter"' "$f" && return 0
   tmp="$(mktemp)"
   if python3 - "$f" "$tmp" <<'PY'
@@ -469,7 +472,7 @@ open(sys.argv[2],'a').write('\n')
 PY
   then
     cp -p "$f" "$f.bak-provider-$(date +%Y%m%d%H%M%S)"
-    mv "$tmp" "$f"; echo "updated: $f (CLAUDE_MEM_PROVIDER=openrouter)"
+    mv "$tmp" "$target"; echo "updated: $f (CLAUDE_MEM_PROVIDER=openrouter)"
   else
     rm -f "$tmp"; echo "WARN: $f 解析失败,未改 provider;请手工设为 openrouter" >&2
   fi
@@ -683,19 +686,7 @@ fi
 # 自动更新默认关闭；已有 notify/disable 保留，auto 问一次。
 oc_tpl="$(mktemp "$oc_stage/template.XXXXXX")"; oc_cand="$(mktemp)"
 oc_link="$CFG/opencode.json"
-oc_target="$oc_link"
-if [ -L "$oc_link" ]; then
-  # 不用 readlink -f:macOS 旧版没有它,Git Bash 上它也不解 Windows 原生链接(会把链接本身当目标)
-  oc_target="$(readlink "$oc_link")"
-  case "$oc_target" in /*|[A-Za-z]:/*) ;; *) oc_target="$(dirname "$oc_link")/$oc_target" ;; esac
-  for _oc_hop in 1 2 3 4 5 6 7 8; do   # 链接套链接:逐跳解到真正的文件
-    [ -L "$oc_target" ] || break
-    _oc_next="$(readlink "$oc_target")"
-    case "$_oc_next" in /*|[A-Za-z]:/*) oc_target="$_oc_next" ;; *) oc_target="$(dirname "$oc_target")/$_oc_next" ;; esac
-  done
-  unset _oc_hop _oc_next
-  echo "符号链接: $oc_link → $oc_target(写穿链接,保留链接本身)"
-fi
+oc_target="$(rpath "$oc_link")"
 # 已有配置里的自动更新档位:只有 auto 才问一次,notify/disable/false 是本机明确选择,原样保留
 oc_cur_update="$(python3 - "$oc_target" "$OC_MAJOR" <<'PY_OC_UPDATE'
 import json, re, sys
@@ -851,6 +842,7 @@ CM_URL="https://github.com/brilliantrough/agent-skills/releases/latest/download/
 CM_DIR="$PLUGINS/context-mode"
 [ "$OC_MAJOR" = 2 ] && CM_DIR="$CFG/vendor/context-mode"
 CM_ENTRY="$PLUGINS/context-mode.js"
+cm_target="$(rpath "$CM_DIR")"
 cm_tmp="$(mktemp -d)"; cm_ok=0
 if mkdir -p "$cm_tmp/pkg" && curl -fsSL --connect-timeout 8 -m 120 -o "$cm_tmp/a.tgz" "$CM_URL" 2>/dev/null \
    && tar -xzf "$cm_tmp/a.tgz" -C "$cm_tmp/pkg"; then
@@ -861,10 +853,10 @@ if mkdir -p "$cm_tmp/pkg" && curl -fsSL --connect-timeout 8 -m 120 -o "$cm_tmp/a
   else
     if [ -e "$CM_DIR" ]; then
       cm_backup="$CFG/.agent-skills-backups/$(date +%Y%m%d%H%M%S)-context-mode/${CM_DIR#"$CFG/"}"
-      mkdir -p "$(dirname "$cm_backup")"; mv "$CM_DIR" "$cm_backup"
+      mkdir -p "$(dirname "$cm_backup")"; mv "$cm_target" "$cm_backup"
       echo "backup: $CM_DIR -> $cm_backup"
     fi
-    mkdir -p "$(dirname "$CM_DIR")"; mv "$cm_tmp/pkg" "$CM_DIR"; echo "deployed: $CM_DIR($cm_ver)"
+    mkdir -p "$(dirname "$cm_target")"; mv "$cm_tmp/pkg" "$cm_target"; echo "deployed: $CM_DIR($cm_ver)"
   fi
   if [ "$OC_MAJOR" = 1 ] && ! cmp -s "$CM_DIR/entry.js" "$CM_ENTRY"; then
     [ ! -f "$CM_ENTRY" ] || cp -p "$CM_ENTRY" "$CM_ENTRY.bak-$(date +%Y%m%d%H%M%S)"
@@ -873,9 +865,9 @@ if mkdir -p "$cm_tmp/pkg" && curl -fsSL --connect-timeout 8 -m 120 -o "$cm_tmp/a
   cm_n=0
   for d in "$CM_DIR"/skills/*/; do
     [ -f "$d/SKILL.md" ] || continue
-    n="$(basename "$d")"; dest="$CFG/skill/$n"
+    n="$(basename "$d")"; dest="$(rpath "$CFG/skill/$n")"
     if [ -d "$dest" ] && diff -rq "$d" "$dest" >/dev/null 2>&1; then continue; fi
-    mkdir -p "$CFG/skill"; rm -rf "$dest"; cp -r "$d" "$dest"
+    mkdir -p "$(dirname "$dest")"; rm -rf "$dest"; cp -r "$d" "$dest"
     echo "deployed: skill/$n"; cm_n=$((cm_n+1))
   done
   echo "       context-mode: skill 更新 $cm_n 个(重启 opencode 生效)"
@@ -898,9 +890,6 @@ fi
 # ---- claude-mem：配置合并后由官方安装器更新 runtime、插件与 MCP ----
 if command -v npx >/dev/null 2>&1 && ask "更新 claude-mem runtime／官方插件／MCP（会停止共享 worker，之后手工重启）?" Y; then
   (
-    for file in "$SETTINGS" "$CLAUDE_PLUGIN"; do
-      [ ! -L "$file" ] || { echo "ERROR: $file 是符号链接，跳过 claude-mem 更新" >&2; exit 1; }
-    done
     backup="$CFG/.agent-skills-backups/$(date +%Y%m%d%H%M%S)-claude-mem"
     mkdir -p "$backup" || exit 1
     chmod 700 "$backup" || exit 1
@@ -1103,7 +1092,7 @@ PYEOF
       if [ -f "$NOTIFY_TARGET" ]; then
         cp -p "$NOTIFY_TARGET" "$NOTIFY_TARGET.bak-$(date +%Y%m%d%H%M%S)"; _action=updated
       fi
-      mv "$_new" "$NOTIFY_TARGET"; echo "$_action: plugins/session-notify.js($notify_ver)"
+      mv "$_new" "$(rpath "$NOTIFY_TARGET")"; echo "$_action: plugins/session-notify.js($notify_ver)"
     fi
   fi
 fi

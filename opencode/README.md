@@ -59,7 +59,7 @@ bash /tmp/opencode-setup.sh --plugins-only
 Magic Context 操作：
 
 - **选 Y**：确认 OpenCode／Desktop／Pi 均已停用、共享库已备份。只将 OpenCode 两代布局中的 Magic Context `@latest` 缓存移到 `$CFG/.agent-skills-backups/<时间戳>/magic-context-cache/`；旧目录／钉版登记改为官方 npm `@latest`，保留插件 options。不删除任意本地源码目录、Pi 包、其他插件缓存或数据库。
-- OpenCode v2 的 npm cache 可能把 `@latest` 做成指向数字代次目录的符号链接；用户配置的 `$XDG_CACHE_HOME`（未设置时 `$HOME/.cache`）本身也可以是符号链接。刷新时只移动受管 `@latest` 叶子链接本身，不跟随目标目录；npm、scope、包目录等中间父路径仍受符号链接保护。
+- OpenCode v2 的 npm cache 可能把 `@latest` 做成指向数字代次目录的符号链接；用户配置的 `$XDG_CACHE_HOME`（未设置时 `$HOME/.cache`）本身也可以是符号链接。刷新时只移动受管 `@latest` 叶子链接本身，不跟随目标目录；HOME、缓存根及中间目录均可为符号链接。
 - **选 N**：不刷新缓存。旧缓存路径仍指向当前宿主可复用的官方包时，自动改为 `@cortexkit/opencode-magic-context@latest`，保留 options，写入前备份配置。失效路径、旧缓存代次或跨主版本缓存不可直接复用时，保留登记并 WARN；不借迁移之名下载新版。
 - **`--check`**：预览登记迁移与 WARN，不询问、不写入、不刷新。通过仅表示套装可部署，不代表 Magic Context 已可用。
 - 现有 npm 包名、精确版本和自定义源码路径保持原样，不再把包名改成本地缓存路径。新安装登记官方 `@latest`；已有共享库而当前宿主无 latest 缓存时，未确认刷新就不新增入口。
@@ -84,7 +84,7 @@ Magic Context 操作：
 - `opencode.jsonc` 合并到 `opencode.json` 后备份退役；输入为符号链接时，只移动链接本身，目标文件不删除。v2 已有 `cli.json` 时保留；没有时合并旧 `tui.json(c)` 为 `tui.json`，由宿主首启迁移 action、界面与 state。完整安装的按键设置另行确认。
 - 除确认的 Ponytail／Magic Context 缓存刷新外，不清理 npm 插件缓存；认证、会话库与外置正文不动。**插件备份不是整机快照，也不替代数据库备份。**
 
-自维护发布包校验失败、未知宿主版本、配置无法解析或存在转换冲突时停止。`opencode.json` 支持写穿符号链接并保留链接；其他安装路径仍受链接保护。用户指定的缓存根可为符号链接，v2 npm cache 的 `@latest` 叶子链接仅在确认刷新时整体移走。Magic Context 兼容性问题以 WARN 和独立刷新询问处理。
+自维护发布包校验失败、未知宿主版本、配置无法解析或存在转换冲突时停止。配置文件与受管安装目录均支持符号链接，HOME、配置根和中间父目录也不例外；内容更新写到真实目标，保留各级链接。v2 npm cache 的 `@latest` 叶子链接仅在确认刷新时整体移走。Magic Context 兼容性问题以 WARN 和独立刷新询问处理。
 
 ### 临时 deprecated 迁移
 

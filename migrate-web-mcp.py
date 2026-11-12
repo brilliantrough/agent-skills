@@ -53,13 +53,11 @@ def main():
     parser.add_argument('--apply', action='store_true')
     args = parser.parse_args()
     pending = []
-    for path in args.paths:
+    for path in dict.fromkeys(path.resolve() for path in args.paths):
         if not path.exists():
             continue
         config = migrate(path, args.host)
         if config is not None:
-            if path.is_symlink():
-                raise ValueError(f'{path} 是符号链接；保留原文件，请单独迁移')
             pending.append((path, config))
     # 先检查所有文件，再写入；解析失败或名称冲突时不做部分迁移。
     for path, config in pending:

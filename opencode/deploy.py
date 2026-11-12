@@ -25,11 +25,10 @@ V1_ONLY = ['plugins/zz-agent-skills.js', 'plugins/context-mode.js',
            'context-rewrite', 'plugins/context-mode']
 
 
-def retire(path, cfg):
+def retire(path, cfg, follow=False):
     destination = cfg / '.agent-skills-backups' / STAMP / path.relative_to(cfg)
-    writable(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    path.rename(destination)
+    shutil.move(str(path.resolve() if follow else path), str(destination))
     print(f'backup: {path} -> {destination}')
 
 
@@ -49,30 +48,20 @@ def load(path) -> dict[str, Any]:
     return value
 
 
-def writable(path):
-    if any(p.is_symlink() for p in [path, *path.parents]):
-        raise ValueError(f'不覆盖符号链接：{path}')
-
-
 def writable_cache(path):
-    """允许用户缓存根与 OpenCode v2 的 @latest 叶子链接保持符号链接。"""
+    """仅刷新配置的 OpenCode 缓存根内的入口，允许符号链接。"""
     cache_home = Path(os.environ.get('XDG_CACHE_HOME', Path.home() / '.cache'))
     cache_root = cache_home / 'opencode'
     try:
         path.relative_to(cache_root)
     except ValueError as error:
         raise ValueError(f'缓存路径越界：{path}') from error
-    for parent in path.parents:
-        if parent == cache_home:
-            continue
-        if parent.is_symlink():
-            raise ValueError(f'不覆盖符号链接父路径：{path}')
 
 
 def write(path, value):
+    path = path.resolve()
     if load(path) == value:
         return
-    writable(path)
     if path.exists():
         shutil.copy2(path, str(path) + '.bak-' + STAMP)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -327,11 +316,6 @@ def install(root, cfg, major, check=False, refresh_mc=False, refresh_ponytail=Fa
     obsolete = [cfg / p for p in [*LEGACY, *(V1_ONLY if major == 2 else [])] if (cfg / p).exists()]
     # 移走已知旧备份，不能留在 v2 会自动发现子目录的 plugins/ 下。
     obsolete += [p for p in (cfg / 'plugins').glob('context-mode.bak-*') if p.is_dir()]
-    for path in [target, cli_path, cfg / 'tui.jsonc',
-                 cfg / '.agent-skills-backups', cfg / 'plugins/context-mode',
-                 cfg / 'plugins/context-mode.js', cfg / 'vendor/context-mode',
-                 *(cfg / name for name in manifest['install']), *obsolete]:
-        writable(path)
     print(f'package: {manifest["version"]} / OpenCode v{major}')
     for relative in manifest['install']:
         print(f'managed: {cfg / relative}')
@@ -347,7 +331,6 @@ def install(root, cfg, major, check=False, refresh_mc=False, refresh_ponytail=Fa
                 continue
             destination = cfg / '.agent-skills-backups' / STAMP / folder / cache.parent.parent.name / cache.name
             writable_cache(cache)
-            writable(destination)
             cache_backups.append((cache, destination))
             print(f'refresh: {cache} -> {destination}')
         print(f'{name}: 改用 @latest；下次宿主启动下载，setup 不访问共享数据库、不更新 Pi 包')
@@ -372,12 +355,13 @@ def install(root, cfg, major, check=False, refresh_mc=False, refresh_ponytail=Fa
         elif destination.exists() and source.read_bytes() == destination.read_bytes():
             print(f'unchanged: {destination}')
             continue
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        temporary = destination.with_name(destination.name + '.new-' + STAMP)
+        target_path = destination.resolve()
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = target_path.with_name(target_path.name + '.new-' + STAMP)
         shutil.copytree(source, temporary) if source.is_dir() else shutil.copy2(source, temporary)
         if destination.exists():
-            retire(destination, cfg)
-        temporary.replace(destination)
+            retire(destination, cfg, follow=True)
+        temporary.replace(target_path)
         print(f'deployed: {destination}')
     for path in obsolete:
         retire(path, cfg)
