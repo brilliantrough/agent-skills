@@ -32,7 +32,7 @@
 
 表格里后半段三项都由共用脚本实现（`skills-sync.sh`、`skills-external.sh`），四个入口只负责问一次并透传选择；宿主特有的部分留在各自的 `*-setup.sh`。DSH 与 Codex 不含配置合并，`AGENTS.md` 规范块随 skills 同步一问，不再需要手工粘。
 
-[快速安装](#快速安装) · [Skills](#skills本仓-42-个) · [首次部署](#首次部署只需要网关--5-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [DSH](dsh/README.md) · [OpenCode](#opencode-安装与迁移) · [更新](#更新) · [贡献](CONTRIBUTING.md)
+[快速安装](#快速安装) · [Skills](#skills本仓-43-个) · [首次部署](#首次部署只需要网关--5-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [DSH](dsh/README.md) · [OpenCode](#opencode-安装与迁移) · [更新](#更新) · [贡献](CONTRIBUTING.md)
 
 ## 快速安装
 
@@ -76,7 +76,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.com/brilliantrough/agent-skills/main/skills-sync.sh)" -- base
 ```
 
-`base` 安装基础 23 个；`base research` 追加 9 个科研／算法研究 skill；`all` 或无参数安装五组共 42 个，含 PPT 组及其独立 Python 依赖。也可把 `research`、`accel`、`kb`、`ppt` 作为额外参数传给 `skills-sync.sh`。所有组都默认补装三个外部设计 skill，并更新符合条件的已登记第三方；只有选中 `ppt` 才补装 `ppt-master` 并准备独立环境。Light-Science 文献／数据图另走默认 N 的[可选模块](modules/light-science/README.md)，选 research 不自动安装它们。需要 curl、git、Node/npx；安装位置 `~/.agents/skills/`，重开会话生效。
+`base` 安装基础 24 个；`base research` 追加 9 个科研／算法研究 skill；`all` 或无参数安装五组共 43 个，含 PPT 组及其独立 Python 依赖。也可把 `research`、`accel`、`kb`、`ppt` 作为额外参数传给 `skills-sync.sh`。所有组都默认补装三个外部设计 skill，并更新符合条件的已登记第三方；只有选中 `ppt` 才补装 `ppt-master` 并准备独立环境。Light-Science 文献／数据图另走默认 N 的[可选模块](modules/light-science/README.md)，选 research 不自动安装它们。需要 curl、git、Node/npx；安装位置 `~/.agents/skills/`，重开会话生效。
 
 **Codex（best effort）**
 
@@ -105,9 +105,9 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/pi-setup.sh)"
 ```
 
-## Skills（本仓 42 个）
+## Skills（本仓 43 个）
 
-基础 23 个；科研／算法研究 9 个；算力模板 7 个、公共知识 2 个与 PPT 1 个按需选装。`research`、`kb` 与 `ppt` 随仓库刷新，`accel` 缺才装；外部设计依赖默认询问安装，Light-Science 精选集成另行选择，不复制到本仓、不计入上述数量。
+基础 24 个；科研／算法研究 9 个；算力模板 7 个、公共知识 2 个与 PPT 1 个按需选装。`research`、`kb` 与 `ppt` 随仓库刷新，`accel` 缺才装；外部设计依赖默认询问安装，Light-Science 精选集成另行选择，不复制到本仓、不计入上述数量。
 
 ### 工程技能
 
@@ -199,6 +199,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 | Skill | 适用任务 | 流程 |
 |---|---|---|
 | `goal-first` | 研究、开发和计划的主线约束 | 保持交付、当前未知、下一步和收口条件；不因意外发现静默扩展范围 |
+| [`trust-pyramid`](skills/base/trust-pyramid/SKILL.md) | 日常开发、重构与重复错误治理的工程原则 | Codebase/API 优先，其次静态约束；专项验证与审查由用户或既有项目约定触发 |
 | `quick-do` | 行为明确的小修小补 | 读代码 → 当前会话修改、验证；不 grilling、不写计划 |
 | `steady-do` | 日常功能、插件、扩展 | 理解项目 → 分轮澄清 → 当前会话实现、验证；不写交接文档 |
 | `plan-brief` | 长程多阶段任务 | 澄清 → 计划 `docs/plans/<slug>.md` + 启动 prompt → 新会话执行 → 报告 → 原会话审查 |
@@ -216,6 +217,8 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 - skill 指令统一英文，回复跟随用户语言（默认中文）
 
 使用示例：“用 steady-do，先问清楚再做”。
+
+`goal-first` 在涉及代码设计与实现时引导加载 `trust-pyramid`，让 Agent 按信任金字塔选择约束落点；具体 lint、依赖规则和 API 留在消费项目。第一版提供原则与[工具选择示例](skills/base/trust-pyramid/references/static-checks.md)，不自动安装 linter 或搭验证框架，也不替代已有必要验证。
 
 ### 个人领域知识（自制）
 
@@ -757,7 +760,7 @@ bash /tmp/opencode-setup.sh --plugins-only
 
 | 模式 | 处理范围 |
 | --- | --- |
-| 默认完整安装 | 插件、配置、依赖与通用 skills；默认 base 23 个，交互可选 research、accel、kb、ppt，全部选中时为 42 个，另同步外部设计 skills；选 ppt 另补引擎与独立 Python 环境 |
+| 默认完整安装 | 插件、配置、依赖与通用 skills；默认 base 24 个，交互可选 research、accel、kb、ppt，全部选中时为 43 个，另同步外部设计 skills；选 ppt 另补引擎与独立 Python 环境 |
 | `--plugins-only` | 旧配置转原生 V2、自维护插件、context-mode 及其 skills、官方包登记、claude-mem runtime／入口／MCP；不更新模型／Python／通用 skills |
 | `--check` | 下载校验自维护包，检查配置，查询 Ponytail／Magic Context 本地与 npm 版本；不询问、不改配置、认证或数据库 |
 
@@ -1034,7 +1037,7 @@ npm 缺失包在 OpenCode 启动时自动安装；已有包不会因重启自动
 
 | 组 | 策略 |
 |---|---|
-| base（品味/流程，23） | 每次随仓库刷新；本地有未回流改动先整目录备份到 `~/.local/share/agent-skills/.backups/` 再覆盖（回流后删备份） |
+| base（品味/流程，24） | 每次随仓库刷新；本地有未回流改动先整目录备份到 `~/.local/share/agent-skills/.backups/` 再覆盖（回流后删备份） |
 | research（科研／算法研究，9） | 每次随仓库刷新；本地有未回流改动先按组备份再覆盖 |
 | accel（算力平台模板，7） | 缺才装；本机特化后永不覆盖 |
 | kb（公共知识，2） | 每次随仓库刷新，不备份 |
