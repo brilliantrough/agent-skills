@@ -48,20 +48,20 @@ This project uses a three-layer memory system (Magic Context + StrictDoc + claud
 
 ### Steering the agent (always applies)
 
-- Steer with prompts, skills and tool descriptions — never with hard blocks. Guidance keeps judgement and variety; deny rules are a last resort for damage, not for preference.
+- Steer agent choices and preferences with prompts, skills and tool descriptions, not tool-level hard blocks. Explicit project code contracts may be enforced by lint, types and dependency checks; these do not replace permissions or runtime protection.
 - `quick-do`, `steady-do`, and `plan-brief` are user-selected modes. If none is named, load one: `steady-do` for most work, `quick-do` for a small bounded change, `plan-brief` only for a large project or major change.
 - Adding an MCP server: use descriptive server/tool names and rich descriptions. Pi native MCP keeps its namespace prefix; use `exposure` / `toolExposure` for direct versus discoverable tools, not adapter-only `toolPrefix` / `directTools`.
 - When a behaviour goes wrong, fix the system that produced it (a line here, a skill, or a fork patch), not just the config of the machine you noticed it on.
 
 ### Code taste (always applies when writing or changing code)
 
-- Running code without errors IS the verification — no tests, no TDD, no verification scripts unless explicitly asked.
+- Verify the changed behavior through the smallest relevant real path and existing project checks; no errors alone is not proof of correctness. Do not add tests, TDD or verification frameworks by default; preserve required checks and add a focused regression only when the change needs it. Report unverified behavior explicitly.
 - No over-encapsulation, no defensive programming, no speculative abstraction. Minimum code that works.
 - **Highest value, no hedging across the lifecycle**: plan and develop the smallest complete solution; at stage review, flag both defects and "should delete but remains"; when clutter has already formed, use consolidator to remove it decisively. Accept small, quickly recoverable rework instead of maintaining maybe-useful files, branches or defensive scaffolding. Re-add a detail when a real need returns; never preserve clutter to avoid possible rework. Ponytail prevents bloat before and during work; consolidator removes it afterwards.
 - **Boldly delete pseudo-safety and disposable artifacts**: during authorized cleanup, remove one-off refactor hash/byte-diff checks, Agent-generated cleanup manifests/inventories, speculative defensive branches, scratch/probe/debug scripts, one-off tests, temporary derived outputs, and their generators/references. Do not read self-created checklists, prove byte identity by default, or refuse refactoring for "safety"; keep only protections tied to real trust boundaries, correctness/integrity/authenticity, data-loss prevention, interoperability, accessibility, hardware calibration, current evidence, or explicit byte-level contracts.
 - **Repeat critical rules deliberately.** Rules central to the task with costly failures must be reinforced at every relevant stage and decision point; this is not redundancy. Trim task-irrelevant details and wording that changes no action.
 - Report results in one line; no summary essays.
-- Script/repo comments carry usage and necessary function notes only. The reasoning behind a change — alternatives weighed, measurements, upstream drift, failure modes — is development process and belongs in the local memory system (the gitignored StrictDoc tree and session memory), never in the repository files.
+- Keep comments for what code cannot express: contracts, external constraints, algorithm references and necessary reasons. Remove repetition and self-justification; do not make avoidable workarounds look permanent. Development diaries, alternatives and investigation history belong in the project's existing memory, not inline comments; preserve required license notices.
 
 **Placement**: paste this whole block at the *tail* of a project's own `AGENTS.md` — the project's own content stays on top, this block is the accelerator we append. The one-click setup scripts offer to write it there (opt-in, default no); paste it by hand otherwise.
 

@@ -199,7 +199,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 | Skill | 适用任务 | 流程 |
 |---|---|---|
 | `goal-first` | 研究、开发和计划的主线约束 | 保持交付、当前未知、下一步和收口条件；不因意外发现静默扩展范围 |
-| [`trust-pyramid`](skills/base/trust-pyramid/SKILL.md) | 日常开发、重构与重复错误治理的工程原则 | Codebase/API 优先，其次静态约束；专项验证与审查由用户或既有项目约定触发 |
+| [`trust-pyramid`](skills/base/trust-pyramid/SKILL.md) | 日常开发、重构与审查的工程质量约束 | 五层原则＋六类条件化规则配方＋工具映射；按项目选择并落实 |
 | `quick-do` | 行为明确的小修小补 | 读代码 → 当前会话修改、验证；不 grilling、不写计划 |
 | `steady-do` | 日常功能、插件、扩展 | 理解项目 → 分轮澄清 → 当前会话实现、验证；不写交接文档 |
 | `plan-brief` | 长程多阶段任务 | 澄清 → 计划 `docs/plans/<slug>.md` + 启动 prompt → 新会话执行 → 报告 → 原会话审查 |
@@ -218,7 +218,9 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 
 使用示例：“用 steady-do，先问清楚再做”。
 
-`goal-first` 在涉及代码设计与实现时引导加载 `trust-pyramid`，让 Agent 按信任金字塔选择约束落点；具体 lint、依赖规则和 API 留在消费项目。第一版提供原则与[工具选择示例](skills/base/trust-pyramid/references/static-checks.md)，不自动安装 linter 或搭验证框架，也不替代已有必要验证。
+`goal-first` 在代码任务中引导加载 `trust-pyramid`。原型包含[五层原则](skills/base/trust-pyramid/SKILL.md)、[六类质量规则配方](skills/base/trust-pyramid/references/quality-recipes.md)和[工具映射／检查示例](skills/base/trust-pyramid/references/static-checks.md)：注释与补丁、依赖边界、API 与状态、重复维护、副作用与错误、工作区与产物。每类给出适用条件、好坏示例、检查方式和例外；项目选择后将具体 API、目录和检查写回自身配置。Verification 可由 Agent 或项目自动执行，按任务授权、成本与副作用确定范围，不要求人逐次触发。
+
+试用时可以说：“用 trust-pyramid，为这个项目选出适用的质量规则，并落实当前最重要的一项。”仅想讨论则说明“先设计，不修改”。安装 skill 不自动启用所有规则或证明项目质量；首次试用重点反馈是否触发、误报／漏报以及维护负担，通用修正回流 skill。套件仓库的规则自举另行开展。
 
 ### 个人领域知识（自制）
 
