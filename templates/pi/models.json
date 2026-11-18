@@ -1,0 +1,214 @@
+{
+  "providers": {
+    "claude-newapi": {
+      "baseUrl": "https://<YOUR_GATEWAY_HOST>",
+      "api": "anthropic-messages",
+      "apiKey": "<YOUR_NEWAPI_API_KEY>",
+      "models": [
+        {
+          "id": "claude-opus-5-5",
+          "name": "Claude Opus 5.5",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "contextWindow": 500000,
+          "maxTokens": 128000,
+          "cost": {
+            "input": 5,
+            "output": 25,
+            "cacheRead": 0.5,
+            "cacheWrite": 6.25
+          },
+          "compat": { "forceAdaptiveThinking": true },
+          "thinkingLevelMap": { "minimal": null, "medium": null, "xhigh": null, "max": "max" }
+        }
+      ]
+    },
+    "codex-newapi": {
+      "baseUrl": "https://<YOUR_GATEWAY_HOST>/v1",
+      "api": "openai-responses",
+      "apiKey": "<YOUR_NEWAPI_API_KEY>",
+      "compat": { "supportsStore": false },
+      "models": [
+        {
+          "id": "gpt-6-astra",
+          "name": "GPT 6 Astra",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "thinkingLevelMap": { "minimal": null, "low": null, "xhigh": "xhigh", "max": "max" },
+          "contextWindow": 500000,
+          "maxTokens": 128000,
+          "cost": {
+            "input": 10,
+            "output": 50,
+            "cacheRead": 1,
+            "cacheWrite": 12.5
+          }
+        },
+        {
+          "id": "gpt-6.1-sol",
+          "name": "GPT 6.1 Sol",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "thinkingLevelMap": { "minimal": null, "low": null, "xhigh": "xhigh", "max": "max" },
+          "contextWindow": 500000,
+          "maxTokens": 128000,
+          "cost": {
+            "input": 5,
+            "output": 25,
+            "cacheRead": 0.5,
+            "cacheWrite": 6.25
+          }
+        },
+        {
+          "id": "gpt-6.1-terra",
+          "name": "GPT 6.1 Terra",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "thinkingLevelMap": { "minimal": null, "low": null, "xhigh": "xhigh", "max": "max" },
+          "contextWindow": 500000,
+          "maxTokens": 128000,
+          "cost": {
+            "input": 1,
+            "output": 5,
+            "cacheRead": 0.1,
+            "cacheWrite": 1.25
+          }
+        },
+        {
+          "id": "gpt-6-luna",
+          "name": "GPT 6 Luna",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "thinkingLevelMap": { "minimal": null, "low": null, "xhigh": "xhigh", "max": "max" },
+          "contextWindow": 500000,
+          "maxTokens": 128000,
+          "cost": {
+            "input": 0.2,
+            "output": 1.2,
+            "cacheRead": 0.02,
+            "cacheWrite": 0.25
+          }
+        }
+      ]
+    },
+    "anthropic-newapi": {
+      "baseUrl": "https://<YOUR_GATEWAY_HOST>",
+      "api": "anthropic-messages",
+      "apiKey": "<YOUR_NEWAPI_API_KEY>",
+      "models": [
+        {
+          "id": "deepseek-flash",
+          "name": "deepseek flash",
+          "reasoning": true,
+          "compat": { "forceAdaptiveThinking": true, "sendSessionAffinityHeaders": true },
+          "thinkingLevelMap": { "minimal": null, "medium": null, "xhigh": null, "max": "max" },
+          "contextWindow": 500000,
+          "maxTokens": 128000,
+          "cost": {
+            "input": 0.15,
+            "output": 0.6,
+            "cacheRead": 0.003,
+            "cacheWrite": 0.15
+          }
+        },
+        {
+          "id": "grok-4.7",
+          "name": "Grok 4.7",
+          "reasoning": true,
+          "compat": { "forceAdaptiveThinking": true },
+          "thinkingLevelMap": { "minimal": null, "medium": null, "xhigh": null, "max": "max" },
+          "contextWindow": 500000,
+          "maxTokens": 128000,
+          "cost": {
+            "input": 0.15,
+            "output": 0.6,
+            "cacheRead": 0.003,
+            "cacheWrite": 0.15
+          }
+        },
+        {
+          "id": "minimax-latest",
+          "name": "minimax latest",
+          "reasoning": true,
+          "compat": { "forceAdaptiveThinking": true },
+          "thinkingLevelMap": { "minimal": null, "medium": null, "xhigh": null, "max": "max" },
+          "contextWindow": 1000000,
+          "maxTokens": 100000,
+          "cost": {
+            "input": 0.1,
+            "output": 0.5,
+            "cacheRead": 0.01,
+            "cacheWrite": 0.1
+          }
+        },
+        {
+          "id": "kimi-latest",
+          "name": "kimi latest",
+          "reasoning": true,
+          "compat": { "forceAdaptiveThinking": true },
+          "thinkingLevelMap": { "minimal": null, "medium": null, "xhigh": null, "max": "max" },
+          "contextWindow": 500000,
+          "maxTokens": 128000,
+          "cost": {
+            "input": 0.6,
+            "output": 3,
+            "cacheRead": 0.06,
+            "cacheWrite": 0.6
+          }
+        },
+        {
+          "id": "mem-1",
+          "name": "mem-1",
+          "reasoning": true,
+          "compat": { "forceAdaptiveThinking": true },
+          "thinkingLevelMap": { "minimal": null, "medium": null, "xhigh": null, "max": "max" },
+          "contextWindow": 500000,
+          "maxTokens": 128000,
+          "cost": {
+            "input": 0.05,
+            "output": 0.6,
+            "cacheRead": 0.005,
+            "cacheWrite": 0.05
+          }
+        }
+      ]
+    },
+    "gemini-newapi": {
+      "baseUrl": "https://<YOUR_GATEWAY_HOST>/v1beta",
+      "api": "google-generative-ai",
+      "apiKey": "<YOUR_NEWAPI_API_KEY>",
+      "models": [
+        {
+          "id": "gemini-4-argon",
+          "name": "Gemini 4 Argon",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "contextWindow": 500000,
+          "maxTokens": 128000,
+          "cost": {
+            "input": 2,
+            "output": 10,
+            "cacheRead": 0.1,
+            "cacheWrite": 2.5
+          }
+        }
+      ]
+    },
+    "zai-coding-cn": {
+      "modelOverrides": {
+        "glm-4.6v": { "contextWindow": 500000 },
+        "glm-5.3": { "contextWindow": 500000 },
+        "glm-5.3-flash": { "contextWindow": 500000 },
+        "glm-5.3-highspeed": { "contextWindow": 500000 }
+      }
+    },
+    "kimi-coding": {
+      "modelOverrides": {
+        "k3": { "contextWindow": 500000 },
+        "k3-256k": { "contextWindow": 500000 },
+        "kimi-for-coding": { "contextWindow": 500000 },
+        "kimi-for-coding-highspeed": { "contextWindow": 500000 }
+      }
+    }
+  }
+}

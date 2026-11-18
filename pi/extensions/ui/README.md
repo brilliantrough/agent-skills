@@ -16,7 +16,7 @@
 - `message-actions.ts`：主栏消息悬浮按钮（悬停出现在消息首行右端）。用户消息：⧉ 复制 / ⟲ 回撤；助手消息：⧉ 复制。**回撤不是回填编辑**：把会话 leaf 移回该用户消息之前，该消息及其后的上下文全部离开当前分支（等价 OpenCode /undo、Pi /tree 选中该消息），消息文本自动回到输入框（仅当输入框为空时）；原分支不删除，/tree 可找回。实现：点击 → `/rewind <entryId>` 内部命令（`sendUserMessage` + `expandPromptTemplates`，零模型轮、不写会话）→ 命令语境的 `ctx.navigateTree`；组件→entry 映射按转录渲染规则序号对齐，重复文本序号失准时退回全文唯一匹配，仍无法唯一定位则拒绝并提示用 /tree。agent 忙时拒绝回撤。开关：`agent-skills-ui.json` 的 `messageActions`（默认 true）；tmux 下无 move 事件，按钮不出现。
 - `tps.ts`：每秒最多更新一次的估算 TPS，结束后显示最后一次回复 usage 的平均速度。
 
-配置：共享 `~/.config/cortexkit/magic-context.jsonc` 的 `todowrite.overlay: false` 只关闭 MC 的重复任务 widget，保留工具和持久化（dot_file 模板已同步）。
+配置：共享 `~/.config/cortexkit/magic-context.jsonc` 的 `todowrite.overlay: false` 只关闭 MC 的重复任务 widget，保留工具和持久化（本仓 `templates/opencode/magic-context.jsonc` 已同步）。
 
 UI 配置：`~/.pi/agent/agent-skills-ui.json`（布局/侧栏），`agent-skills-editor.json`（编辑器/消息视觉）。均尊重 `PI_CODING_AGENT_DIR`。可信项目可用 `.pi/agent-skills-ui.json` 覆盖布局。已迁移旧配置时优先保留用户值。
 

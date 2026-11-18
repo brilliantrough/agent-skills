@@ -11,6 +11,8 @@
 
 StrictDoc (`docs/`), Magic Context and claude-mem work together. Their content may overlap; choose storage, depth and timing by judgment.
 
+Tool names in this block (`ctx_*`, `ctxm_*`, `later`, `bg_*`, `mem_*`) are the Pi and OpenCode ones. On a host without them, such as Claude Code, use its native equivalents: its own memory and context management, background tasks, web tools and the claude-mem plugin. StrictDoc in `docs/` is plain text and works on every host.
+
 - **Session start**: run `load-mem`. Read project instructions and any user-discipline block, then the project profile (default `docs/handbook/project-profile.sdoc`), then task-relevant memory and source. Without a profile, continue with targeted recall instead of surveying the whole repo.
 - **Milestones and before ending work**: run `save-mem`. When the project's shape, major research routes or key understanding change, update the profile with `project-profile`. Initialize memory with `migrate-mem`.
 - **Recall before asking**: for prior decisions, attempted solutions, recurring failures or cross-session work, search claude-mem, StrictDoc and Magic Context (`ctx_search`) before asking the user to repeat context. Injected memory is a partial view. Tool names differ per host; `load-mem` lists them.
@@ -31,7 +33,7 @@ StrictDoc (`docs/`), Magic Context and claude-mem work together. Their content m
 ### Context window (always applies)
 
 - Choose the tool by the next action: exact source or a complete edit unit → native `Read`/`Grep`; short output used directly → native `Bash`; large-data aggregation → `ctxm_execute`/`ctxm_execute_file`; multi-command indexed research → `ctxm_batch_execute`. Return enough evidence to act on.
-- Web: use the web MCP tools instead of host built-ins (WebSearch, WebFetch, web_search): `tavily_search`/`tavily_extract` for facts and news, `firecrawl_search` for ranked results, `firecrawl_scrape` for a known page. Call tools by the names the host actually exposes and find the rest through tool search or the MCP gateway. `ctxm_fetch_and_index` only for a page you will re-query.
+- Web: when the web MCP tools are installed, use them instead of host built-ins (WebSearch, WebFetch, web_search): `tavily_search`/`tavily_extract` for facts and news, `firecrawl_search` for ranked results, `firecrawl_scrape` for a known page. Call tools by the names the host actually exposes and find the rest through tool search or the MCP gateway. `ctxm_fetch_and_index` only for a page you will re-query.
 - Magic Context: `ctx_search` recalls earlier decisions, `ctx_memory` stores durable knowledge, `ctx_note` holds reminders.
 - Reuse loaded skills, confirmed facts and unchanged source. After an exact-match edit fails, reread the affected unit before patching again.
 

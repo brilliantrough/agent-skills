@@ -4,11 +4,11 @@
 # 1. 缺失时询问安装 Node LTS、Bun、uv;strictdoc 由 modules/strictdoc 装
 # 2. claude-mem:优先复用本机 runtime;缺失时运行官方 codex-cli 安装器
 #    安装器会修改共享配置并停止 worker;恢复 settings.json/原 Codex 配置,再原生注册;
-#    settings.json 用 dot_file 模板做字段级合并(与 pi/opencode 两侧同一份,敏感值保留)
+#    settings.json 用 本仓模板做字段级合并(与 pi/opencode 两侧同一份,敏感值保留)
 # 3. 原生安装 Ponytail;注册 CodeGraph MCP;安装缺失的本仓库 skills(不修改内容)
 # 4. 提示 /hooks 信任和 /mcp 检查;Magic Context、notify 不安装,原生压缩不变
 # 已配置项不重写、不自动升级;冲突/显式禁用项保留;修改前备份,不碰模型/认证配置
-# (例外:~/.claude-mem/settings.json 走 dot_file 模板字段级合并,api key/base url 等敏感值仍保留)
+# (例外:~/.claude-mem/settings.json 走 本仓模板字段级合并,api key/base url 等敏感值仍保留)
 # 用法:bash codex-setup.sh [-y|--yes](-y 默认安装:不再逐项确认、只问凭据);支持 CODEX_HOME(首次 claude-mem 官方安装仅支持默认路径)
 # Windows:在 Git Bash(不是 WSL)里跑同一份脚本;Python 3.11+ 缺了由 uv 自管理提供。
 set -euo pipefail
@@ -73,7 +73,8 @@ CFG="${CODEX_HOME:-$HOME/.codex}"
 CONFIG="$CFG/config.toml"
 MEM_ROOT="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/marketplaces/thedotmack"
 SETTINGS="${CLAUDE_MEM_DATA_DIR:-$HOME/.claude-mem}/settings.json"
-RAW="https://raw.githubusercontent.com/brilliantrough/dot_file/master"
+SELF_RAW="https://raw.githubusercontent.com/${AGENT_SKILLS_REPO:-brilliantrough/agent-skills}/${AGENT_SKILLS_REF:-main}"
+RAW="$SELF_RAW/templates"  # 配置模板随本仓分发(templates/),与脚本同一 ref
 export PATH="$HOME/.local/bin:$HOME/.bun/bin:$PATH"
 errors=0
 
@@ -254,7 +255,7 @@ merge_cfg() {
   fi
   fill_template_placeholders "$tmp"
   if [ ! -f "$dest" ]; then
-    if ask "写入 $dest(来自 dot_file 模板,含占位符)?" Y; then
+    if ask "写入 $dest(来自 本仓模板,含占位符)?" Y; then
       mkdir -p "$(dirname "$target")"; cp "$tmp" "$target"; echo "wrote: $dest(含占位符)"
     else
       echo "跳过: $dest 未创建"
@@ -548,7 +549,7 @@ JSON
     else mem_ok=0; fi
   fi
   if [ "$mem_ok" = 1 ]; then
-    # 与 pi/opencode-setup.sh 用同一份 dot_file 模板做字段级合并,避免三脚本的 claude-mem 配置漂移
+    # 与 pi/opencode-setup.sh 用同一份 本仓模板做字段级合并,避免三脚本的 claude-mem 配置漂移
     merge_cfg "$RAW/opencode/claude-mem.settings.json" "$SETTINGS" || true
   fi
   if [ "$mem_ok" = 1 ] && ! mem_ready; then
@@ -606,7 +607,6 @@ else
 fi
 
 # ---- 5. skills:共用同步器刷新 base/research(漂移先备份)、补装外部设计依赖并更新第三方 ----
-SELF_RAW="https://raw.githubusercontent.com/${AGENT_SKILLS_REPO:-brilliantrough/agent-skills}/${AGENT_SKILLS_REF:-main}"
 # Codex 0.158.0 的插件不注册 agent roles；使用原生 agents TOML。
 if ask '安装/更新 consolidation-reviewer（Codex 原生只读审查代理）?' Y; then
   if python3 - "$version" <<'PY_REVIEWER_VERSION'

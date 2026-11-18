@@ -1,0 +1,55 @@
+{
+  "$schema": "https://raw.githubusercontent.com/cortexkit/magic-context/master/assets/magic-context.schema.json",
+  "language": "zh",
+  "enabled": true,
+  // Pi 侧栏负责实时任务列表；保留 todowrite 和 /todos，仅关闭重复 widget。
+  // enabled 默认是 false —— 不写就根本没有 todowrite 工具和 /todos 命令。
+  "todowrite": { "enabled": true, "overlay": false },
+  "cache_ttl": "5m",
+  "temporal_awareness": true,
+  "toast_duration_ms": 5000,
+  "execute_threshold_percentage": 65,
+  "history_budget_percentage": 0.15,
+  "historian_timeout_ms": 600000,
+  "fail_closed_blocking": true,
+  "compaction": { "enabled": true },
+  "storage": { "enforce_private_permissions": true },
+  "commit_cluster_trigger": { "enabled": true, "min_clusters": 3 },
+  "system_prompt_injection": { "enabled": true, "skip_signatures": ["<!-- magic-context: skip -->"] },
+  "sqlite": { "cache_size_mb": 64, "mmap_size_mb": 0 },
+  "prompt_surface": { "default": "full" },
+  "historian": {
+    "opencode": {
+      "model": "anthropic-newapi/mem-1",
+      "variant": "high"
+    },
+    "pi": {
+      "model": "anthropic-newapi/mem-1",
+      "thinking_level": "high"
+    }
+  },
+  "dreamer": {
+    "opencode": {
+      "model": "anthropic-newapi/mem-1",
+      "variant": "high"
+    },
+    "pi": {
+      "model": "anthropic-newapi/mem-1",
+      "thinking_level": "high"
+    }
+  },
+  "memory": {
+    "enabled": true,
+    "injection_budget_tokens": 4000,
+    "auto_promote": true,
+    "retrieval_count_promotion_threshold": 3,
+    "auto_search": { "enabled": true, "score_threshold": 0.6, "min_prompt_chars": 20 },
+    "git_commit_indexing": { "enabled": false, "since_days": 365, "max_commits": 2000 }
+  },
+  "embedding": {
+    "provider": "openai-compatible",
+    "model": "text-embedding-3-large",
+    "endpoint": "https://<YOUR_GATEWAY_HOST>/v1",
+    "api_key": "<YOUR_API_KEY>"
+  }
+}

@@ -27,7 +27,7 @@ Recover enough context to work as a continuing project partner, so the user does
 |---|---|---|
 | StrictDoc `docs/` | Human-readable current norms, decisions and rationale, project history, and maintained reference documents | Read relevant `.sdoc` files or their export |
 | Magic Context | Stored facts, decisions, lessons, injected memories, and recoverable conversations | Injected memory, `ctx_search`, `ctx_expand`, `ctx_memory`, `ctx_note` |
-| claude-mem | Cross-session observations of decisions, attempted solutions, failures, fixes, and actual work | Pi native `mem_*`; OpenCode `claude_mem_search` or claude-mem MCP tools; see below |
+| claude-mem | Cross-session observations of decisions, attempted solutions, failures, fixes, and actual work | Pi native `mem_*`; OpenCode `claude_mem_search` or claude-mem MCP tools; Claude Code plugin tools; see below |
 | Code, config, and git | Evidence of what exists and what actually changed | Relevant files, call chains, and history |
 
 The same knowledge may appear in several sources. That overlap helps recall, availability, and cross-checking.
@@ -47,6 +47,7 @@ These are all entry points to **claude-mem**. Names below reflect claude-mem 13.
 | OpenCode plugin's simple search | `claude_mem_search` | `query` only; not the full MCP workflow |
 | OpenCode claude-mem MCP | Server tools `mem_search`, `search`, `timeline`, `get_observations`, etc.; v2 Code Mode example: `tools["claude-mem"].mem_search(...)`; direct exposure example: `claude-mem_mem_search` | MCP `mem_search` supports guided/auto retrieval; use its own schema and returned next-step guidance |
 | Pi with an additionally configured claude-mem MCP | Example: `mcp__claude_mem__mem_search` | MCP contract (differs from the native Pi contract); this extra MCP is optional |
+| Claude Code with the claude-mem plugin | Plugin MCP tools, e.g. `mcp__plugin_claude-mem_mcp-search__search`, `timeline`, `get_observations` (seen 2026-11-18) | Search for an index, `timeline` around useful anchors, then fetch selected IDs. Magic Context is not installed there; use Claude Code's own memory alongside StrictDoc |
 
 - MCP examples assume the server key `claude-mem`. Use the catalog's exact prefix, punctuation, and call signature; OpenCode and Pi expose them differently. In Code Mode, search its catalog if a tool is not listed.
 - **Same basename does not mean same parameters:** Pi native `mem_search` does not accept MCP `mode`, `continuation`, or `selectedIds`. MCP guided replies supply the continuation and selectable IDs; auto mode performs bounded retrieval in one call. Older MCP `search` → `timeline` → `get_observations` remains a separate layered interface.

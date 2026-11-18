@@ -3,7 +3,8 @@
 #
 # 分组 = 仓库 skills/ 下的目录(base/research/accel/kb/ppt):新增 skill 只需放入对应组目录。
 # 策略:base/research/ppt 每次刷新且漂移先备份;accel 缺才装(本机特化不覆盖);kb 每次刷新、不备份。
-# 安装:整目录复制到 ~/.agents/skills/<名>;装了 Claude Code 的机器同步 ~/.claude/skills/<名>(有差异才写)。
+# 安装:整目录复制到 ~/.agents/skills/<名>;装了 Claude Code 的机器在 ~/.claude/skills/<名> 建指向它的符号链接
+#       (Claude Code 不读 ~/.agents/skills,但跟随逐个 skill 的链接;Git Bash 无真链接时退回复制),并部署审查代理。
 # 备份:~/.local/share/agent-skills/.backups/<组>/<名>.bak-<时间戳>(回流仓库后自行删除)。
 #
 # 用法:skills-sync.sh [all|base|research|accel|kb|ppt ...]
@@ -58,6 +59,9 @@ N_INST=0; N_UPD=0; N_KEEP=0; N_SAME=0
 
 # 漂移比对忽略行尾差异(历史 CRLF 安装 vs tarball 的 LF;BSD diff 不支持时退回逐字节)
 DIFF_RQ=(diff -rq)
+# Git Bash 的 ln -s 默认是拷贝,不当作链接用
+CAN_LINK=1
+case "$(uname -s 2>/dev/null || true)" in MINGW*|MSYS*|CYGWIN*) CAN_LINK=0 ;; esac
 if diff --strip-trailing-cr /dev/null /dev/null >/dev/null 2>&1; then DIFF_RQ=(diff -rq --strip-trailing-cr); fi
 
 copy_sync() {  # 整目录替换(先建临时再换名,避免半拷状态)
@@ -87,11 +91,15 @@ sync_one() {  # $1=组 $2=策略(refresh|missing) $3=备份(1|0) $4=名
     fi
     copy_sync "$src" "$live"; N_UPD=$((N_UPD+1))
   fi
-  # Claude Code 入口(仅该机装了 Claude Code 时维护;有差异才写)
+  # Claude Code 入口(仅该机装了 Claude Code 时维护):链接到共享目录,只留一份实体
   if [ -d "$HOME/.claude" ]; then
+    local mirror="$HOME/.claude/skills/$s"
     mkdir -p "$HOME/.claude/skills"
-    if [ ! -e "$HOME/.claude/skills/$s" ] || ! "${DIFF_RQ[@]}" "$live" "$HOME/.claude/skills/$s" >/dev/null 2>&1; then
-      copy_sync "$live" "$HOME/.claude/skills/$s"
+    if [ "$mirror" -ef "$live" ]; then :
+    elif [ "$CAN_LINK" = 1 ]; then
+      rm -rf "$mirror"; ln -s "../../.agents/skills/$s" "$mirror"; echo "linked: ~/.claude/skills/$s"
+    elif [ ! -e "$mirror" ] || ! "${DIFF_RQ[@]}" "$live" "$mirror" >/dev/null 2>&1; then
+      copy_sync "$live" "$mirror"
     fi
   fi
 }
@@ -110,6 +118,19 @@ for g in $SYNC_GROUPS; do
 done
 
 echo "== 本仓 skills 同步完成:装 $N_INST,更新 $N_UPD,保留 $N_KEEP,未变 $N_SAME =="
+
+# Claude Code 的独立审查代理(consolidator 整理后调用);有差异先备份再写,链接写入目标
+claude_agent_src="$source_root/templates/claude/agents/consolidation-reviewer.md"
+claude_agent="$HOME/.claude/agents/consolidation-reviewer.md"
+if [ -d "$HOME/.claude" ] && [ -d "$LIVE/consolidator" ] && [ -f "$claude_agent_src" ]; then
+  if [ -f "$claude_agent" ] && cmp -s "$claude_agent_src" "$claude_agent"; then
+    echo "unchanged: $claude_agent"
+  else
+    mkdir -p "$HOME/.claude/agents"
+    [ ! -f "$claude_agent" ] || cp -p "$claude_agent" "$claude_agent.bak-$TS"
+    cat "$claude_agent_src" > "$claude_agent"; echo "wrote: $claude_agent"
+  fi
+fi
 echo "== 外部 skills:设计依赖(询问后安装)、PPT引擎(按组) + 更新已登记第三方(不含本仓) =="
 status=0
 if [ "$with_ppt" = 1 ]; then

@@ -1,0 +1,21 @@
+{
+  "tui.input.submit": [
+    "enter"
+  ],
+  "tui.input.newLine": [
+    "shift+enter"
+  ],
+  "app.session.new": [
+    "alt+n"
+  ],
+  "app.session.toggleNamedFilter": [],
+  "app.thinking.cycle": [
+    "alt+t"
+  ],
+  "app.model.select": [
+    "alt+m"
+  ],
+  "app.session.resume": [
+    "alt+l"
+  ]
+}

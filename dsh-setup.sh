@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # DeepSeek Harness 套件安装：独立 Node/运行目录，保留已有 profile、凭据与会话。
 set -euo pipefail
-RAW=https://raw.githubusercontent.com/brilliantrough/dot_file/master
 SELF_RAW=https://raw.githubusercontent.com/${AGENT_SKILLS_REPO:-brilliantrough/agent-skills}/${AGENT_SKILLS_REF:-main}
+RAW=$SELF_RAW/templates
 YES=0
 for arg in "$@"; do
   case "$arg" in

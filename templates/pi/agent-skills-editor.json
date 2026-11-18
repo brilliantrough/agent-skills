@@ -1,0 +1,30 @@
+{
+  "components": {
+    "editor": {
+      "modelLabel": "name",
+      "colorSource": "theme"
+    },
+    "userMessages": {
+      "colorSource": "theme"
+    },
+    "footer": {
+      "colorSource": "theme",
+      "styles": {
+        "starship": {
+          "responsive": false,
+          "segments": {
+            "runtime": false,
+            "modelInfo": false,
+            "tokens": false
+          },
+          "extensionStatuses": {
+            "placements": {
+              "git": "off",
+              "agent-skills:tps": "right"
+            }
+          }
+        }
+      }
+    }
+  }
+}

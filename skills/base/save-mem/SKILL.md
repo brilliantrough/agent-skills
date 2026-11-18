@@ -38,6 +38,7 @@ When the user explicitly invokes `discipline`, use that skill: immediately activ
 - Tool identity follows the integration: Pi's native `mem_search` / `mem_timeline` / `mem_get_observations` and OpenCode's `claude_mem_search` are **claude-mem recall tools** and cannot write. See `load-mem` for the host-specific naming and parameter differences.
 - With claude-mem MCP, `save_memory` (`text`, optional `title`/`project`) saves a local-worker note.
   - In OpenCode v2 Code Mode, for server key `claude-mem`, that is `tools["claude-mem"].save_memory(...)`; direct exposure can be `claude-mem_save_memory`.
+  - In Claude Code the claude-mem plugin exposes it as `mcp__plugin_claude-mem_mcp-search__save_memory` (seen 2026-11-18). Magic Context is not installed there: write StrictDoc as usual and let Claude Code's own memory cover the rest.
   - An additionally configured Pi MCP can expose `mcp__claude_mem__save_memory`.
   - Use the name the actual catalog shows.
 - In server runtime, use `observation_add` only when exposed for the intended server/project; `save_memory` does not write server notes.

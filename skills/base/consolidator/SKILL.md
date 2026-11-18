@@ -160,7 +160,8 @@ Agent 为回答当下问题、随手验证或调试而生成的文件，授权�
 - 基线要区分本轮改动与原有未提交工作；“看看最近修改”不构成交接。
 - 给只读代理可直接读取的差异或历史快照，必要时用临时文件，不在仓库新增审查报告。子代理不继承主会话历史，也未必能访问记忆工具，交接材料要自包含。
 - Pi：使用 `subagent_run`，`agent="consolidation-reviewer"`；OpenCode：用原生 `subagent` 选择同名角色。
-- DSH：调用 `consolidation_review`（原生 spawn 工具的命名实例，绑定 `consolidation-reviewer` preset）；Codex：用原生 `spawn_agent`，`agent_type="consolidation-reviewer"`。实际参数以宿主工具 schema 为准。
+- DSH：调用 `consolidation_review`（原生 spawn 工具的命名实例，绑定 `consolidation-reviewer` preset）；Codex：用原生 `spawn_agent`，`agent_type="consolidation-reviewer"`。
+- Claude Code：用 Agent（Task）工具，`subagent_type="consolidation-reviewer"`；定义在 `~/.claude/agents/`，由 `skills-sync.sh` 随 base 组部署。实际参数以宿主工具 schema 为准。
 - 审查期间冻结相关范围，不并行修改。后台调用按宿主完成通知处理，不轮询等待。
 - 核实发现后修复，只对受影响部分补审，不设固定轮数。真实 bug 超出整理授权时单列说明。
 - 记忆数据库的检索与更新由主会话通过可用工具执行，子代理不直接操作数据库。StrictDoc 改动按项目要求导出，并检查相关正文。

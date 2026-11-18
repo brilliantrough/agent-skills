@@ -1,0 +1,283 @@
+[
+  {
+    "id": "llm-deepseek",
+    "config": {
+      "baseURL": "<YOUR_ANTHROPIC_NEWAPI_BASE_URL>",
+      "apiKeyEnv": "ANTHROPIC_NEWAPI_API_KEY"
+    }
+  },
+  {
+    "id": "agent-default-model",
+    "config": {
+      "provider": "deepseek-official",
+      "model": "deepseek-flash"
+    }
+  },
+  {
+    "id": "llm-pi-ai",
+    "config": {
+      "providers": {
+        "claude-newapi": {
+          "api": "anthropic-messages",
+          "baseURL": "<YOUR_CLAUDE_NEWAPI_BASE_URL>",
+          "apiKeyEnv": "CLAUDE_NEWAPI_API_KEY",
+          "models": [
+            {
+              "id": "claude-opus-5-5",
+              "name": "Claude Opus 5.5",
+              "contextWindow": 500000,
+              "maxTokens": 128000,
+              "input": [
+                "text",
+                "image"
+              ],
+              "reasoningEfforts": {
+                "low": "low",
+                "high": "high",
+                "max": "max"
+              },
+              "compat": {
+                "forceAdaptiveThinking": true
+              }
+            }
+          ]
+        },
+        "codex-newapi": {
+          "api": "openai-responses",
+          "baseURL": "<YOUR_CODEX_NEWAPI_BASE_URL>",
+          "apiKeyEnv": "CODEX_NEWAPI_API_KEY",
+          "models": [
+            {
+              "id": "gpt-6-astra",
+              "name": "GPT 6 Astra",
+              "contextWindow": 500000,
+              "maxTokens": 128000,
+              "input": [
+                "text",
+                "image"
+              ],
+              "reasoningEfforts": {
+                "medium": "medium",
+                "high": "high",
+                "xhigh": "xhigh",
+                "max": "max"
+              }
+            },
+            {
+              "id": "gpt-6.1-sol",
+              "name": "GPT 6.1 Sol",
+              "contextWindow": 500000,
+              "maxTokens": 128000,
+              "input": [
+                "text",
+                "image"
+              ],
+              "reasoningEfforts": {
+                "medium": "medium",
+                "high": "high",
+                "xhigh": "xhigh",
+                "max": "max"
+              }
+            },
+            {
+              "id": "gpt-6.1-terra",
+              "name": "GPT 6.1 Terra",
+              "contextWindow": 500000,
+              "maxTokens": 128000,
+              "input": [
+                "text",
+                "image"
+              ],
+              "reasoningEfforts": {
+                "medium": "medium",
+                "high": "high",
+                "xhigh": "xhigh",
+                "max": "max"
+              }
+            },
+            {
+              "id": "gpt-6-luna",
+              "name": "GPT 6 Luna",
+              "contextWindow": 500000,
+              "maxTokens": 128000,
+              "input": [
+                "text",
+                "image"
+              ],
+              "reasoningEfforts": {
+                "medium": "medium",
+                "high": "high",
+                "xhigh": "xhigh",
+                "max": "max"
+              }
+            }
+          ]
+        },
+        "anthropic-newapi": {
+          "api": "anthropic-messages",
+          "baseURL": "<YOUR_ANTHROPIC_NEWAPI_BASE_URL>",
+          "apiKeyEnv": "ANTHROPIC_NEWAPI_API_KEY",
+          "models": [
+            {
+              "id": "deepseek-flash",
+              "name": "deepseek flash",
+              "contextWindow": 500000,
+              "maxTokens": 128000,
+              "reasoningEfforts": {
+                "low": "low",
+                "high": "high",
+                "max": "max"
+              },
+              "compat": {
+                "forceAdaptiveThinking": true
+              }
+            },
+            {
+              "id": "grok-4.7",
+              "name": "Grok 4.7",
+              "contextWindow": 500000,
+              "maxTokens": 128000,
+              "reasoningEfforts": {
+                "low": "low",
+                "high": "high",
+                "max": "max"
+              },
+              "compat": {
+                "forceAdaptiveThinking": true
+              }
+            },
+            {
+              "id": "minimax-latest",
+              "name": "minimax latest",
+              "contextWindow": 1000000,
+              "maxTokens": 100000,
+              "reasoningEfforts": {
+                "low": "low",
+                "high": "high",
+                "max": "max"
+              },
+              "compat": {
+                "forceAdaptiveThinking": true
+              }
+            },
+            {
+              "id": "kimi-latest",
+              "name": "kimi latest",
+              "contextWindow": 500000,
+              "maxTokens": 128000,
+              "reasoningEfforts": {
+                "low": "low",
+                "high": "high",
+                "max": "max"
+              },
+              "compat": {
+                "forceAdaptiveThinking": true
+              }
+            },
+            {
+              "id": "mem-1",
+              "name": "mem-1",
+              "contextWindow": 500000,
+              "maxTokens": 128000,
+              "reasoningEfforts": {
+                "low": "low",
+                "high": "high",
+                "max": "max"
+              },
+              "compat": {
+                "forceAdaptiveThinking": true
+              }
+            }
+          ]
+        },
+        "gemini-newapi": {
+          "api": "google-generative-ai",
+          "baseURL": "<YOUR_GEMINI_NEWAPI_BASE_URL>",
+          "apiKeyEnv": "GEMINI_NEWAPI_API_KEY",
+          "models": [
+            {
+              "id": "gemini-4-argon",
+              "name": "Gemini 4 Argon",
+              "contextWindow": 500000,
+              "maxTokens": 128000,
+              "input": [
+                "text",
+                "image"
+              ]
+            }
+          ]
+        },
+        "zai-coding-cn": {
+          "apiKeyEnv": "ZAI_CODING_CN_API_KEY",
+          "modelOverrides": {
+            "glm-4.6v": {
+              "contextWindow": 500000
+            },
+            "glm-5.3": {
+              "contextWindow": 500000
+            },
+            "glm-5.3-flash": {
+              "contextWindow": 500000
+            },
+            "glm-5.3-highspeed": {
+              "contextWindow": 500000
+            }
+          }
+        },
+        "kimi-coding": {
+          "apiKeyEnv": "KIMI_CODING_API_KEY",
+          "modelOverrides": {
+            "k3": {
+              "contextWindow": 500000
+            },
+            "k3-256k": {
+              "contextWindow": 500000
+            },
+            "kimi-for-coding": {
+              "contextWindow": 500000
+            },
+            "kimi-for-coding-highspeed": {
+              "contextWindow": 500000
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "tool-consolidation-review",
+    "config": {
+      "provider": "spawn",
+      "toolName": "consolidation_review",
+      "agentPreset": "consolidation-reviewer",
+      "allowedAgentPresets": ["consolidation-reviewer"],
+      "agentOptions": {
+        "provider": "codex-newapi",
+        "model": "gpt-6.1-sol",
+        "reasoningEffort": "max"
+      }
+    }
+  },
+  {
+    "id": "agent-skills-reviewer",
+    "config": {
+      "id": "consolidation-reviewer",
+      "name": "consolidation-reviewer",
+      "description": "整理后的独立只读审查：代码行为、报告事实和记忆历史保持。",
+      "plugins": [
+        {
+          "id": "reviewer-persona",
+          "name": "@deepseek-ai/dsh-persona",
+          "config": {
+            "prefix": "你是整理后的独立审查者。先读取 ~/.agents/skills/consolidator/references/reviewer.md，按其中规范审查主会话交付的范围和差异。只读，不修改代码、文档或记忆，不再委派；仅报告有证据的问题和未验证项。若规范文件缺失，报告给主会话。",
+            "complete": true
+          }
+        },
+        {
+          "id": "reviewer-readonly",
+          "name": "agent-skills-dsh/reviewer-policy"
+        }
+      ]
+    }
+  }
+]

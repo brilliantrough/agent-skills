@@ -1,0 +1,37 @@
+{
+  "defaultProvider": "anthropic-newapi",
+  "defaultModel": "deepseek-flash",
+  "defaultThinkingLevel": "high",
+  "modelThinkingLevels": {
+    "codex-newapi/gpt-6-astra": "xhigh",
+    "codex-newapi/gpt-6.1-sol": "xhigh"
+  },
+  "retry": {
+    "enabled": true,
+    "maxRetries": 8,
+    "baseDelayMs": 4000
+  },
+  "enabledModels": [
+    "anthropic-newapi/*",
+    "claude-newapi/*",
+    "codex-newapi/*",
+    "zai-coding-cn/*",
+    "kimi-coding/*"
+  ],
+  "defaultTools": [
+    "read",
+    "bash",
+    "edit",
+    "write",
+    "grep",
+    "find",
+    "ls",
+    "codemode",
+    "tool_search"
+  ],
+  "theme": "one-dark",
+  "hideThinkingBlock": true,
+  "tuiMode": "fullscreen",
+  "fullscreenWheelScrollLines": 3,
+  "enableInstallTelemetry": false
+}

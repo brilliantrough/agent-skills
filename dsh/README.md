@@ -1,6 +1,6 @@
 # DeepSeek Harness 接入
 
-入口：仓库根 `dsh-setup.sh`；配置模板在 `dot_file/dsh/cordis.patch.json`。
+入口：仓库根 `dsh-setup.sh`；配置模板在本仓 `templates/dsh/cordis.patch.json`。
 
 ## 安装与启动
 

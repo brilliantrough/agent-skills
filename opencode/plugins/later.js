@@ -2,7 +2,7 @@
 // agent 调 later 工具排程:实验挂后台,估时+冗余,到点把 prompt 作为真实用户消息注入同一会话
 // (prompt_async:空闲立即开跑,忙时排队等本轮结束),无需人在场;超时就从实际进度重估再排。
 // 计时器只活在当前 opencode server 进程内:退出/重启会丢未触发的排程(挂机请放 tmux)。
-// 部署:agent-skills 仓 opencode-setup.sh 从 dot_file 下载到 ~/.config/opencode/plugins/。
+// 部署:agent-skills 仓 opencode-setup.sh 安装到 ~/.config/opencode/plugins/。
 import { tool } from "@opencode-ai/plugin";
 
 const UNIT = { s: 1000, m: 60000, h: 3600000, d: 86400000 };

@@ -1,0 +1,51 @@
+{
+  "preset": "editorial",
+  "showSidebarOnStartup": true,
+  "completionNotifications": false,
+  "sidebarPanelLayout": [
+    {
+      "id": "agent",
+      "visible": true
+    },
+    {
+      "id": "agent-skills:todos",
+      "visible": true
+    },
+    {
+      "id": "context",
+      "visible": true
+    },
+    {
+      "id": "agent-skills:cache",
+      "visible": true
+    },
+    {
+      "id": "agent-skills:packages",
+      "visible": true
+    },
+    {
+      "id": "activity",
+      "visible": true
+    },
+    {
+      "id": "alerts",
+      "visible": true
+    },
+    {
+      "id": "workspace",
+      "visible": true
+    },
+    {
+      "id": "tools",
+      "visible": true
+    },
+    {
+      "id": "todos",
+      "visible": false
+    },
+    {
+      "id": "usage",
+      "visible": false
+    }
+  ]
+}

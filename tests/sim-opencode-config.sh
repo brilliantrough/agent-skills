@@ -2,10 +2,10 @@
 # 在隔离 HOME 里实跑 opencode-setup.sh 第 4 节(opencode.json 合并),覆盖 shell 层:
 # 符号链接写穿、自动更新档位探测与询问、旧格式迁移后按 V2 模板合并。
 # 引擎级断言见 tests/merge-private-preservation.py;链接写穿只有真 ln -s 的平台能验(Linux),Git Bash 自动跳过。
-# 用法: bash tests/sim-opencode-config.sh [仓库目录] [dot_file 目录]   退出码 0 = 通过
+# 用法: bash tests/sim-opencode-config.sh [仓库目录]   退出码 0 = 通过
 set -uo pipefail
 REPO="${1:-$HOME/Linewrite/skills/agent-skills}"
-DOTFILE="${2:-$HOME/Linewrite/dot_file}"
+TEMPLATES="$REPO/templates"
 fails=0
 # 原生 python 不认 MSYS 的 /tmp;Windows 商店 stub 能 command -v 到但一跑就报错(与脚本的 resolve_python3 一致)
 npath() { command -v cygpath >/dev/null 2>&1 && cygpath -m "$1" || printf '%s' "$1"; }
@@ -23,7 +23,7 @@ run_case() {
   printf '%s\n' "$live" > "$dot/opencode.json"
   if [ "$mode" = symlink ]; then ln -s "$dot/opencode.json" "$cfg/opencode.json"
   else cp "$dot/opencode.json" "$cfg/opencode.json"; fi
-  cp "$DOTFILE/opencode/opencode.json" "$work/tpl.json"
+  cp "$TEMPLATES/opencode/opencode.json" "$work/tpl.json"
   sed -n '/^# ---- 4\. opencode\.json/,/^# ---- 4\.2 codegraph/p' "$REPO/opencode-setup.sh" | head -n -1 > "$work/sec4.sh"
 
   cat > "$work/run.sh" <<'EOS'

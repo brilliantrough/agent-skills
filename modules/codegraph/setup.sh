@@ -5,7 +5,7 @@
 # hosts: pi,opencode,codex
 #
 # CLI 本体宿主无关；MCP 注册按宿主分开：opencode 写 opencode.json，codex 用 codex mcp add，
-# Pi 的 mcp.json 由 dot_file 模板提供条目，不需要在这里写。
+# Pi 的 mcp.json 由 本仓模板提供条目，不需要在这里写。
 # 卸载: npm uninstall -g @colbymchenry/codegraph（或删 ~/.local/bin/codegraph），再删对应 MCP 条目。
 set -euo pipefail
 

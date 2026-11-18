@@ -130,10 +130,10 @@ if [ "$PLUGINS_ONLY" = 0 ] && ask "更新 OpenCode 到最新版(opencode upgrade
     else echo "ERROR: 升级后版本不受支持($OC_VERSION)，配置未改动" >&2; exit 1; fi
   else echo "WARN: opencode upgrade 失败，继续用当前版本 $OC_VERSION" >&2; fi
 fi
-RAW="https://raw.githubusercontent.com/brilliantrough/dot_file/master"
 # 本仓原始文件入口：skills 同步器、项目规范块等；插件产物从固定 release 获取。
 SELF_RAW="https://raw.githubusercontent.com/${AGENT_SKILLS_REPO:-brilliantrough/agent-skills}/${AGENT_SKILLS_REF:-main}"
-# merge_cfg <url> <dest> — 拉 dot_file 模板后做「字段级」合并,而非整文件覆盖:
+RAW="$SELF_RAW/templates"  # 配置模板随本仓分发(templates/),与脚本同一 ref
+# merge_cfg <url> <dest> — 拉本仓模板后做「字段级」合并,而非整文件覆盖:
 #   模板中的非敏感字段值优先 → 新默认值能下发到服务器;
 #   隐私内容永不覆盖:敏感键(api key / secret / token / password / credential / bearer / auth /
 #     cookie / ingest / webhook / base_url / url / endpoint / host / 以 key 结尾)保留机器上已有值。
@@ -362,7 +362,7 @@ merge_cfg() {
   fi
   fill_template_placeholders "$tmp"
   if [ ! -f "$dest" ]; then
-    if ask "写入 $dest(来自 dot_file 模板,含占位符)?" Y; then
+    if ask "写入 $dest(来自 本仓模板,含占位符)?" Y; then
       mkdir -p "$(dirname "$target")"; cp "$tmp" "$target"; echo "wrote: $dest(含占位符)"
     else
       echo "跳过: $dest 未创建"
@@ -613,7 +613,7 @@ fi
 fi
 
 if [ "$PLUGINS_ONLY" != 1 ]; then
-# ---- 3. 部署 settings.json(字段级合并 dot_file 模板;下载失败用内嵌模板兜底)----
+# ---- 3. 部署 settings.json(字段级合并 本仓模板;下载失败用内嵌模板兜底)----
 # 凭据先问:下面步骤 3(claude-mem settings)、3.1(magic-context)、4(opencode.json)都要用它填占位符
 collect_gateway_values
 ensure_image_gen
@@ -646,7 +646,7 @@ fi
 ensure_mem_worker_keys "$SETTINGS" 2>/dev/null || true
 echo "claude-mem worker: http://$(mem_worker_url "$SETTINGS")(健康检查: curl -s http://$(mem_worker_url "$SETTINGS")/api/health)"
 
-# ---- 3.1 magic-context 配置文件(字段级合并 dot_file 模板;historian.model 必填,否则插件报错)----
+# ---- 3.1 magic-context 配置文件(字段级合并 本仓模板;historian.model 必填,否则插件报错)----
 mcc_rc=0; merge_cfg "$RAW/opencode/magic-context.jsonc" "$MC_CFG" || mcc_rc=$?
 if [ "$mcc_rc" = 1 ] && [ ! -f "$MC_CFG" ]; then   # 只在模板下载失败时用内嵌兜底
   if ask "写入 $MC_CFG(内嵌兜底模板,含占位符)?" Y; then
@@ -680,7 +680,7 @@ EOF
   fi
 fi
 
-# ---- 4. opencode.json(来自 dot_file 仓库:providers/agents/mcp/插件条目/compaction)----
+# ---- 4. opencode.json(来自本仓 templates/:providers/agents/mcp/插件条目/compaction)----
 # 已转换为 V2；刷新 provider.models 和套件 reviewer 的模型/档位，保留 settings、其它角色等本地字段。
 # 老 opencode.jsonc 的值自动并入 opencode.json 后退役为 .migrated.bak
 # 自动更新默认关闭；已有 notify/disable 保留，auto 问一次。

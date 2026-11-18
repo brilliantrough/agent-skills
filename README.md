@@ -21,8 +21,9 @@
 | Pi | 与 OpenCode 共享记忆配置 |
 | DeepSeek Harness | 固定兼容组合；原生 DeepSeek 通道、TUI 与套件工具 |
 | Codex | best effort；复用 skills 原文，不改工作流 |
+| Claude Code | best effort；只装 skills 与审查代理，记忆和上下文用它自带的能力 |
 
-**四宿主的 skills 与第三方依赖是同一份**：skill 实体、设计依赖、`ppt-master` 引擎、`nju-ppt` 的独立 venv、`agent-reach` CLI（`~/.local/bin`）都装在 `~/.agents/skills` 或 `~/.local` 下，四个宿主都能用。差异只在安装入口：
+**各宿主的 skills 与第三方依赖是同一份**：skill 实体、设计依赖、`ppt-master` 引擎、`nju-ppt` 的独立 venv、`agent-reach` CLI（`~/.local/bin`）都装在 `~/.agents/skills` 或 `~/.local` 下，四个宿主都能用。差异只在安装入口：
 
 | 能力 | OpenCode | Pi | DSH | Codex |
 |---|---|---|---|---|
@@ -83,6 +84,15 @@ bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.co
 ```bash
 bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.com/brilliantrough/agent-skills/main/codex-setup.sh)"
 ```
+
+**Claude Code（best effort）**
+
+没有单独的 setup，直接用上面的 `skills-sync.sh` 一行命令。检测到 `~/.claude` 时：
+
+- 在 `~/.claude/skills/<名>` 建指向 `~/.agents/skills/<名>` 的符号链接。Claude Code 不读 `~/.agents/skills`，但会跟随逐个 skill 的链接；Git Bash 没有真链接，退回复制。
+- 随 base 组把 `consolidation-reviewer` 写到 `~/.claude/agents/`，供 `consolidator` 整理后做独立审查。
+- 不安装 Magic Context、context-mode 和 `later`。记忆用 `docs/` 下的 StrictDoc、claude-mem 官方插件（自行安装）和 Claude Code 自带的记忆；规范块里的 Pi／OpenCode 工具名在这里不存在，按块内说明改用自带能力。
+- Claude Code 直接读取项目的 `AGENTS.md`；读不到时在 `CLAUDE.md` 里写一行 `@AGENTS.md`。
 
 ### `-y` 与逐项确认
 
@@ -179,7 +189,8 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 - OpenCode：原生 `agents.consolidation-reviewer` 配置，完整 setup 接入；仅 `--plugins-only` 不更新代理配置。
 - Codex ≥0.158.0：setup 安装 `agents/consolidation-reviewer.toml`；只读职责由提示词约束，provider／sandbox 继承父会话，角色文件中的 `sandbox_mode` 不建立独立只读沙箱。
 - DSH：原生 preset + `consolidation_review` 委派工具；沿用 spawn，不新增执行器。
-- 代理配置来自 `dot_file`；Pi/Codex 文件有变化先备份，OpenCode 完整 setup 经确认刷新 reviewer 的模型／档位，其它角色及本地字段保留。只装 skill 不等于已经注册子代理。
+- Claude Code：`skills-sync.sh` 随 base 组安装 `~/.claude/agents/consolidation-reviewer.md`；模型继承主会话，只读职责由提示词和工具清单约束。
+- 代理配置来自本仓 `templates/`；Pi/Codex/Claude Code 文件有变化先备份，OpenCode 完整 setup 经确认刷新 reviewer 的模型／档位，其它角色及本地字段保留。只装 skill 不等于已经注册子代理。
 
 审查角色统一使用 **GPT 6.1 Sol + max**；只改 `consolidation-reviewer`，不改变 `explore/general` 或主会话默认值：
 
@@ -190,7 +201,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 | DSH | `dsh/cordis.patch.json` 的 `tool-consolidation-review.config.agentOptions`：`provider: "codex-newapi"`、`model: "gpt-6.1-sol"`、`reasoningEffort: "max"` |
 | Codex | `codex/agents/consolidation-reviewer.toml`：`model = "gpt-6.1-sol"`、`model_reasoning_effort = "max"`；provider 沿用父会话，不能在角色中单独切换 |
 
-上述路径均相对 `dot_file`。Pi 同名 `model_profiles` 或项目角色可覆盖全局定义，更新后用 `subagent_list_agents` 核对；DSH 的固定选择属于专用 `consolidation_review` 入口，不是 preset 的全局模型锁。`max` 不是 `xhigh` 的别名；还需所选模型目录和服务端支持该值，配置解析成功不等于网关已接受。
+上述路径均相对本仓 `templates/`。Pi 同名 `model_profiles` 或项目角色可覆盖全局定义，更新后用 `subagent_list_agents` 核对；DSH 的固定选择属于专用 `consolidation_review` 入口，不是 preset 的全局模型锁。`max` 不是 `xhigh` 的别名；还需所选模型目录和服务端支持该值，配置解析成功不等于网关已接受。
 
 ### 任务工作流（自制）
 
@@ -562,7 +573,7 @@ skills 重跑套件同步器即可；共享目录的更新也影响 OpenCode。c
 
 ## Pi 配置
 
-[Pi](https://pi.dev) 原生读 `~/.agents/skills/`；MCP/subagent 靠 npm 包与扩展提供。模板见 [dot_file/pi](https://github.com/brilliantrough/dot_file/tree/master/pi)。
+[Pi](https://pi.dev) 原生读 `~/.agents/skills/`；MCP/subagent 靠 npm 包与扩展提供。模板见 [templates/pi](templates/pi)。
 
 与 OpenCode 共享配置，均按字段合并、幂等、不破坏本地值：
 
@@ -756,7 +767,7 @@ OpenCode setup 单独询问是否刷新 Magic Context，默认 Y；v2 兼容基�
 2. 可选安装 context-mode fork：
    - Pi：`curl -fsSL https://github.com/brilliantrough/agent-skills/releases/latest/download/pi-context-mode-vendor.tar.gz | tar -xz -C ~/.pi/agent/vendor/context-mode`，再 `pi install ~/.pi/agent/vendor/context-mode`
    - OpenCode v1：取 `opencode-context-mode-vendor.tar.gz` 解到 `~/.config/opencode/plugins/context-mode`，将包内 `entry.js` 用 `cp` 复制到 `plugins/context-mode.js`
-3. 将 dot_file 的 `pi/{models,settings,mcp,auth,pi-autoname}.json`、`pi/agents/*.md` 放到对应位置
+3. 将本仓 `templates/pi/{models,settings,mcp,auth,pi-autoname}.json`、`templates/pi/agents/*.md` 放到对应位置
 4. 填好 `models.json` 网关占位符、`auth.json` coding plan key；用 `pi auth check --provider <p>` 验证
 
 管理包：`pi remove <source>` 卸载，`pi list` 查看。uv/strictdoc 处理同 `opencode-setup.sh`。
@@ -999,7 +1010,7 @@ v2 的 `cli.json` 使用点分 action 名：
 | 宿主 | 配置与生效方式 |
 |---|---|
 | OpenCode V2 | 完整 setup 确认后设置对应三个 action；先显示差异并备份，保留其它按键；`--plugins-only` 不统一按键。没有 `cli.json` 时先准备 `tui.json`，首启由宿主迁移 |
-| Pi | `dot_file/pi/keybindings.json`：`tui.input.submit: [enter]`、`tui.input.newLine: [shift+enter]`，保留自定义 `app.*`；脚本按模板部署，本机修改后 `/reload` 生效 |
+| Pi | `templates/pi/keybindings.json`：`tui.input.submit: [enter]`、`tui.input.newLine: [shift+enter]`，保留自定义 `app.*`；脚本按模板部署，本机修改后 `/reload` 生效 |
 
 - Enter 发送，Shift+Enter 换行；不绑定 Ctrl+Enter，不再把 Ctrl+J 设为发送
 - Pi 旧 LF 提交兼容逻辑仅在 Ctrl+J 绑定为 submit 时启用，此配置不触发

@@ -93,6 +93,17 @@ grep -q 'codeload.github.com' skills-sync.sh || err "skills-sync.sh 不再从 Gi
 grep -qE 'agent-skills-main/|本地克隆当源' skills-sync.sh && err "skills-sync.sh 出现本地克隆取源"
 info "取源仍走 GitHub tarball"
 
+# 配置模板随本仓分发(templates/);setup 不再依赖其它仓库
+if grep -nE 'githubusercontent\.com/[^/]+/dot_file' pi-setup.sh opencode-setup.sh codex-setup.sh dsh-setup.sh skills-sync.sh skills-external.sh modules/run.sh modules/*/setup.sh; then
+  err "setup 里出现 dot_file 仓库的下载地址;模板放进 templates/,经 RAW 变量(指向本仓 templates/)取用"
+fi
+# 脚本里以 RAW 变量加相对路径引用模板;逐个核对文件存在
+tpl_missing=0
+for t in $(grep -ohE '[^A-Z_]RAW/[A-Za-z0-9_./-]+' pi-setup.sh opencode-setup.sh codex-setup.sh dsh-setup.sh | sort -u); do
+  [ -f "templates/${t#*RAW/}" ] || { err "setup 引用了不存在的模板 templates/${t#*RAW/};补上文件或改引用"; tpl_missing=1; }
+done
+[ "$tpl_missing" = 0 ] && info "setup 引用的模板都在 templates/"
+
 # 通用步骤只在共用脚本里实现一次；setup 里各写一份就会逐渐走偏
 grep -q 'memory-system:start' skills-sync.sh || err "skills-sync.sh 缺记忆规范块注入（四个 setup 共用）"
 for f in pi-setup.sh opencode-setup.sh codex-setup.sh dsh-setup.sh; do

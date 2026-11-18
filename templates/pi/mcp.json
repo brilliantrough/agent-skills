@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "web": {
+      "url": "https://<YOUR_MCPHUB_HOST>/mcp/web",
+      "exposure": "deferred",
+      "description": "网页与新闻检索、页面抓取、开发文档和 GitHub 研究；常用工具直连，其余按需发现。",
+      "toolExposure": {
+        "firecrawl-mcp-firecrawl_scrape": "direct",
+        "firecrawl-mcp-firecrawl_search": "direct",
+        "tavily-mcp-tavily_search": "direct",
+        "tavily-mcp-tavily_extract": "direct"
+      }
+    },
+    "codegraph": {
+      "command": "<CODEGRAPH_BIN>",
+      "args": ["serve", "--mcp"],
+      "exposure": "deferred",
+      "description": "项目代码知识图谱：符号、引用、调用关系与结构检索。"
+    }
+  }
+}

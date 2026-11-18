@@ -24,7 +24,7 @@
 #      检测到上游 npm:context-mode 或旧的 clone 路径条目会提示卸载——它们与 magic-context 抢 ctx_search/重复注册)
 #      启用 magic-context 前检查与 opencode 共享 context.db 的
 #      版本守卫(opencode 插件缓存版本 < Pi 扩展版本时先提示,不清理就不启用)
-#   4. 部署(字段级合并 dot_file 模板,api key/网关等本地敏感值保留;settings/auth/claude-mem/magic-context 下载失败用内嵌兜底,models.json/mcp.json 必须联网或手工维护):
+#   4. 部署(字段级合并 本仓模板,api key/网关等本地敏感值保留;settings/auth/claude-mem/magic-context 下载失败用内嵌兜底,models.json/mcp.json 必须联网或手工维护):
 #      ~/.pi/agent/settings.json(含按模型 thinking、4 秒起步指数退避重试 8 次)、pi-autoname.json(低频命名)、
 #      ~/.pi/agent/models.json、~/.pi/agent/auth.json(占位符初始化,
 #      coding plan 等内置 provider 凭据)、~/.pi/agent/mcp.json(原生 MCP,Pi >= 0.99.0)
@@ -411,9 +411,9 @@ PYEOF
   return 0
 }
 
-RAW="https://raw.githubusercontent.com/brilliantrough/dot_file/master"
 SELF_RAW="https://raw.githubusercontent.com/${AGENT_SKILLS_REPO:-brilliantrough/agent-skills}/${AGENT_SKILLS_REF:-main}"
-# merge_cfg <url> <dest> [mcp] — 拉 dot_file 模板后做「字段级」合并,而非整文件覆盖:
+RAW="$SELF_RAW/templates"  # 配置模板随本仓分发(templates/),与脚本同一 ref
+# merge_cfg <url> <dest> [mcp] — 拉本仓模板后做「字段级」合并,而非整文件覆盖:
 #   模板中的非敏感字段值优先 → 新默认值能下发到服务器;
 #   隐私内容永不覆盖:敏感键(api key / secret / token / password / credential / bearer / auth /
 #     cookie / ingest / webhook / base_url / url / endpoint / host / 以 key 结尾)保留机器上已有值。
@@ -462,7 +462,7 @@ open(p, 'w', encoding='utf-8').write(t)
 PYEOF
   fi
   if [ ! -f "$dest" ]; then
-    if ask "写入 $dest(来自 dot_file 模板)$([ "$mode" = mcp ] && echo ',含本机路径')?" Y; then
+    if ask "写入 $dest(来自 本仓模板)$([ "$mode" = mcp ] && echo ',含本机路径')?" Y; then
       mkdir -p "$(dirname "$target")"; cp "$tmp" "$target"; echo "wrote: $dest"
     else
       echo "跳过: $dest 未创建"
@@ -1005,7 +1005,7 @@ PYEOF
   fi
 fi
 
-# ---- 4. 部署 Pi 配置(字段级合并 dot_file 模板)----
+# ---- 4. 部署 Pi 配置(字段级合并 本仓模板)----
 # 凭据先问:下面步骤 4(models/mcp/auth)与步骤 6(claude-mem settings、magic-context)都要用它填占位符
 collect_gateway_values
 if [ "$PI_OK" -eq 1 ]; then
