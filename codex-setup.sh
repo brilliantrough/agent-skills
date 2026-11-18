@@ -24,6 +24,11 @@ BIN_EXT=""; [ "$IS_WIN" = 1 ] && BIN_EXT=".exe"
 npath() { # POSIX 路径 → 宿主路径(Git Bash 的 /c/Users/x 对原生程序无效,要 C:/Users/x)
   if [ "$IS_WIN" = 1 ] && command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s' "$1"; fi
 }
+rpath() { # 解析实际写入目标；更新内容时保留文件和父目录上的符号链接。
+  local p
+  p="$(python3 -c 'from pathlib import Path; import sys; print(Path(sys.argv[1]).resolve().as_posix())' "$(npath "$1")")" || return 1
+  if [ "$IS_WIN" = 1 ]; then cygpath -u "$p"; else printf '%s' "$p"; fi
+}
 nbin() { # 可执行文件的宿主路径:MSYS 的 command -v 会去掉 .exe,宿主 spawn 前显式补回
   if [ "$IS_WIN" = 1 ] && [ -f "$1.exe" ]; then npath "$1.exe"; else npath "$1"; fi
 }
@@ -72,20 +77,22 @@ RAW="https://raw.githubusercontent.com/brilliantrough/dot_file/master"
 export PATH="$HOME/.local/bin:$HOME/.bun/bin:$PATH"
 errors=0
 
-ask() {
+ask() { # $1=提示 $2=默认(Y/N,缺省 N)
   local a="" def="${2:-N}" hint="y/N"
   [ "$def" = Y ] && hint="Y/n"
-  # -y:只对默认 Y 的项自动通过;默认 N 的照样问,避免不知情的覆盖/升级
   # -y(默认安装):不再逐项确认,直接取默认 —— 默认 Y 的照做,默认 N 的跳过(凭据由 ask_value 单独问)
   if [ -n "$ASSUME_YES" ]; then
     if [ "$def" = Y ]; then echo "$1 [$hint] → 是 (-y)"; return 0
     else echo "$1 [$hint] → 否 (-y,跳过)"; return 1; fi
   fi
-  if { true < /dev/tty; } 2>/dev/null && read -r -p "$1 [$hint] " a < /dev/tty; then
+  # 不能把 read 的 stderr 丢掉:read -p 的提示符走 stderr,吞掉后提示不可见,脚本像卡死。
+  # 用 fd 9 显式打开 /dev/tty:无控制终端时(CI/cron/管道)打开失败保持安静,直接走默认值。
+  if { exec 9</dev/tty; } 2>/dev/null; then
+    read -r -u 9 -p "$1 [$hint] " a || a=""
+    exec 9<&-
     if [ -z "$a" ]; then [ "$def" = Y ]; else [[ "$a" =~ ^[Yy]$ ]]; fi
   else
-    echo "$1 [$hint] (非交互,默认 $def)"
-    [ "$def" = Y ]
+    [ "$def" = Y ]  # 非交互(无 tty):按该询问的默认值
   fi
 }
 warn() { echo "WARN: $*" >&2; errors=$((errors + 1)); }
@@ -133,7 +140,7 @@ PYEOF
 
 # claude-mem worker 的 host:port(与 claude-mem/桥接同一优先级:环境变量 > settings.json > 默认公式)
 mem_worker_url() {
-  python3 - "$SETTINGS" <<'PYEOF'
+  python3 - "$1" <<'PYEOF'
 import json, os, sys
 try:
     s = json.load(open(sys.argv[1], encoding='utf-8'))
@@ -160,7 +167,7 @@ ask_value() { # $1=提示(括号里写协议/分组等说明) $2=输出变量 $3
   if [ -n "${4:-}" ]; then hint="$1;回车=默认 $4,输 - 留占位符"
   else hint="$1;回车跳过(占位符保留)"; fi
   # 有终端就问(-y 也问:凭据只能人工给);无终端(CI/管道)静默保持空 → 占位符保留。
-  # 无人值守用环境变量预填(见上方 GW_BASE / K_MEM)。
+  # 无人值守用环境变量预填(见上方 GW_BASE / K_*)。
   if { exec 9</dev/tty; } 2>/dev/null; then
     if [ -n "${3:-}" ]; then read -r -s -u 9 -p "$hint: " a || a=""; echo
     else read -r -u 9 -p "$hint: " a || a=""; fi
@@ -231,11 +238,8 @@ PYEOF
   return 0
 }
 merge_cfg() {
-  local url="$1" dest="$2" tmp cand out
-  if [ -L "$dest" ]; then
-    echo "跳过: $dest 是符号链接(指向 $(readlink "$dest")),不覆盖以免破坏链接目标"
-    return 1
-  fi
+  local url="$1" dest="$2" tmp cand out target
+  target="$(rpath "$dest")" || return 1
   # 操作员在提示里给了网关/密钥:先把本地文件里的占位符补上(改前存 .bak),再走正常合并
   # (补进去的是敏感键,合并会原样保留)。目标文件不存在时由模板侧的 fill_template_placeholders 负责。
   if [ -f "$dest" ] && [ -n "$GW_BASE$K_CLAUDE$K_CODEX$K_ANTHROPIC$K_GEMINI$K_EMBED$K_MEM$MCPHUB_HOST" ] && grep -q '<YOUR_' "$dest" 2>/dev/null; then
@@ -251,7 +255,7 @@ merge_cfg() {
   fill_template_placeholders "$tmp"
   if [ ! -f "$dest" ]; then
     if ask "写入 $dest(来自 dot_file 模板,含占位符)?" Y; then
-      mkdir -p "$(dirname "$dest")"; cp "$tmp" "$dest"; echo "wrote: $dest(含占位符)"
+      mkdir -p "$(dirname "$target")"; cp "$tmp" "$target"; echo "wrote: $dest(含占位符)"
     else
       echo "跳过: $dest 未创建"
       rm -f "$tmp"
@@ -331,7 +335,7 @@ PYEOF
     unchanged) echo "unchanged: $dest(已与模板一致,无需改动)"; rm -f "$cand" ;;
     "")        echo "WARN: $dest 合并失败,保留原文件" >&2; rm -f "$cand"; return 1 ;;
     *)         if ask "更新 $dest($out;api key 等敏感值保留,原文件存 $bak)?" Y; then
-                 cp "$dest" "$bak"; mv "$cand" "$dest"; echo "updated: $dest"
+                 cp "$dest" "$bak"; mv "$cand" "$target"; echo "updated: $dest"
                else
                  echo "保留原文件: $dest"; rm -f "$cand"; return 2
                fi ;;
@@ -458,8 +462,9 @@ mem_ready() {
 # 记忆后端必须走 OpenAI 兼容的 openrouter provider;安装器或旧配置写成 claude 时纠正。
 # 只改这一个键,模型/接口/凭据原样保留。
 ensure_mem_provider() {
-  local f="$1" tmp
-  [ -f "$f" ] && [ ! -L "$f" ] || return 0
+  local f="$1" tmp target
+  [ -f "$f" ] || return 0
+  target="$(rpath "$f")" || return 1
   grep -qE '"CLAUDE_MEM_PROVIDER"[[:space:]]*:[[:space:]]*"openrouter"' "$f" && return 0
   tmp="$(mktemp)"
   if python3 - "$f" "$tmp" <<'PY'
@@ -471,7 +476,7 @@ open(sys.argv[2],'a').write('\n')
 PY
   then
     cp -p "$f" "$f.bak-provider-$(date +%Y%m%d%H%M%S)"
-    mv "$tmp" "$f"; echo "updated: $f (CLAUDE_MEM_PROVIDER=openrouter)"
+    mv "$tmp" "$target"; echo "updated: $f (CLAUDE_MEM_PROVIDER=openrouter)"
   else
     rm -f "$tmp"; warn "$f 解析失败,未改 provider;请手工设为 openrouter"
   fi
@@ -670,7 +675,7 @@ fi
 echo '== 配置步骤结束 =='
 echo '1. 在 Codex /hooks 审阅并信任插件 hooks,然后重开会话;更新 hooks 后可能需要重新信任。'
 echo '2. 用 /mcp 检查连接,实际调用 claude-mem 查询和 CodeGraph 工具。'
-echo "3. claude-mem worker 地址 http://$(mem_worker_url)(端口取自 $SETTINGS,默认 37700)。后端配置: $SETTINGS（本脚本启动时已问过网关地址 + claude-mem 的 API key 并填入;若当时跳过,手工填 <YOUR_*> 占位符;环境变量预填方式:PI_GATEWAY_BASE_URL / PI_CLAUDE_MEM_API_KEY)。如刚运行安装器,填好配置后执行 npx claude-mem@latest start。"
+echo "3. claude-mem worker 地址 http://$(mem_worker_url "$SETTINGS")(端口取自 $SETTINGS,默认 37700)。后端配置: $SETTINGS（本脚本启动时已问过网关地址 + claude-mem 的 API key 并填入;若当时跳过,手工填 <YOUR_*> 占位符;环境变量预填方式:PI_GATEWAY_BASE_URL / PI_CLAUDE_MEM_API_KEY)。如刚运行安装器,填好配置后执行 npx claude-mem@latest start。"
 echo '4. 新项目执行 codegraph init;已有项目索引可复用。'
 echo '5. skills 原样复用;缺少 Magic Context 的 ctx_* 工具时仅 best effort,以 OpenCode 为主。'
 echo '6. 本脚本不升级已有插件；skills 已经共用同步器刷新，第三方由 npx skills 更新。'

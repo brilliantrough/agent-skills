@@ -75,6 +75,11 @@ resolve_python3() { # python3 就绪返回 0;否则 python → py → uv 自管�
 npath() { # POSIX 路径 → 宿主路径(Git Bash 的 /c/Users/x 对原生程序无效,要 C:/Users/x)
   if [ "$IS_WIN" = 1 ] && command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s' "$1"; fi
 }
+rpath() { # 解析实际写入目标；更新内容时保留文件和父目录上的符号链接。
+  local p
+  p="$(python3 -c 'from pathlib import Path; import sys; print(Path(sys.argv[1]).resolve().as_posix())' "$(npath "$1")")" || return 1
+  if [ "$IS_WIN" = 1 ]; then cygpath -u "$p"; else printf '%s' "$p"; fi
+}
 nbin() { # 可执行文件的宿主路径:MSYS 的 command -v 会去掉 .exe,宿主 spawn 前显式补回
   if [ "$IS_WIN" = 1 ] && [ -f "$1.exe" ]; then npath "$1.exe"; else npath "$1"; fi
 }
@@ -244,7 +249,7 @@ PYEOF
 
 # claude-mem worker 的 host:port(与 claude-mem/桥接同一优先级:环境变量 > settings.json > 默认公式)
 mem_worker_url() {
-  python3 - "$MC_SETTINGS" <<'PYEOF'
+  python3 - "$1" <<'PYEOF'
 import json, os, sys
 try:
     s = json.load(open(sys.argv[1], encoding='utf-8'))
@@ -415,13 +420,10 @@ SELF_RAW="https://raw.githubusercontent.com/${AGENT_SKILLS_REPO:-brilliantrough/
 #   列表键 packages/enabledModels 走并集(本地顺序 + 模板新增);其余键模板优先,数组整体替换。
 #   合并结果与本地一致时不写文件(幂等);有改动先存时间戳 .bak。
 #   mcp 模式额外替换 <HOME>/<BUN_BIN>/<CODEGRAPH_BIN> 为本机路径。
-#   dest 不存在则直接落模板。符号链接跳过(不穿透)。
+#   dest 不存在则直接落模板。dest 是符号链接时写入链接目标,链接本身保留。
 merge_cfg() {
-  local url="$1" dest="$2" mode="${3:-}" tmp cand out
-  if [ -L "$dest" ]; then
-    echo "跳过: $dest 是符号链接(指向 $(readlink "$dest")),不覆盖以免破坏链接目标"
-    return 1
-  fi
+  local url="$1" dest="$2" mode="${3:-}" tmp cand out target
+  target="$(rpath "$dest")" || return 1
   # 操作员在提示里给了网关/密钥:先把本地文件里的占位符补上(改前存 .bak),再走正常合并
   # (补进去的是敏感键,合并会原样保留)。目标文件不存在时由模板侧的 fill_template_placeholders 负责。
   if [ -f "$dest" ] && [ -n "$GW_BASE$K_CLAUDE$K_CODEX$K_ANTHROPIC$K_GEMINI$K_EMBED$K_MEM$MCPHUB_HOST" ] && grep -q '<YOUR_' "$dest" 2>/dev/null; then
@@ -459,7 +461,7 @@ PYEOF
   fi
   if [ ! -f "$dest" ]; then
     if ask "写入 $dest(来自 dot_file 模板)$([ "$mode" = mcp ] && echo ',含本机路径')?" Y; then
-      mkdir -p "$(dirname "$dest")"; cp "$tmp" "$dest"; echo "wrote: $dest"
+      mkdir -p "$(dirname "$target")"; cp "$tmp" "$target"; echo "wrote: $dest"
     else
       echo "跳过: $dest 未创建"
       rm -f "$tmp"
@@ -558,7 +560,7 @@ PYEOF
     unchanged) echo "unchanged: $dest(已与模板一致,无需改动)"; rm -f "$cand" ;;
     "")        echo "WARN: $dest 合并失败,保留原文件" >&2; rm -f "$cand"; return 1 ;;
     *)         if ask "更新 $dest($out;api key 等敏感值保留,原文件存 $bak)?" Y; then
-                 cp "$dest" "$bak"; mv "$cand" "$dest"; echo "updated: $dest"
+                 cp "$dest" "$bak"; mv "$cand" "$target"; echo "updated: $dest"
                else
                  echo "保留原文件: $dest"; rm -f "$cand"; return 2
                fi ;;
@@ -587,8 +589,9 @@ PY
 # 记忆后端必须走 OpenAI 兼容的 openrouter provider;安装器或旧配置写成 claude 时纠正。
 # 只改这一个键,模型/接口/凭据原样保留。
 ensure_mem_provider() {
-  local f="$1" tmp
-  [ -f "$f" ] && [ ! -L "$f" ] || return 0
+  local f="$1" tmp target
+  [ -f "$f" ] || return 0
+  target="$(rpath "$f")" || return 1
   grep -qE '"CLAUDE_MEM_PROVIDER"[[:space:]]*:[[:space:]]*"openrouter"' "$f" && return 0
   tmp="$(mktemp)"
   if python3 - "$f" "$tmp" <<'PY'
@@ -600,7 +603,7 @@ open(sys.argv[2],'a').write('\n')
 PY
   then
     cp -p "$f" "$f.bak-provider-$(date +%Y%m%d%H%M%S)"
-    mv "$tmp" "$f"; echo "updated: $f (CLAUDE_MEM_PROVIDER=openrouter)"
+    mv "$tmp" "$target"; echo "updated: $f (CLAUDE_MEM_PROVIDER=openrouter)"
   else
     rm -f "$tmp"; echo "WARN: $f 解析失败,未改 provider;请手工设为 openrouter" >&2
   fi
@@ -1168,7 +1171,7 @@ mc_rc=0; merge_cfg "$RAW/opencode/claude-mem.settings.json" "$MC_SETTINGS" || mc
 # 含密钥/本机路径的配置统一 600(对齐 codex-setup.sh 的 umask 077);文件可能还不存在
 chmod 600 "$MODELS" "$AUTH" "$MC_SETTINGS" "$MC_CFG" 2>/dev/null || true
 ensure_mem_worker_keys "$MC_SETTINGS" 2>/dev/null || true
-echo "claude-mem worker: http://$(mem_worker_url)(健康检查: curl -s http://$(mem_worker_url)/api/health)"
+echo "claude-mem worker: http://$(mem_worker_url "$MC_SETTINGS")(健康检查: curl -s http://$(mem_worker_url "$MC_SETTINGS")/api/health)"
 if [ "$mc_rc" = 1 ] && [ ! -f "$MC_SETTINGS" ]; then
   if ask "写入 $MC_SETTINGS(内嵌兜底模板,含占位符)?" Y; then
   cat > "$MC_SETTINGS" <<'EOF'
@@ -1383,7 +1386,7 @@ done
 echo "   提示:claude-mem 走 openrouter(OpenAI 协议),它的 key 与 magic-context embedding 的各自独立;historian/dreamer 的 model 用 <provider>/<model-id>"
 echo "$n. 重启 claude-mem worker 并验证:"; n=$((n+1))
 echo "      cd ~/.claude/plugins/marketplaces/thedotmack && npm run worker:restart"
-echo "      curl -s http://$(mem_worker_url)/api/health   # 端口取自 $MC_SETTINGS(见下方提示)"
+echo "      curl -s http://$(mem_worker_url "$MC_SETTINGS")/api/health   # 端口取自 $MC_SETTINGS(见下方提示)"
 echo "$n. 项目接入记忆系统(可选):skills 同步时会问一次;也可手动把本仓库 AGENTS.tail.md 的 memory-system 块粘到项目 AGENTS.md 的最尾部"; n=$((n+1))
 if [ -x "${CG_BIN:-}" ]; then
   echo "$n. 代码知识图谱(按项目):cd <项目> && codegraph init(建 .codegraph/ 索引;不 init 则 MCP 无内容可查)"; n=$((n+1))

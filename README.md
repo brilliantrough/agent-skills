@@ -1119,7 +1119,7 @@ bash skills-external.sh --ppt  # 另补缺ppt-master；不代替ppt组和独立P
 - 模型字段中，`CLAUDE_MEM_*_MODEL` 随模板统一为 `mem-1`；API key、Base URL、port／host 保留。Magic Context 的 model 仍由脚本接管但本轮不改值。
 - 整文件覆盖的 `agent-skills-ui.json` / `agent-skills-editor.json` / `keybindings.json` 不含隐私内容
 
-回归检查：`python3 tests/merge-private-preservation.py`；selfcheck 也会运行。
+回归检查：`python3 tests/merge-private-preservation.py`；selfcheck 也会运行。符号链接配置的写穿行为另有 `bash tests/merge-symlink-writethrough.sh`（Pi／OpenCode／Codex 三个 setup，不联网）。
 
 ## 单装某一个
 

@@ -185,7 +185,7 @@ PYEOF
 
 # claude-mem worker 的 host:port(与 claude-mem/桥接同一优先级:环境变量 > settings.json > 默认公式)
 mem_worker_url() {
-  python3 - "$SETTINGS" <<'PYEOF'
+  python3 - "$1" <<'PYEOF'
 import json, os, sys
 try:
     s = json.load(open(sys.argv[1], encoding='utf-8'))
@@ -644,7 +644,7 @@ EOF
   fi
 fi
 ensure_mem_worker_keys "$SETTINGS" 2>/dev/null || true
-echo "claude-mem worker: http://$(mem_worker_url)(健康检查: curl -s http://$(mem_worker_url)/api/health)"
+echo "claude-mem worker: http://$(mem_worker_url "$SETTINGS")(健康检查: curl -s http://$(mem_worker_url "$SETTINGS")/api/health)"
 
 # ---- 3.1 magic-context 配置文件(字段级合并 dot_file 模板;historian.model 必填,否则插件报错)----
 mcc_rc=0; merge_cfg "$RAW/opencode/magic-context.jsonc" "$MC_CFG" || mcc_rc=$?
@@ -1192,7 +1192,7 @@ done
 echo "   提示:claude-mem 走 openrouter(OpenAI 协议),它的 key 与 magic-context embedding 的各自独立"
 echo "$n. 重启 claude-mem worker 并验证:"; n=$((n+1))
 echo "      cd ~/.claude/plugins/marketplaces/thedotmack && npm run worker:restart"
-echo "      curl -s http://$(mem_worker_url)/api/health   # 端口取自 $SETTINGS(见下方提示)"
+echo "      curl -s http://$(mem_worker_url "$SETTINGS")/api/health   # 端口取自 $SETTINGS(见下方提示)"
 echo "$n. 项目接入记忆系统(可选):skills 同步时会问一次;也可手动把本仓库 AGENTS.tail.md 的 memory-system 块粘到项目 AGENTS.md 的最尾部"; n=$((n+1))
 if command -v codegraph >/dev/null 2>&1 || [ -x "$HOME/.local/bin/codegraph" ]; then
   echo "$n. 代码知识图谱(按项目):cd <项目> && codegraph init(建 .codegraph/ 索引,之后自动增量同步;不 init 则 MCP 无内容可查)"; n=$((n+1))

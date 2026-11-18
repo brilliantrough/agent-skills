@@ -262,20 +262,56 @@ share_out=$(python3 - <<'PY'
 import re
 SETUPS = ["pi-setup.sh", "opencode-setup.sh", "codex-setup.sh", "dsh-setup.sh"]
 SHARED = ["skills-sync.sh", "skills-external.sh", "modules/run.sh"]
-# setup 可单文件 curl 运行，这些函数允许各带一份，但各份必须逐字一致
-LOCKED = ["ensure_image_gen", "ensure_mem_worker_keys", "fill_template_placeholders", "nbin", "npath", "resolve_python3"]
-FN = re.compile(r"^([A-Za-z_]\w*)\(\)\s*\{(.*?)^\}", re.M | re.S)
-defs = {f: dict(FN.findall(open(f, encoding="utf-8").read())) for f in SETUPS + SHARED}
+ALL3 = ["pi-setup.sh", "opencode-setup.sh", "codex-setup.sh"]
+PI_OC = ["pi-setup.sh", "opencode-setup.sh"]
+# setup 可单文件 curl 运行，这些函数允许各带一份，但列出的各份必须逐字一致。
+# 宿主差异用参数表达；确实不同的实现改名，不放进这张表。
+LOCKED = {
+    "npath": ALL3, "rpath": ALL3, "nbin": ALL3, "resolve_python3": ALL3,
+    "ask": ALL3, "ask_value": ALL3, "fill_template_placeholders": ALL3, "mem_worker_url": ALL3,
+    "net_ok": PI_OC, "collect_gateway_values": PI_OC, "ensure_mem_provider": PI_OC,
+    "ensure_mem_worker_keys": PI_OC, "ensure_image_gen": PI_OC,
+}
+
+def functions(path):
+    out, name, body = {}, None, []
+    for line in open(path, encoding="utf-8"):
+        if name is None:
+            m = re.match(r"([A-Za-z_]\w*)\(\)\s*\{(.*)$", line)
+            if not m:
+                continue
+            if m.group(2).rstrip().endswith("}"):  # 单行函数
+                out[m.group(1)] = m.group(2).rstrip()
+            else:
+                name, body = m.group(1), [m.group(2)]
+        elif line.rstrip("\n") == "}":
+            out[name] = "".join(body)
+            name = None
+        else:
+            body.append(line)
+    return out
+
+defs = {f: functions(f) for f in SETUPS + SHARED}
 bad = []
-for fn in LOCKED:
-    have = [(f, defs[f][fn]) for f in SETUPS if fn in defs[f]]
-    for f, body in have[1:]:
-        if body != have[0][1]:
-            bad.append(f"{f}: 函数 {fn} 与 {have[0][0]} 的副本不一致；两处同步修改，确属宿主差异就改名并移出 LOCKED")
+for fn, files in LOCKED.items():
+    missing = [f for f in files if fn not in defs[f]]
+    for f in missing:
+        bad.append(f"{f}: 缺函数 {fn}（LOCKED 要求它与 {files[0]} 保持一致）；补上，或把它移出 LOCKED")
+    have = [f for f in files if fn in defs[f]]
+    for f in have[1:]:
+        if defs[f][fn] != defs[have[0]][fn]:
+            bad.append(f"{f}: 函数 {fn} 与 {have[0]} 的副本不一致；两处同步修改，宿主差异改用参数传入")
 for f in SETUPS:
     for s in SHARED:
         for fn in sorted(set(defs[f]) & set(defs[s])):
             bad.append(f"{f}: 重新定义了 {s} 里的 {fn}；通用步骤只在 {s} 实现一次，setup 里改为调用")
+# 私密值永不覆盖：三份内嵌合并逻辑的敏感键正则必须逐字一致
+sens = {f: re.findall(r"^SENSITIVE = .*$", open(f, encoding="utf-8").read(), re.M) for f in ALL3}
+for f in ALL3:
+    if len(sens[f]) != 1:
+        bad.append(f"{f}: 应恰有一行 SENSITIVE = …，实际 {len(sens[f])} 行")
+    elif sens[f] != sens[ALL3[0]]:
+        bad.append(f"{f}: SENSITIVE 正则与 {ALL3[0]} 不一致；三份同步修改并跑 tests/merge-private-preservation.py")
 print("\n".join(bad))
 PY
 )
@@ -287,7 +323,7 @@ if command -v shellcheck >/dev/null 2>&1; then
 elif [ "$fail" = 0 ]; then
   info "未安装 shellcheck，该项跳过"
 fi
-[ "$fail" = 0 ] && info "脚本头、行尾、共用函数一致"
+[ "$fail" = 0 ] && info "脚本头、行尾、共用函数与 SENSITIVE 一致"
 [ "$fail_before" = 1 ] && fail=1
 
 echo
