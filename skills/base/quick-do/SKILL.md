@@ -5,31 +5,31 @@ description: Execute small, well-understood changes directly in the current sess
 
 # Quick Do: understand → do → verify
 
-Apply `goal-first`: keep the requested outcome and smallest sufficient check in view. An incidental discovery is work only if it affects that outcome; do not turn a bounded edit into exploration or cleanup. No extra planning artifact.
+Apply `goal-first`: keep the requested outcome and smallest sufficient check in view. An incidental discovery is work only if it affects that outcome; a bounded edit stays bounded. No extra planning artifact.
 
 ## When this skill applies
 
 - Small, well-understood changes with a known verification path: localized fixes, mechanical edits, config tweaks, short scripts.
-- The user's explicit choice wins — never switch workflows silently; if the chosen one cannot fit the task, say why and ask. Stuck on design, compatibility, or acceptance decisions → stop and propose `steady-do` (if unsure between quick and steady, use steady); a handoff to a separate session → propose `plan-brief`.
-- These workflows govern requested development work, not every explanation or read-only question. Skill instructions are in English; replies and deliverables follow the user's language (Chinese by default).
+- The user's explicit workflow choice wins; if the chosen one cannot fit the task, say why and ask before switching. Stuck on design, compatibility, or acceptance decisions → stop and propose `steady-do` (if unsure between quick and steady, use steady); a handoff to a separate session → propose `plan-brief`.
+- These workflows govern requested development work; explanations and read-only questions need no workflow. Skill instructions are in English; replies and deliverables follow the user's language (Chinese by default).
 
 ## Do the work
 
-- **User discipline first:** check any root AGENTS `user-discipline` block and apply relevant rules to this edit. A user invoking `discipline` requires immediate activation, not merely a memory save.
-- Read the request, applicable project rules, and affected files before editing. Inspect relevant callers when changing shared behavior; avoid unrelated exploration. Reuse unchanged context, keep the exact edit unit available, and refresh it after a match failure instead of guessing another patch.
+- **User discipline first:** check any root AGENTS `user-discipline` block and apply relevant rules to this edit. A user invoking `discipline` requires immediate activation in the current work as well as the saved rule.
+- Read the request, applicable project rules, and affected files before editing. Inspect relevant callers when changing shared behavior. Reuse unchanged context, keep the exact edit unit available, and reread it after a match failure instead of guessing another patch.
 - **Look at the live site first (seconds, no approval):** env active, deps actually importable, files and callers as expected — one glance that prevents a whole round of avoidable errors. Skipping ceremony is the point here; skipping this look is not.
-- Fix the root cause, not the reported symptom: grep the callers of what you touch and fix where all of them route through — a guard repeated in every caller is a bigger diff and leaves siblings broken.
-- Prefer the obvious interpretation for ordinary implementation details. Ask at most one focused clarification in the normal quick path; if investigation reveals substantial ambiguity or risk, stop and propose `steady-do` rather than guessing to satisfy the question limit.
-- No plan documents, grilling sessions, or sub-agents. Use a todo only when the work or host instructions warrant it; do not create a planning ceremony.
+- Fix the root cause: grep the callers of what you touch and fix where all of them route through. A guard repeated in every caller is a bigger diff and leaves siblings broken.
+- Take the obvious interpretation for ordinary implementation details. Ask at most one focused clarification on the quick path; if investigation reveals substantial ambiguity or risk, stop and propose `steady-do`.
+- No plan documents, grilling sessions, or sub-agents. Use a todo only when the work or host instructions warrant it.
 - Keep the smallest working change: reuse existing code, then stdlib/native features, then installed dependencies. No over-encapsulation, speculative abstractions, defensive boilerplate, redundant checks, or unrelated cleanup. Preserve necessary trust-boundary validation, security, accessibility, and data protection.
-- Leave no scratch scripts, probes, temporary tests or outputs behind unless they become a minimal asset with a real consumer; possible future use is not a consumer. Delete the leftovers instead of spending effort maintaining them.
-- Before destructive or irreversible actions, show the impact and obtain explicit authorization. A quick workflow does not permit overwriting secrets or changing unrelated environments.
+- Leave a clean tree: scratch scripts, probes, temporary tests, and outputs are deleted unless they become a minimal asset with a real consumer today.
+- Before destructive or irreversible actions, show the impact and obtain explicit authorization. Permission to start does not permit overwriting secrets or changing unrelated environments.
 
 ## Verify and finish
 
-- **Discipline check:** verify each applicable user-discipline rule against the actual change; report any violation instead of treating the block as background documentation.
-- Default to the smallest real execution path plus a reread of the change; check the requested behavior, not merely the absence of errors. For documentation-only changes, inspect content and applicable format checks.
-- Do not add tests, TDD, or verification scripts by default. Follow explicit user requests and mandatory project checks; those are not waived by this workflow.
-- Report only what actually ran. A static check, successful load, or injected input is not proof of end-to-end behavior. If execution is unavailable, state what remains unverified and the concrete user check.
-- **Blocked is a legitimate outcome:** say so, name what is left and the exact check the user must run; never fake completion and never silently skip a step.
-- Finish in one short line stating the change and verification status, including a blocker or required user check when present. No separate report or summary essay; required product docs and project memory still apply.
+- **Discipline check:** verify each applicable user-discipline rule against the actual change and report any violation.
+- Run the smallest real execution path and reread the change; check the requested behavior, since a clean exit alone proves little. For documentation-only changes, inspect content and applicable format checks.
+- Do not add tests, TDD, or verification scripts by default. Explicit user requests and mandatory project checks still apply.
+- Report only what actually ran, and name its level: a static check, a successful load, and injected input are each weaker than end-to-end behavior. If execution is unavailable, state what remains unverified and the concrete user check.
+- **Blocked is a legitimate outcome:** say so, name what is left and the exact check the user must run. Never fake completion or silently skip a step.
+- Finish in one short line stating the change and verification status, including a blocker or required user check when present. Required product docs and project memory still apply.

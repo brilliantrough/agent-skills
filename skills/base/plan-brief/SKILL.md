@@ -7,7 +7,7 @@ description: Turn a complex, thought-through requirement into a detailed executi
 
 **One job, three artifacts: (1) a detailed execution plan document, (2) a copy-paste launcher prompt that starts a FRESH session to execute it, (3) later, the review of that session's report.** You plan and review; you NEVER execute the plan and never spawn execution sub-agents.
 
-Apply `goal-first`: each planned investigation or step must serve the agreed outcome or resolve a decision-critical unknown. Carry budgets, stopping conditions and how to handle incidental findings into the existing plan/prompt; do not add another process document.
+Apply `goal-first`: each planned investigation or step must serve the agreed outcome or resolve a decision-critical unknown. Carry budgets, stopping conditions and how to handle incidental findings into the plan and launcher prompt themselves.
 
 Deliverables checklist — none of these may be skipped silently:
 
@@ -18,7 +18,7 @@ Deliverables checklist — none of these may be skipped silently:
 ## When this skill applies
 
 - The user wants a durable execution plan, execution handed to a separate session, or a report reviewed / a fix round dispatched — the three artifacts above.
-- The user's explicit choice wins; never switch workflows silently. In-session implementation is `quick-do` / `steady-do`; if a handoff would help but was not requested, propose it before changing who executes.
+- The user's explicit workflow choice wins. In-session implementation is `quick-do` / `steady-do`; if a handoff would help but was not requested, propose it before changing who executes.
 
 ## Phase 0 — Absorb the requirement
 
@@ -30,15 +30,15 @@ Deliverables checklist — none of these may be skipped silently:
 
 - Read project rules (AGENTS.md), including any `user-discipline` block as binding constraints; then read README, project memory and docs, entry points, and everything the requirement touches.
 - Establish: what exists today, the real call chains, existing capabilities and reuse points, compatibility boundaries, and this project's own conventions (env managers, doc locations, run commands, who launches formal runs).
-- Investigate the facts yourself from code, config, memory, docs, and upstream source/issues. Never invent a command, API detail, or platform limit; ask the user for decisions, never for facts you can inspect.
+- Investigate the facts yourself from code, config, memory, docs, and upstream source/issues. Every command, API detail, and platform limit in the plan comes from something you inspected; ask the user for decisions, never for facts you can inspect.
 
 ## Phase 2 — Grill every open detail
 
-Resolve only material details still missing after investigation. Use this bounded round-based method directly — it needs no separate skill:
+Resolve the material details still missing after investigation. The round-based method below is self-contained:
 
 - Ask only unresolved decisions that change scope, behavior, compatibility, risk, execution order, or acceptance; give a recommendation with brief trade-offs.
-- Group independently answerable questions into one round; defer dependent ones until their prerequisites settle. After each round, recompute what it unblocked and ask the next: rounds continue while a further question would still change a decision above. The stopping rule is "nothing material left open", not "one round done".
-- Do not repeat settled questions, invent a quota, or assume every requirement is incomplete.
+- Group independently answerable questions into one round; defer dependent ones until their prerequisites settle. After each round, recompute what it unblocked and ask the next: rounds continue while a further question would still change a decision above. Stop when nothing material is left open, which may take more than one round or none at all.
+- Skip settled questions.
 
 ALWAYS settle the following, from investigation or an explicit user decision:
 
@@ -47,7 +47,7 @@ ALWAYS settle the following, from investigation or an explicit user decision:
 - **Execution order** — dependencies, milestones, genuinely independent or parallel work.
 - **Document location** — the project's working-doc directory; default `docs/plans/YYYY-MM-DD-<slug>.md`. Report and review live beside the plan with the same basename.
 - **Verification mode — mandatory decision; name it in one line in the plan and justify it:**
-  - **TDD mode** — when explicitly requested or required by project policy; invoke the `tdd` skill and identify a meaningful verification seam. A fast feedback loop alone does not require TDD.
+  - **TDD mode** — when explicitly requested or required by project policy; invoke the `tdd` skill and identify a meaningful verification seam.
   - **Smoke-and-read mode** (default for research, long-running, or heavy-compute work): the smallest real execution path + rereading your own code + checking the adjacent behavior it touches. No pytest, no test scaffolding, no wrapper harnesses — the run itself is the cost. The user runs the real workload afterwards.
   - Rule of thumb: if writing and running the test costs more than the failures it would catch, don't write it.
 - **Acceptance and responsibility** — what is observed, the expected result, cost and environment limits, and who runs/verifies what at the end.
@@ -56,12 +56,10 @@ Recap the agreed scope, approach, and verification briefly, then write the plan 
 
 ## Phase 3 — Set the taste
 
-Apply ponytail directly (spelling the rules out here is enough):
-
 - Plan the smallest working change: reuse existing code, then stdlib/native features, then installed dependencies. No over-encapsulation, speculative abstraction, defensive boilerplate, redundant re-validation, future scaffolding, or unrelated cleanup.
-- Choose the highest-value outcome, not the plan that avoids every possible small rework. Do not plan speculative defenses or preserve scratch artifacts; finish with a clean tree and re-add a small detail only when a real need returns.
+- Choose the highest-value outcome and accept small recoverable rework. Plan a clean tree at the end: no speculative defenses, no preserved scratch artifacts; a small detail is re-added when a real need returns.
 - Fix root causes along the real call chains and account for sibling callers of shared logic. Preserve trust-boundary validation, security, accessibility, data protection, and error handling that prevents data loss.
-- Include authorization gates for destructive or irreversible operations; permission to execute the plan is not permission to overwrite secrets or change unrelated environments. Functional code that runs correctly is DONE.
+- Include authorization gates for destructive or irreversible operations. Permission to execute the plan does not permit overwriting secrets or changing unrelated environments. Functional code that runs correctly is DONE.
 
 ## Phase 4 — Write the plan document
 
@@ -70,9 +68,9 @@ One structured Markdown document in the user's language (Chinese headings by def
 1. **Goal and scope** — the Phase 0 restatement, including non-goals.
 2. **Current state** — what exists now and which parts get reused; Phase 1 findings.
 3. **Environment and prerequisites** — exact known commands, paths, versions; unresolved external blockers labeled as such.
-4. **Execution steps** — ordered; each step states what / the files or command / the expected result / its dependencies. Before bulk generation or a broad matrix, settle source/version and semantic contracts, then validate a representative vertical slice and shared components. Group independent work; do not weaken the final agreed coverage. Do not invent commands or API details that were not verified.
+4. **Execution steps** — ordered; each step states what / the files or command / the expected result / its dependencies. Before bulk generation or a broad matrix, settle source/version and semantic contracts, then validate a representative vertical slice and shared components. Group independent work; the final agreed coverage still applies. Write only verified commands and API details.
 5. **Constraints and known pitfalls** — applicable user discipline, compatibility, risks, and the authorization gates from Phase 3.
-6. **Verification** — name the chosen mode (TDD / smoke-and-read) and why; concrete acceptance evidence and who runs what. Distinguish static checks, successful loading, local calls, and real user interaction; never treat absence of errors as proof of the outcome.
+6. **Verification** — name the chosen mode (TDD / smoke-and-read) and why; concrete acceptance evidence and who runs what. Name the level of each check: static check, successful loading, local call, or real user interaction; a clean exit alone proves little.
 7. **Deliverables** — include `<plan-basename>.report.md` beside the plan. Required product docs and project memory still apply.
 
 ## Phase 5 — Write the launcher prompt
@@ -84,17 +82,17 @@ Append it to the plan doc inside a fenced block AND print it in chat for copying
 - Keep current constraints, evidence paths and the active edit unit in the existing todo/context; recover only missing or changed material. Read exact source before editing, refresh after a match failure, and edit the generator rather than giant generated output when a source path exists.
 - Hard constraints: activate the specified environment before running anything; follow the plan's step order; no scope creep; stop and ask when the plan is ambiguous, new evidence invalidates it, or scope must change; resolve ordinary local implementation details without repeated approval.
 - **Development report is mandatory — even for partial work:** write `<plan-basename>.report.md` beside the plan, in the user's language, with 完成情况总表 (per plan step: 完成 / 部分 / 搁置 / 未动 + evidence), 做了什么, 没做什么与搁置原因, 规范遵循情况, 特殊处理与偏离, 遗留问题与建议.
-- **Partial completion is legitimate:** steps blocked by real constraints (missing dependencies, environment limits, out of scope) may be shelved — never fake completion, never silently skip. The report says exactly what was and was not done.
+- **Partial completion is legitimate:** steps blocked by real constraints (missing dependencies, environment limits, out of scope) may be shelved. Never fake completion or silently skip; the report says exactly what was and was not done.
 - Evidence honesty: separate static checks, successful loading, injected input, and real end-to-end behavior. If something depends on the user's environment, give the concrete remaining check and the expected observation.
 - State the deliverables.
 
 ## Review loop (审查闭环) — when the user brings the report back
 
-When the user returns saying the executor finished (or drops the report path), audit — do not re-explore the project from scratch:
+When the user returns saying the executor finished (or drops the report path), audit from the plan and report; a fresh survey of the project is not needed:
 
 1. Read the plan doc and the report side by side. Spot-check the code only where a claim needs evidence.
 2. Build a 核对表: per plan step — report claim / evidence / verdict (符合 / 存疑 / 不符).
-3. Audit 规范遵循: active user discipline, environment activation, step order, scope, ponytail taste, chosen verification mode, authorization gates, test-script restraint. Flag both defects and "should delete but remains": speculative defenses, temporary artifacts, duplicate implementations and unused compatibility paths. Judge each deviation with its reason instead of assuming every deviation is wrong; fix the specific omission without recreating scaffolding.
+3. Audit 规范遵循: active user discipline, environment activation, step order, scope, ponytail taste, chosen verification mode, authorization gates, test-script restraint. Flag both defects and "should delete but remains": speculative defenses, temporary artifacts, duplicate implementations and unused compatibility paths. Judge each deviation with its reason; fix the specific omission without recreating scaffolding.
 4. Verdict (符合 / 部分符合 / 不符合), then concrete prioritized minimal fixes in ponytail style.
 5. Write `<slug>.review.md` beside the plan in the user's language and print it in chat. NEVER edit the executor's report — it is their artifact.
 6. If fixes are needed, produce a new self-contained launcher prompt (Phase 5 rules) re-dispatching exactly the fix items; it must point at the review file, the plan, and the previous report. Re-review changes and affected dependents using prior evidence for unchanged scope; repeat the full matrix only when required by the agreed acceptance or blast radius. Separate source-semantic defects from verification-environment defects before ordering regeneration.
@@ -105,4 +103,4 @@ Courier note: the return leg is user-mediated — this session is not woken by t
 
 ## Hard boundary
 
-Once plan + launcher prompt are delivered, the planning job is DONE for now. Do not execute the plan here, do not spawn execution sub-agents, do not start a fix round yourself. The user launches the fresh session; this session's next role is reviewer (see Review loop).
+Once plan + launcher prompt are delivered, the planning job is DONE for now. Do not execute the plan here, spawn execution sub-agents, or start a fix round yourself. The user launches the fresh session; this session's next role is reviewer (see Review loop).

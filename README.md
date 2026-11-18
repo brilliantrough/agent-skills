@@ -218,7 +218,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 
 使用示例：“用 steady-do，先问清楚再做”。
 
-`goal-first` 在代码任务中引导加载 `trust-pyramid`。原型包含[五层原则](skills/base/trust-pyramid/SKILL.md)、[六类质量规则配方](skills/base/trust-pyramid/references/quality-recipes.md)和[工具映射／检查示例](skills/base/trust-pyramid/references/static-checks.md)：注释与补丁、依赖边界、API 与状态、重复维护、副作用与错误、工作区与产物。每类给出适用条件、好坏示例、检查方式和例外；项目选择后将具体 API、目录和检查写回自身配置。Verification 可由 Agent 或项目自动执行，按任务授权、成本与副作用确定范围，不要求人逐次触发。
+`goal-first` 在代码任务中引导加载 `trust-pyramid`；`steady-do`、`consolidator`、`writing-skill` 在修重复问题或固化规则时指向它。原型包含[五层原则](skills/base/trust-pyramid/SKILL.md)、[六类质量规则配方](skills/base/trust-pyramid/references/quality-recipes.md)和[工具映射／检查示例](skills/base/trust-pyramid/references/static-checks.md)：注释与补丁、依赖边界、API 与状态、重复维护、副作用与错误、工作区与产物。每类给出适用条件、好坏示例、检查方式和例外；项目选择后将具体 API、目录和检查写回自身配置。Verification 可由 Agent 或项目自动执行，按任务授权、成本与副作用确定范围，不要求人逐次触发。
 
 试用时可以说：“用 trust-pyramid，为这个项目选出适用的质量规则，并落实当前最重要的一项。”仅想讨论则说明“先设计，不修改”。安装 skill 不自动启用所有规则或证明项目质量；首次试用重点反馈是否触发、误报／漏报以及维护负担，通用修正回流 skill。套件仓库的规则自举另行开展。
 

@@ -1,6 +1,6 @@
 # Ascend 软件源与 TileLang 安装经验
 
-记录日期：2026-10-23～24，2026-10-25 回流。已验实例：910B2 / aarch64 / Ubuntu 22.04 / CANN 9.0.0 / Python 3.11 / torch 2.9.0 / torch-npu 2.9.0.post2。不是其他SDK、芯片或宿主的兼容承诺。
+记录日期：2026-10-23～24，2026-10-25 回流。已验实例：910B2 / aarch64 / Ubuntu 22.04 / CANN 9.0.0 / Python 3.11 / torch 2.9.0 / torch-npu 2.9.0.post2。其他SDK、芯片或宿主未验。
 
 ## 软件源：包本身与依赖分开取
 
@@ -10,15 +10,15 @@
 
 ## TileLang：区分后端与安装组合
 
-2026-10-24服务器记录：`tile-ai/TileLang-Ascend`默认分支为`ascendc_pto`（AscendC/PTO）；另有`npuir`（NPU IR/MLIR）。后端路线不是同一条版本线，不能只按版本号大小替换。
+2026-10-24服务器记录：`tile-ai/TileLang-Ascend`默认分支为`ascendc_pto`（AscendC/PTO）；另有`npuir`（NPU IR/MLIR）。两条后端路线各有版本线，替换前先确认路线。
 
 | Release / wheel标识 | 已知条件 | 使用边界 |
 |---|---|---|
-| `v0.1.1.010-release` / `0.1.1.10+ubuntu.20.4.cann900-cp311-cp311-linux_aarch64` | 上述Ubuntu 22.04、CANN 9.0.0环境已有真实运行记录 | wheel本地标签不等于完整兼容矩阵；这是一条已验组合，不称永久最新版 |
+| `v0.1.1.010-release` / `0.1.1.10+ubuntu.20.4.cann900-cp311-cp311-linux_aarch64` | 上述Ubuntu 22.04、CANN 9.0.0环境已有真实运行记录 | 这是一条已验组合；wheel本地标签之外的兼容性未验 |
 | `TileLang-ascend-v0.1.2.000-release` / `0.1.4+ubuntu.24.3.cann910-cp312-…-linux_aarch64` | 服务器记录为CANN 9.1.0、cp312路线 | 不能装进cp311；OS/SDK支持另查该release，不把标签直接译成发行版名称 |
-| `v0.1.1.030-pre-release` / `0.1.1.30+ubuntu.22.4.npuir-cp311-…-linux_aarch64` | NPU IR路线 | 不是上述AscendC/PTO组合的已验升级 |
+| `v0.1.1.030-pre-release` / `0.1.1.30+ubuntu.22.4.npuir-cp311-…-linux_aarch64` | NPU IR路线 | 与上述AscendC/PTO组合是不同路线，未验 |
 
-- 从[官方Releases](https://github.com/tile-ai/TileLang-Ascend/releases)取得匹配CANN、Python ABI、架构与系统依赖的wheel；公共PyPI的同名包不能默认当成昇腾后端。
+- 从[官方Releases](https://github.com/tile-ai/TileLang-Ascend/releases)取得匹配CANN、Python ABI、架构与系统依赖的wheel；公共PyPI的同名包先核对是否为昇腾后端。
 - 当时wheel对`torch`/`torch-npu`未约束版本；在隔离环境先固定匹配版本，再用`--no-deps`装wheel并补齐其余依赖，避免改变评测环境。
 - 编译前加载目标CANN环境，确认`ASCEND_HOME_PATH`与bisheng。`cstdint file not found`曾因bisheng选择gcc-12而主机缺g++-12/libstdc++头文件；补同版本C++工具链，非所有主机都要安装g++-12。
 - 新示例可能依赖旧wheel没有的API。提交数、文件数或star数不能证明编译器未变或旧版足够；核对所需接口与最小真实运行，再决定是否按官方说明源码构建。
