@@ -140,8 +140,8 @@ home, bindir, terminal = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
 changes = []
 
 def read(p):
-    if p.is_symlink() or (p.exists() and not p.is_file()):
-        raise SystemExit(f'ERROR: {p} 不是普通文件,不穿透修改')
+    if p.exists() and not p.is_file():
+        raise SystemExit(f'ERROR: {p} 不是普通文件,保留原样')
     return p.read_bytes().decode('utf-8') if p.exists() else ''
 
 def stage(p, old, new):
@@ -184,8 +184,10 @@ if terminal == 'mintty':
     extra = ''.join(f'{k}={v}\n' for k, v in wanted.items() if k not in options)
     if extra:
         stage(p, old, old + ('\n' if old and not old.endswith('\n') else '') + extra)
-# 所有输入先验证,写前备份;临时文件与目标同目录,替换失败不截断原文。
+# 所有输入先验证,写前备份;临时文件与目标同目录,替换失败不截断原文。符号链接写入链接目标。
 for p, new in changes:
+    if p.is_symlink():
+        p = pathlib.Path(os.path.realpath(p))
     if p.exists():
         fd, backup = tempfile.mkstemp(prefix=p.name + '.bak-', dir=p.parent)
         os.close(fd)
@@ -610,17 +612,15 @@ PY
 }
 
 # deploy_file <url> <dest> <label> — 整文件部署(用于 agents/*.md、extensions/*.ts):
-#   内容一致则不写;有差异存 .bak 后覆盖
+#   内容一致则不写;有差异存 .bak 后覆盖;dest 是符号链接时写入链接目标
 deploy_file() {
-  local url="$1" dest="$2" label="$3" tmp
-  if [ -L "$dest" ]; then
-    echo "跳过: $dest 是符号链接,不覆盖"; return 0
-  fi
+  local url="$1" dest="$2" label="$3" tmp target
+  target="$(rpath "$dest")" || return 1
   tmp="$(mktemp)"
   if ! curl -fsSL --connect-timeout 8 -m 30 -o "$tmp" "$url"; then
     rm -f "$tmp"; echo "WARN: $label 下载失败,保留现有 $dest" >&2; return 1
   fi
-  mkdir -p "$(dirname "$dest")"
+  mkdir -p "$(dirname "$target")"
   if [ -f "$dest" ] && cmp -s "$tmp" "$dest"; then
     echo "unchanged: $dest"; rm -f "$tmp"; return 0
   fi
@@ -628,7 +628,7 @@ deploy_file() {
   [ -f "$dest" ] && bak="$dest.bak-$(date +%Y%m%d%H%M%S)"
   if ask "写入 $dest($label)?" Y; then
     [ -n "$bak" ] && cp "$dest" "$bak"
-    mv "$tmp" "$dest"; echo "wrote: $dest"
+    mv "$tmp" "$target"; echo "wrote: $dest"
   else
     rm -f "$tmp"; echo "保留原文件: $dest"
   fi
@@ -1107,7 +1107,6 @@ mkdir -p "$HOME/.claude-mem"
 if command -v npx >/dev/null 2>&1 && ask "更新 claude-mem runtime 与 Pi 插件（会停止共享 worker，之后手工重启）?" Y; then
   # 安装器会写 provider；退出时原样恢复共享 settings，不启动 worker。
   (
-    [ ! -L "$MC_SETTINGS" ] || { echo "ERROR: settings 是符号链接，跳过 claude-mem 更新" >&2; exit 1; }
     saved="$(mktemp)"; chmod 600 "$saved"
     had_settings=0
     if [ -f "$MC_SETTINGS" ]; then cp -p "$MC_SETTINGS" "$saved" || exit 1; had_settings=1; fi
@@ -1130,7 +1129,7 @@ elif ! command -v npx >/dev/null 2>&1; then
 fi
 
 # deprecated: claude-mem-legacy 迁移段；用户确认退役后整段删除。
-if [ -f "$AGENT_DIR/extensions/claude-mem/index.js" ] && [ -f "$MCP_CONFIG" ] && [ ! -L "$MCP_CONFIG" ]; then
+if [ -f "$AGENT_DIR/extensions/claude-mem/index.js" ] && [ -f "$MCP_CONFIG" ]; then
   python3 - "$(npath "$MCP_CONFIG")" "$(npath "$HOME")" <<'PY_MEM_MIGRATE' || echo "WARN: claude-mem 旧 MCP 迁移失败，保留原配置" >&2
 import json, re, shutil, sys
 from datetime import datetime
@@ -1161,7 +1160,7 @@ path.write_text(json.dumps(config, ensure_ascii=False, indent=2) + '\n', encodin
 print(f'migrated: 删除旧模板 claude-mem MCP，改用官方原生 mem_* 工具；备份 {backup}')
 PY_MEM_MIGRATE
 elif [ -f "$MCP_CONFIG" ]; then
-  echo "WARN: Pi 官方 claude-mem 扩展未就绪或 MCP 配置为链接，暂不迁移旧 MCP" >&2
+  echo "WARN: Pi 官方 claude-mem 扩展未就绪，暂不迁移旧 MCP" >&2
 fi
 # deprecated: claude-mem-legacy 迁移段结束。
 

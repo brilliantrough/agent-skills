@@ -409,9 +409,6 @@ if not m or tuple(map(int, m.groups())) < (0, 128, 0):
     sys.exit('ERROR: 需要 Codex >=0.128.0,请手工升级后重跑')
 PY
 echo "$version;配置目录: $CFG"
-if [ -L "$CFG" ] || [ -L "$CONFIG" ]; then
-  echo "ERROR: $CFG 或 config.toml 是符号链接,不穿透修改" >&2; exit 1
-fi
 value >/dev/null  # 解析失败立即退出,绝不将损坏配置当成空文件
 mkdir -p "$CFG"
 # 给原生 codex 的必须是宿主路径(MSYS 不会转换环境变量里的 /c/...)
@@ -488,14 +485,6 @@ install_mem_runtime() (
     echo 'ERROR: 首次 claude-mem 安装器仅支持 ~/.codex;请先在默认 CODEX_HOME 安装 runtime,再重跑' >&2
     return 1
   fi
-  for target in "$SETTINGS" "$(dirname "$SETTINGS")" "$HOME/.codex/AGENTS.md" \
-    "${CLAUDE_CONFIG_DIR:-$HOME/.claude}" "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json" \
-    "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins" "$MEM_ROOT" \
-    "${CLAUDE_MEM_DATA_DIR:-$HOME/.claude-mem}/transcript-watch.json"; do
-    if [ -L "$target" ]; then
-      echo "ERROR: $target 是符号链接,请手工安装 claude-mem" >&2; return 1
-    fi
-  done
   local saved original had_config=0
   saved="$(mktemp)" || return 1
   original="$(mktemp)" || return 1
@@ -529,8 +518,6 @@ elif [ "$(value plugins 'claude-mem@thedotmack')" != null ] || [[ "$(value mcp_s
   warn '发现已有 claude-mem 旧插件或独立 MCP 配置,保留原配置;请手工处理后再接入原生插件,避免重复加载'
 elif ! command -v npx >/dev/null || ! command -v bun >/dev/null || ! command -v uv >/dev/null; then
   warn '缺少 npx/Bun/uv,跳过 claude-mem'
-elif [ -L "$SETTINGS" ] || [ -L "$(dirname "$SETTINGS")" ]; then
-  warn 'claude-mem settings 路径是符号链接,跳过自动配置'
 else
   mem_ok=1
   collect_gateway_values
@@ -541,9 +528,9 @@ else
     echo "filled placeholders: $SETTINGS"
   fi
   [ -f "$SETTINGS" ] && ensure_mem_worker_keys "$SETTINGS" 2>/dev/null || true
-  if [ ! -e "$SETTINGS" ] && [ ! -L "$SETTINGS" ]; then
+  if [ ! -e "$SETTINGS" ]; then
     if ask "新建 $SETTINGS(记忆后端占位符,不涉及 Codex 模型)?" Y; then
-      mkdir -p "$(dirname "$SETTINGS")"
+      mkdir -p "$(dirname "$(rpath "$SETTINGS")")"
       (umask 077; cat > "$SETTINGS" <<'JSON'
 {
   "CLAUDE_MEM_RUNTIME": "worker",
@@ -630,16 +617,14 @@ PY_REVIEWER_VERSION
   then
     _reviewer="$(mktemp)"
     _agent="$CFG/agents/consolidation-reviewer.toml"
-    if [ -L "$_agent" ] || [ -L "$CFG/agents" ]; then
-      warn "跳过符号链接：$_agent"
-    elif curl -fsSL --connect-timeout 8 -m 60 -o "$_reviewer" "$RAW/codex/agents/consolidation-reviewer.toml" &&
+    if curl -fsSL --connect-timeout 8 -m 60 -o "$_reviewer" "$RAW/codex/agents/consolidation-reviewer.toml" &&
          python3 -c 'import sys,tomllib;tomllib.load(open(sys.argv[1],"rb"))' "$_reviewer"; then
       if [ -f "$_agent" ] && cmp -s "$_reviewer" "$_agent"; then
         echo "unchanged: $_agent"
       else
         mkdir -p "$CFG/agents"
         [ ! -f "$_agent" ] || cp -p "$_agent" "$_agent.bak-$(date +%Y%m%d%H%M%S)"
-        mv "$_reviewer" "$_agent"; echo "wrote: $_agent"
+        mv "$_reviewer" "$(rpath "$_agent")"; echo "wrote: $_agent"
       fi
     else warn '审查代理下载或解析失败，未修改原配置'; fi
     rm -f "$_reviewer"

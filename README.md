@@ -473,7 +473,7 @@ PS：上游 `install.ps1` / winget 面向零前提用户；本项目约定 Git B
 | 范围 | 行为 |
 | --- | --- |
 | Pi setup 的 Bun | 优先复用 `BUN_INSTALL` 或 `~/.bun` 中已有的 Bun；实际执行版本检查与 `bun:sqlite` 内存查询，不能运行就报错，不把“命令存在”当作成功 |
-| Git Bash 启动文件 | Bun 可用后询问补齐（`-y` 默认执行）：缺 `.bashrc` 就创建；已有文件只追加/更新带标记的受管块，改前备份；不覆盖代理、别名等原文，不穿透符号链接 |
+| Git Bash 启动文件 | Bun 可用后询问补齐（`-y` 默认执行）：缺 `.bashrc` 就创建；已有文件只追加/更新带标记的受管块，改前备份；不覆盖代理、别名等原文；符号链接写入链接目标并保留链接 |
 | 登录加载链 | 使用现有 `.bash_profile` / `.bash_login` / `.profile` 中优先级最高的文件；均不存在才创建 `.bash_profile`，不会遮蔽已有 `.profile`；已经加载 `.bashrc` 时不重复加载 |
 | Bun PATH | 持久化实际可执行文件所在目录，支持空格/中文/自定义安装位置；受管块不重复添加 PATH，重复执行不产生无效改写或备份 |
 | mintty 复制粘贴 | 仅 `TERM_PROGRAM=mintty` 时补缺失的 `CtrlShiftShortcuts=yes`、`CopyOnSelect=yes`；已有显式值与 `KeyFunctions` 保留。不重映射 Ctrl+C/V，也不启用 `CtrlExchangeShift` 或 OSC 52 权限 |
@@ -680,7 +680,7 @@ Pi 原生 MCP（>= 0.99.0）：全局 `~/.pi/agent/mcp.json`，可信项目 `.pi
 
 **配置部署**
 
-- 整文件覆盖 `~/.pi/agent/{agent-skills-ui,agent-skills-editor,keybindings}.json`；有差异先存 `.bak`，符号链接跳过；不做一次性迁移
+- 整文件覆盖 `~/.pi/agent/{agent-skills-ui,agent-skills-editor,keybindings}.json`；有差异先存 `.bak`，符号链接写入链接目标；不做一次性迁移
 - 模板已验证：`sidebarPanelLayout`、侧栏自定义面板、`clearSelectionOnRelease` 默认、`tmuxMouseMotion` 默认开、Enter 发送 / Shift+Enter 换行
 - 旧 `pi-zentui` / `pi-atelier` / `atelier-bridge` 从 `packages` 摘除，先存 `.bak`，避免两套 UI 同时加载
 

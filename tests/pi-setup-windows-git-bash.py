@@ -161,10 +161,11 @@ def main():
         except OSError as e:
             print(f"SKIP native symlink creation unavailable: {e.__class__.__name__}")
         else:
-            assert configure(home, bp, ok=False).returncode != 0
-            assert target.read_text(encoding="utf-8") == "unchanged\n"
-            assert not (home / ".bash_profile").exists()
-        print("PASS malformed managed block fails before any write")
+            configure(home, bp)
+            assert (home / ".bashrc").is_symlink()
+            written = target.read_text(encoding="utf-8")
+            assert written.startswith("unchanged\n") and "agent-skills Bun PATH" in written
+        print("PASS malformed managed block fails before any write; symlinked .bashrc is written through")
 
         for platform, answer in (("0", "0"), ("1", "1")):
             home = root / f"skip-{platform}"
@@ -264,7 +265,8 @@ def main():
                 dest.write_text(json.dumps({"tuiMode": initial, "defaultModel": "old"}))
             cmd = (
                 f'IS_WIN={platform}; SETTINGS="$HOME/settings.json";\n'
-                "GW_BASE= K_CLAUDE= K_CODEX= K_ANTHROPIC= K_EMBED= K_MEM= MCPHUB_HOST=;\n"
+                "GW_BASE= K_CLAUDE= K_CODEX= K_ANTHROPIC= K_GEMINI= K_EMBED= K_MEM= MCPHUB_HOST=;\n"
+                'rpath() { printf %s "$1"; };\n'
                 f'python3() {{ {shlex.quote(sys.executable)} "$@"; }};\n'
                 "ask() { return 0; }; fill_template_placeholders() { :; };\n"
                 'curl() { while [ "$#" -gt 0 ]; do if [ "$1" = -o ]; then cp "$FIXTURE" "$2"; return; fi; shift; done; return 1; };\n'
