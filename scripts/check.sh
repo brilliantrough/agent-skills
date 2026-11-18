@@ -100,7 +100,11 @@ fi
 # 脚本里以 RAW 变量加相对路径引用模板;逐个核对文件存在
 tpl_missing=0
 for t in $(grep -ohE '[^A-Z_]RAW/[A-Za-z0-9_./-]+' pi-setup.sh opencode-setup.sh codex-setup.sh dsh-setup.sh | sort -u); do
-  [ -f "templates/${t#*RAW/}" ] || { err "setup 引用了不存在的模板 templates/${t#*RAW/};补上文件或改引用"; tpl_missing=1; }
+  f="templates/${t#*RAW/}"
+  if [ ! -f "$f" ]; then err "setup 引用了不存在的模板 $f;补上文件或改引用"; tpl_missing=1
+  elif git rev-parse --git-dir >/dev/null 2>&1 && ! git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
+    err "模板 $f 在本机存在但没有入库(多半被 ignore 规则挡住);git add 后再 push,否则 setup 下载会 404"; tpl_missing=1
+  fi
 done
 [ "$tpl_missing" = 0 ] && info "setup 引用的模板都在 templates/"
 

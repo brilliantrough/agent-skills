@@ -1,0 +1,398 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "update": "disable",
+  "permissions": [
+    { "action": "*", "resource": "*", "effect": "allow" },
+    { "action": "webfetch", "resource": "*", "effect": "deny" },
+    { "action": "websearch", "resource": "*", "effect": "deny" }
+  ],
+  "compaction": {
+    "auto": false
+  },
+  "providers": {
+    "claude-newapi": {
+      "package": "aisdk:@ai-sdk/anthropic",
+      "settings": {
+        "baseURL": "https://<YOUR_GATEWAY_HOST>/v1",
+        "apiKey": "<YOUR_NEWAPI_API_KEY>"
+      },
+      "models": {
+        "claude-opus-5-5": {
+          "name": "Claude Opus 5.5",
+          "limit": {
+            "context": 500000,
+            "input": 372000,
+            "output": 128000
+          },
+          "variants": [
+            { "id": "low", "settings": {
+              "thinking": {
+                "type": "adaptive"
+              },
+              "effort": "low"
+            } },
+            { "id": "max", "settings": {
+              "thinking": {
+                "type": "adaptive",
+                "display": "summarized"
+              },
+              "effort": "max"
+            } }
+          ]
+        }
+      }
+    },
+    "codex-newapi": {
+      "package": "aisdk:@ai-sdk/openai",
+      "compatibility": { "supportsPromptCacheKey": true },
+      "settings": {
+        "baseURL": "https://<YOUR_GATEWAY_HOST>/v1",
+        "apiKey": "<YOUR_NEWAPI_API_KEY>"
+      },
+      "models": {
+        "gpt-6-astra": {
+          "name": "GPT 6 Astra",
+          "limit": {
+            "context": 500000,
+            "input": 372000,
+            "output": 128000
+          },
+          "settings": {
+            "store": false
+          },
+          "variants": [
+            { "id": "low", "settings": { "reasoningEffort": "low" } },
+            { "id": "medium", "settings": { "reasoningEffort": "medium" } },
+            { "id": "high", "settings": { "reasoningEffort": "high" } },
+            { "id": "xhigh", "settings": { "reasoningEffort": "xhigh" } },
+            { "id": "max", "settings": { "reasoningEffort": "max" } }
+          ]
+        },
+        "gpt-6.1-sol": {
+          "name": "GPT 6.1 Sol",
+          "limit": {
+            "context": 500000,
+            "input": 372000,
+            "output": 128000
+          },
+          "settings": {
+            "store": false
+          },
+          "variants": [
+            { "id": "low", "settings": { "reasoningEffort": "low" } },
+            { "id": "medium", "settings": { "reasoningEffort": "medium" } },
+            { "id": "high", "settings": { "reasoningEffort": "high" } },
+            { "id": "xhigh", "settings": { "reasoningEffort": "xhigh" } },
+            { "id": "max", "settings": { "reasoningEffort": "max" } }
+          ]
+        },
+        "gpt-6.1-terra": {
+          "name": "GPT 6.1 Terra",
+          "limit": {
+            "context": 500000,
+            "input": 372000,
+            "output": 128000
+          },
+          "settings": {
+            "store": false
+          },
+          "variants": [
+            { "id": "low", "settings": { "reasoningEffort": "low" } },
+            { "id": "medium", "settings": { "reasoningEffort": "medium" } },
+            { "id": "high", "settings": { "reasoningEffort": "high" } },
+            { "id": "xhigh", "settings": { "reasoningEffort": "xhigh" } },
+            { "id": "max", "settings": { "reasoningEffort": "max" } }
+          ]
+        },
+        "gpt-6-luna": {
+          "name": "GPT 6 Luna",
+          "limit": {
+            "context": 500000,
+            "input": 372000,
+            "output": 128000
+          },
+          "settings": {
+            "store": false
+          },
+          "variants": [
+            { "id": "max", "settings": { "reasoningEffort": "max" } }
+          ]
+        }
+      }
+    },
+    "anthropic-newapi": {
+      "package": "aisdk:@ai-sdk/anthropic",
+      "settings": {
+        "baseURL": "https://<YOUR_GATEWAY_HOST>/v1",
+        "apiKey": "<YOUR_NEWAPI_API_KEY>"
+      },
+      "models": {
+        "minimax-latest": {
+          "name": "minimax latest",
+          "limit": {
+            "context": 1000000,
+            "input": 900000,
+            "output": 100000
+          },
+          "variants": [
+            { "id": "low", "settings": {
+              "thinking": {
+                "type": "adaptive"
+              },
+              "effort": "low"
+            } },
+            { "id": "max", "settings": {
+              "thinking": {
+                "type": "adaptive",
+                "display": "summarized"
+              },
+              "effort": "max"
+            } }
+          ]
+        },
+        "kimi-latest": {
+          "name": "kimi latest",
+          "limit": {
+            "context": 500000,
+            "input": 372000,
+            "output": 128000
+          },
+          "variants": [
+            { "id": "low", "settings": {
+              "thinking": {
+                "type": "adaptive"
+              },
+              "effort": "low"
+            } },
+            { "id": "max", "settings": {
+              "thinking": {
+                "type": "adaptive",
+                "display": "summarized"
+              },
+              "effort": "max"
+            } }
+          ]
+        },
+        "deepseek-flash": {
+          "name": "deepseek flash",
+          "limit": {
+            "context": 500000,
+            "input": 372000,
+            "output": 128000
+          },
+          "variants": [
+            { "id": "low", "settings": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 8000
+              },
+              "effort": "low"
+            } },
+            { "id": "high", "settings": {
+              "thinking": {
+                "type": "enabled",
+                "display": "summarized",
+                "budgetTokens": 16000
+              },
+              "effort": "high"
+            } },
+            { "id": "max", "settings": {
+              "thinking": {
+                "type": "enabled",
+                "display": "summarized",
+                "budgetTokens": 32000
+              },
+              "effort": "max"
+            } }
+          ]
+        },
+        "grok-4.7": {
+          "name": "Grok 4.7",
+          "limit": {
+            "context": 500000,
+            "input": 372000,
+            "output": 128000
+          },
+          "variants": [
+            { "id": "low", "settings": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 8000
+              },
+              "effort": "low"
+            } },
+            { "id": "high", "settings": {
+              "thinking": {
+                "type": "enabled",
+                "display": "summarized",
+                "budgetTokens": 16000
+              },
+              "effort": "high"
+            } },
+            { "id": "max", "settings": {
+              "thinking": {
+                "type": "enabled",
+                "display": "summarized",
+                "budgetTokens": 32000
+              },
+              "effort": "max"
+            } }
+          ]
+        },
+        "mem-1": {
+          "name": "mem-1",
+          "limit": {
+            "context": 500000,
+            "input": 372000,
+            "output": 128000
+          },
+          "variants": [
+            { "id": "medium", "settings": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 12000
+              },
+              "effort": "medium"
+            } },
+            { "id": "high", "settings": {
+              "thinking": {
+                "type": "adaptive"
+              },
+              "effort": "high"
+            } }
+          ]
+        }
+      }
+    },
+    "gemini-newapi": {
+      "package": "aisdk:@ai-sdk/google",
+      "settings": {
+        "baseURL": "https://<YOUR_GATEWAY_HOST>/v1beta",
+        "apiKey": "<YOUR_NEWAPI_API_KEY>"
+      },
+      "models": {
+        "gemini-4-argon": {
+          "name": "Gemini 4 Argon",
+          "limit": {
+            "context": 500000,
+            "input": 372000,
+            "output": 128000
+          }
+        }
+      }
+    },
+    "zhipuai-coding-plan": {
+      "models": {
+        "glm-4.6v": {
+          "limit": {
+            "context": 500000,
+            "output": 32768
+          }
+        },
+        "glm-5.3": {
+          "limit": {
+            "context": 500000,
+            "output": 131072
+          }
+        },
+        "glm-5.3-flash": {
+          "limit": {
+            "context": 500000,
+            "output": 131072
+          }
+        },
+        "glm-5.3-highspeed": {
+          "limit": {
+            "context": 500000,
+            "output": 131072
+          }
+        }
+      }
+    },
+    "kimi-code-plan-cn": {
+      "models": {
+        "k3": {
+          "limit": {
+            "context": 500000,
+            "output": 131072
+          }
+        },
+        "k3-256k": {
+          "limit": {
+            "context": 500000,
+            "output": 131072
+          }
+        },
+        "kimi-for-coding": {
+          "limit": {
+            "context": 500000,
+            "output": 32768
+          }
+        },
+        "kimi-for-coding-highspeed": {
+          "limit": {
+            "context": 500000,
+            "output": 32768
+          }
+        }
+      }
+    }
+  },
+  "agents": {
+    "consolidation-reviewer": {
+      "mode": "subagent",
+      "description": "整理后的独立只读审查：代码行为、报告事实和记忆历史保持。",
+      "model": "codex-newapi/gpt-6.1-sol#max",
+      "system": "你是整理后的独立审查者。先读取 ~/.agents/skills/consolidator/references/reviewer.md，按其中规范审查主会话交付的范围和差异。只读，不修改代码、文档或记忆，不再委派；仅报告有证据的问题和未验证项。若规范文件缺失，报告给主会话。",
+      "permissions": [
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "deny"
+        }
+      ]
+    },
+    "explore": {
+      "model": "anthropic-newapi/deepseek-flash",
+      "permissions": [
+        { "action": "read", "resource": "*", "effect": "allow" },
+        { "action": "grep", "resource": "*", "effect": "allow" },
+        { "action": "glob", "resource": "*", "effect": "allow" },
+        { "action": "edit", "resource": "*", "effect": "deny" }
+      ]
+    },
+    "general": {
+      "model": "anthropic-newapi/deepseek-flash",
+      "permissions": [
+        { "action": "read", "resource": "*", "effect": "allow" },
+        { "action": "grep", "resource": "*", "effect": "allow" },
+        { "action": "glob", "resource": "*", "effect": "allow" },
+        { "action": "edit", "resource": "*", "effect": "allow" }
+      ]
+    }
+  },
+  "mcp": {
+    "servers": {
+      "web": {
+        "type": "remote",
+        "url": "https://<YOUR_MCPHUB_HOST>/mcp/web"
+      }
+    }
+  },
+  "snapshots": false
+}
