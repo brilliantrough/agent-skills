@@ -1,6 +1,6 @@
 ---
 name: kb-8bit-quantization
-description: 8-bit量化知识库：用真实配置、掉点数据和误差诊断指导INT8、E4M3、E5M2、HiF8、W8A8KV8及分组量化的选型、实现和研究。Use when choosing quantization recipes, estimating accuracy loss, reviewing scale/reduction axes, debugging quantization degradation, or comparing SmoothQuant/QuaRot/GPTQ and MXFP8/MXFP4/NVFP4. 触发：量化能做到多好、掉点、clip/scale搜索、per-token/channel/group/block、激活离群值、逐层诊断、量化经验。知识与判断用本skill；实验执行沿用项目工作流，性能专项用pytorch-perf-tuning，平台安装用accel-*。
+description: 8-bit量化知识库：用真实配置、掉点数据和误差诊断指导INT8、E4M3、E5M2、HiF8、W8A8KV8及分组量化的选型、实现和研究。Use when choosing quantization recipes, estimating accuracy loss, reviewing scale/reduction axes, debugging quantization degradation, or comparing SmoothQuant/QuaRot/GPTQ and MXFP8/MXFP4/NVFP4. 触发：量化能做到多好、掉点、clip/scale搜索、per-token/channel/group/block、激活离群值、逐层诊断、量化经验。性能专项用pytorch-perf-tuning，平台安装用accel-*。
 ---
 
 # 8-bit量化：有数据的判断底座

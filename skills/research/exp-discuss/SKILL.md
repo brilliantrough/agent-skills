@@ -1,6 +1,6 @@
 ---
 name: exp-discuss
-description: Talk a research idea through before planning or execution. Use when a researcher brings a fuzzy idea, hypothesis, or direction (我在想、你觉得这个方向) and wants to think together. Explore the question, assumptions and evidence, then identify the next step for the selected route — the project's reasoning/theory workflow, exp-workflow for evidence design, exp-campaign for a matrix, exp-batch for a bounded branch, exp-probe for one fact, or parking. Preserve meaningful route changes with save-mem; never design the experiment matrix or execute the research here.
+description: Talk a research idea through before planning or execution. Use when a researcher brings a fuzzy idea, hypothesis or direction (我在想、你觉得这个方向) and wants to think together. Ends by naming the next step, one of exp-workflow, exp-campaign, exp-batch, exp-probe, the project's theory workflow, or parking. Does not design matrices or run experiments.
 ---
 
 # Exp Discuss: listen → probe the idea → sharpen → route

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# check.sh — 公开的最小体检:语法、skills 组结构、文档计数、敏感值与个人路径、skills 文本的链接与字符。
+# check.sh — 公开体检与本仓 lint:语法、skills 结构与索引、文档计数、敏感值、skills 文本链接与字符、skill 与 shell 规范。
 # 完整自检(private)不随分发;这里是贡献者能自己跑的那一半。
 # 用法: bash scripts/check.sh          # 0 = 通过
 set -uo pipefail
@@ -177,6 +177,118 @@ $text_out"
 else
   info "相对链接、锚点可解析；未混入假名、谚文或繁体字"
 fi
+
+# ---- 7. skill lint：frontmatter、体量、互相索引 ----
+# 规则来源：skills/base/writing-skill/SKILL.md；每条报错写明位置和改法。
+echo "== 7. skill lint =="
+lint_out=$(python3 - <<'PY'
+import os, re
+DESC_MAX, BODY_MAX = 400, 24000
+# 上游原文技能与 accel 组（装一次、就地特化）不受 description 长度约束
+UPSTREAM = {"grilling", "domain-modeling", "tdd", "diagnosing-bugs", "code-review", "teach"}
+skills = {}
+for g in sorted(os.listdir("skills")):
+    gp = os.path.join("skills", g)
+    if os.path.isdir(gp):
+        for n in sorted(os.listdir(gp)):
+            if os.path.isfile(os.path.join(gp, n, "SKILL.md")):
+                skills[n] = (g, os.path.join(gp, n))
+readme = open("README.md", encoding="utf-8").read()
+corpus = {}
+for r, ds, fs in os.walk("."):
+    ds[:] = [x for x in ds if x not in (".git", "node_modules", "docs")]
+    for f in fs:
+        if f.endswith((".md", ".sh", ".py", ".mjs", ".js", ".ts", ".json")):
+            try:
+                corpus[os.path.normpath(os.path.join(r, f))] = open(os.path.join(r, f), encoding="utf-8").read()
+            except (UnicodeDecodeError, OSError):
+                pass
+bad = []
+for name, (group, d) in skills.items():
+    main = os.path.join(d, "SKILL.md")
+    raw = open(main, encoding="utf-8").read()
+    m = re.match(r"---\n(.*?)\n---\n", raw, re.S)
+    if not m:
+        bad.append(f"{main}:1: 缺 frontmatter；文件开头补 '---' 包住的 name 与 description")
+        continue
+    meta = dict(re.findall(r"^([A-Za-z_-]+):[ \t]*(.*)$", m.group(1), re.M))
+    if meta.get("name", "").strip("\"'") != name:
+        bad.append(f"{main}: name 是 {meta.get('name')!r}，应与目录名 {name!r} 一致")
+    desc = meta.get("description", "")
+    if not desc:
+        bad.append(f"{main}: 缺单行 description；写“做什么＋何时用＋与相邻 skill 的分工”")
+    elif desc[0] not in "\"'" and re.search(r": | #", desc):
+        bad.append(f"{main}: description 未加引号却含 ': ' 或 ' #'，YAML 会解析失败；改写该处标点或整体加引号")
+    if group != "accel" and name not in UPSTREAM and len(desc.strip("\"'")) > DESC_MAX:
+        bad.append(f"{main}: description {len(desc)} 字符，上限 {DESC_MAX}；删掉对正文流程的复述，保留触发词")
+    size = len(raw.encode("utf-8"))
+    if size > BODY_MAX:
+        bad.append(f"{main}: {size} 字节，上限 {BODY_MAX}；把查表、案例和分支知识拆到 references/")
+    if f"`{name}`" not in readme and f"/{name}/" not in readme:
+        bad.append(f"README.md: 技能表里没有 `{name}`；在 {group} 组的表里加一行")
+    docs = [os.path.join(r, f) for r, _, fs in os.walk(d) for f in fs if f.endswith(".md")]
+    texts = {p: open(p, encoding="utf-8").read() for p in docs}
+    for p in docs:
+        # 上游技能与模板素材按其来源组织，不要求可达
+        if p == main or name in UPSTREAM or "/assets/" in p:
+            continue
+        if not any(os.path.basename(p) in t for q, t in corpus.items() if q != p):
+            bad.append(f"{p}: 仓库里没有任何文件提到它；在 SKILL.md 写明何时读，或删除")
+    for p, t in texts.items():
+        for ref in set(re.findall(r"`((?:exp|kb|accel)-[a-z0-9]+(?:-[a-z0-9]+)*)`", t)):
+            if ref not in skills:
+                bad.append(f"{p}: 提到技能 `{ref}`，但 skills/ 下没有；改成现有技能名，或去掉反引号说明它是外部能力")
+print("\n".join(bad))
+PY
+)
+if [ -n "$lint_out" ]; then
+  err "skill lint:
+$lint_out"
+else
+  info "frontmatter、description/主体体量、README 索引、reference 可达、技能互引检查完成"
+fi
+
+# ---- 8. shell lint：脚本头、行尾、共用实现不分叉 ----
+echo "== 8. shell lint =="
+fail_before=$fail; fail=0
+sh_files=$(git ls-files '*.sh' 2>/dev/null || find . -name '*.sh' -not -path './node_modules/*' -not -path './.git/*')
+for f in $sh_files; do
+  [ -f "$f" ] || continue
+  [ "$(head -1 "$f")" = '#!/usr/bin/env bash' ] || err "$f:1: 首行应为 #!/usr/bin/env bash"
+  head -60 "$f" | grep -qE '^set -e?uo pipefail' || err "$f: 前 60 行内缺 set -euo pipefail（纯检查脚本可用 set -uo pipefail）"
+  if grep -q $'\r' "$f"; then err "$f: 含 CRLF 行尾；转成 LF（.gitattributes 已锁 *.sh 为 LF）"; fi
+done
+share_out=$(python3 - <<'PY'
+import re
+SETUPS = ["pi-setup.sh", "opencode-setup.sh", "codex-setup.sh", "dsh-setup.sh"]
+SHARED = ["skills-sync.sh", "skills-external.sh", "modules/run.sh"]
+# setup 可单文件 curl 运行，这些函数允许各带一份，但各份必须逐字一致
+LOCKED = ["ensure_image_gen", "ensure_mem_worker_keys", "fill_template_placeholders", "nbin", "npath", "resolve_python3"]
+FN = re.compile(r"^([A-Za-z_]\w*)\(\)\s*\{(.*?)^\}", re.M | re.S)
+defs = {f: dict(FN.findall(open(f, encoding="utf-8").read())) for f in SETUPS + SHARED}
+bad = []
+for fn in LOCKED:
+    have = [(f, defs[f][fn]) for f in SETUPS if fn in defs[f]]
+    for f, body in have[1:]:
+        if body != have[0][1]:
+            bad.append(f"{f}: 函数 {fn} 与 {have[0][0]} 的副本不一致；两处同步修改，确属宿主差异就改名并移出 LOCKED")
+for f in SETUPS:
+    for s in SHARED:
+        for fn in sorted(set(defs[f]) & set(defs[s])):
+            bad.append(f"{f}: 重新定义了 {s} 里的 {fn}；通用步骤只在 {s} 实现一次，setup 里改为调用")
+print("\n".join(bad))
+PY
+)
+[ -z "$share_out" ] || err "共用实现分叉:
+$share_out"
+if command -v shellcheck >/dev/null 2>&1; then
+  # shellcheck disable=SC2086
+  shellcheck -S error $sh_files || err "shellcheck 报 error 级问题，见上"
+elif [ "$fail" = 0 ]; then
+  info "未安装 shellcheck，该项跳过"
+fi
+[ "$fail" = 0 ] && info "脚本头、行尾、共用函数一致"
+[ "$fail_before" = 1 ] && fail=1
 
 echo
 if [ "$fail" = 0 ]; then echo "PASS: 公开体检通过"; else echo "FAIL: 见上方 ERROR"; fi

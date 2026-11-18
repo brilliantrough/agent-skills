@@ -1,6 +1,6 @@
 ---
 name: exp-campaign
-description: Design research experiment matrices and staged campaigns for exploration, ablations, interactions, Pareto trade-offs and paper-quality evidence. Use for 实验矩阵、参数扫描、消融、帕累托前沿、论文实验 or multi-branch research. Choose proxy probes or direct matrices by information value and cost, preserve necessary coverage, and hand execution to exp-batch. A full matrix can be the right study; prevent purposeless expansion rather than matrices themselves. One bounded branch uses exp-batch; one check uses exp-probe; lifecycle coordination uses exp-workflow.
+description: Design research experiment matrices and staged campaigns for exploration, ablations, interactions, Pareto trade-offs and paper-quality evidence. Use for 实验矩阵、参数扫描、消融、帕累托前沿、论文实验 or multi-branch research. Hands execution to exp-batch. One bounded branch uses exp-batch; one check uses exp-probe; lifecycle coordination uses exp-workflow.
 ---
 
 # Exp Campaign: research question → matrix/proxy design → evidence → review

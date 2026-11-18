@@ -1,6 +1,6 @@
 ---
 name: quick-do
-description: Execute small, well-understood changes directly in the current session with minimal ceremony and ponytail taste. Use when explicitly requested, or automatically for localized fixes, mechanical edits, config tweaks, and short scripts with clear behavior and a known verification path. No plan documents or grilling; do not add tests by default. Prefer steady-do when design, compatibility, or acceptance decisions remain; prefer plan-brief when planning and execution need a separate-session handoff.
+description: Execute small, well-understood changes directly in the current session with minimal ceremony. Use when explicitly requested, or automatically for localized fixes, mechanical edits, config tweaks and short scripts with clear behavior and a known verification path. Prefer steady-do when design, compatibility or acceptance decisions remain; plan-brief for a separate-session handoff.
 ---
 
 # Quick Do: understand → do → verify

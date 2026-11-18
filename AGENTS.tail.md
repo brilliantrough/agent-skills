@@ -1,69 +1,62 @@
 <!-- memory-system:start -->
 ## User Discipline (always applies)
 
-- A root `AGENTS.md` block marked `<!-- user-discipline:start -->` is binding user instruction, not background memory. Read it before planning or acting, and recheck applicable rules at stage transitions and final delivery. Within project records it outranks the profile, decisions, journal and database memories.
-- Use `discipline` only on explicit user invocation. Immediately check and adjust the current plan and related work; write long-term rules into the unique managed block, reread after editing, and carry the short rule into current todos and stage checks. Never merely save it to docs or a database, and never wait for the next session to apply it. Current-only discipline stays in the session.
-- Only explicit user instruction may add, change, demote or retire active discipline. Never remove it as clutter or redundant memory. Report conflicts and violations; "recorded" is not "followed".
-- The optional Ponytail lifecycle preset is enabled only when the user explicitly asks `discipline` to enable it. Setup never writes or refreshes it as a user rule automatically. The preset lives only in `discipline`; detailed methods stay in the existing skills.
-- Verify actual AGENTS injection on each host. If absent, use the host's existing native project-instruction entry rather than a new framework. This is a behavior protocol, not a sandbox or permission system.
+- A root `AGENTS.md` block marked `<!-- user-discipline:start -->` is binding user instruction. Read it before planning or acting, and recheck it at stage transitions and final delivery. Among project records it outranks the profile, decisions, journal and database memories.
+- Use `discipline` only when the user invokes it. Apply the rule to the current plan at once, write long-term rules into the managed block, and carry the short rule into current todos and stage checks. Session-only discipline stays in the session.
+- Only the user adds, changes, demotes or retires active discipline; cleanup never removes it. Report conflicts and violations: "recorded" is not "followed".
+- The Ponytail lifecycle preset is enabled only when the user asks `discipline` for it; setup never writes it.
+- If a host does not inject `AGENTS.md`, use its native project-instruction entry. This protocol guides behavior; it enforces no permissions.
 
 ## Project Memory System
 
-This project uses a three-layer memory system (Magic Context + StrictDoc + claude-mem).
+StrictDoc (`docs/`), Magic Context and claude-mem work together. Their content may overlap; choose storage, depth and timing by judgment.
 
-- **At session start**: run `load-mem`; after project instructions and any user-discipline block, read the existing project profile first (default `docs/handbook/project-profile.sdoc`, or the registered equivalent), then task-relevant memory and source. If absent, continue targeted recall; do not automatically survey the whole repo.
-- **At milestones and before ending work**: run `save-mem`; when the project’s overall shape, major research routes or key understanding changes, use `project-profile` to update the affected parts of its existing profile. Initialization via `migrate-mem`, periodic alignment via `consolidator`; content rules live only in `project-profile`.
-
-### Memory intent
-
-- Use StrictDoc, Magic Context, and claude-mem together; their knowledge may intentionally overlap. Let the Agent choose useful storage, retrieval depth, and timing rather than enforcing a one-store-per-fact pipeline.
-- For prior decisions, attempted solutions, recurring failures, or cross-session work, proactively retrieve relevant claude-mem observations alongside StrictDoc and Magic Context before asking the user to repeat context or redoing past investigation. Injected memories are only a partial view; reuse sufficient evidence instead of querying every store on every turn.
-- The official claude-mem Pi extension exposes `mem_search`, `mem_timeline`, and `mem_get_observations`; OpenCode has `claude_mem_search` plus namespaced claude-mem MCP tools. These are claude-mem entry points, not unrelated memory systems. Use the actual tool catalog and schema; `load-mem` explains host-specific names and recall flows.
-- Below live user instructions and any user-discipline block, **current StrictDoc norms are the source of truth among other project records** when memories disagree. The usual `docs/` layout separates `project_memory/` (decisions and journal) from `handbook/` (reference documents). `Active` decisions describe current rules; proposals, retired decisions, journal entries, and historical reports should remain distinguishable from them.
-- Read the StrictDoc tree narrowly: grep it instead of loading whole files — list current decisions with `grep -B1 -A1 '^STATUS: Active' docs/project_memory/decisions.sdoc`, search one topic across `docs/project_memory/`, then read only the matched node. A full-tree read buries the answer and costs the session; `load-mem` gives the exact commands.
-- **当前规范可以维护，历史事实与决策含义不能抹掉。** 用户明确改变决定，或已确定的变化足够清晰时，可新增 successor、标记旧节点 `Superseded` 并简短告知；不因猜测、临时尝试或每次任务就改规范。普通说明文档和非规范记忆可更灵活整理。
-- **保存就是维护，不是积累。** 每次保存直接改写、合并、重排或删除现有位置中的重复／失效表达，明显的小整理立即完成，不等 `consolidator`；记录结论、真实约束、未闭合风险和必要证据，不写工具流水、hash/diff/manifest 台账、笼统安全免责或怕担责的冗文。历史事实与决策含义不变。
-- 用户显式要求记忆重组时，用 `consolidator` 按 **Ponytail** 风格改写、合并、重排和压缩：主线讲清，次要过程简述，不保留重复流水。先留可恢复基线，保持实质信息、状态、被引用身份与证据可追溯；纯表达整理无需 successor，不自动触发或另造摘要维护源。
-- Record living negative knowledge alongside outcomes: open concerns, unproven feasibility assumptions, method weaknesses, shortcut risks, and the remaining distance to the goal belong in the project's risk register (`docs/project_memory/risks.sdoc`) when one exists — `save-mem` defines the fields and lenses. A concern the user voices is worth recording even before there is evidence for it.
-- Validate `.sdoc` or StrictDoc config changes with `strictdoc export .` from the docs root. Use the available executable or project environment; resolve export failures before treating the update as complete.
+- **Session start**: run `load-mem`. Read project instructions and any user-discipline block, then the project profile (default `docs/handbook/project-profile.sdoc`), then task-relevant memory and source. Without a profile, continue with targeted recall instead of surveying the whole repo.
+- **Milestones and before ending work**: run `save-mem`. When the project's shape, major research routes or key understanding change, update the profile with `project-profile`. Initialize memory with `migrate-mem`.
+- **Recall before asking**: for prior decisions, attempted solutions, recurring failures or cross-session work, search claude-mem, StrictDoc and Magic Context (`ctx_search`) before asking the user to repeat context. Injected memory is a partial view. Tool names differ per host; `load-mem` lists them.
+- **Source of truth**: below live user instructions and the discipline block, current StrictDoc norms win when records disagree. `Active` decisions are current rules; proposals, retired decisions, journal entries and reports are history and stay distinguishable.
+- **Read narrowly**: grep the StrictDoc tree, e.g. `grep -B1 -A1 '^STATUS: Active' docs/project_memory/decisions.sdoc`, then read only the matched node.
+- **Norms change, history stays**: when the user changes a decision or a settled change is clear, add a successor, mark the old node `Superseded` and say so briefly. Guesses and one-off attempts do not change norms.
+- **Saving is maintenance, not accumulation**: each save rewrites, merges or deletes repeated and stale wording in place. Record conclusions, real constraints, open risks and necessary evidence; leave out tool logs, hash/diff/manifest ledgers and disclaimers.
+- **Reorganizing memory**: only when the user asks, with `consolidator`. Keep a recoverable baseline; facts, status, referenced IDs and evidence stay traceable.
+- **Risks**: record open concerns, unproven assumptions, method weaknesses and the distance to the goal in `docs/project_memory/risks.sdoc` when it exists, including concerns the user voices before there is evidence.
+- **Validate**: after changing `.sdoc` or StrictDoc config, run `strictdoc export .` from the docs root and fix failures before calling the update done.
 
 ### Technical writing and replies (always applies)
 
-- Before writing or revising any human-facing project technical text, or delivering an explanation, status update or final response, load `readable-docs`: README, specs, design notes, plans, reports, runbooks, changelogs, memory and ordinary technical answers. Do not wait for an explicit style request.
-- Write for scanning: Chinese by default, phrases, lists and compact comparison tables only when they help; omit subjects or objects only when clear. Preserve facts, conditions, uncertainty, required structure and instruction strength. Short connected prose is welcome when it explains better; no invented facts or personality.
-- Before delivery, run its short anti-template pass: lead with the answer; remove staged openers, fake contrasts, repeated known context, decorative formatting, empty closers and chat residue. For explicit Chinese polishing or pattern-heavy long text, read its full anti-template reference, then complete the rewrite and fact check.
+- Before writing or revising human-facing project text, or delivering an explanation, status update or final reply, load `readable-docs`. Do not wait for a style request.
+- Write for scanning, in Chinese by default. Use lists and tables only when they help. Preserve facts, conditions, uncertainty, required structure and instruction strength.
+- Before delivery, run its short pass: lead with the answer; remove staged openers, fake contrasts, repeated context, decorative formatting, empty closers and chat residue. For explicit polishing or pattern-heavy long text, apply its full reference.
 
 ### Context window (always applies)
 
-- Choose by the next action: exact source or a complete edit/logic unit -> native `Read`/`Grep`; short output consumed directly -> native `Bash`/`Read`; large-data aggregation -> `ctxm_execute`/`ctxm_execute_file`; multi-command indexed research -> `ctxm_batch_execute`. Return enough evidence to act, not bulk dumps or summaries that force another lookup.
-- Web: never the host built-ins (WebSearch, WebFetch, web_search) — they are weaker or unconfigured here. Use the web MCP tools: `tavily_search`/`tavily_extract` for facts/news, `firecrawl_search` for ranked results, `firecrawl_scrape` for a known page (use the actual exposed name; Pi native names are `mcp__<server>__<tool>` with non-identifier characters replaced by underscores; long or colliding names get a hash suffix, so use the exposed metadata rather than constructing names). Discover the remaining tools (firecrawl crawl/map/research, context7 docs) through Pi's `tool_search` and call them directly or via `codemode`; on hosts with an MCP gateway, use its search/describe/call flow. `ctxm_fetch_and_index` only for a page you will re-query (how-to lives in the `context-mode` skill).
-- Magic Context supports recall and durable storage: `ctx_search` can recover earlier decisions before asking the user, `ctx_memory` can preserve useful knowledge, and `ctx_note` can hold reminders. Use alongside StrictDoc and claude-mem, with useful overlap.
-- Reuse loaded skills, confirmed facts and current source while they remain available and unchanged. Recover only missing or stale context; after an exact-match edit fails, reread the affected unit rather than guessing another patch. `intent` is an optional retrieval query, not a task note; omit it when code already prints the answer.
+- Choose the tool by the next action: exact source or a complete edit unit → native `Read`/`Grep`; short output used directly → native `Bash`; large-data aggregation → `ctxm_execute`/`ctxm_execute_file`; multi-command indexed research → `ctxm_batch_execute`. Return enough evidence to act on.
+- Web: use the web MCP tools instead of host built-ins (WebSearch, WebFetch, web_search): `tavily_search`/`tavily_extract` for facts and news, `firecrawl_search` for ranked results, `firecrawl_scrape` for a known page. Call tools by the names the host actually exposes and find the rest through tool search or the MCP gateway. `ctxm_fetch_and_index` only for a page you will re-query.
+- Magic Context: `ctx_search` recalls earlier decisions, `ctx_memory` stores durable knowledge, `ctx_note` holds reminders.
+- Reuse loaded skills, confirmed facts and unchanged source. After an exact-match edit fails, reread the affected unit before patching again.
 
 ### Long-running work (always applies)
 
-- Pi: unknown completion time → `pi-background-tasks` (`bg_run` for shell, `bg_delegate` for read-only investigation, Fusion only for an explicit multi-model review). Known duration plus a custom next-step prompt → `later`. OpenCode v2: native `shell`/`subagent` with `background: true`, or `Ctrl+B`; it has no custom wake prompt, so use `later` when the resumed turn needs instructions.
-- Launch, then end the turn. Do not sleep, poll, or block on completion. A wake-up is not proof of success: read the result, logs, or exit state before continuing.
+- Pi: unknown completion time → `pi-background-tasks` (`bg_run` for shell, `bg_delegate` for read-only investigation; Fusion only for an explicit multi-model review). Known duration plus a custom next-step prompt → `later`. OpenCode v2: native `shell`/`subagent` with `background: true`, or `Ctrl+B`; use `later` when the resumed turn needs instructions.
+- Launch, then end the turn; do not sleep or poll. On wake-up, read the result, logs or exit state before continuing.
 - Background shell is not sandboxed. Keep `bg_delegate` isolated unless an extension-registered provider requires `ambient`.
 
 ### Steering the agent (always applies)
 
-- Steer agent choices and preferences with prompts, skills and tool descriptions, not tool-level hard blocks. Explicit project code contracts may be enforced by lint, types and dependency checks; these do not replace permissions or runtime protection.
-- `quick-do`, `steady-do`, and `plan-brief` are user-selected modes. If none is named, load one: `steady-do` for most work, `quick-do` for a small bounded change, `plan-brief` only for a large project or major change.
-- Adding an MCP server: use descriptive server/tool names and rich descriptions. Pi native MCP keeps its namespace prefix; use `exposure` / `toolExposure` for direct versus discoverable tools, not adapter-only `toolPrefix` / `directTools`.
-- When a behaviour goes wrong, fix the system that produced it (a line here, a skill, or a fork patch), not just the config of the machine you noticed it on.
+- Steer agent choices with prompts, skills and tool descriptions rather than tool-level hard blocks. Project code contracts may be enforced by lint, types and dependency checks; permissions and runtime protection stay separate.
+- `quick-do`, `steady-do` and `plan-brief` are user-selected modes. If none is named, load `steady-do` for most work, `quick-do` for a small bounded change, `plan-brief` only for a large project or major change.
+- Adding an MCP server: use descriptive server and tool names with rich descriptions. Pi native MCP keeps its namespace prefix; use `exposure`/`toolExposure` for direct versus discoverable tools.
+- When behavior goes wrong, fix the system that produced it (a line here, a skill, a fork patch), not only the machine where you noticed it.
 
 ### Code taste (always applies when writing or changing code)
 
-- Verify the changed behavior through the smallest relevant real path and existing project checks; no errors alone is not proof of correctness. Do not add tests, TDD or verification frameworks by default; preserve required checks and add a focused regression only when the change needs it. Report unverified behavior explicitly.
-- No over-encapsulation, no defensive programming, no speculative abstraction. Minimum code that works.
-- **Highest value, no hedging across the lifecycle**: plan and develop the smallest complete solution; at stage review, flag both defects and "should delete but remains"; when clutter has already formed, use consolidator to remove it decisively. Accept small, quickly recoverable rework instead of maintaining maybe-useful files, branches or defensive scaffolding. Re-add a detail when a real need returns; never preserve clutter to avoid possible rework. Ponytail prevents bloat before and during work; consolidator removes it afterwards.
-- **Boldly delete pseudo-safety and disposable artifacts**: during authorized cleanup, remove one-off refactor hash/byte-diff checks, Agent-generated cleanup manifests/inventories, speculative defensive branches, scratch/probe/debug scripts, one-off tests, temporary derived outputs, and their generators/references. Do not read self-created checklists, prove byte identity by default, or refuse refactoring for "safety"; keep only protections tied to real trust boundaries, correctness/integrity/authenticity, data-loss prevention, interoperability, accessibility, hardware calibration, current evidence, or explicit byte-level contracts.
-- **Repeat critical rules deliberately.** Rules central to the task with costly failures must be reinforced at every relevant stage and decision point; this is not redundancy. Trim task-irrelevant details and wording that changes no action.
-- Report results in one line; no summary essays.
-- Keep comments for what code cannot express: contracts, external constraints, algorithm references and necessary reasons. Remove repetition and self-justification; do not make avoidable workarounds look permanent. Development diaries, alternatives and investigation history belong in the project's existing memory, not inline comments; preserve required license notices.
+- **Ponytail** is this suite's name for one trade-off: the smallest complete solution, reuse first, and only assets that keep working. No speculative abstraction, over-encapsulation or defensive scaffolding.
+- Verify changed behavior through the smallest relevant real path and existing project checks; a clean exit says nothing about behavior. Add a test only when the change needs a focused regression. Report unverified behavior.
+- Accept small, quickly recoverable rework instead of keeping maybe-useful files, branches or scaffolding; re-add a detail when a real need returns. At stage review, flag both defects and "should delete but remains".
+- During authorized cleanup, delete pseudo-safety and disposable artifacts: one-off hash/byte-diff checks, Agent-made manifests and inventories, speculative defensive branches, scratch/probe/debug scripts, one-off tests and temporary outputs. Keep protections tied to real trust boundaries, correctness/integrity/authenticity, data-loss prevention, interoperability, accessibility, hardware calibration, current evidence or explicit byte-level contracts.
+- **Repeat critical rules deliberately**: restate rules central to the task with costly failures at every relevant stage and decision point. Trim only task-irrelevant detail and wording that changes no action.
+- Report results in one line.
+- Comments carry what code cannot: contracts, external constraints, algorithm references, necessary reasons and license notices. Development history belongs in project memory.
 
-**Placement**: paste this whole block at the *tail* of a project's own `AGENTS.md` — the project's own content stays on top, this block is the accelerator we append. The one-click setup scripts offer to write it there (opt-in, default no); paste it by hand otherwise.
-
-(Practical guidance lives in `load-mem`, `save-mem`, `migrate-mem`, and `readable-docs` — keep this block short.)
+**Placement**: paste this block at the tail of a project's own `AGENTS.md`; the project's own content stays on top. Setup offers to write it (opt-in, default no).
 <!-- memory-system:end -->

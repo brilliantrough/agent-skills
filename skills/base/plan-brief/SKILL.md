@@ -1,6 +1,6 @@
 ---
 name: plan-brief
-description: Turn a complex, thought-through requirement into a detailed execution plan document plus a self-contained launcher prompt for a fresh agent session, and later review that session's report. Use when the user wants a plan before execution, wants execution handed to a separate session, or mentions 执行计划 / 计划文档 / 新会话执行 / 交接 prompt / 审查 report; also when reviewing a plan's execution report or dispatching a fix round. Grills what is still missing, applies ponytail taste, treats partial completion as legitimate, and never executes the plan itself. Prefer steady-do for implementation in this session and quick-do for clear, bounded changes.
+description: Turn a complex, thought-through requirement into an execution plan document plus a self-contained launcher prompt for a fresh agent session, then review that session's report. Use when the user wants a plan before execution or a separate-session handoff, mentions 执行计划 / 计划文档 / 新会话执行 / 交接 prompt / 审查 report, or brings back an execution report. Never executes the plan itself.
 ---
 
 # Plan Brief: requirement → grilled plan → launcher prompt → review (审查闭环)

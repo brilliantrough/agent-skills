@@ -1,6 +1,6 @@
 ---
 name: load-mem
-description: Recover project context when starting or resuming work, revisiting earlier decisions or attempted solutions, or diagnosing a recurring failure (之前怎么做、为什么放弃、这个坑又出现了). Proactively retrieve relevant claude-mem observations alongside StrictDoc, Magic Context, and project evidence. Distinguish current norms from history, use the host's actual memory tools, and stop when the available evidence is sufficient.
+description: Recover project context from StrictDoc, Magic Context, claude-mem and project evidence. Use when starting or resuming work, revisiting earlier decisions or attempted solutions, or diagnosing a recurring failure (之前怎么做、为什么放弃、这个坑又出现了). Separates current norms from history and stops once the evidence is sufficient.
 ---
 
 # Load Memory

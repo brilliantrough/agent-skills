@@ -1,6 +1,6 @@
 ---
 name: writing-skill
-description: 把经验、对话结论或踩坑固化成可移植的 skill，或在既有 skill 上增删改查。Use when asked to 写个skill/固化成skill/沉淀成skill/把这个流程做成skill，when a lesson keeps being retaught across sessions or machines，or when reviewing or trimming an existing skill. 从项目已有结果与经验建知识库，先用 distill-project-kb 筛选材料并确认范围，再由本skill组织落盘；算力平台四层落盘走 accel-skill-template，中文行文风格走 readable-docs，本机事实去情境化后回流前跑 platform-environment-skill-audit。
+description: 把经验、对话结论或踩坑固化成可移植的 skill，或在既有 skill 上增删改查。Use when asked to 写个skill/固化成skill/沉淀成skill/把这个流程做成skill，when a lesson keeps being retaught across sessions or machines，or when reviewing or trimming an existing skill. 项目经验成库先用 distill-project-kb；算力平台落盘走 accel-skill-template；中文行文走 readable-docs。
 ---
 
 # writing-skill：把经验写成可移植的 skill
@@ -50,7 +50,7 @@ description: 把经验、对话结论或踩坑固化成可移植的 skill，或�
 
 ## 4. 正文（高熵、直白、引导强）
 
-- **上限 ~150 行**；只留影响执行的信息。行数紧张时拆 reference，不把多个要点挤成一行。
+- **主体约 12KB 以内（UTF-8），硬上限 24KB**；只留影响执行的信息，超了就拆 reference。按字节衡量，因为长行会让行数失真。description 不超过 400 字符，写“做什么＋何时用＋与相邻 skill 的分工”，不复述正文流程。
 - **先分执行契约与参考知识**：任务匹配且无实时用户指令、用户纪律或安全边界冲突时，流程性 skill 的主体就是本次执行合同。
   - 必须完整读取 `SKILL.md`，按适用阶段执行；强制项纳入计划／todo 与完成检查。
   - 遵循指读完并执行适用阶段；跳过某阶段要有任务上的理由。

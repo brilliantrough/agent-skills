@@ -1,6 +1,6 @@
 ---
 name: pytorch-perf-tuning
-description: PyTorch训练与评测的连续优化闭环：商榷目标与预算，按真实timeline定位、实施、验收，每次改动后重判剩余关键路径并主动推进；禁止仅凭首个提速宣称整轮完成。长任务前加速，已验路径持续复用。Use before long training, evaluations or sweeps, or when PyTorch is slow；触发词：训练加速、算法破坏SDPA、反向很慢、梯度累积、DDP、双卡训练、小数据微调、跑全量、评测太慢、QDQ、CPU下发、stream空窗、小kernel、timeline、导出Perfetto、下载trace、memory bound、torch.compile、CUDA Graph、NPU Graph、流水线、显存不够。目标是缩短算法迭代等待，不追求满载；kernel-knowledge只接已定位的设备热点。环境用accel-pytorch-python，平台移植用accel-pytorch-code-porting，单点故障用diagnosing-bugs。
+description: PyTorch训练与评测的连续优化闭环：按真实timeline定位、实施、验收，每次改动后重判剩余关键路径；首个提速不等于整轮完成。Use before long training, evaluations or sweeps, or when PyTorch is slow；触发词：训练加速、算法破坏SDPA、反向很慢、梯度累积、DDP、双卡训练、小数据微调、跑全量、评测太慢、QDQ、CPU下发、stream空窗、小kernel、timeline、导出Perfetto、下载trace、memory bound、torch.compile、CUDA Graph、NPU Graph、流水线、显存不够。环境用accel-pytorch-python，平台移植用accel-pytorch-code-porting，单点故障用diagnosing-bugs。
 ---
 
 # PyTorch加速：连续定位、实施、复核，直到有据收口

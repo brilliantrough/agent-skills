@@ -1,6 +1,6 @@
 ---
 name: exp-probe
-description: Run one-off research spot experiments with minimal ceremony. Use when explicitly requested, or for a missing datapoint, a rerun after failure (OOM, crash), a sanity check of one configuration, a minimal bug reproduction, or a cheap measurement that a campaign needs before deciding. At most one focused question; run, record, report in one line. Escalate to exp-batch if the spot check turns into a branch, or exp-campaign if it reveals a decision tree; if the question itself is still fuzzy, route back to exp-discuss.
+description: Run one-off research spot experiments with minimal ceremony. Use when explicitly requested, or for a missing datapoint, a rerun after failure (OOM, crash), a sanity check of one configuration, a minimal bug reproduction, or a cheap measurement a campaign needs before deciding. Escalate to exp-batch for a branch, exp-campaign for a decision tree, exp-discuss if the question is fuzzy.
 ---
 
 # Exp Probe: ask once if needed → run → record → one line

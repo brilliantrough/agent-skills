@@ -1,6 +1,6 @@
 ---
 name: exp-batch
-description: Execute one bounded research experiment branch in the current session with ponytail-for-experiments taste. Use when explicitly requested, or for a single coherent batch of runs with known configuration (one method × dataset × budget, or one ablation branch of a campaign). First check the branch was not already pruned or answered, grill only unresolved config decisions, preflight environment and resources, run per project conventions, and land metrics in the shared table in a shape the final figures can use directly. Prefer exp-discuss when the idea is still fuzzy and needs talking through; prefer exp-campaign when the work needs staged pruning across branches; prefer exp-probe for one-off spot checks.
+description: Execute one bounded research experiment branch in the current session. Use when explicitly requested, or for a single coherent batch of runs with known configuration (one method × dataset × budget, or one ablation branch of a campaign). Prefer exp-discuss while the idea is fuzzy, exp-campaign for staged pruning across branches, exp-probe for a one-off check.
 ---
 
 # Exp Batch: confirm necessity → clarify config → preflight → run → land metrics

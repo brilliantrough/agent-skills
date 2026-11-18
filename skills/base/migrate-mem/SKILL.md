@@ -1,6 +1,6 @@
 ---
 name: migrate-mem
-description: Establish useful memory for a project that already has development or research history, or improve an incomplete memory setup. Survey the project and its existing evidence, then initialize or enrich human-readable StrictDoc docs/ with current norms and historical context. Use Magic Context and other available memory alongside it where useful. No previous workflow, legacy folder convention, or pre-existing StrictDoc skeleton is assumed.
+description: Establish or repair memory for a project that already has development or research history. Use when a project has no memory tree or an incomplete one. Surveys existing evidence, then initializes or enriches human-readable StrictDoc docs/ with current norms and historical context. Assumes no prior workflow, folder convention or StrictDoc skeleton.
 ---
 
 # Migrate Memory

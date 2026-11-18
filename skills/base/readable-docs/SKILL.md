@@ -1,6 +1,6 @@
 ---
 name: readable-docs
-description: Write and revise human-facing project text, explanations and final replies in Chinese, wherever they live — README, specs, plans, reports, runbooks, changelogs, memory, technical answers and ordinary status updates. Use whenever creating or revising them without waiting for a style request; also for 润色中文、说人话、去 AI 味、去模板化、humanize、精简文档、自然表达. Preserve facts, conditions, evidence, author voice and required structure. Not a detector-evasion or author-identification skill.
+description: Write and revise human-facing project text, explanations and final replies in Chinese (README, specs, plans, reports, runbooks, changelogs, memory, technical answers, status updates). Use whenever creating or revising them, without waiting for a style request; also for 润色中文、说人话、去 AI 味、去模板化、humanize、精简文档、自然表达. Preserves facts, conditions, evidence and author voice. Not for detector evasion.
 ---
 
 # Readable Docs

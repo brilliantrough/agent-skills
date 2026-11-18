@@ -1,6 +1,6 @@
 ---
 name: save-mem
-description: Preserve useful project knowledge at milestones, after a resolved failure or settled decision, when a feasibility concern or user worry surfaces, and before ending work. Every save performs lightweight in-place cleanup rather than append-only accumulation. Use StrictDoc, Magic Context, and claude-mem together; when a claude-mem write tool is available, explicitly save important decisions, corrections, and handoff facts rather than assuming automatic capture succeeded. Harvest living negative knowledge (open concerns, risks, distance to goal) into the project's risk register. Keep current norms distinguishable from history, allow useful overlap, and choose storage, detail, and timing with judgment.
+description: Preserve useful project knowledge with StrictDoc, Magic Context and claude-mem. Use at milestones, after a resolved failure or settled decision, when a feasibility concern or user worry surfaces, and before ending work. Each save cleans up in place instead of appending, and records open risks alongside outcomes.
 ---
 
 # Save Memory

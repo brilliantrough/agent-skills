@@ -1,6 +1,6 @@
 ---
 name: steady-do
-description: Develop features in an existing project within the current session with ponytail taste. Use when explicitly requested, or automatically for ordinary feature, plugin, extension, and cross-module work that needs project understanding and clarification before implementation. Survey the real flow, grill only unresolved decisions, then implement and verify here without plan or handoff documents. Prefer quick-do for clear, bounded changes; prefer plan-brief when long-horizon work needs planning and separate-session execution.
+description: Develop features in an existing project within the current session. Use when explicitly requested, or automatically for ordinary feature, plugin, extension and cross-module work that needs project understanding and clarification before implementation. Prefer quick-do for clear, bounded changes; plan-brief when long-horizon work needs planning and separate-session execution.
 ---
 
 # Steady Do: understand → clarify → implement here → verify

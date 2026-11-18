@@ -220,7 +220,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 
 `goal-first` 在代码任务中引导加载 `trust-pyramid`；`steady-do`、`consolidator`、`writing-skill` 在修重复问题或固化规则时指向它。原型包含[五层原则](skills/base/trust-pyramid/SKILL.md)、[六类质量规则配方](skills/base/trust-pyramid/references/quality-recipes.md)和[工具映射／检查示例](skills/base/trust-pyramid/references/static-checks.md)：注释与补丁、依赖边界、API 与状态、重复维护、副作用与错误、工作区与产物。每类给出适用条件、好坏示例、检查方式和例外；项目选择后将具体 API、目录和检查写回自身配置。Verification 可由 Agent 或项目自动执行，按任务授权、成本与副作用确定范围，不要求人逐次触发。
 
-试用时可以说：“用 trust-pyramid，为这个项目选出适用的质量规则，并落实当前最重要的一项。”仅想讨论则说明“先设计，不修改”。安装 skill 不自动启用所有规则或证明项目质量；首次试用重点反馈是否触发、误报／漏报以及维护负担，通用修正回流 skill。套件仓库的规则自举另行开展。
+试用时可以说：“用 trust-pyramid，为这个项目选出适用的质量规则，并落实当前最重要的一项。”仅想讨论则说明“先设计，不修改”。安装 skill 不自动启用所有规则或证明项目质量；首次试用重点反馈是否触发、误报／漏报以及维护负担，通用修正回流 skill。套件仓库自己的规则落在 `scripts/check.sh`：第 6–8 节检查 skill 的链接与锚点、frontmatter 与体量、README 索引与互引、shell 脚本头和共用函数一致性，报错自带改法。
 
 ### 个人领域知识（自制）
 
@@ -256,6 +256,20 @@ Light-Science 首批只接文献和数据图，固定上游提交；先装 resea
 | [`kb-8bit-quantization`](skills/kb/kb-8bit-quantization/SKILL.md) | 量化格式/轴、配方搜索、掉点诊断、实测与外部证据；附结果 CSV 和配方模板。伪量化与原生部署、研发集与独立验收分开，不承诺跨模型收益 |
 
 `kb` 可选安装、持续刷新且不自动备份；已有未回流修改先备份。阅读知识无需加载模型，原实验复现另需对应模型、平台与未打包工件。
+
+### 算力平台模板（accel 组）
+
+| Skill | 用途 |
+|---|---|
+| [`accel-init`](skills/accel/accel-init/SKILL.md) | 新服务器的算力环境初始化主入口：探测平台、搭 Python 底座、出方案、执行并走验证阶梯 |
+| [`accel-platform-install`](skills/accel/accel-platform-install/SKILL.md) | 系统层：驱动、SDK、工具链的安装、升级与排障 |
+| [`accel-pytorch-python`](skills/accel/accel-pytorch-python/SKILL.md) | Python/wheel 层：厂商源、版本匹配与环境修复 |
+| [`accel-pytorch-code-porting`](skills/accel/accel-pytorch-code-porting/SKILL.md) | 代码层：在本机平台上编写、移植和调试 PyTorch 代码 |
+| [`accel-skill-template`](skills/accel/accel-skill-template/SKILL.md) | 初始化完成后把已验证的平台知识落盘到三件套的规则与模板 |
+| [`model-datasets`](skills/accel/model-datasets/SKILL.md) | 模型与数据集的下载、落盘路径和加载约定 |
+| [`platform-environment-skill-audit`](skills/accel/platform-environment-skill-audit/SKILL.md) | 回流前审计平台技能里的个人路径、凭据和验证产物 |
+
+`accel` 缺才装；三件套正文在首次初始化后按本机平台改写，之后不被刷新覆盖。
 
 ### 图件与出图（自制）
 
