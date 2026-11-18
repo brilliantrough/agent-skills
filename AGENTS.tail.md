@@ -55,7 +55,7 @@ StrictDoc (`docs/`), Magic Context and claude-mem work together. Their content m
 - Accept small, quickly recoverable rework instead of keeping maybe-useful files, branches or scaffolding; re-add a detail when a real need returns. At stage review, flag both defects and "should delete but remains".
 - During authorized cleanup, delete pseudo-safety and disposable artifacts: one-off hash/byte-diff checks, Agent-made manifests and inventories, speculative defensive branches, scratch/probe/debug scripts, one-off tests and temporary outputs. Keep protections tied to real trust boundaries, correctness/integrity/authenticity, data-loss prevention, interoperability, accessibility, hardware calibration, current evidence or explicit byte-level contracts.
 - **Repeat critical rules deliberately**: restate rules central to the task with costly failures at every relevant stage and decision point. Trim only task-irrelevant detail and wording that changes no action.
-- Report results in one line.
+- Report results in one line when that is sufficient; otherwise lead with the result and add only the evidence that changes the reader's decision.
 - Comments carry what code cannot: contracts, external constraints, algorithm references, necessary reasons and license notices. Development history belongs in project memory.
 
 **Placement**: paste this block at the tail of a project's own `AGENTS.md`; the project's own content stays on top. Setup offers to write it (opt-in, default no).

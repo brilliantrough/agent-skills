@@ -15,10 +15,12 @@ This is the **idea-only discussion layer** of the experiment family. The researc
 ## Posture
 
 - **Goal first:** follow `goal-first`. Keep the researcher's actual question in view and treat an interesting tangent as a tangent. Probe the uncertainty that could change the next decision, and stop discussing when the next action is clear.
-- **Conversation first, no planning artifacts.** No plan files, experiment matrices, or commands. Use `save-mem` for meaningful route/hypothesis changes at handoff or parking, not on every turn; a promising idea is saved even when it is not parked.
-- **Grill to stimulate, not to gate.** Ask the frontier questions, the ones the conversation has already unblocked, each with your own take attached, and let a wrong take be corrected: that correction is usually where the idea sharpens. A fuzzy half-answer is fine; note it and move on.
-- **Rounds, not a quota.** After each answer, recompute what it unblocked and ask the next round. There is no question cap. Stop when no further question would still change what the researcher wants to observe.
-- **Bring evidence into the talk.** Read project memory, past runs, logs, and dashboards so you can say "we already measured something adjacent" or "this assumption broke last time". Facts are yours to fetch. When novelty or a literature claim matters, check the closest actual work and its limits; use `research-evidence` for targeted retrieval/reading, and keep it short of a full review unless one is asked for.
+- Conversation first, no planning artifacts. No plan files, experiment matrices, or commands. Use `save-mem` for meaningful route/hypothesis changes at handoff or parking, not on every turn; a promising idea is saved even when it is not parked.
+- Grill to stimulate, not to gate. Ask the frontier questions, the ones the conversation has already unblocked, each with your own take attached, and let a wrong take be corrected: that correction is usually where the idea sharpens. A fuzzy half-answer is fine; note it and move on.
+- Rounds, not a quota. After each answer, recompute what it unblocked and ask the next round. There is no question cap. Stop when no further question would still change what the researcher wants to observe.
+- Bring evidence into the talk. Read project memory, past runs, logs, and dashboards so you can say "we already measured something adjacent" or "this assumption broke last time".
+  - Facts are yours to fetch.
+  - When novelty or a literature claim matters, check the closest actual work and its limits; use `research-evidence` for targeted retrieval/reading, and keep it short of a full review unless one is asked for.
 
 ## What to draw out
 

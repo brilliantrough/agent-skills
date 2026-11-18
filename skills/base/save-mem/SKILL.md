@@ -27,15 +27,21 @@ When the user explicitly invokes `discipline`, use that skill: immediately activ
 - Choose the amount of overlap and detail that helps future work. A memory may exist without a document counterpart, and a document without a database mirror.
 - Check existing memories and relevant source files first to avoid accidental duplicates and stale claims. `ctx_memory` supports writing, updating, merging, and archiving; use the operation that fits. Paths and UIDs are useful cross-references and are optional.
 - When a tool is missing, keep using the other stores, and state any important knowledge that remains unsaved or unverified.
-- A project's **vocabulary and domain model** are memory too: `domain-modeling` is the skill for changing them (challenging terms, glossary entries, hard-to-reverse decisions). Land its output in this project's own layers — the glossary in StrictDoc's handbook (or a `CONTEXT.md` where the project already uses one), hard-to-reverse decisions as `project_memory/decisions.sdoc` nodes, so there is one decision tree.
+- A project's **vocabulary and domain model** are memory too: `domain-modeling` is the skill for changing them (challenging terms, glossary entries, hard-to-reverse decisions).
+  - Land its output in this project's own layers — the glossary in StrictDoc's handbook (or a `CONTEXT.md` where the project already uses one), hard-to-reverse decisions as `project_memory/decisions.sdoc` nodes, so there is one decision tree.
 
 ## Preserve key outcomes in claude-mem
 
-- Automatic capture can preserve work history, but tool availability or a successful host turn does not prove a key conclusion was stored. When a claude-mem write tool is available, explicitly save important decisions, corrections, resolved failures, and handoff facts; inspect the result before claiming persistence.
+- Automatic capture can preserve work history, but tool availability or a successful host turn does not prove a key conclusion was stored.
+  - When a claude-mem write tool is available, explicitly save important decisions, corrections, resolved failures, and handoff facts; inspect the result before claiming persistence.
 - Search relevant existing observations before adding a note, reusing evidence already retrieved. Save useful conclusions and their scope; leave out full transcripts and secrets. Overlap with StrictDoc and Magic Context is welcome and optional.
 - Tool identity follows the integration: Pi's native `mem_search` / `mem_timeline` / `mem_get_observations` and OpenCode's `claude_mem_search` are **claude-mem recall tools** and cannot write. See `load-mem` for the host-specific naming and parameter differences.
-- With claude-mem MCP, `save_memory` (`text`, optional `title`/`project`) saves a local-worker note. In OpenCode v2 Code Mode, for server key `claude-mem`, that is `tools["claude-mem"].save_memory(...)`; direct exposure can be `claude-mem_save_memory`. An additionally configured Pi MCP can expose `mcp__claude_mem__save_memory`. Use the name the actual catalog shows.
-- In server runtime, use `observation_add` only when exposed for the intended server/project; `save_memory` does not write server notes. Native Pi alone has no explicit write tool in the verified 13.39.0 interface (2026-10-14): continue with the available stores; `mem_save` does not exist, and a save is no reason to install extra integrations.
+- With claude-mem MCP, `save_memory` (`text`, optional `title`/`project`) saves a local-worker note.
+  - In OpenCode v2 Code Mode, for server key `claude-mem`, that is `tools["claude-mem"].save_memory(...)`; direct exposure can be `claude-mem_save_memory`.
+  - An additionally configured Pi MCP can expose `mcp__claude_mem__save_memory`.
+  - Use the name the actual catalog shows.
+- In server runtime, use `observation_add` only when exposed for the intended server/project; `save_memory` does not write server notes.
+  - Native Pi alone has no explicit write tool in the verified 13.39.0 interface (2026-10-14): continue with the available stores; `mem_save` does not exist, and a save is no reason to install extra integrations.
 
 ## Keep the current project profile useful
 
@@ -68,14 +74,28 @@ When the project’s overall shape, major research routes or key understanding c
 **Below live user instructions and any user-discipline block, StrictDoc is the source of truth among other project records when records disagree.** Magic Context and claude-mem may legitimately contain earlier or conflicting accounts; treat them as history unless StrictDoc agrees.
 
 - Keep current rules and their scope easy to identify. In the bundled grammar, decisions use `Active`, `Proposed`, `Deprecated`, or `Superseded`; dated journal entries describe experience rather than policy.
-- **Active norms are maintainable; historical facts and decision meaning must survive.** When the user changes a decision, or a settled change is clear from the conversation and evidence, add a successor when useful, mark the old node `Superseded`, and briefly tell the user. Guesses, temporary experiments and routine tasks do not change the canon. Ordinary explanatory docs and non-normative memories may be revised more freely.
+- **Active norms are maintainable; historical facts and decision meaning must survive.** When the user changes a decision, or a settled change is clear from the conversation and evidence, add a successor when useful, mark the old node `Superseded`, and briefly tell the user.
+  - Guesses, temporary experiments and routine tasks do not change the canon.
+  - Ordinary explanatory docs and non-normative memories may be revised more freely.
 - Keep meaningful decision changes understandable. A journal note, revision context, or successor decision may preserve what mattered about the previous approach; choose the lightest suitable form. Follow any project-specific history-preservation rules.
 - Capture the reason when known: evidence, constraints, alternatives, or the user's intent. When the reason is unknown, say so.
 - Distinguish accepted decisions, observed behavior, pending work, and unverified claims. A working implementation may still differ from the intended rule.
-- Research and experiment records must identify the route and evidence stage (e.g. derivation under stated assumptions, proxy study, single-model iteration, multi-model validation). Stages answer different questions and support different claims. Keep conditions, observations, inferences and conclusions distinguishable; a cross-stage synthesis compares explicitly attributed evidence and keeps local support labelled as local.
-- Harvest living negative knowledge as well as outcomes. At milestones — and after any feasibility discussion, including side sessions — record open concerns, unproven feasibility assumptions, known method weaknesses, shortcuts and the risks they carry, dead ends and why they were abandoned, and one line on the remaining distance to the goal. A concern discussed but never recorded is lost; a worry the user voices is worth recording even before there is evidence for it.
-- Use the risk lenses as prompts and record only real items: algorithm mechanism (do the premises hold?), real execution (does the trick survive a real implementation; any disallowed cost?), data and scale (is the dataset available and extensible; can the model scale up?), training process (convergence preconditions, generalization), and value placement (is this the real bottleneck of the actual task — judge that with the `goal-first` skill and record only its outcome here).
-- Field semantics are fixed, organization is free. Every risk or concern entry carries its status (Open/Mitigated/Resolved/Accepted), stage, the decision it blocks, current evidence, and the condition that would resolve it; the prose layout is the writer's choice. Where the project keeps a risk register (e.g. `docs/project_memory/risks.sdoc`), update entries in place as they evolve; add a journal entry only for an independently meaningful event or turning point. Otherwise record the same fields in StrictDoc prose or a database entry.
+- Research and experiment records must identify the route and evidence stage (e.g. derivation under stated assumptions, proxy study, single-model iteration, multi-model validation).
+  - Stages answer different questions and support different claims.
+  - Keep conditions, observations, inferences and conclusions distinguishable; a cross-stage synthesis compares explicitly attributed evidence and keeps local support labelled as local.
+- Harvest living negative knowledge as well as outcomes.
+  - At milestones — and after any feasibility discussion, including side sessions — record open concerns, unproven feasibility assumptions, known method weaknesses, shortcuts and the risks they carry, dead ends and why they were abandoned, and one line on the remaining distance to the goal.
+  - A concern discussed but never recorded is lost; a worry the user voices is worth recording even before there is evidence for it.
+- Use the risk lenses as prompts and record only real items:
+  - algorithm mechanism: do the premises hold?
+  - real execution: does the trick survive a real implementation; any disallowed cost?
+  - data and scale: is the dataset available and extensible; can the model scale up?
+  - training process: convergence preconditions, generalization.
+  - value placement: is this the real bottleneck of the actual task? Judge that with the `goal-first` skill and record only its outcome here.
+- Field semantics are fixed, organization is free.
+  - Every risk or concern entry carries its status (Open/Mitigated/Resolved/Accepted), stage, the decision it blocks, current evidence, and the condition that would resolve it; the prose layout is the writer's choice.
+  - Where the project keeps a risk register (e.g. `docs/project_memory/risks.sdoc`), update entries in place as they evolve; add a journal entry only for an independently meaningful event or turning point.
+  - Otherwise record the same fields in StrictDoc prose or a database entry.
 - Where useful, reconcile known stale database claims and link related records; a save does not require auditing every store.
 
 ## Human-readable writing

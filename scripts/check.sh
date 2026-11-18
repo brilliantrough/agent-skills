@@ -183,7 +183,7 @@ fi
 echo "== 7. skill lint =="
 lint_out=$(python3 - <<'PY'
 import os, re
-DESC_MAX, BODY_MAX = 400, 24000
+DESC_MAX, BODY_MAX, ITEM_MAX = 400, 24000, 400
 # 上游原文技能与 accel 组（装一次、就地特化）不受 description 长度约束
 UPSTREAM = {"grilling", "domain-modeling", "tdd", "diagnosing-bugs", "code-review", "teach"}
 skills = {}
@@ -221,6 +221,14 @@ for name, (group, d) in skills.items():
         bad.append(f"{main}: description 未加引号却含 ': ' 或 ' #'，YAML 会解析失败；改写该处标点或整体加引号")
     if group != "accel" and name not in UPSTREAM and len(desc.strip("\"'")) > DESC_MAX:
         bad.append(f"{main}: description {len(desc)} 字符，上限 {DESC_MAX}；删掉对正文流程的复述，保留触发词")
+    if group != "accel" and name not in UPSTREAM:
+        fenced = False
+        for i, line in enumerate(raw.split("\n"), 1):
+            if line.lstrip().startswith("```"):
+                fenced = not fenced
+            m = None if fenced else re.match(r"\s*(?:[-*]|\d+\.)\s+(.*)$", line)
+            if m and len(m.group(1)) > ITEM_MAX:
+                bad.append(f"{main}:{i}: 列表条目 {len(m.group(1))} 字符，上限 {ITEM_MAX}；一个条目只写一个动作，其余拆成子条目")
     size = len(raw.encode("utf-8"))
     if size > BODY_MAX:
         bad.append(f"{main}: {size} 字节，上限 {BODY_MAX}；把查表、案例和分支知识拆到 references/")
@@ -245,7 +253,7 @@ if [ -n "$lint_out" ]; then
   err "skill lint:
 $lint_out"
 else
-  info "frontmatter、description/主体体量、README 索引、reference 可达、技能互引检查完成"
+  info "frontmatter、description/主体体量、条目长度、README 索引、reference 可达、技能互引检查完成"
 fi
 
 # ---- 8. shell lint：脚本头、行尾、共用实现不分叉 ----

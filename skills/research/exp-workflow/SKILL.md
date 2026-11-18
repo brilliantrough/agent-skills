@@ -107,4 +107,5 @@ description: 协调 PyTorch 算法研究的证据路线：主动协商张量/局
 
 - [references/proxy-study.md](references/proxy-study.md)：代理主体选择、激活／权重回放、方案字段与典型盲区。
 - [references/evidence-interpretation.md](references/evidence-interpretation.md)：主张与对照、独立单位、有效阴性、分析边界及版本化交接；方法参考 Light-Science，记录沿用本项目现有位置。
+- 量化配方、掉点数据与误差诊断的已有经验查 `kb-8bit-quantization`，先看有没有同口径结论再设计新实验。
 - 经验演化型：实际使用暴露代理失真、放行缺口或流程负担时修订对应小节；具体模型／路径／实验数字留项目，方法回流技能仓。

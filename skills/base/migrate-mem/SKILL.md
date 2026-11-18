@@ -13,7 +13,10 @@ Use judgment about investigation depth, document structure, storage overlap, and
 
 ## Understand the project as it exists
 
-- Look across project instructions, README, relevant implementation, research notes and history. Understand purpose, architecture or research question, current state and unfinished work. For research, recover the major routes and their evidence from existing derivations, observations and results as well as code; organize them through `project-profile` and `save-mem`. Routes may coexist, and missing evidence is recorded as missing.
+- Look across project instructions, README, relevant implementation, research notes and history.
+  - Understand purpose, architecture or research question, current state and unfinished work.
+  - For research, recover the major routes and their evidence from existing derivations, observations and results as well as code; organize them through `project-profile` and `save-mem`.
+  - Routes may coexist, and missing evidence is recorded as missing.
 - Existing Magic Context memories and claude-mem observations can recover decisions or experiences not visible in code. StrictDoc can be initialized without them.
 - Read the useful sources in context; projects differ in note names, plan directories and development methodology. Key code and decisions deserve more attention than generated output and exhaustive transcripts.
 - Separate intended policy, observed implementation, past experience, and unresolved questions. Newer evidence can reveal a change; what the current rule ought to be is settled by the user or by confirmed decisions.
@@ -32,7 +35,9 @@ The companion `save-mem` skill describes memory maintenance and StrictDoc mechan
 - Adapt this layout to what already exists. Missing docs or a missing skeleton are normal starting conditions. Add the missing pieces and leave existing docs and config intact.
 - Establish a single current project profile with `project-profile`, reusing this survey and any equivalent existing overview. The StrictDoc default is `docs/handbook/project-profile.sdoc`; register its actual path in the project entry so `load-mem` reads it first. Content and verification rules live in that skill.
 - Distill enough knowledge to make the project understandable. Prefer a small useful baseline over a document for every module or every past action.
-- Make **current StrictDoc norms the source of truth among ordinary project records**, distinguishable from historical journal entries and reports. A root AGENTS `user-discipline` block remains binding user instruction above those records: keep it where it is, unchanged; it is never migrated into StrictDoc or turned into background memory. Statuses such as Active, Proposed, Deprecated, and Superseded keep the distinction as the project evolves.
+- Make **current StrictDoc norms the source of truth among ordinary project records**, distinguishable from historical journal entries and reports.
+  - A root AGENTS `user-discipline` block remains binding user instruction above those records: keep it where it is, unchanged; it is never migrated into StrictDoc or turned into background memory.
+  - Statuses such as Active, Proposed, Deprecated, and Superseded keep the distinction as the project evolves.
 - When sources conflict or the intended rule is unclear, surface the consequential question to the user. Record a rationale only when it is known, and label inferred policy as inferred. If a settled decision has genuinely changed, maintain the current norm and briefly tell the user; ordinary memory and explanatory cleanup can be more flexible.
 - The same fact or decision may also be stored in Magic Context. Choose the overlap that improves recall and resilience.
 

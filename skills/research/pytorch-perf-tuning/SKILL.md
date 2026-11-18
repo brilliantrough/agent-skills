@@ -146,4 +146,5 @@ Graph 缓存设备工作及依赖图，重放时减少重复经过 Python／框�
 - [timeline-viewing](references/timeline-viewing.md)：用户想看时生成可下载 trace；兼容脚本随本包提供。
 - [multi-device-pipeline](references/multi-device-pipeline.md)：多 batch 跨阶段、线程上下文与依赖；[case-moe-eval](references/case-moe-eval.md)：历史 MoE 阶段案例。
 - [kernel-decision](references/kernel-decision.md)：最后一级外援的证据、交接与模型接回，底层教程不在这里维护。
+- 各平台 SDK、wheel 与推理框架的版本和生态事实查 `kb-accel-sdk`；本 skill 只管定位与优化方法。
 - 经验演化型：一般判断回本体，操作细节回对应 reference，案例保留平台／日期／边界，原始证据留在来源项目；专业平台与 kernel 知识回领域维护源。更新时同时清理冲突的旧措辞，不只往文尾加提醒。

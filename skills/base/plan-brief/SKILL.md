@@ -37,7 +37,9 @@ Deliverables checklist — none of these may be skipped silently:
 Resolve the material details still missing after investigation. The round-based method below is self-contained:
 
 - Ask only unresolved decisions that change scope, behavior, compatibility, risk, execution order, or acceptance; give a recommendation with brief trade-offs.
-- Group independently answerable questions into one round; defer dependent ones until their prerequisites settle. After each round, recompute what it unblocked and ask the next: rounds continue while a further question would still change a decision above. Stop when nothing material is left open, which may take more than one round or none at all.
+- Group independently answerable questions into one round; defer dependent ones until their prerequisites settle.
+  - After each round, recompute what it unblocked and ask the next: rounds continue while a further question would still change a decision above.
+  - Stop when nothing material is left open, which may take more than one round or none at all.
 - Skip settled questions.
 
 ALWAYS settle the following, from investigation or an explicit user decision:
@@ -48,7 +50,9 @@ ALWAYS settle the following, from investigation or an explicit user decision:
 - **Document location** — the project's working-doc directory; default `docs/plans/YYYY-MM-DD-<slug>.md`. Report and review live beside the plan with the same basename.
 - **Verification mode — mandatory decision; name it in one line in the plan and justify it:**
   - **TDD mode** — when explicitly requested or required by project policy; invoke the `tdd` skill and identify a meaningful verification seam.
-  - **Smoke-and-read mode** (default for research, long-running, or heavy-compute work): the smallest real execution path + rereading your own code + checking the adjacent behavior it touches. No pytest, no test scaffolding, no wrapper harnesses — the run itself is the cost. The user runs the real workload afterwards.
+  - **Smoke-and-read mode** (default for research, long-running, or heavy-compute work): the smallest real execution path + rereading your own code + checking the adjacent behavior it touches.
+    - No pytest, no test scaffolding, no wrapper harnesses — the run itself is the cost.
+    - The user runs the real workload afterwards.
   - Rule of thumb: if writing and running the test costs more than the failures it would catch, don't write it.
 - **Acceptance and responsibility** — what is observed, the expected result, cost and environment limits, and who runs/verifies what at the end.
 
@@ -68,7 +72,10 @@ One structured Markdown document in the user's language (Chinese headings by def
 1. **Goal and scope** — the Phase 0 restatement, including non-goals.
 2. **Current state** — what exists now and which parts get reused; Phase 1 findings.
 3. **Environment and prerequisites** — exact known commands, paths, versions; unresolved external blockers labeled as such.
-4. **Execution steps** — ordered; each step states what / the files or command / the expected result / its dependencies. Before bulk generation or a broad matrix, settle source/version and semantic contracts, then validate a representative vertical slice and shared components. Group independent work; the final agreed coverage still applies. Write only verified commands and API details.
+4. **Execution steps** — ordered; each step states what / the files or command / the expected result / its dependencies.
+   - Before bulk generation or a broad matrix, settle source/version and semantic contracts, then validate a representative vertical slice and shared components.
+   - Group independent work; the final agreed coverage still applies.
+   - Write only verified commands and API details.
 5. **Constraints and known pitfalls** — applicable user discipline, compatibility, risks, and the authorization gates from Phase 3.
 6. **Verification** — name the chosen mode (TDD / smoke-and-read) and why; concrete acceptance evidence and who runs what. Name the level of each check: static check, successful loading, local call, or real user interaction; a clean exit alone proves little.
 7. **Deliverables** — include `<plan-basename>.report.md` beside the plan. Required product docs and project memory still apply.
@@ -92,12 +99,17 @@ When the user returns saying the executor finished (or drops the report path), a
 
 1. Read the plan doc and the report side by side. Spot-check the code only where a claim needs evidence.
 2. Build a 核对表: per plan step — report claim / evidence / verdict (符合 / 存疑 / 不符).
-3. Audit 规范遵循: active user discipline, environment activation, step order, scope, ponytail taste, chosen verification mode, authorization gates, test-script restraint. Flag both defects and "should delete but remains": speculative defenses, temporary artifacts, duplicate implementations and unused compatibility paths. Judge each deviation with its reason; fix the specific omission without recreating scaffolding.
+3. Audit 规范遵循: active user discipline, environment activation, step order, scope, ponytail taste, chosen verification mode, authorization gates, test-script restraint.
+   - Flag both defects and "should delete but remains": speculative defenses, temporary artifacts, duplicate implementations and unused compatibility paths.
+   - Judge each deviation with its reason; fix the specific omission without recreating scaffolding.
 4. Verdict (符合 / 部分符合 / 不符合), then concrete prioritized minimal fixes in ponytail style.
 5. Write `<slug>.review.md` beside the plan in the user's language and print it in chat. NEVER edit the executor's report — it is their artifact.
-6. If fixes are needed, produce a new self-contained launcher prompt (Phase 5 rules) re-dispatching exactly the fix items; it must point at the review file, the plan, and the previous report. Re-review changes and affected dependents using prior evidence for unchanged scope; repeat the full matrix only when required by the agreed acceptance or blast radius. Separate source-semantic defects from verification-environment defects before ordering regeneration.
+6. If fixes are needed, produce a new self-contained launcher prompt (Phase 5 rules) re-dispatching exactly the fix items; it must point at the review file, the plan, and the previous report.
+   - Re-review changes and affected dependents using prior evidence for unchanged scope; repeat the full matrix only when required by the agreed acceptance or blast radius.
+   - Separate source-semantic defects from verification-environment defects before ordering regeneration.
 7. **Fix rounds keep their own artifacts:** the fix session writes `<slug>.report-2.md` (then `-3`, …), never overwriting an earlier report, and each round gets its own `<slug>.review-2.md` (…), so every round stays auditable.
-8. **Exit:** a 符合 verdict closes the loop — record `Status: done (rounds: N)` at the top of the plan doc, list anything still not done, and update project memory/docs per project rules. If a round makes no progress on the same blocking item, stop and hand the open questions back to the user instead of looping again.
+8. **Exit:** a 符合 verdict closes the loop — record `Status: done (rounds: N)` at the top of the plan doc, list anything still not done, and update project memory/docs per project rules.
+   - If a round makes no progress on the same blocking item, stop and hand the open questions back to the user instead of looping again.
 
 Courier note: the return leg is user-mediated — this session is not woken by the executor and resumes only when the user brings the report back. Say so when handing off, so nobody waits for an automatic ping.
 
