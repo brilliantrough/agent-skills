@@ -25,8 +25,8 @@
             {
               "id": "claude-opus-5-5",
               "name": "Claude Opus 5.5",
-              "contextWindow": 500000,
-              "maxTokens": 128000,
+              "contextWindow": 700000,
+              "maxTokens": 200000,
               "input": [
                 "text",
                 "image"
@@ -50,8 +50,8 @@
             {
               "id": "gpt-6-astra",
               "name": "GPT 6 Astra",
-              "contextWindow": 500000,
-              "maxTokens": 128000,
+              "contextWindow": 700000,
+              "maxTokens": 200000,
               "input": [
                 "text",
                 "image"
@@ -66,8 +66,8 @@
             {
               "id": "gpt-6.1-sol",
               "name": "GPT 6.1 Sol",
-              "contextWindow": 500000,
-              "maxTokens": 128000,
+              "contextWindow": 700000,
+              "maxTokens": 200000,
               "input": [
                 "text",
                 "image"
@@ -82,8 +82,8 @@
             {
               "id": "gpt-6.1-terra",
               "name": "GPT 6.1 Terra",
-              "contextWindow": 500000,
-              "maxTokens": 128000,
+              "contextWindow": 700000,
+              "maxTokens": 200000,
               "input": [
                 "text",
                 "image"
@@ -98,8 +98,8 @@
             {
               "id": "gpt-6-luna",
               "name": "GPT 6 Luna",
-              "contextWindow": 500000,
-              "maxTokens": 128000,
+              "contextWindow": 700000,
+              "maxTokens": 200000,
               "input": [
                 "text",
                 "image"
@@ -121,8 +121,8 @@
             {
               "id": "deepseek-flash",
               "name": "deepseek flash",
-              "contextWindow": 500000,
-              "maxTokens": 128000,
+              "contextWindow": 700000,
+              "maxTokens": 200000,
               "reasoningEfforts": {
                 "low": "low",
                 "high": "high",
@@ -135,8 +135,8 @@
             {
               "id": "grok-4.7",
               "name": "Grok 4.7",
-              "contextWindow": 500000,
-              "maxTokens": 128000,
+              "contextWindow": 700000,
+              "maxTokens": 200000,
               "reasoningEfforts": {
                 "low": "low",
                 "high": "high",
@@ -149,8 +149,8 @@
             {
               "id": "minimax-latest",
               "name": "minimax latest",
-              "contextWindow": 1000000,
-              "maxTokens": 100000,
+              "contextWindow": 700000,
+              "maxTokens": 200000,
               "reasoningEfforts": {
                 "low": "low",
                 "high": "high",
@@ -163,8 +163,8 @@
             {
               "id": "kimi-latest",
               "name": "kimi latest",
-              "contextWindow": 500000,
-              "maxTokens": 128000,
+              "contextWindow": 700000,
+              "maxTokens": 200000,
               "reasoningEfforts": {
                 "low": "low",
                 "high": "high",
@@ -177,8 +177,8 @@
             {
               "id": "mem-1",
               "name": "mem-1",
-              "contextWindow": 500000,
-              "maxTokens": 128000,
+              "contextWindow": 700000,
+              "maxTokens": 200000,
               "reasoningEfforts": {
                 "low": "low",
                 "high": "high",
@@ -198,8 +198,8 @@
             {
               "id": "gemini-4-argon",
               "name": "Gemini 4 Argon",
-              "contextWindow": 500000,
-              "maxTokens": 128000,
+              "contextWindow": 700000,
+              "maxTokens": 200000,
               "input": [
                 "text",
                 "image"

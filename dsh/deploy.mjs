@@ -13,6 +13,8 @@ const sensitive = /(api[_-]?key|secret|token|password|passwd|credential|bearer|a
 const placeholder = (v) => typeof v === "string" && /^<[^>]+>$/.test(v);
 const object = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 export function merge(local, template, key = "") {
+  // A numeric model output budget is not a credential despite the token key match.
+  if (key === "maxTokens" && typeof local === "number" && typeof template === "number") return template;
   if (local !== undefined && (key === "disabled" || sensitive.test(key) || placeholder(template))) return local;
   if (object(local) && object(template)) {
     return Object.fromEntries([...new Set([...Object.keys(local), ...Object.keys(template)])]
