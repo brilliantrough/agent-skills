@@ -45,8 +45,23 @@
           }
         },
         {
-          "id": "gpt-6.1-sol",
-          "name": "GPT 6.1 Sol",
+          "id": "gpt-6.2-astra",
+          "name": "GPT 6.2 Astra",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "thinkingLevelMap": { "minimal": null, "low": null, "xhigh": "xhigh", "max": "max" },
+          "contextWindow": 700000,
+          "maxTokens": 200000,
+          "cost": {
+            "input": 10,
+            "output": 50,
+            "cacheRead": 1,
+            "cacheWrite": 12.5
+          }
+        },
+        {
+          "id": "gpt-6.2-sol",
+          "name": "GPT 6.2 Sol",
           "reasoning": true,
           "input": ["text", "image"],
           "thinkingLevelMap": { "minimal": null, "low": null, "xhigh": "xhigh", "max": "max" },

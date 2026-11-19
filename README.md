@@ -192,14 +192,14 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 - Claude Code：`skills-sync.sh` 随 base 组安装 `~/.claude/agents/consolidation-reviewer.md`；模型继承主会话，只读职责由提示词和工具清单约束。
 - 代理配置来自本仓 `templates/`；Pi/Codex/Claude Code 文件有变化先备份，OpenCode 完整 setup 经确认刷新 reviewer 的模型／档位，其它角色及本地字段保留。只装 skill 不等于已经注册子代理。
 
-审查角色统一使用 **GPT 6.1 Sol + max**；只改 `consolidation-reviewer`，不改变 `explore/general` 或主会话默认值：
+审查角色统一使用 **GPT 6.2 Sol + max**；只改 `consolidation-reviewer`，不改变 `explore/general` 或主会话默认值：
 
 | 宿主 | 模型与思考强度的配置位置／字段 |
 | --- | --- |
-| Pi | `pi/agents/consolidation-reviewer.md`：`model: codex-newapi/gpt-6.1-sol`、`effort: max` |
-| OpenCode V2 | `opencode/opencode.json`：`agents.consolidation-reviewer.model = "codex-newapi/gpt-6.1-sol#max"`，选择模型目录中 `reasoningEffort: "max"` 的 variant |
-| DSH | `dsh/cordis.patch.json` 的 `tool-consolidation-review.config.agentOptions`：`provider: "codex-newapi"`、`model: "gpt-6.1-sol"`、`reasoningEffort: "max"` |
-| Codex | `codex/agents/consolidation-reviewer.toml`：`model = "gpt-6.1-sol"`、`model_reasoning_effort = "max"`；provider 沿用父会话，不能在角色中单独切换 |
+| Pi | `pi/agents/consolidation-reviewer.md`：`model: codex-newapi/gpt-6.2-sol`、`effort: max` |
+| OpenCode V2 | `opencode/opencode.json`：`agents.consolidation-reviewer.model = "codex-newapi/gpt-6.2-sol#max"`，选择模型目录中 `reasoningEffort: "max"` 的 variant |
+| DSH | `dsh/cordis.patch.json` 的 `tool-consolidation-review.config.agentOptions`：`provider: "codex-newapi"`、`model: "gpt-6.2-sol"`、`reasoningEffort: "max"` |
+| Codex | `codex/agents/consolidation-reviewer.toml`：`model = "gpt-6.2-sol"`、`model_reasoning_effort = "max"`；provider 沿用父会话，不能在角色中单独切换 |
 
 上述路径均相对本仓 `templates/`。Pi 同名 `model_profiles` 或项目角色可覆盖全局定义，更新后用 `subagent_list_agents` 核对；DSH 的固定选择属于专用 `consolidation_review` 入口，不是 preset 的全局模型锁。`max` 不是 `xhigh` 的别名；还需所选模型目录和服务端支持该值，配置解析成功不等于网关已接受。
 
@@ -598,14 +598,14 @@ skills 重跑套件同步器即可；共享目录的更新也影响 OpenCode。c
 
 | 项目 | 默认值 |
 |---|---|
-| `modelThinkingLevels` | `codex-newapi/gpt-6-astra`、`codex-newapi/gpt-6.1-sol` 用 `xhigh`；其余全局 `high` |
+| `modelThinkingLevels` | `codex-newapi/gpt-6-astra`、`codex-newapi/gpt-6.2-astra`、`codex-newapi/gpt-6.2-sol` 用 `xhigh`；其余全局 `high` |
 | agent 级 `retry` | `maxRetries:8`、`baseDelayMs:4000`；原生指数退避，不开 provider 内层重试 |
 | 退避间隔 | 4/8/16/32/64/128/256/512 秒，累计 17 分钟；含首发最多 9 次请求 |
 
 **自动命名**
 
 - `pi-autoname@0.6.8`；配置 `~/.pi/agent/pi-autoname.json`
-- 任务结束后用 `codex-newapi/gpt-6.1-sol` 命名；冷却 1440 分钟，尊重手工名称；`/autoname` 手动触发
+- 任务结束后用 `codex-newapi/gpt-6.2-sol` 命名；冷却 1440 分钟，尊重手工名称；`/autoname` 手动触发
 - 最近对话片段发送给命名模型；失败回退当前会话模型 / 文本提取
 - 配置路径固定 `~/.pi/agent`；自定义 `PI_CODING_AGENT_DIR` 时跳过
 

@@ -4,7 +4,8 @@
   "defaultThinkingLevel": "high",
   "modelThinkingLevels": {
     "codex-newapi/gpt-6-astra": "xhigh",
-    "codex-newapi/gpt-6.1-sol": "xhigh"
+    "codex-newapi/gpt-6.2-astra": "xhigh",
+    "codex-newapi/gpt-6.2-sol": "xhigh"
   },
   "retry": {
     "enabled": true,

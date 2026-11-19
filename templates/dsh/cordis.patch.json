@@ -64,8 +64,24 @@
               }
             },
             {
-              "id": "gpt-6.1-sol",
-              "name": "GPT 6.1 Sol",
+              "id": "gpt-6.2-astra",
+              "name": "GPT 6.2 Astra",
+              "contextWindow": 700000,
+              "maxTokens": 200000,
+              "input": [
+                "text",
+                "image"
+              ],
+              "reasoningEfforts": {
+                "medium": "medium",
+                "high": "high",
+                "xhigh": "xhigh",
+                "max": "max"
+              }
+            },
+            {
+              "id": "gpt-6.2-sol",
+              "name": "GPT 6.2 Sol",
               "contextWindow": 700000,
               "maxTokens": 200000,
               "input": [
@@ -253,7 +269,7 @@
       "allowedAgentPresets": ["consolidation-reviewer"],
       "agentOptions": {
         "provider": "codex-newapi",
-        "model": "gpt-6.1-sol",
+        "model": "gpt-6.2-sol",
         "reasoningEffort": "max"
       }
     }
