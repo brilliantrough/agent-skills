@@ -20,9 +20,9 @@
         "claude-opus-5-5": {
           "name": "Claude Opus 5.5",
           "limit": {
-            "context": 500000,
-            "input": 372000,
-            "output": 128000
+            "context": 700000,
+            "input": 500000,
+            "output": 200000
           },
           "variants": [
             { "id": "low", "settings": {
@@ -53,9 +53,9 @@
         "gpt-6-astra": {
           "name": "GPT 6 Astra",
           "limit": {
-            "context": 500000,
-            "input": 372000,
-            "output": 128000
+            "context": 700000,
+            "input": 500000,
+            "output": 200000
           },
           "settings": {
             "store": false
@@ -71,9 +71,9 @@
         "gpt-6.1-sol": {
           "name": "GPT 6.1 Sol",
           "limit": {
-            "context": 500000,
-            "input": 372000,
-            "output": 128000
+            "context": 700000,
+            "input": 500000,
+            "output": 200000
           },
           "settings": {
             "store": false
@@ -89,9 +89,9 @@
         "gpt-6.1-terra": {
           "name": "GPT 6.1 Terra",
           "limit": {
-            "context": 500000,
-            "input": 372000,
-            "output": 128000
+            "context": 700000,
+            "input": 500000,
+            "output": 200000
           },
           "settings": {
             "store": false
@@ -107,9 +107,9 @@
         "gpt-6-luna": {
           "name": "GPT 6 Luna",
           "limit": {
-            "context": 500000,
-            "input": 372000,
-            "output": 128000
+            "context": 700000,
+            "input": 500000,
+            "output": 200000
           },
           "settings": {
             "store": false
@@ -130,9 +130,9 @@
         "minimax-latest": {
           "name": "minimax latest",
           "limit": {
-            "context": 1000000,
-            "input": 900000,
-            "output": 100000
+            "context": 700000,
+            "input": 500000,
+            "output": 200000
           },
           "variants": [
             { "id": "low", "settings": {
@@ -153,9 +153,9 @@
         "kimi-latest": {
           "name": "kimi latest",
           "limit": {
-            "context": 500000,
-            "input": 372000,
-            "output": 128000
+            "context": 700000,
+            "input": 500000,
+            "output": 200000
           },
           "variants": [
             { "id": "low", "settings": {
@@ -176,9 +176,9 @@
         "deepseek-flash": {
           "name": "deepseek flash",
           "limit": {
-            "context": 500000,
-            "input": 372000,
-            "output": 128000
+            "context": 700000,
+            "input": 500000,
+            "output": 200000
           },
           "variants": [
             { "id": "low", "settings": {
@@ -209,9 +209,9 @@
         "grok-4.7": {
           "name": "Grok 4.7",
           "limit": {
-            "context": 500000,
-            "input": 372000,
-            "output": 128000
+            "context": 700000,
+            "input": 500000,
+            "output": 200000
           },
           "variants": [
             { "id": "low", "settings": {
@@ -242,9 +242,9 @@
         "mem-1": {
           "name": "mem-1",
           "limit": {
-            "context": 500000,
-            "input": 372000,
-            "output": 128000
+            "context": 700000,
+            "input": 500000,
+            "output": 200000
           },
           "variants": [
             { "id": "medium", "settings": {
@@ -274,9 +274,9 @@
         "gemini-4-argon": {
           "name": "Gemini 4 Argon",
           "limit": {
-            "context": 500000,
-            "input": 372000,
-            "output": 128000
+            "context": 700000,
+            "input": 500000,
+            "output": 200000
           }
         }
       }
