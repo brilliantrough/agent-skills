@@ -84,7 +84,7 @@ curl -sm3 -o /dev/null -w '%{http_code}\n' https://pypi.tuna.tsinghua.edu.cn/sim
 
 - 用户态优先；root 操作（驱动、内核模块、系统包）逐条列出并取得明确确认再动。
 - **动手前磁盘预检**：`df -h` 目标盘（torch 栈 + SDK + 缓存动辄几十 GB）；不够先清理或换盘，再开装。
-- **长下载/长编译后台化**：大 wheel、SDK 离线包、源码编译放 `nohup`/后台 + 轮询日志，不要阻塞在单次命令里。
+- **长下载/长编译后台化**：大 wheel、SDK 离线包、源码编译放后台运行，用宿主完成通知或 `later` 续接；唤醒后先读日志与退出状态。宿主不能续接时给出日志位置和预计耗时，不 sleep／轮询，不把已启动当完成。
 - 验证阶梯逐级走，每级通过再上一级：
   L1 工具链/版本查询 → L2 ldd 无缺库 → L3 单设备可见+小 matmul+autocast+synchronize → L4 单进程通信库 → L5 双进程 torchrun all-reduce → L6 短真实 workload。
 - 任何一级失败：回阶段 3 重查兼容集，不重复硬装。

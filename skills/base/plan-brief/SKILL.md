@@ -60,10 +60,10 @@ Recap the agreed scope, approach, and verification briefly, then write the plan 
 
 ## Phase 3 — Set the taste
 
-- Plan the smallest working change: reuse existing code, then stdlib/native features, then installed dependencies. No over-encapsulation, speculative abstraction, defensive boilerplate, redundant re-validation, future scaffolding, or unrelated cleanup.
+- Plan the smallest complete change that satisfies the agreed outcome: reuse existing code, then stdlib/native features, then installed dependencies. No over-encapsulation, speculative abstraction, defensive boilerplate, redundant re-validation, future scaffolding, or unrelated cleanup.
 - Choose the highest-value outcome and accept small recoverable rework. Plan a clean tree at the end: no speculative defenses, no preserved scratch artifacts; a small detail is re-added when a real need returns.
 - Fix root causes along the real call chains and account for sibling callers of shared logic. Preserve trust-boundary validation, security, accessibility, data protection, and error handling that prevents data loss.
-- Include authorization gates for destructive or irreversible operations. Permission to execute the plan does not permit overwriting secrets or changing unrelated environments. Functional code that runs correctly is DONE.
+- Include authorization gates for destructive or irreversible operations. Permission to execute the plan does not permit overwriting secrets or changing unrelated environments.
 
 ## Phase 4 — Write the plan document
 
@@ -108,7 +108,7 @@ When the user returns saying the executor finished (or drops the report path), a
    - Re-review changes and affected dependents using prior evidence for unchanged scope; repeat the full matrix only when required by the agreed acceptance or blast radius.
    - Separate source-semantic defects from verification-environment defects before ordering regeneration.
 7. **Fix rounds keep their own artifacts:** the fix session writes `<slug>.report-2.md` (then `-3`, …), never overwriting an earlier report, and each round gets its own `<slug>.review-2.md` (…), so every round stays auditable.
-8. **Exit:** a 符合 verdict closes the loop — record `Status: done (rounds: N)` at the top of the plan doc, list anything still not done, and update project memory/docs per project rules.
+8. **Exit:** a 符合 verdict closes the loop only when every required step and the agreed verification are complete. Record `Status: done (rounds: N)` at the top of the plan doc and update project memory/docs per project rules. If required work remains incomplete or unverified, keep the loop open with the exact remaining work; never write `done`.
    - If a round makes no progress on the same blocking item, stop and hand the open questions back to the user instead of looping again.
 
 Courier note: the return leg is user-mediated — this session is not woken by the executor and resumes only when the user brings the report back. Say so when handing off, so nobody waits for an automatic ping.

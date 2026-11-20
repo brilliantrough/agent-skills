@@ -48,7 +48,7 @@ Use the round-based method below; it is self-contained and needs no separate ski
 
 ## 4. Keep ponytail taste
 
-- Keep the smallest working change: reuse existing code, then stdlib/native features, then installed dependencies. Do not add dependencies for simple problems.
+- Keep the smallest complete change that satisfies the agreed outcome: reuse existing code, then stdlib/native features, then installed dependencies. Do not add dependencies for simple problems.
 - No over-encapsulation, speculative abstractions, defensive boilerplate, redundant checks, future scaffolding, or unrelated cleanup.
 - Finish with a clean tree: scratch scripts, probes, temporary tests, logs and derived outputs either become a minimal real asset or are deleted. If a small detail is needed later, rebuild it then.
 - Fix root causes along the real call chain; inspect sibling callers of shared logic.
@@ -64,4 +64,4 @@ Use the round-based method below; it is self-contained and needs no separate ski
 - Do not add tests, TDD, or verification scripts by default. Explicit user requests and mandatory project checks still apply.
 - Name the level of what ran: static check, successful load, local call, injected input, or complete user interaction. A loadable plugin is weaker evidence than a working feature, and injected input is weaker than a physical terminal interaction.
 - If execution needs the user's environment or is blocked, state what remains unverified and give concrete steps and expected observations. **Blocked is a legitimate outcome:** say so with the exact check the user must run. Never invent completion or silently omit blocked work.
-- Briefly report what changed, what actually ran, and what needs user confirmation. One line when sufficient.
+- Report what changed, what actually ran, and what needs user confirmation. Use one line only when it preserves all three.

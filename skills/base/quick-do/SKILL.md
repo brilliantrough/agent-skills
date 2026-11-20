@@ -21,7 +21,7 @@ Apply `goal-first`: keep the requested outcome and smallest sufficient check in 
 - Fix the root cause: grep the callers of what you touch and fix where all of them route through. A guard repeated in every caller is a bigger diff and leaves siblings broken.
 - Take the obvious interpretation for ordinary implementation details. Ask at most one focused clarification on the quick path; if investigation reveals substantial ambiguity or risk, stop and propose `steady-do`.
 - No plan documents, grilling sessions, or sub-agents. Use a todo only when the work or host instructions warrant it.
-- Keep the smallest working change: reuse existing code, then stdlib/native features, then installed dependencies. No over-encapsulation, speculative abstractions, defensive boilerplate, redundant checks, or unrelated cleanup. Preserve necessary trust-boundary validation, security, accessibility, and data protection.
+- Keep the smallest complete change that satisfies the requested outcome: reuse existing code, then stdlib/native features, then installed dependencies. No over-encapsulation, speculative abstractions, defensive boilerplate, redundant checks, or unrelated cleanup. Preserve necessary trust-boundary validation, security, accessibility, and data protection.
 - Leave a clean tree: scratch scripts, probes, temporary tests, and outputs are deleted unless they become a minimal asset with a real consumer today.
 - Before destructive or irreversible actions, show the impact and obtain explicit authorization. Permission to start does not permit overwriting secrets or changing unrelated environments.
 
@@ -32,4 +32,4 @@ Apply `goal-first`: keep the requested outcome and smallest sufficient check in 
 - Do not add tests, TDD, or verification scripts by default. Explicit user requests and mandatory project checks still apply.
 - Report only what actually ran, and name its level: a static check, a successful load, and injected input are each weaker than end-to-end behavior. If execution is unavailable, state what remains unverified and the concrete user check.
 - **Blocked is a legitimate outcome:** say so, name what is left and the exact check the user must run. Never fake completion or silently skip a step.
-- Finish in one short line stating the change and verification status, including a blocker or required user check when present. Required product docs and project memory still apply.
+- Report the change and verification status, including any blocker or required user check. Use one short line only when it preserves all of these. Required product docs and project memory still apply.

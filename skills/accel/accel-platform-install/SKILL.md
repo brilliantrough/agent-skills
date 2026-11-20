@@ -1,6 +1,6 @@
 ---
 name: accel-platform-install
-description: 系统层：本机加速平台栈（驱动/SDK/工具链/通信库）的安装、升级、排障与验证阶梯，适用任意厂商平台（CUDA/MUSA/Ascend/ROCm 等）。Use when installing, upgrading, or troubleshooting the local accelerator platform stack regardless of vendor — user-space installs, Python compatibility, dynamic libraries, validation ladder. 正文为当前已验证实例（现 MUSA/Ubuntu 22.04）；非该平台首次初始化时先按头部「如何特化」改写正文。触发词：装驱动、装SDK、工具链、平台栈、用户态安装、验证阶梯。
+description: 系统层：本机加速平台栈（驱动/SDK/工具链/通信库）的安装、升级、排障与验证阶梯，适用任意厂商平台（CUDA/MUSA/Ascend/ROCm 等）。Use when installing, upgrading, or troubleshooting the local accelerator platform stack regardless of vendor — user-space installs, Python compatibility, dynamic libraries, validation ladder. 触发词：装驱动、装SDK、工具链、平台栈、用户态安装、验证阶梯。
 ---
 
 # Accelerator Platform Install（系统层，名称永不变）

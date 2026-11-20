@@ -40,8 +40,14 @@ Tool names in this block (`ctx_*`, `ctxm_*`, `later`, `bg_*`, `mem_*`) are the P
 ### Long-running work (always applies)
 
 - Pi: unknown completion time → `pi-background-tasks` (`bg_run` for shell, `bg_delegate` for read-only investigation; Fusion only for an explicit multi-model review). Known duration plus a custom next-step prompt → `later`. OpenCode v2: native `shell`/`subagent` with `background: true`, or `Ctrl+B`; use `later` when the resumed turn needs instructions.
-- Launch, then end the turn; do not sleep or poll. On wake-up, read the result, logs or exit state before continuing.
+- Launch and register a wake-up when the host supports it, then end the turn with status running, not done; do not sleep or poll. On wake-up, read the result, logs or exit state and continue the remaining work. If automatic continuation is unavailable, report running with the log location and the next required check.
 - Background shell is not sandboxed. Keep `bg_delegate` isolated unless an extension-registered provider requires `ambient`.
+
+### Completion and truthful reporting (always applies)
+
+- The first viable result is not necessarily completion. Finish every requested and authorized part; stop optional expansion, not required work. When execution is in scope, do not stop at a plan, a first pass, or an offer to continue.
+- Make reasonable, reversible assumptions and state them. Ask only about material scope or risk, concrete blockers, decisions that belong to the user, or irreversible/destructive actions. Continue independent authorized work where possible.
+- Before declaring done, check every requested part and the agreed verification. Disclose missing inputs, unavailable tools, failed or unrun checks, and partial results. Blocked or partial work is not done.
 
 ### Steering the agent (always applies)
 
@@ -52,7 +58,7 @@ Tool names in this block (`ctx_*`, `ctxm_*`, `later`, `bg_*`, `mem_*`) are the P
 
 ### Code taste (always applies when writing or changing code)
 
-- **Ponytail** is this suite's name for one trade-off: the smallest complete solution, reuse first, and only assets that keep working. No speculative abstraction, over-encapsulation or defensive scaffolding.
+- **Ponytail** is this suite's name for one trade-off: the smallest complete solution, reuse first, and only assets that keep working. It reduces implementation and artifact cost, never requested behavior, necessary verification or blocker disclosure. No speculative abstraction, over-encapsulation or defensive scaffolding.
 - Verify changed behavior through the smallest relevant real path and existing project checks; a clean exit says nothing about behavior. Add a test only when the change needs a focused regression. Report unverified behavior.
 - Accept small, quickly recoverable rework instead of keeping maybe-useful files, branches or scaffolding; re-add a detail when a real need returns. At stage review, flag both defects and "should delete but remains".
 - During authorized cleanup, delete pseudo-safety and disposable artifacts: one-off hash/byte-diff checks, Agent-made manifests and inventories, speculative defensive branches, scratch/probe/debug scripts, one-off tests and temporary outputs. Keep protections tied to real trust boundaries, correctness/integrity/authenticity, data-loss prevention, interoperability, accessibility, hardware calibration, current evidence or explicit byte-level contracts.

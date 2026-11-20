@@ -1,6 +1,6 @@
 ---
 name: goal-first
-description: 科研与开发的主线优先约束：按目标、认识/证据价值和停止条件安排投入，抑制过早/局部优化、过度设计、自行车棚效应、镀金和无界探索；支持有目的的探索矩阵、消融、帕累托前沿及论文验证。Use throughout research, development, planning and skill design, especially when scope drifts or work is about to expand；触发词：抓住主线、方法论、别跑偏、实验是否值得、矩阵是否必要、成本止损。与执行skill配合；只维护自有入口，不改第三方正文，不新增审批层。
+description: 科研与开发的主线优先约束：按目标、认识/证据价值和停止条件安排投入，抑制过早/局部优化、过度设计、自行车棚效应、镀金和无界探索；支持有目的的探索矩阵、消融、帕累托前沿及论文验证。Use throughout research, development, planning and skill design, especially when scope drifts or work is about to expand；触发词：抓住主线、方法论、别跑偏、实验是否值得、矩阵是否必要、成本止损。与执行skill配合。
 ---
 
 # 主线优先：每一步买到必要进展或有效信息

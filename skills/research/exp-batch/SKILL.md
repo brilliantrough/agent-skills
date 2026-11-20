@@ -95,5 +95,5 @@ Long runs (device hours) neither hold the turn nor get polled in a loop.
   - Every planned run appears in the table, and every result row comes from a real run.
 - When this batch changes route status or key understanding, use `save-mem` to update the existing route record/profile with the report as evidence.
   - Batch completion shows the batch ran; the hypothesis and parallel routes keep their own status.
-  - Report concisely in chat.
-  - This batch does not wake the planning session: the researcher brings the report back, so the file is what gets reviewed.
+- Report run status, evidence and remaining decisions in chat; omit routine process logs.
+- This batch does not wake the planning session: the researcher brings the report back, so the file is what gets reviewed.
