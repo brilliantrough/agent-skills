@@ -6,7 +6,7 @@ export const META = "agentSkillsContextRewrite";
 export const DESCRIPTION =
   "Replace recent low-value tool operations in FUTURE model context with a correction note. " +
   "Use after an oversized read, wrong cwd/environment/flags, or an abandoned approach; " +
-  "keep the useful finding and exact next action (e.g. targeted read or ctxm_execute_file). " +
+  "keep the useful finding and exact next action (e.g. targeted read or native Bash/Python aggregation). " +
   "Copy numeric IDs from [context_op id=N], NOT Magic Context tags. Only the latest completed " +
   "operations within the configured window (default 10) qualify. Call directly, not inside a batch/codemode, " +
   "after observing results; then run the corrected operation separately. A batch is one operation: " +

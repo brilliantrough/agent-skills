@@ -21,7 +21,7 @@ ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/agent-skills/dsh"
 mkdir -p "$ROOT"
 NODE=""
 for candidate in "$(command -v node 2>/dev/null || true)" "$ROOT/node/bin/node" "$HOME"/.local/share/fnm/node-versions/*/installation/bin/node; do
-  if [[ -x "$candidate" ]] && "$candidate" -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>24||a===24&&b>=9?0:1)' 2>/dev/null; then
+  if [[ -x "$candidate" ]] && "$candidate" -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>24||a===24&&b>=15?0:1)' 2>/dev/null; then
     NODE="$candidate"; break
   fi
 done
@@ -30,7 +30,7 @@ if [[ -z "$NODE" ]]; then
   case "$(uname -s)-$(uname -m)" in
     Linux-x86_64) platform=linux-x64;; Linux-aarch64) platform=linux-arm64;;
     Darwin-x86_64) platform=darwin-x64;; Darwin-arm64) platform=darwin-arm64;;
-    *) printf '请先安装 Node >=24.9，再运行本脚本。\n' >&2; exit 1;;
+    *) printf '请先安装 Node >=24.15，再运行本脚本。\n' >&2; exit 1;;
   esac
   node_tar=$(mktemp)
   curl -fsSL --connect-timeout 8 -m 180 "https://nodejs.org/dist/v24.21.0/node-v24.21.0-$platform.tar.gz" -o "$node_tar"

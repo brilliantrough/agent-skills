@@ -32,8 +32,8 @@ Tool names in this block (`ctx_*`, `ctxm_*`, `later`, `bg_*`, `mem_*`) are the P
 
 ### Context window (always applies)
 
-- Choose the tool by the next action: exact source or a complete edit unit → native `Read`/`Grep`; short output used directly → native `Bash`; large-data aggregation → `ctxm_execute`/`ctxm_execute_file`; multi-command indexed research → `ctxm_batch_execute`. Return enough evidence to act on.
-- Web: when the web MCP tools are installed, use them instead of host built-ins (WebSearch, WebFetch, web_search): `tavily_search`/`tavily_extract` for facts and news, `firecrawl_search` for ranked results, `firecrawl_scrape` for a known page. Call tools by the names the host actually exposes and find the rest through tool search or the MCP gateway. `ctxm_fetch_and_index` only for a page you will re-query.
+- Choose the tool by the next action: exact source or a complete edit unit → native `Read`/`Grep`; short output or one-off Python/Node aggregation → native `Bash`; multi-host/MCP-tool orchestration → native Code Mode; large/noisy local output → `ctxm_execute`; several command outputs queried together → `ctxm_batch`; repeatedly queried documents → `ctxm_index`/`ctxm_search`. Do not use ctxm as a generic wrapper or guess unknown content through repeated retrieval. Return enough evidence to act on.
+- Web: when the web MCP tools are installed, use them instead of host built-ins (WebSearch, WebFetch, web_search): `tavily_search`/`tavily_extract` for facts and news, `firecrawl_search` for ranked results, `firecrawl_scrape` for a known page. Call tools by the names the host actually exposes and find the rest through tool search or the MCP gateway. `ctxm_index(url=...)` only for a page you will re-query.
 - Magic Context: `ctx_search` recalls earlier decisions, `ctx_memory` stores durable knowledge, `ctx_note` holds reminders.
 - Reuse loaded skills, confirmed facts and unchanged source. After an exact-match edit fails, reread the affected unit before patching again.
 

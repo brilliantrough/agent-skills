@@ -21,8 +21,9 @@ export default {
       },
     };
     const input = { client, directory: ctx.location.directory, worktree: ctx.location.directory, project: { name: ctx.location.directory.split(/[\\/]/).filter(Boolean).at(-1) } };
-    const cm = await load(join(config, "vendor/context-mode/build/adapters/opencode/plugin.js"));
-    const hooks = [await cm.ContextModePlugin(input), await later(input)];
+    const cm = await load(join(config, "vendor/context-mode/opencode/plugin.js"));
+    const cmCleanup = await cm.setup(ctx); // context-mode v2 原生入口；工具、权限与 hooks 不再转发两遍。
+    const hooks = [await later(input)];
     registrations.push(await ctx.tool.transform((editor) => {
       for (const h of hooks) for (const [name, def] of Object.entries(h.tool ?? {})) editor.add({
         name, description: def.description, input: tool.schema.object(def.args), options: { codemode: true, pinned: true },
@@ -79,6 +80,6 @@ export default {
         for (const h of hooks) await h.event?.({ event });
       }
     })().catch((error) => { if (!abort.signal.aborted) console.error("[legacy-tools] event capture failed", error); });
-    return async () => { abort.abort(); await events; for (const r of registrations.reverse()) await r.dispose(); for (const h of hooks) await h.dispose?.(); };
+    return async () => { abort.abort(); await events; await cmCleanup(); for (const r of registrations.reverse()) await r.dispose(); for (const h of hooks) await h.dispose?.(); };
   },
 };

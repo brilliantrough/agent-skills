@@ -7,7 +7,7 @@
 | 文件 | 职责 |
 | --- | --- |
 | `index.js` | 注册 v2 服务端能力，并清理注册资源；Ponytail 由官方包原生加载 |
-| `legacy-tools.js` | 复用已安装的 context-mode、later 实现，转换 v2 工具与会话事件 |
+| `legacy-tools.js` | 直接调用 context-mode v2 原生 `setup(ctx)`；仅转换 later 的旧工具与会话事件 |
 | `request-affinity.js` | 会话级缓存键、sticky session 请求头 |
 | `context-rewrite.js` | 近期纠错、持久外置、显式全文取回；复用 `context-rewrite/` 核心 |
 | `image-gen.js` | `image_gen` 画图工具；复用 `image-gen/` 核心，图片以 data URI 的 file part 返回 |
@@ -33,7 +33,7 @@ Magic Context 使用其自身的 v2 入口，兼容基线至少 **0.45**；本�
 运行依赖：
 
 - 配置目录：`OPENCODE_CONFIG_DIR`，否则 `$XDG_CONFIG_HOME/opencode` 或 `~/.config/opencode`。
-- `vendor/context-mode/`：独立 release 产物，由适配层调用；不把旧 hooks 再登记给宿主。
+- `vendor/context-mode/`：独立 release 产物，由适配层调用其 v2 原生 `setup(ctx)`；不转发旧 hooks，也不再把 ctxm 工具钉入 codemode。
 - `plugins/claude-mem.js`：官方 claude-mem bundle，自带 OpenCode v1 `server` 与 v2 `setup`；setup 维护最新版，agent-skills 不再代理其 hooks。
 - `v2/` 目录包：本仓自维护能力；包含 context-mode 调用、later、context_rewrite、请求亲和性等，不包含 claude-mem wrapper。
 

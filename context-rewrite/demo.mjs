@@ -38,7 +38,7 @@ try {
   assert.equal(await store.capture(["短输出"], { tool: "bash" }), undefined);
   assert.equal(await store.capture([source], { tool: "context_output_read" }), undefined);
   assert.equal(await store.capture([source], { tool: "ctx_expand" }), undefined);
-  // 分工具阈值：read 按 48 KiB，其余按 16 KiB；skill 文本永久豁免。
+  // 分工具阈值：read 按 48 KiB，其余按 16 KiB；项目指令与 skill 文本永久豁免。
   const medium = "m".repeat(20 * 1024);
   const plain = join(directory, "plain.txt");
   await writeFile(plain, "正文\n");
@@ -49,10 +49,11 @@ try {
   await mkdir(join(directory, "skills", "demo"), { recursive: true });
   await writeFile(skillPath, skillText);
   assert.equal(await store.capture([skillText], { tool: "read", sourcePath: skillPath }), undefined);
+  assert.equal(await store.capture([skillText], { tool: "read", sourcePath: join(directory, "AGENTS.md") }), undefined);
   assert.equal(await store.capture([skillText], { tool: "skill" }), undefined);
   // context-mode 工具结果也不外置（Agent 主动提取的输出，长是正常的）
   assert.equal(await store.capture([medium], { tool: "ctxm_execute" }), undefined);
-  assert.equal(await store.capture([medium], { tool: "ctxm_batch_execute" }), undefined);
+  assert.equal(await store.capture([medium], { tool: "ctxm_batch" }), undefined);
   assert.equal(await store.capture([medium], { tool: "mcp__web__ctxm_search" }), undefined);
   const bigger = "b".repeat(60 * 1024);
   const bigPath = join(directory, "big.txt");
@@ -73,4 +74,4 @@ try {
   await assert.rejects(() => reopened.retrieve({ id: "../../outside", full: true }));
   await assert.rejects(() => reopened.retrieve({ id: saved.id, offset: 1 }));
 } finally { await rm(directory, { recursive: true, force: true }); }
-console.log("通过：近期纠错；外置阈值、分工具阈值、skill 豁免、ctxm 豁免、去重、完整取回、UTF-8 分页、重开、路径边界。");
+console.log("通过：近期纠错；外置阈值、分工具阈值、项目指令／skill 豁免、ctxm 豁免、去重、完整取回、UTF-8 分页、重开、路径边界。");

@@ -733,15 +733,17 @@ OpenCode setup 单独询问是否刷新 Magic Context，默认 Y；v2 兼容基�
 
 本仓库 fork：
 
-- 构建后将 11 个工具改名为 `ctxm_*`，另做三项口径修正
-- 产物走 GitHub release，不进 git 历史
-- 目标机无需 bun / clone；开发机发布：`bash context-mode/setup.sh --publish`
+- 基于上游 **2.2.1**，将 9 个工具改名为 `ctxm_*`；主宿主自动外置统一由本仓无损 snapshot 负责
+- 只带 `context-mode`、`ctx-doctor`、`ctx-stats` 三个 skills；v1 的旧 references 与单工具命令 skills 不再分发
+- 产物走 GitHub release，不进 git 历史；开发机发布：`bash context-mode/setup.sh --publish`
+- 目标机无需 clone 或上游开发依赖；Pi 实际运行 Node 必须 **≥24.15**，不满足时 setup 保留旧版并警告，不静默替换
+- 回填上游 `#1403` 的显式代理／SSRF 修复，并处理 Bun 原子建库时 WAL 未随主文件发布的问题
 
 | 宿主 | 部署方式 |
 |---|---|
 | Pi | curl 最新 release → 解到 `~/.pi/agent/vendor/context-mode` → `pi install`；内容未变则跳过 |
-| OpenCode v1 | `opencode-context-mode-vendor.tar.gz` → `~/.config/opencode/plugins/context-mode/`；再放一层 `entry.js` 入口 |
-| OpenCode v2 | 同一 context-mode 资产 → `~/.config/opencode/vendor/context-mode/`；由 v2 适配包加载 |
+| OpenCode v2 | 同一内容布局的 release 资产 → `~/.config/opencode/vendor/context-mode/`；适配包直接调用官方 `setup(ctx)` |
+| DSH | 复用 Pi 资产中的 `server.mjs --agent opencode` 与 skills；由官方 MCP stdio 客户端加载 |
 
 - Pi：摘除旧 clone 路径条目；同时登记两份会无法启动
 - OpenCode：context-mode 不单独登记为配置插件；配套 skill 装到 `~/.config/opencode/skill/`
@@ -766,7 +768,7 @@ OpenCode setup 单独询问是否刷新 Magic Context，默认 Y；v2 兼容基�
 1. 对照[插件清单](#插件与主题)，用 `pi install npm:<包名>` 逐个安装八个 npm 包，再用 `pi install git:github.com/brilliantrough/agent-skills` 安装本仓库包
 2. 可选安装 context-mode fork：
    - Pi：`curl -fsSL https://github.com/brilliantrough/agent-skills/releases/latest/download/pi-context-mode-vendor.tar.gz | tar -xz -C ~/.pi/agent/vendor/context-mode`，再 `pi install ~/.pi/agent/vendor/context-mode`
-   - OpenCode v1：取 `opencode-context-mode-vendor.tar.gz` 解到 `~/.config/opencode/plugins/context-mode`，将包内 `entry.js` 用 `cp` 复制到 `plugins/context-mode.js`
+   - OpenCode v2 与 DSH 分别通过 `opencode-setup.sh --plugins-only`、`dsh-setup.sh` 更新，不手工拼旧 V1 入口
 3. 将本仓 `templates/pi/{models,settings,mcp,auth,pi-autoname}.json`、`templates/pi/agents/*.md` 放到对应位置
 4. 填好 `models.json` 网关占位符、`auth.json` coding plan key；用 `pi auth check --provider <p>` 验证
 

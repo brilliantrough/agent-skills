@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, writeFile, lstat, readlink, rename, symlink, glob } from "node:fs/promises";
+import { cp, mkdir, readFile, writeFile, lstat, readlink, rename, symlink, glob, rm } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
@@ -79,9 +79,12 @@ export async function deploy({ root, source, template: templatePath, contextMode
   for (const dir of ["dsh", "context-rewrite", "image-gen"]) {
     await cp(join(source, dir), join(bundle, dir), copyOptions);
   }
-  if (contextMode) await cp(contextMode, join(runtime, "vendor/context-mode"), {
-    ...copyOptions, filter: async (src, dest) => (await lstat(src)).isDirectory() || !existsSync(dest) || !(await readFile(src)).equals(await readFile(dest)),
-  });
+  if (contextMode) {
+    await rm(join(runtime, "vendor/context-mode"), { recursive: true, force: true });
+    await cp(contextMode, join(runtime, "vendor/context-mode"), {
+      ...copyOptions, filter: async (src, dest) => (await lstat(src)).isDirectory() || !existsSync(dest) || !(await readFile(src)).equals(await readFile(dest)),
+    });
+  }
   const magic = join(runtime, "vendor/magic-context");
   if (magicContext) await cp(magicContext, magic, copyOptions);
   if (!existsSync(join(magic, "package.json"))) throw new Error("缺少 Magic Context 源码包，未修改启动入口");
@@ -153,7 +156,7 @@ export async function deploy({ root, source, template: templatePath, contextMode
   }
   if (contextMode) template.push({ id: "mcp-context-mode", disabled: false, config: {
     serverName: "context_mode", transport: "stdio", command: process.execPath,
-    args: [join(runtime, "vendor/context-mode/server.bundle.mjs")], env: { CONTEXT_MODE_PLATFORM: "pi" },
+    args: [join(runtime, "vendor/context-mode/server.mjs"), "--agent", "opencode"],
     failOnStartupError: true,
   } }, { id: "skill-filesystem", config: { customSkillDirs: [join(runtime, "vendor/context-mode/skills")] } });
   const providers = template.find((r) => r.id === "llm-pi-ai").config.providers;

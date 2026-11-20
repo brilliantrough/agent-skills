@@ -983,7 +983,10 @@ PYEOF
   done
   # 拉最新发布包:内容与已装的一致就不动(幂等),变了才替换
   cm_tmp="$(mktemp -d)"; cm_ok=0
-  if curl -fsSL -o "$cm_tmp/vendor.tar.gz" "$CM_URL" 2>/dev/null && mkdir -p "$cm_tmp/pkg" && tar -xzf "$cm_tmp/vendor.tar.gz" -C "$cm_tmp/pkg"; then
+  if ! command -v node >/dev/null 2>&1 || ! node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>24||a===24&&b>=15?0:1)' 2>/dev/null; then
+    echo "WARN: context-mode v2 需要 Pi 实际运行的 Node >=24.15；保留现有安装，不更新。用 Node 24 启动 Pi 后重跑本步骤。" >&2
+    cm_ok=1
+  elif curl -fsSL --connect-timeout 8 -m 120 -o "$cm_tmp/vendor.tar.gz" "$CM_URL" 2>/dev/null && mkdir -p "$cm_tmp/pkg" && tar -xzf "$cm_tmp/vendor.tar.gz" -C "$cm_tmp/pkg"; then
     cm_ver="$(python3 -c "import json;print(json.load(open('$cm_tmp/pkg/VENDORED.json'))['upstream']['version'])" 2>/dev/null || echo '?')"
     if [ -d "$CM_DIR" ] && diff -rq "$cm_tmp/pkg" "$CM_DIR" >/dev/null 2>&1; then
       echo "已有: context-mode fork $cm_ver"

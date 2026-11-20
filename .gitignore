@@ -4,6 +4,7 @@ __pycache__/
 docs/
 
 context-mode/dist/
+context-mode/.work/
 
 opencode/dist/
 

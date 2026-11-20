@@ -12,7 +12,7 @@ dsh --profile headless "任务"
 dsh web
 ```
 
-- 运行环境：Node ≥24.9；缺失时安装独立 Node，不更改 Pi 或系统 Node
+- 运行环境：Node ≥24.15；缺失时安装独立 Node，不更改 Pi 或系统 Node
 - 固定组合：DSH `0.2.1-rc.2`、`@xmoon76/dsh-pi-tui` `0.5.3`、`pi2dsh` `0.27.1`；配套 DSH 服务也固定 `rc.2`
 - 安装目录：`${XDG_DATA_HOME:-~/.local/share}/agent-skills/dsh/`；运行目录 `runtime/`，配置及会话 `home/`
 - 已有 alpha：保留包与 `~/.dsh` 数据；替换 npm 入口时将旧链接保存为 `dsh-alpha`

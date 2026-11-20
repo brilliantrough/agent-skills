@@ -94,7 +94,7 @@ if [[ "$OC_VERSION" =~ (^|[[:space:]])v?([12])\.[0-9]+\.[0-9]+ ]]; then OC_MAJOR
 else echo "ERROR: 无法识别或暂不支持的 OpenCode 版本: $OC_VERSION" >&2; exit 1; fi
 [ "$OC_MAJOR" = 2 ] || { echo "ERROR: 当前 setup 只维护 OpenCode V2；请先升级宿主，现有配置未改动。" >&2; exit 1; }
 echo "客户端: $OC_VERSION → v$OC_MAJOR 插件包；自动更新默认关闭,宿主只在本脚本里升级/不迁移数据库"
-OC_RELEASE="opencode-plugins-1.0.24"
+OC_RELEASE="opencode-plugins-1.0.25"
 CFG="${OPENCODE_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/opencode}"
 PLUGINS="$CFG/plugins"
 CLAUDE_PLUGIN="$PLUGINS/claude-mem.js"
@@ -835,7 +835,7 @@ rm -f "$oc_tpl" "$oc_cand"
 
 fi # 完整安装的环境／配置步骤
 
-# ---- 5. context-mode 独立产物：v1 自动入口；v2 由版本适配包加载 ----
+# ---- 5. context-mode 独立产物：由 V2 适配包调用原生 setup(ctx) ----
 # skills 装到 $CFG/skill/<name>/。
 CM_ASSET="opencode-context-mode-vendor.tar.gz"
 CM_URL="https://github.com/brilliantrough/agent-skills/releases/latest/download/$CM_ASSET"
@@ -869,6 +869,10 @@ if mkdir -p "$cm_tmp/pkg" && curl -fsSL --connect-timeout 8 -m 120 -o "$cm_tmp/a
     if [ -d "$dest" ] && diff -rq "$d" "$dest" >/dev/null 2>&1; then continue; fi
     mkdir -p "$(dirname "$dest")"; rm -rf "$dest"; cp -r "$d" "$dest"
     echo "deployed: skill/$n"; cm_n=$((cm_n+1))
+  done
+  for stale in ctx-index ctx-search ctx-upgrade ctx-purge ctx-insight; do
+    stale_dir="$(rpath "$CFG/skill/$stale")"
+    if [ -d "$stale_dir" ]; then rm -rf "$stale_dir"; echo "retired: skill/$stale"; fi
   done
   echo "       context-mode: skill 更新 $cm_n 个(重启 opencode 生效)"
   cm_ok=1
