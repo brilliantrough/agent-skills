@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -50,6 +51,7 @@ def main():
         assert result.returncode == 0, result.stdout
         assert "SKIP setup-preflight.py: simulated Windows prerequisite" in result.stdout, result.stdout
         assert "PASS: 公开体检通过，但 1 项因缺前置条件 SKIP" in result.stdout, result.stdout
+        assert "PASS 自研外置退役" in result.stdout, "快速 check.sh 未执行退役静态契约"
 
         source = CHECK.read_text(encoding="utf-8")
         match = re.search(r"^  t_run\(\) \{.*?^  \}", source, re.M | re.S)
@@ -69,7 +71,31 @@ def main():
         assert result.returncode == 1, result.stdout
         assert "FAIL quiet-noop: 退出 0 但未输出 PASS" in result.stdout, result.stdout
 
-    print("PASS: preflight SKIP 进入公开摘要，静默 noop 测试判 FAIL")
+        # 静态契约在隔离副本中必须能抓回退，不能只验证正常仓库会通过。
+        static_root = tmp / "static-repo"
+        static_test = static_root / "tests/source-bench.py"
+        static_test.parent.mkdir(parents=True)
+        shutil.copy2(ROOT / "tests/source-bench.py", static_test)
+        for name in (
+            "pi/extensions/context-rewrite.ts",
+            "opencode/v2/context-rewrite.js",
+            "opencode/plugins/context-rewrite.js",
+            "dsh/index.mjs",
+            "context-mode/fork-patches.mjs",
+            "context-mode/release.mjs",
+            "context-mode/guidance.md",
+        ):
+            target = static_root / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(ROOT / name, target)
+        result = run([sys.executable, str(static_test), "--context-output-static"])
+        assert result.returncode == 0, result.stdout
+        with (static_root / "pi/extensions/context-rewrite.ts").open("a", encoding="utf-8") as f:
+            f.write("\n// context_output_read\n")
+        result = run([sys.executable, str(static_test), "--context-output-static"])
+        assert result.returncode != 0 and "仍引用退役外置" in result.stdout, result.stdout
+
+    print("PASS: preflight SKIP、静默 noop 与快速静态退役回退均被门禁捕获")
 
 
 if __name__ == "__main__":

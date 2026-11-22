@@ -123,6 +123,15 @@ grep -q 'releases/latest/download\|releases/download' pi-setup.sh opencode-setup
   || err "编译产物分发入口丢失(release)应保留"
 info "取源走本地源码树;编译产物仍走 Release"
 
+# 快速静态检查也拦截自研外置回退；与完整 source-bench 共用同一份断言，不维护第二套规则。
+retire_out="$(python3 tests/source-bench.py --context-output-static 2>&1)"; retire_rc=$?
+printf '%s\n' "$retire_out"
+if [ "$retire_rc" != 0 ]; then
+  err "大输出退役静态契约失败: tests/source-bench.py --context-output-static"
+elif ! printf '%s\n' "$retire_out" | grep -Eq '^PASS([: ]|$)'; then
+  err "大输出退役静态契约退出 0 但未输出 PASS"
+fi
+
 # 配置模板随本仓分发(templates/);setup 不再依赖其它仓库
 if grep -nE 'githubusercontent\.com/[^/]+/dot_file' pi-setup.sh opencode-setup.sh codex-setup.sh dsh-setup.sh skills-sync.sh skills-external.sh modules/run.sh modules/*/setup.sh; then
   err "setup 里出现 dot_file 仓库的下载地址;模板放进 templates/,经 RAW 变量(指向本仓 templates/)取用"

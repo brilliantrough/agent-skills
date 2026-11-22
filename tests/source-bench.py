@@ -3,6 +3,7 @@
 
 生产实现是四个 setup 与 skills-sync.sh 共用的 file_url/acquire_source（check.sh 校验逐字节一致）；
 本测试直接调用真实函数，fixture 是一个本地 git 仓库，经 AGENT_SKILLS_REPO 以 file:// 传入。
+`--context-output-static` 只运行大输出退役静态契约，供快速 check.sh 复用。
 """
 import os
 import pathlib
@@ -382,4 +383,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if sys.argv[1:] == ["--context-output-static"]:
+        context_output_retirement()
+    else:
+        main()
