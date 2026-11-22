@@ -1,16 +1,25 @@
 #!/usr/bin/env bash
-# check.sh — 公开体检与本仓 lint:语法、skills 结构与索引、文档计数、敏感值、skills 文本链接与字符、skill 与 shell 规范。
+# check.sh — 公开体检、本仓 lint 与离线 Verification（--with-tests）。
 # 完整自检(private)不随分发;这里是贡献者能自己跑的那一半。
-# 用法: bash scripts/check.sh          # 0 = 通过
+# 用法: bash scripts/check.sh [--with-tests]   # 0 = 通过
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 
+WITH_TESTS=0
+for a in "$@"; do
+  case "$a" in
+    --with-tests) WITH_TESTS=1 ;;
+    *) echo "未知参数: $a(可用: --with-tests)" >&2; exit 2 ;;
+  esac
+done
+
 fail=0
+public_skipped=0
 err() { printf 'ERROR: %s\n' "$*"; fail=1; }
 info() { printf '  %s\n' "$*"; }
 
-# ---- 1. 脚本语法 ----
-echo "== 1. 语法 =="
+# ---- 1. 脚本语法与安装流程 ----
+echo "== 1. 语法与安装流程 =="
 for f in pi-setup.sh opencode-setup.sh codex-setup.sh dsh-setup.sh skills-sync.sh skills-external.sh modules/run.sh scripts/check.sh; do
   [ -f "$f" ] || { err "缺文件 $f"; continue; }
   bash -n "$f" 2>/dev/null || err "bash -n 失败: $f"
@@ -19,6 +28,18 @@ while IFS= read -r f; do
   python3 -m py_compile "$f" 2>/dev/null || err "py_compile 失败: $f"
 done < <(find skills -name '*.py' -type f 2>/dev/null)
 info "shell 与 python 语法检查完成"
+preflight_out="$(python3 tests/setup-preflight.py 2>&1)"; preflight_rc=$?
+printf '%s\n' "$preflight_out"
+if [ "$preflight_rc" != 0 ]; then
+  err "安装前置流程回归失败: tests/setup-preflight.py"
+elif [[ "$preflight_out" == "SKIP:"* ]]; then
+  printf '  SKIP setup-preflight.py: %s\n' "${preflight_out#SKIP: }"
+  public_skipped=1
+elif ! printf '%s\n' "$preflight_out" | grep -Eq '^[[:space:]]*PASS([: ]|$)'; then
+  err "安装前置流程回归退出 0 但未输出 PASS"
+else
+  info "安装前置流程回归通过"
+fi
 
 # ---- 2. skills 组结构 + 计数 ----
 echo "== 2. skills 结构 =="
@@ -89,9 +110,18 @@ fi
 
 # ---- 5. 分发链路纪律 ----
 echo "== 5. 分发链路 =="
-grep -q 'codeload.github.com' skills-sync.sh || err "skills-sync.sh 不再从 GitHub 拉取源"
-grep -qE 'agent-skills-main/|本地克隆当源' skills-sync.sh && err "skills-sync.sh 出现本地克隆取源"
-info "取源仍走 GitHub tarball"
+# 源码基准 = 一棵本地 git 树:默认受管 clone,AGENT_SKILLS_SOURCE 可指定已有工作树。
+# 已明确推翻旧的"只能 tarball、不读本地 clone"规则(2026-11)。
+for f in pi-setup.sh opencode-setup.sh codex-setup.sh dsh-setup.sh skills-sync.sh; do
+  grep -q '^acquire_source() {' "$f" || err "$f 缺 acquire_source(统一源码基准入口)"
+done
+grep -q 'AGENT_SKILLS_SOURCE' skills-sync.sh || err "skills-sync.sh 未支持显式 AGENT_SKILLS_SOURCE"
+if grep -nE 'codeload\.github\.com|archive/refs/heads' skills-sync.sh pi-setup.sh opencode-setup.sh codex-setup.sh dsh-setup.sh; then
+  err "取源又回到 GitHub tarball;模板与 skills 必须从本地源码树取"
+fi
+grep -q 'releases/latest/download\|releases/download' pi-setup.sh opencode-setup.sh dsh-setup.sh \
+  || err "编译产物分发入口丢失(release)应保留"
+info "取源走本地源码树;编译产物仍走 Release"
 
 # 配置模板随本仓分发(templates/);setup 不再依赖其它仓库
 if grep -nE 'githubusercontent\.com/[^/]+/dot_file' pi-setup.sh opencode-setup.sh codex-setup.sh dsh-setup.sh skills-sync.sh skills-external.sh modules/run.sh modules/*/setup.sh; then
@@ -292,12 +322,13 @@ PI_OC = ["pi-setup.sh", "opencode-setup.sh"]
 LOCKED = {
     "npath": ALL3, "rpath": ALL3, "nbin": ALL3, "resolve_python3": ALL3,
     "ask": ALL3, "ask_value": ALL3, "fill_template_placeholders": ALL3, "mem_worker_url": ALL3,
-    "net_ok": PI_OC, "collect_gateway_values": PI_OC, "ensure_mem_provider": PI_OC,
+    "file_url": SETUPS + ["skills-sync.sh"], "acquire_source": SETUPS + ["skills-sync.sh"],
+    "net_ok": PI_OC, "config_probe": PI_OC, "collect_gateway_values": PI_OC, "ensure_mem_provider": PI_OC,
     "ensure_mem_worker_keys": PI_OC, "ensure_image_gen": PI_OC,
 }
 
 def functions(path):
-    out, name, body = {}, None, []
+    out, name, body, heredoc = {}, None, [], None
     for line in open(path, encoding="utf-8"):
         if name is None:
             m = re.match(r"([A-Za-z_]\w*)\(\)\s*\{(.*)$", line)
@@ -307,11 +338,20 @@ def functions(path):
                 out[m.group(1)] = m.group(2).rstrip()
             else:
                 name, body = m.group(1), [m.group(2)]
-        elif line.rstrip("\n") == "}":
-            out[name] = "".join(body)
-            name = None
-        else:
+            continue
+        if heredoc:
             body.append(line)
+            if line.strip() == heredoc:
+                heredoc = None
+            continue
+        if line.rstrip("\n") == "}":
+            out[name] = "".join(body)
+            name, heredoc = None, None
+            continue
+        body.append(line)
+        marker = re.search(r"<<-?\s*['\"]?([A-Za-z_][A-Za-z0-9_]*)", line)
+        if marker:
+            heredoc = marker.group(1)
     return out
 
 defs = {f: functions(f) for f in SETUPS + SHARED}
@@ -327,6 +367,8 @@ for fn, files in LOCKED.items():
 for f in SETUPS:
     for s in SHARED:
         for fn in sorted(set(defs[f]) & set(defs[s])):
+            if f in LOCKED.get(fn, []) and s in LOCKED.get(fn, []):  # LOCKED 明确允许逐字节副本(如取源层)
+                continue
             bad.append(f"{f}: 重新定义了 {s} 里的 {fn}；通用步骤只在 {s} 实现一次，setup 里改为调用")
 # 私密值永不覆盖：三份内嵌合并逻辑的敏感键正则必须逐字一致
 sens = {f: re.findall(r"^SENSITIVE = .*$", open(f, encoding="utf-8").read(), re.M) for f in ALL3}
@@ -349,6 +391,133 @@ fi
 [ "$fail" = 0 ] && info "脚本头、行尾、共用函数与 SENSITIVE 一致"
 [ "$fail_before" = 1 ] && fail=1
 
+# ---- 9. 行为回归(仅 --with-tests) ----
+# 缺前置条件报 SKIP 与原因,不算通过;不联网、不写 live 配置、不自动安装或构建。
+if [ "$WITH_TESTS" = 1 ]; then
+  echo "== 9. 行为回归 =="
+  skipped=0
+  test_cache="$(mktemp -d)"
+  export XDG_CACHE_HOME="$test_cache/xdg" BUN_INSTALL_CACHE_DIR="$test_cache/bun" NODE_DISABLE_COMPILE_CACHE=1
+  trap 'rm -rf "$test_cache"' EXIT
+  t_fail() { printf '   FAIL %s: %s\n' "$1" "$2"; fail=1; }
+  t_skip() { printf '   SKIP %s: %s\n' "$1" "$2"; skipped=$((skipped + 1)); }
+  t_run() { # $1=名称,其余=命令;输出里任何 SKIP 行都计入未验证;退出码非零一律 FAIL
+    local name="$1" out rc skips; shift
+    out="$("$@" 2>&1)"; rc=$?
+    if [ "$rc" != 0 ]; then
+      printf '   FAIL %s: 退出码 %s\n' "$name" "$rc"; printf '%s\n' "$out" | tail -12 | sed 's/^/        /'; fail=1
+      return
+    fi
+    case "$out" in
+      "SKIP:"*)
+        if [[ "$out" != *$'\n'* ]]; then local reason="${out#SKIP: }"; t_skip "$name" "$reason"; return; fi ;;
+    esac
+    if ! printf '%s\n' "$out" | grep -Eq '^[[:space:]]*PASS([: ]|$)'; then
+      printf '   FAIL %s: 退出 0 但未输出 PASS\n' "$name"
+      printf '%s\n' "$out" | tail -12 | sed 's/^/        /'; fail=1
+      return
+    fi
+    skips="$(printf '%s\n' "$out" | grep -E '^[[:space:]]*SKIP([: ]|$)|SKIP HOST ' | sed -E 's/^[[:space:]]*//')"
+    if [ -n "$skips" ]; then
+      printf '   PASS %s（有场景 SKIP，未验证）\n' "$name"
+      printf '%s\n' "$skips" | sed 's/^[[:space:]]*/        /'
+      skipped=$((skipped + 1))
+    else printf '   PASS %s\n' "$name"; fi
+  }
+  no_node() { ! command -v node >/dev/null 2>&1; }
+  no_bun() { ! command -v bun >/dev/null 2>&1; }
+  no_py() { ! command -v python3 >/dev/null 2>&1; }
+  oc_src=opencode/migrate-config.mjs
+  # 依赖被软链到 live runtime 时测试会跑到 live 代码上;默认不执行,显式路径由用户负责隔离。
+  dep_reason() { # 输出跳过原因;可运行时无输出
+    node -e 'const fs=require("fs"),p=require("path");let r;try{r=fs.realpathSync(p.join("node_modules",process.argv[1]))}catch{process.exit(1)}const root=fs.realpathSync(".");process.exit(r===root||r.startsWith(root+p.sep)?0:2)' "$1"
+    case "$?" in
+      1) printf 'node_modules 缺 %s(需 npm install;不自动执行)' "$1" ;;
+      2) printf '%s 的物理路径在仓库外(软链到 live runtime),不跟随执行' "$1" ;;
+    esac
+  }
+  t_case() { # $1=本仓测试文件 $2=跳过原因(空=可运行) 其余=命令;缺文件先 FAIL,不被 SKIP 掩盖
+    local f="$1" why="$2" name; shift 2; name="$(basename "$f")"
+    if [ ! -f "$f" ]; then t_fail "$name" "本仓正式资产缺失: $f"; return; fi
+    if [ -n "$why" ]; then t_skip "$name" "$why"; return; fi
+    t_run "$name" "$@"
+  }
+
+  if no_node; then why="缺 node"; else why="$(dep_reason @earendil-works/pi-coding-agent)"; fi
+  t_case tests/ui-render-dedupe.mjs "$why" node tests/ui-render-dedupe.mjs
+
+  if no_node; then why="缺 node"; else why="$(dep_reason @earendil-works/pi-tui)"; fi
+  t_case tests/ui-copy-clean.mjs "$why" node tests/ui-copy-clean.mjs
+
+  if no_node; then why="缺 node"; else why=""; fi
+  t_case tests/pretty-tui-grouping.mjs "$why" node --experimental-strip-types tests/pretty-tui-grouping.mjs
+  t_case tests/verification-agent.mjs "$why" node tests/verification-agent.mjs
+
+  if no_node; then why="缺 node"
+  elif [ ! -f context-rewrite/node_modules/acp-kernel/package.json ]; then why="缺 context-rewrite/node_modules/acp-kernel(需 npm ci;不自动执行)"
+  else why=""; fi
+  t_case context-rewrite/demo.mjs "$why" node context-rewrite/demo.mjs
+
+  if no_node; then why="缺 node"; else why="$(dep_reason @earendil-works/pi-tui)"; fi
+  t_case tests/ui-sidebar.mjs "$why" node --experimental-strip-types tests/ui-sidebar.mjs
+
+  # 会话周期会加载真实宿主；只有显式 PI_HOST_DIR 才跑，隔离由调用方负责。
+  if no_node; then why="缺 node"
+  elif [ -z "${PI_HOST_DIR:-}" ]; then why="需 PI_HOST_DIR 显式指定隔离的 Pi 宿主(不跑 live 宿主)"
+  else why=""; fi
+  t_case tests/pretty-tui-session-cycle.mjs "$why" node tests/pretty-tui-session-cycle.mjs
+
+  if no_py; then pwhy="缺 python3"; else pwhy=""; fi
+  t_case tests/merge-private-preservation.py "$pwhy" python3 tests/merge-private-preservation.py
+  t_case tests/nju-ppt-install.py "$pwhy" python3 tests/nju-ppt-install.py
+  t_case tests/pi-setup-windows-git-bash.py "$pwhy" python3 tests/pi-setup-windows-git-bash.py
+  t_case tests/pi-setup-shell-messages.py "$pwhy" python3 tests/pi-setup-shell-messages.py
+  t_case tests/check-gate.py "$pwhy" python3 tests/check-gate.py
+  t_case tests/source-bench.py "$pwhy" python3 tests/source-bench.py
+  t_case skills/ppt/nju-ppt/scripts/test_check_brief.py "$pwhy" python3 skills/ppt/nju-ppt/scripts/test_check_brief.py
+
+  # Git Bash 上 ln -s 会复制文件,脚本自己打印 SKIP 并退出 0。
+  t_case tests/merge-symlink-writethrough.sh "$pwhy" bash tests/merge-symlink-writethrough.sh
+
+  if [ -f "$oc_src" ]; then :; else t_fail "$(basename "$oc_src")" "本仓正式资产缺失: $oc_src;两个 OpenCode 回归依赖它"; fi
+  if no_bun; then why="缺 bun(迁移脚本是 bun 入口)"
+  elif [ ! -f opencode/node_modules/@opencode/core/package.json ] || [ ! -f opencode/node_modules/jsonc-parser/package.json ]; then
+    why="缺 OpenCode 迁移依赖(opencode/node_modules;不自动安装或联网补齐)"
+  else why=""; fi
+  t_case tests/opencode-config-migration.mjs "$why" bun --no-install tests/opencode-config-migration.mjs
+
+  if no_bun; then why="缺 bun(迁移脚本是 bun 入口)"
+  elif [ ! -f opencode/node_modules/@opencode/core/package.json ] || [ ! -f opencode/node_modules/jsonc-parser/package.json ]; then
+    why="缺 OpenCode 迁移依赖(opencode/node_modules;不自动安装或联网补齐)"
+  elif no_py; then why="缺 python3"
+  else why=""; fi
+  t_case tests/sim-opencode-config.sh "$why" bash tests/sim-opencode-config.sh "$PWD"
+
+  if no_node; then why="缺 node"; else why=""; fi
+  t_case tests/nju-ppt-html.mjs "$why" node tests/nju-ppt-html.mjs
+
+  # 成稿由 ppt-master 产出,tests/ 里没有可复用样本;不自动安装引擎。
+  if [ ! -f tests/nju-ppt-editability.py ]; then t_fail nju-ppt-editability.py "本仓正式资产缺失: tests/nju-ppt-editability.py"
+  elif no_py; then t_skip nju-ppt-editability.py "缺 python3"
+  elif [ -z "${NJU_PPT_PPTX:-}" ]; then t_skip nju-ppt-editability.py "需要成稿 PPTX(设 NJU_PPT_PPTX=<路径>)"
+  elif [ ! -f "$NJU_PPT_PPTX" ]; then t_fail nju-ppt-editability.py "NJU_PPT_PPTX 指向的文件不存在"
+  else t_run nju-ppt-editability.py python3 tests/nju-ppt-editability.py "$NJU_PPT_PPTX"; fi
+
+  # 未设 DSH_TEST_RUNTIME 时测试自己打 SKIP HOST 汇总,由 t_run 计入未验证。
+  if no_node; then why="缺 node"; else why=""; fi
+  t_case tests/dsh-deploy.e2e.mjs "$why" node tests/dsh-deploy.e2e.mjs
+  t_case tests/dsh-subagent-host.mjs "$why" node tests/dsh-subagent-host.mjs
+
+  [ "$skipped" = 0 ] || info "SKIP $skipped 项(原因见上),不计入通过"
+fi
+
 echo
-if [ "$fail" = 0 ]; then echo "PASS: 公开体检通过"; else echo "FAIL: 见上方 ERROR"; fi
+if [ "$fail" = 0 ]; then
+  total_skipped=$((public_skipped + ${skipped:-0}))
+  if [ "$total_skipped" != 0 ]; then
+    if [ "$WITH_TESTS" = 1 ]; then scope="公开体检与行为回归"; else scope="公开体检"; fi
+    echo "PASS: ${scope}通过，但 $total_skipped 项因缺前置条件 SKIP（未验证，见上）"
+  elif [ "$WITH_TESTS" = 1 ]; then echo "PASS: 公开体检与行为回归全部通过"
+  else echo "PASS: 公开体检通过"; fi
+else echo "FAIL: 见上方 ERROR 或 FAIL 行"; fi
 exit "$fail"

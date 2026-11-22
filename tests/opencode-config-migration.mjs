@@ -1,4 +1,4 @@
-// bun tests/opencode-config-migration.mjs；先构建 opencode/release.mjs。
+// bun tests/opencode-config-migration.mjs；直接验证当前迁移源码，无需构建。
 import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync, readFileSync, readdirSync, rmSync, symlinkSync, lstatSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -6,7 +6,8 @@ import { resolve, join } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const dir = mkdtempSync(join(existsSync("/tmp/opencode") ? "/tmp/opencode" : tmpdir(), "config-migration-"));
-const script = resolve("opencode/dist/stage-v2/migrate-config.mjs");
+const cache = mkdtempSync(join(existsSync("/tmp/opencode") ? "/tmp/opencode" : tmpdir(), "config-bun-cache-"));
+const script = resolve("opencode/migrate-config.mjs");
 const path = join(dir, "opencode.jsonc");
 const input = {
   autoupdate: "notify", snapshot: false, compaction: { auto: false, prune: false },
@@ -20,7 +21,8 @@ const input = {
   unrelated: { keep: true },
 };
 const raw = "// keep in backup\n" + JSON.stringify(input);
-const run = (...args) => spawnSync(process.execPath, [script, ...args], { encoding: "utf8" });
+const env = { ...process.env, HOME: cache, USERPROFILE: cache, XDG_CACHE_HOME: join(cache, "xdg-cache"), BUN_INSTALL_CACHE_DIR: join(cache, "bun-cache") };
+const run = (...args) => spawnSync(process.execPath, ["--no-install", script, ...args], { encoding: "utf8", env });
 try {
   writeFileSync(path, raw);
   assert.equal(run(path).status, 0);
@@ -66,4 +68,7 @@ try {
     assert.equal(JSON.parse(readFileSync(link, "utf8")).update, "notify");
   }
   console.log("PASS: 配置迁移预览、私密值/引用保留、权限顺序、MCP 混用、备份、幂等、错误不写入、链接写穿");
-} finally { rmSync(dir, { recursive: true, force: true }); }
+} finally {
+  rmSync(dir, { recursive: true, force: true });
+  rmSync(cache, { recursive: true, force: true });
+}

@@ -1,31 +1,47 @@
 #!/usr/bin/env python3
 """安装脚本的字段级合并必须保留本机私密值(隐私内容永不覆盖)。
 
-规则:模板补齐缺失键;键名命中 SENSITIVE(api key/secret/token/url/host/`*_KEY` 等)
-或模板值是 <占位符> 时,一律保留本地值。CLAUDE_MEM_*_MODEL 随模板更新。其余非私密键按模板更新。
-另外检查占位符填空:三个 <YOUR_NEWAPI_API_KEY> 必须各归各的 provider,embedding 与 claude-mem 不能串。
+规则:普通非敏感字段随模板，本地独有配置保留；键名命中 SENSITIVE 或模板值为 <占位符> 时保留本机值，数值 maxTokens 作为模型预算随模板。四个 newapi 与自有 MCP 按条目受管合并，模型列表按 id 保留敏感叶子。
+另外检查占位符填空:三个 <YOUR_NEWAPI_API_KEY> 必须各归各的 provider,embedding 与 claude-mem 不能串；并覆盖 OpenCode 原生合并、CodeGraph 传输边界与无配置部署。
 
 用法:python3 tests/merge-private-preservation.py   退出码 0 = 通过
 """
+import hashlib
+import importlib.util
 import json
+import os
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCRIPT = re.compile(r'python3 - "\$dest" "\$tmp" "\$cand" <<\'PYEOF\'\n(.*?)\nPYEOF', re.S)
-OC_MERGE = re.compile(r'python3 - "\$CFG/opencode\.json" "\$CFG/opencode\.jsonc" "\$oc_tpl" "\$oc_cand" "\$OC_MAJOR" "\$oc_force_manual" <<\'PYEOF\'\n(.*?)\nPYEOF', re.S)
-OC_UPDATE = re.compile(r"python3 - \"\$oc_target\" \"\$OC_MAJOR\" <<'PY_OC_UPDATE'\n(.*?)\nPY_OC_UPDATE", re.S)
+OC_MERGE = re.compile(r'python3 - "\$CFG/opencode\.json" "\$CFG/opencode\.jsonc" "\$oc_tpl" "\$oc_cand" "\$OC_MAJOR" "\$oc_force_manual" "\$PLAN_COMPACTION" <<\'PYEOF\'\n(.*?)\nPYEOF', re.S)
 FILL = re.compile(r'python3 - "\$1" "\$GW_BASE" "\$K_CLAUDE" "\$K_CODEX" "\$K_ANTHROPIC" "\$K_GEMINI" "\$K_EMBED" "\$K_MEM" "\$MCPHUB_HOST" <<\'PYEOF\'\n(.*?)\nPYEOF', re.S)
 IMG = re.compile(r'python3 - "\$HOME/\.local/share/agent-skills/image-gen\.json" .*?<<\'PYEOF\'\n(.*?)\nPYEOF', re.S)
 
 LOCAL = {
     "apiKey": "sk-LOCAL",
-    "providers": {"gw": {"baseUrl": "https://private.example/v1", "apiKey": "sk-LOCAL2", "models": ["m1"]}},
+    "providers": {
+        "gw": {"baseUrl": "https://private.example/v1", "apiKey": "sk-LOCAL2", "models": ["m1"]},
+        "claude-newapi": {
+            "baseUrl": "https://private.example/v1", "apiKey": "sk-LOCAL-NEWAPI",
+            "models": [{"id": "shared", "maxTokens": 4096, "headers": {"Authorization": "model-secret", "X-Drop": "old"}, "stale": True},
+                       {"id": "local-only", "headers": {"Authorization": "retire-non-template"}}], "stale": True,
+            "headers": {"Authorization": "Bearer LOCAL", "X-Drop": "old"},
+        },
+        "gemini-newapi": {"apiKey": "sk-RETIRE", "models": ["retire-me"]},
+    },
     "NOTIFY_INGEST_KEY": "local-ingest",
     "mcp": {"hub": {"url": "https://private.example/mcp"}},
+    "mcpServers": {
+        "web": {"url": "https://private.example/mcp", "headers": {"Authorization": "sentinel", "X-Drop": "old"},
+                "enabled": False, "toolExposure": {"search": "deferred"}},
+        "codegraph": {"command": "old-codegraph"},
+    },
     "defaultModel": "old-model",
     "localOnly": {"keep": True},
     "nested": {"retry": {"baseDelayMs": 1000, "enabled": False}},
@@ -38,9 +54,19 @@ LOCAL = {
 }
 TEMPLATE = {
     "apiKey": "TEMPLATE-KEY",
-    "providers": {"gw": {"baseUrl": "https://<YOUR_GATEWAY_HOST>/v1", "apiKey": "TEMPLATE2", "models": ["m2", "m1"]}},
+    "providers": {
+        "gw": {"baseUrl": "https://<YOUR_GATEWAY_HOST>/v1", "apiKey": "TEMPLATE2", "models": ["m2", "m1"]},
+        "claude-newapi": {
+            "baseUrl": "https://template.example/v1", "apiKey": "TEMPLATE-NEWAPI",
+            "models": [{"id": "shared", "context": 123, "maxTokens": 200000, "headers": {"X-Managed": "yes"}}], "newField": "managed",
+            "headers": {"X-Managed": "yes"},
+        },
+    },
     "NOTIFY_INGEST_KEY": "template-ingest",
     "mcp": {"hub": {"url": "https://<YOUR_MCPHUB_HOST>/mcp/web"}},
+    "mcpServers": {
+        "web": {"url": "https://template.example/mcp", "enabled": True, "toolExposure": {"search": "direct"}},
+    },
     "defaultModel": "deepseek-flash",
     "nested": {"retry": {"baseDelayMs": 4000, "enabled": True}},
     "newKey": "from-template",
@@ -56,6 +82,22 @@ EXPECT = [
     ("apiKey", "sk-LOCAL", "local"),
     ("providers.gw.baseUrl", "https://private.example/v1", "local"),
     ("providers.gw.apiKey", "sk-LOCAL2", "local"),
+    ("providers.claude-newapi.apiKey", "sk-LOCAL-NEWAPI", "local"),
+    ("providers.claude-newapi.baseUrl", "https://private.example/v1", "local"),
+    ("providers.claude-newapi.models", [{"id": "shared", "context": 123, "maxTokens": 200000,
+        "headers": {"Authorization": "model-secret", "X-Managed": "yes"}}], "template(受管,按 id 保留敏感值)"),
+    ("providers.claude-newapi.newField", "managed", "template(受管)"),
+    ("providers.claude-newapi.stale", "<missing>", "template(删除受管旧字段)"),
+    ("providers.claude-newapi.headers.Authorization", "Bearer LOCAL", "local(敏感)"),
+    ("providers.claude-newapi.headers.X-Drop", "<missing>", "template(删除非敏感)"),
+    ("providers.claude-newapi.headers.X-Managed", "yes", "template(受管)"),
+    ("providers.gemini-newapi.apiKey", "sk-RETIRE", "local(模板未列出，保留凭据)"),
+    ("mcpServers.web.url", "https://private.example/mcp", "local(敏感)"),
+    ("mcpServers.web.headers.Authorization", "sentinel", "local(敏感)"),
+    ("mcpServers.web.headers.X-Drop", "<missing>", "template(删除非敏感)"),
+    ("mcpServers.web.enabled", True, "template(受管)"),
+    ("mcpServers.web.toolExposure.search", "direct", "template(受管)"),
+    ("mcpServers.codegraph.command", "old-codegraph", "local(模板未列出，保留条目)"),
     ("NOTIFY_INGEST_KEY", "local-ingest", "local"),
     ("mcp.hub.url", "https://private.example/mcp", "local"),
     ("localOnly.keep", True, "local"),
@@ -107,6 +149,23 @@ def run_engine(body, tmp):
     if proc.returncode:
         raise SystemExit(f"STOP: 合并引擎退出码 {proc.returncode}: {proc.stderr.strip()}")
     return json.loads(cand.read_text(encoding="utf-8"))
+
+
+def check_jsonc_strings_and_empty_slots(body, tmp):
+    engine = tmp / "engine-jsonc.py"
+    engine.write_text(body, encoding="utf-8")
+    dest, tpl, cand = tmp / "dest.json", tmp / "tpl.json", tmp / "cand.json"
+    dest.write_text('''// string tokens must stay opaque
+{"apiKey":"sentinel,]suffix","url":"https://private.example/v1?next=1,]suffix",
+ "providers":{"claude-newapi":{"apiKey":"","baseUrl":null}},}
+''', encoding="utf-8")
+    tpl.write_text(json.dumps({"providers": {"claude-newapi": {"apiKey": P_SLOT, "baseUrl": BASE_SLOT}}}), encoding="utf-8")
+    subprocess.run([sys.executable, str(engine), str(dest), str(tpl), str(cand)],
+                   capture_output=True, text=True, encoding="utf-8", errors="replace", check=True)
+    merged = json.loads(cand.read_text(encoding="utf-8"))
+    assert merged["apiKey"] == "sentinel,]suffix"
+    assert merged["url"] == "https://private.example/v1?next=1,]suffix"
+    assert merged["providers"]["claude-newapi"] == {"apiKey": P_SLOT, "baseUrl": BASE_SLOT}
 
 
 GW = "https://api.pezayo.com/v1"
@@ -218,18 +277,22 @@ def check_web_migration():
         dest.write_text(json.dumps({"mcpServers": {"web": entry}}))
         tpl.write_text(json.dumps({"mcpServers": {"web": {"exposure": "direct", "toolExposure": {"search": "direct"}}, "codegraph": {"command": "codegraph"}}}))
         subprocess.run([sys.executable, "-", str(dest), str(tpl), str(cand)], input=body, text=True, encoding="utf-8", errors="replace", check=True, capture_output=True)
-        assert json.loads(cand.read_text(encoding="utf-8"))["mcpServers"]["web"] == entry
+        managed_web = json.loads(cand.read_text(encoding="utf-8"))["mcpServers"]["web"]
+        assert managed_web == {
+            "url": entry["url"], "headers": {"Authorization": "sentinel"},
+            "exposure": "direct", "toolExposure": {"search": "direct"},
+        }
     print("web MCP: Pi / OpenCode v1/v2，预览、备份、凭据/禁用/工具保留、幂等、冲突保留通过")
 
 
-def run_oc_merge(body, tmp, live, major, force):
+def run_oc_merge(body, tmp, live, major, force, template=None, raw=None, compact=False):
     engine = tmp / "oc_engine.py"
     engine.write_text(body, encoding="utf-8")
     target, jsonc, tpl, cand = tmp / "opencode.json", tmp / "opencode.jsonc", tmp / "tpl.json", tmp / "cand.json"
-    target.write_text(json.dumps(live, indent=2), encoding="utf-8")
-    tpl.write_text(json.dumps({"$schema": "x", "update": "disable", "retry": {"enabled": True}}, indent=2), encoding="utf-8")
+    target.write_text(raw if raw is not None else json.dumps(live, indent=2), encoding="utf-8")
+    tpl.write_text(json.dumps(template or {"$schema": "x", "update": "disable", "retry": {"enabled": True}}, indent=2), encoding="utf-8")
     proc = subprocess.run(
-        [sys.executable, str(engine), str(target), str(jsonc), str(tpl), str(cand), major, "1" if force else "0"],
+        [sys.executable, str(engine), str(target), str(jsonc), str(tpl), str(cand), major, "1" if force else "0", "1" if compact else "0"],
         capture_output=True, text=True, encoding="utf-8", errors="replace")
     if proc.returncode:
         raise SystemExit(f"STOP: opencode.json 合并引擎退出码 {proc.returncode}: {proc.stderr.strip()}")
@@ -260,31 +323,255 @@ def check_opencode_update_policy():
 
 
 def check_opencode_update_detection():
-    """档位探测:只有 auto/true 才需要询问;notify/disable/false 是本机明确选择。"""
+    """档位探测：只有 auto/true 才进入前置选择，其它本机明确选择不动。"""
     text = (ROOT / "opencode-setup.sh").read_text(encoding="utf-8")
-    match = OC_UPDATE.search(text)
-    assert match is not None, "opencode-setup.sh 里找不到自动更新档位探测片段"
-    engine = match.group(1)
+    match = re.search(r"if \[ \"\$PLAN_WRITE_CFG\" = 1 \] && grep -qE '([^']+)'", text)
+    assert match is not None, "opencode-setup.sh 里找不到前置自动更新档位探测"
+    pattern = match.group(1)
     cases = [
-        ({"update": "auto"}, "2", "auto"),
-        ({"update": "notify"}, "2", "keep"),
-        ({"update": "disable"}, "2", "keep"),
-        ({"autoupdate": True}, "2", "auto"),      # v2 仍带着 v1 字段
-        ({"autoupdate": False}, "2", "keep"),
-        ({}, "2", None),                          # 没写过档位:交给合并默认值
-        ({"autoupdate": True}, "1", "auto"),
-        ({"autoupdate": "notify"}, "1", "keep"),
-        ({"autoupdate": False}, "1", "keep"),
+        ({"update": "auto"}, "auto"),
+        ({"update": True}, "auto"),
+        ({"update": "notify"}, "keep"),
+        ({"update": "disable"}, "keep"),
+        ({"autoupdate": True}, "auto"),
+        ({"autoupdate": False}, "keep"),
+        ({}, "keep"),
     ]
-    for live, major, want in cases:
+    for live, want in cases:
         with tempfile.TemporaryDirectory() as d:
             path = pathlib.Path(d) / "opencode.json"
             path.write_text(json.dumps(live), encoding="utf-8")
-            proc = subprocess.run([sys.executable, "-c", engine, str(path), major],
-                                  capture_output=True, text=True, encoding="utf-8", errors="replace")
-        got = proc.stdout.strip() or None
-        assert got == want, f"v{major} {live}: 探测 = {got!r},期望 {want!r}"
-    print(f"opencode.json: 档位探测检查 {len(cases)} 项")
+            proc = subprocess.run([
+                "bash", "-c",
+                'if [ "$PLAN_WRITE_CFG" = 1 ] && grep -qE "$1" "$2" "$3" 2>/dev/null; then printf auto; else printf keep; fi',
+                "_", pattern, str(path), str(path) + "c",
+            ], env={"PLAN_WRITE_CFG": "1"}, capture_output=True, text=True, check=True)
+        assert proc.stdout == want, f"{live}: 探测 = {proc.stdout!r},期望 {want!r}"
+    print(f"opencode.json: 前置档位探测检查 {len(cases)} 项")
+
+
+def check_opencode_managed_takeover():
+    match = OC_MERGE.search((ROOT / "opencode-setup.sh").read_text(encoding="utf-8"))
+    assert match is not None, "opencode-setup.sh 里找不到受管配置合并引擎"
+    body = match.group(1)
+    live = {
+        "providers": {
+            "claude-newapi": {
+                "models": [{"id": "shared", "stale": True, "maxTokens": 4096,
+                            "headers": {"Authorization": "model-local", "X-Drop": "old"}},
+                           {"id": "local-only", "headers": {"Authorization": "retire-non-template"}}], "stale": True,
+                "settings": {"baseURL": "https://local.example/v1", "apiKey": "sk-LOCAL", "stale": 1},
+                "headers": {"Authorization": "Bearer LOCAL", "X-Drop": "old"},
+            },
+            "gemini-newapi": {"models": ["retire"], "settings": {"apiKey": "sk-RETIRE"}},
+            "custom": {"models": ["old-custom"], "settings": {"custom": "keep"}},
+        },
+        "mcp": {"servers": {
+            "web": {"url": "https://local.example/mcp", "enabled": False,
+                    "headers": {"Authorization": "sentinel", "X-Drop": "old"}},
+            "custom": {"enabled": False},
+        }},
+    }
+    template = {
+        "providers": {
+            "claude-newapi": {
+                "models": [{"id": "shared", "context": 123, "maxTokens": 200000, "headers": {"X-Managed": "yes"}}], "npm": "@managed/provider",
+                "settings": {"baseURL": "https://template.example/v1", "apiKey": "TEMPLATE", "managed": 1},
+                "headers": {"X-Managed": "yes"},
+            },
+            "custom": {"models": ["new-custom"], "settings": {"template": "not-taken-over"}},
+        },
+        "mcp": {"servers": {"web": {
+            "url": "https://template.example/mcp", "enabled": True, "headers": {"X-Managed": "yes"},
+        }}},
+    }
+    with tempfile.TemporaryDirectory() as d:
+        merged = run_oc_merge(body, pathlib.Path(d), live, "2", False, template)
+    managed = merged["providers"]["claude-newapi"]
+    assert managed["models"] == [{"id": "shared", "context": 123, "maxTokens": 200000,
+        "headers": {"Authorization": "model-local", "X-Managed": "yes"}}] and "stale" not in managed
+    assert managed["npm"] == "@managed/provider"
+    assert managed["settings"]["baseURL"] == "https://local.example/v1"
+    assert managed["settings"]["apiKey"] == "sk-LOCAL"
+    assert managed["settings"]["managed"] == 1 and "stale" not in managed["settings"]
+    assert managed["headers"] == {"Authorization": "Bearer LOCAL", "X-Managed": "yes"}
+    assert "gemini-newapi" in merged["providers"]
+    assert merged["providers"]["custom"]["models"] == ["new-custom"]
+    assert merged["providers"]["custom"]["settings"] == {"custom": "keep"}
+    web = merged["mcp"]["servers"]["web"]
+    assert web["url"] == "https://local.example/mcp" and web["enabled"] is True
+    assert web["headers"] == {"Authorization": "sentinel", "X-Managed": "yes"}
+    assert merged["mcp"]["servers"]["custom"] == {"enabled": False}
+    raw = '''// keep string contents
+{"apiKey":"sentinel,]suffix","url":"https://private.example/v1?next=1,]suffix",
+ "providers":{"claude-newapi":{"settings":{"apiKey":null,"baseURL":""}}},}
+'''
+    empty_template = {"providers": {"claude-newapi": {"settings": {"apiKey": P_SLOT, "baseURL": BASE_SLOT}}}}
+    with tempfile.TemporaryDirectory() as d:
+        empty = run_oc_merge(body, pathlib.Path(d), {}, "2", False, empty_template, raw=raw)
+    assert empty["apiKey"] == "sentinel,]suffix"
+    assert empty["url"] == "https://private.example/v1?next=1,]suffix"
+    assert empty["providers"]["claude-newapi"]["settings"] == {"apiKey": P_SLOT, "baseURL": BASE_SLOT}
+    print("opencode.json: newapi／自有 MCP 受管合并，敏感值与自定义条目保留")
+
+
+
+def check_codegraph_mcp_takeover():
+    with tempfile.TemporaryDirectory() as d:
+        tmp = pathlib.Path(d)
+        home = tmp / "home"
+        bindir = home / ".local/bin"
+        bindir.mkdir(parents=True)
+        codegraph = bindir / "codegraph"
+        codegraph.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        codegraph.chmod(0o755)
+        cfgdir = tmp / "xdg/opencode"
+        cfgdir.mkdir(parents=True)
+        cfg = cfgdir / "opencode.json"
+        env = os.environ.copy() | {"HOME": str(home), "XDG_CONFIG_HOME": str(tmp / "xdg"),
+                                  "PATH": f"{bindir}:{os.environ['PATH']}"}
+        env.pop("OPENCODE_CONFIG_DIR", None)
+        env.pop("AGENT_SKILLS_NO_CONFIG_WRITE", None)
+        argv = ["bash", str(ROOT / "modules/codegraph/setup.sh"), "--host", "opencode", "--yes"]
+        live = {"mcp": {"servers": {
+            "codegraph": {"type": "local", "command": ["old"], "disabled": True,
+                          "apiKey": "secret", "stale": True, "headers": {"Authorization": "secret", "X-Drop": "old"}},
+            "custom": {"enabled": False},
+        }}}
+        cfg.write_text(json.dumps(live), encoding="utf-8")
+        subprocess.run(argv, env=env, capture_output=True, text=True, check=True)
+        merged = json.loads(cfg.read_text(encoding="utf-8"))
+        entry = merged["mcp"]["servers"]["codegraph"]
+        assert entry["type"] == "local" and entry["command"] == [str(codegraph), "serve", "--mcp"]
+        assert entry["disabled"] is False and "stale" not in entry and entry["apiKey"] == "secret"
+        assert entry["headers"] == {"Authorization": "secret"}
+        assert merged["mcp"]["servers"]["custom"] == {"enabled": False}
+        before = cfg.read_bytes()
+        subprocess.run(argv, env=env, capture_output=True, text=True, check=True)
+        assert cfg.read_bytes() == before
+
+        remote = {"mcp": {"servers": {"codegraph": {
+            "type": "remote", "url": "https://remote.example/mcp", "headers": {"Authorization": "secret"}
+        }}}}
+        cfg.write_text(json.dumps(remote), encoding="utf-8")
+        before = cfg.read_bytes()
+        backups_before = set(cfgdir.glob("*.bak-codegraph-*"))
+        proc = subprocess.run(argv, env=env, capture_output=True, text=True, check=True)
+        assert cfg.read_bytes() == before and "remote" in proc.stderr
+        assert set(cfgdir.glob("*.bak-codegraph-*")) == backups_before
+
+        legacy_remote = {"mcp": {"codegraph": {
+            "type": "remote", "url": "https://legacy.example/mcp", "headers": {"Authorization": "secret"}
+        }}}
+        cfg.write_text(json.dumps(legacy_remote), encoding="utf-8")
+        before = cfg.read_bytes()
+        subprocess.run(argv, env=env, capture_output=True, text=True, check=True)
+        assert cfg.read_bytes() == before
+
+        jsonc = cfg.with_suffix(".jsonc")
+        cfg.write_text("{}", encoding="utf-8")
+        jsonc.write_text('// remote in JSONC\n{"mcp":{"codegraph":{"type":"remote","url":"https://jsonc.example/mcp",},},}\n', encoding="utf-8")
+        before = (cfg.read_bytes(), jsonc.read_bytes())
+        subprocess.run(argv, env=env, capture_output=True, text=True, check=True)
+        assert (cfg.read_bytes(), jsonc.read_bytes()) == before
+
+        jsonc.write_text('{"mcp":{"codegraph":{"type":"local","command":["old"]}}}', encoding="utf-8")
+        before = (cfg.read_bytes(), jsonc.read_bytes())
+        proc = subprocess.run(argv, env=env, capture_output=True, text=True, check=True)
+        assert (cfg.read_bytes(), jsonc.read_bytes()) == before and "归一化" in proc.stderr
+        jsonc.unlink()
+
+        cfg.write_text(json.dumps({"mcp": {"codegraph": {"type": "local", "command": ["old"], "apiKey": "secret"}}}), encoding="utf-8")
+        subprocess.run(argv, env=env, capture_output=True, text=True, check=True)
+        merged = json.loads(cfg.read_text(encoding="utf-8"))
+        assert merged["mcp"]["codegraph"]["command"] == [str(codegraph), "serve", "--mcp"]
+        assert merged["mcp"]["codegraph"]["apiKey"] == "secret" and "servers" not in merged["mcp"]
+
+        env["AGENT_SKILLS_NO_CONFIG_WRITE"] = "1"
+        cfg.write_text('{"mcp":{"servers":{"custom":{"enabled":false}}}}', encoding="utf-8")
+        before = cfg.read_bytes()
+        subprocess.run(argv, env=env, capture_output=True, text=True, check=True)
+        assert cfg.read_bytes() == before
+    print("codegraph MCP：XDG／两种本地结构更新／JSON+JSONC remote 保留／拒绝配置写入均通过")
+
+
+def check_dsh_gemini_catalog_migration():
+    node = shutil.which("node") or str(pathlib.Path.home() / ".local/share/pi-node/current/bin/node")
+    assert pathlib.Path(node).is_file(), "DSH 迁移回归需要 Node"
+    script = r'''
+import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+const { merge, migrateGeminiProvider } = await import(pathToFileURL(process.argv[2]).href);
+const template = JSON.parse(readFileSync(process.argv[3], "utf8"))
+  .find((row) => row.id === "llm-pi-ai").config.providers;
+if (!template.google || "api" in template.google || template["gemini-newapi"]) {
+  throw new Error("DSH 模板必须使用无显式 api 的 google 目录路由");
+}
+const providers = {
+  "gemini-newapi": {
+    api: "google-generative-ai",
+    baseURL: "https://legacy.example/v1beta",
+    apiKeyEnv: "CUSTOM_GEMINI_KEY",
+    models: [{ id: "local-model" }],
+  },
+};
+migrateGeminiProvider(providers);
+const merged = merge(providers, template);
+migrateGeminiProvider(merged);
+if (merged["gemini-newapi"] || "api" in merged.google) throw new Error("旧 Gemini 路由或 api 残留");
+if (merged.google.baseURL !== "https://legacy.example/v1beta") throw new Error("旧 URL 未保留");
+if (merged.google.apiKeyEnv !== "CUSTOM_GEMINI_KEY") throw new Error("旧 apiKeyEnv 未保留");
+if (!merged.google.models.some((model) => model.id === "local-model")) throw new Error("自定义模型未保留");
+if (!merged.google.models.some((model) => model.id === template.google.models[0].id)) throw new Error("模板模型未合并");
+let conflictRejected = false;
+try {
+  migrateGeminiProvider({
+    "gemini-newapi": { baseURL: "https://old.example", models: [{ id: "old" }] },
+    google: { baseURL: "https://new.example", models: [{ id: "new" }] },
+  });
+} catch { conflictRejected = true; }
+if (!conflictRejected) throw new Error("双 Gemini 键必须明确拒绝，不能静默拼接");
+'''
+    subprocess.run([node, "--input-type=module", "-e", script, "migration-test", str(ROOT / "dsh/deploy.mjs"),
+                    str(ROOT / "templates/dsh/cordis.patch.json")], capture_output=True, text=True, check=True)
+    print("DSH Gemini：google 目录路由迁移，旧键／api 清理及敏感值、模型保留通过")
+
+
+def check_opencode_no_config_deploy():
+    spec = importlib.util.spec_from_file_location("oc_deploy_test", ROOT / "opencode/deploy.py")
+    deploy = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(deploy)
+    with tempfile.TemporaryDirectory() as d:
+        tmp = pathlib.Path(d)
+        root, cfg = tmp / "release", tmp / "config"
+        (root / "v2").mkdir(parents=True)
+        cfg.mkdir()
+        asset = root / "v2/plugin.js"
+        asset.write_text("export const ok = true;\n", encoding="utf-8")
+        (root / "MANIFEST.json").write_text(json.dumps({
+            "major": 2, "version": "test", "install": ["v2"],
+            "files": {"v2/plugin.js": hashlib.sha256(asset.read_bytes()).hexdigest()},
+        }), encoding="utf-8")
+        originals = {}
+        for name, content in (("opencode.json", '{"plugins":[],"provider":{"keep":"value"}}\n'),
+                              ("opencode.jsonc", '{"theme":"local"}\n'), ("cli.json", '{"plugin":[]}\n')):
+            (cfg / name).write_text(content, encoding="utf-8")
+            originals[name] = (cfg / name).read_bytes()
+        caches = {}
+        for name in ("magic-context", "ponytail"):
+            cache = tmp / "cache" / name
+            cache.mkdir(parents=True)
+            (cache / "package.json").write_text('{"name":"cached"}', encoding="utf-8")
+            caches[name] = cache
+        chmod_calls = []
+        deploy.npm_caches = lambda name: [caches["magic-context" if name == deploy.MC else "ponytail"]]
+        deploy.writable_cache = lambda path: chmod_calls.append(path)
+        deploy.install(root, cfg, 2, refresh_mc=True, refresh_ponytail=True, write_config=False)
+        assert all((cfg / name).read_bytes() == content for name, content in originals.items())
+        assert (cfg / "v2/plugin.js").read_bytes() == asset.read_bytes()
+        assert not list(cfg.glob("*.migrated-*.bak"))
+        assert not chmod_calls and all(cache.exists() for cache in caches.values())
+    print("OpenCode 无配置部署：仅更新资产，配置／JSONC／CLI／缓存不动")
 
 
 def check_todowrite_takeover(body, tmp):
@@ -348,11 +635,17 @@ def check_image_gen(tmp):
 def main():
     check_web_migration()
     check_opencode_update_policy()
+    check_opencode_managed_takeover()
+    check_codegraph_mcp_takeover()
+    check_dsh_gemini_catalog_migration()
+    check_opencode_no_config_deploy()
     check_opencode_update_detection()
     failures = []
     for script, body, fill in engines():
         with tempfile.TemporaryDirectory() as d:
             merged = run_engine(body, pathlib.Path(d))
+        with tempfile.TemporaryDirectory() as d:
+            check_jsonc_strings_and_empty_slots(body, pathlib.Path(d))
         for path, want, side in EXPECT:
             got = dig(merged, path)
             if got != want:

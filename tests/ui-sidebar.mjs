@@ -3,8 +3,8 @@
 // 需要 --experimental-strip-types(Node 22.23 自带类型剥离)。
 // 模块是 TS 且 import 了 Pi 运行时包(仓库里没有 node_modules),所以这里做最小改写后再加载:
 // 把 getAgentDir() 换成 $AGENT_DIR,既不改源文件,也不装依赖。
-import { readFileSync, writeFileSync, mkdtempSync, rmSync, readdirSync, existsSync } from "node:fs";
-import { homedir, tmpdir } from "node:os";
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, readdirSync, existsSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -131,19 +131,26 @@ if (dispatchMouseEvent) {
   const body = dispatchMouseEvent(fresh, evt("click", 2));
   check("真实派发:正文行不拦截(仍可选中文本)", body === undefined);
 } else {
-  console.log("(跳过 pi-tui 真实派发检查:未解析到 @earendil-works/pi-tui;跑 pi-setup.sh 第 9 步可补齐软链)");
+  console.log("SKIP: pi-tui 真实派发检查未运行（未解析到 @earendil-works/pi-tui）");
 }
 
-// 真实环境:插件列表能不能读出来(用真实 agent 目录)
+// 隔离环境:用临时 settings.json 与包目录验证真实 installedPackages()。
 const { installedPackages } = await load("pi/extensions/ui/panels.ts");
 const testDir = process.env.AGENT_DIR;
-process.env.AGENT_DIR = join(homedir(), ".pi/agent");
+const packageRoot = join(dir, "plugin-agent");
+for (const [name, version] of [["agent-skills", "1.0.0"], ["example-plugin", "2.0.0"]]) {
+  const packageDir = join(packageRoot, "npm/node_modules", name);
+  mkdirSync(packageDir, { recursive: true });
+  writeFileSync(join(packageDir, "package.json"), JSON.stringify({ name, version }));
+}
+writeFileSync(join(packageRoot, "settings.json"), JSON.stringify({ packages: ["npm:agent-skills@1.0.0", "npm:example-plugin@2.0.0"] }));
+process.env.AGENT_DIR = packageRoot;
 const packages = installedPackages();
 check("插件列表非空", packages.length > 0, `${packages.length} 个`);
 check("每项都有名字和版本", packages.every((p) => p.name && p.version), JSON.stringify(packages.slice(0, 3)));
 check("含本仓库包", packages.some((p) => p.name === "agent-skills"), JSON.stringify(packages.map((p) => `${p.name} ${p.version}`)));
 process.env.AGENT_DIR = testDir;
-console.log(`\n插件列表实测(真实 ~/.pi/agent): ${packages.map((p) => `${p.name} ${p.version}`).join(" · ")}`);
+console.log(`\n插件列表实测(隔离 fixture): ${packages.map((p) => `${p.name} ${p.version}`).join(" · ")}`);
 
 rmSync(dir, { recursive: true, force: true });
 console.log(failures ? `\nFAIL: ${failures} 项未通过` : "\nPASS: 侧栏折叠 + 插件列表");

@@ -9,7 +9,7 @@
 | `index.js` | 注册 v2 服务端能力，并清理注册资源；Ponytail 由官方包原生加载 |
 | `legacy-tools.js` | 直接调用 context-mode v2 原生 `setup(ctx)`；仅转换 later 的旧工具与会话事件 |
 | `request-affinity.js` | 会话级缓存键、sticky session 请求头 |
-| `context-rewrite.js` | 近期纠错、持久外置、显式全文取回；复用 `context-rewrite/` 核心 |
+| `context-rewrite.js` | 近期纠错；复用 `context-rewrite/core.mjs` |
 | `image-gen.js` | `image_gen` 画图工具；复用 `image-gen/` 核心，图片以 data URI 的 file part 返回 |
 | `tui.js` | 目录包的 TUI 入口，转发到 `later-cli.js`，由 CLI 自动发现 |
 | `later-cli.js` | TUI 输入 `later 5h 检查结果`、`later list`、`later cancel all`，以及 `/later` |
@@ -47,9 +47,7 @@ setup 将本套件旧入口移入 `$CFG/.agent-skills-backups/<时间戳>/`，�
 
 ## 输出与会话
 
-- 普通文本默认 ≥16 KiB 外置；环境变量和 Agent 用法见 [`context-rewrite/README.md`](../../context-rewrite/README.md)。
-- Shell 进度中的 `shellID` 保留到结果元数据，再复制该进程的原生输出文件；退出码和其他元数据不变。
-- `context_output_read(full=true)` 明确标记 `truncated: false`，防止宿主再次截断。
-- codemode 子调用保留原数据，最终结果才外置；两个上下文控制工具只能直接调用。
+- 大输出使用宿主原生截断提示、输出文件与 Read offset/limit；本包不再自动外置或注册 `context_output_read`。
+- 既有 `[context_output]` 文件保留，可按普通文本分页读取；setup 不删除历史快照。
+- codemode 子调用保留原数据；`context_rewrite` 只能直接调用。
 - v2 纠错通过 `session.context` 读取当前宿主上下文、重建调用索引，随后只过滤本轮发送视图；不删除原始记录，也不重建 MC 已经隐藏的消息。
-- 旧结果不追溯外置。外置文件持久保留，迁移会话时一并迁移。

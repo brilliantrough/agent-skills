@@ -14,6 +14,17 @@
         toolName: consolidation_review
         agentPreset: consolidation-reviewer
         allowedAgentPresets: [consolidation-reviewer]
+    - id: agent-skills-verification-reviewer
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: verification-reviewer
+    - id: tool-verification-review
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: spawn
+        toolName: verification_review
+        agentPreset: verification-reviewer
+        allowedAgentPresets: [verification-reviewer]
     - id: mcp-context-mode
       name: '@deepseek-ai/dsh-mcp-client'
       disabled: true

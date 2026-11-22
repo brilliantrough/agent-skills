@@ -22,19 +22,19 @@ description: On-demand code execution and FTS retrieval for large or noisy comma
 
 多个独立的短读取用宿主并行调用。已在上下文中的结果直接复用，不重复索引或搜索。
 
-## 自动输出外置只有一条链
+## 使用宿主原生输出门控
 
-本 fork 用 agent-skills 的 `context-rewrite/output-store` 处理自动大输出外置：保留无损文本快照、首尾预览和 `context_output_read` 精确取回。主宿主关闭 context-mode 的自动结果替换和上游路由拦截，避免两个占位符、重复检索以及 WebFetch／Bash 被强制改道。用户自己的 deny 规则仍然生效；Pi 子代理没有该 snapshot 扩展时保留上游保护。
+主宿主由 Pi／OpenCode／DSH 各自处理大输出：模型看到原生截断提示、输出文件或 spill，再用原生 Read 的 offset/limit 继续读取。本 fork 关闭 context-mode 的自动结果替换和上游路由拦截，避免与宿主门控竞争；用户自己的 deny 规则仍生效，Pi 子代理保留上游保护。
 
-- 要精确原文：用 `context_output_read` 分页或 `full: true`，不要重跑已完成的命令。
-- 只需一次聚合：用原生 Bash／Python 处理指针里的绝对路径，直接打印结论。
-- 同一资料需要反复检索：再显式 `ctxm_index(path)`，之后用返回的 `source` 查询；不要把每次读取都变成搜索任务。
+- 按原生返回的 `fullOutputPath`、`outputPath` 或 spill 路径读取；一次性聚合可用原生 Bash／Python 处理该路径。
+- 既有 `[context_output]` 指针是普通文本文件，升级不删除；同样用原生 Read 分页，不再使用 `context_output_read`。
+- 只有需要跨轮重复检索时，才显式 `ctxm_index(path=绝对路径)` 后 `ctxm_search`。不要为了恢复正文盲目重跑有副作用的命令。
 
 ## 一次返回足够行动的信息
 
 调用前先确定下一步要做的决定。代码输出或 `queries` 至少给出需要的路径、符号／记录 ID、关键原文或实际值，以及失败状态和是否截断。未知结构先看目录、文件头部或相关逻辑单元；不要靠连续换关键词猜内容。
 
-`ctxm_execute` 的 `intent` 是检索条件，不是任务备注：提供它就会索引并筛选输出；省略且整份回复不超过 16 KiB 时直接返回。大输出即使省略也会索引。因此代码已经能打印结论时不要加 `intent`，也不要大转储后再泛搜。
+`intent` 是检索条件，不是任务备注：提供非空 intent 才会索引并筛选输出；省略且整份回复不超过 16 KiB 时直接返回。大输出即使省略也会索引。因此代码已经能打印结论时不要加 `intent`，也不要大转储后再泛搜。
 
 `ctxm_batch` 必须同时提供 `commands` 和非空 `queries`，适合检索而非原样消费几条短输出。索引命中是定位线索，不自动等于当前文件原文；单次分析直接打印答案，不必经过“索引 → 搜索”。
 

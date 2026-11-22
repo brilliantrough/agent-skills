@@ -61,17 +61,17 @@ function buildTargets() {
     type: "module",
     engines: { node: ">=24.15.0" },
     license: upstream.license,
-    description: `context-mode ${upstream.version} fork: ctxm_* tools and one automatic output-snapshot owner`,
+    description: `context-mode ${upstream.version} fork: ctxm_* tools and native host output gates`,
     main: "./opencode/plugin.js",
     exports: { ".": "./opencode/plugin.js", "./server": "./opencode/plugin.js" },
     pi: { extensions: ["./pi/index.js"], skills: ["./skills"] },
-    contextModeFork: { upstream: UPSTREAM_URL, commit: upstream.commit, outputOwner: "agent-skills/context-rewrite" },
+    contextModeFork: { upstream: UPSTREAM_URL, commit: upstream.commit, outputOwner: "host-native" },
   }, null, 2) + "\n";
-  const readme = `# agent-skills context-mode fork\n\nUpstream: ${UPSTREAM_URL} ${upstream.commit} (${upstream.license}).\n\n- Nine tools are named \`ctxm_*\` to coexist with Magic Context.\n- The main host uses agent-skills' lossless context-output snapshots; context-mode's automatic result replacement and upstream routing denials are disabled there. Pi subagents keep upstream protection.\n- Pi loads \`pi/index.js\`; OpenCode calls the native v2 \`setup(ctx)\` in \`opencode/plugin.js\`; DSH runs \`server.mjs --agent opencode\`.\n- Requires Node >=24.15 when the host runs it under Node.\n- Do not call \`ctxm_upgrade\`; use the suite's build/release path.\n`;
+  const readme = `# agent-skills context-mode fork\n\nUpstream: ${UPSTREAM_URL} ${upstream.commit} (${upstream.license}).\n\n- Nine tools are named \`ctxm_*\` to coexist with Magic Context.\n- The main host uses native output gates; context-mode's automatic result replacement and upstream routing denials are disabled there. Pi subagents keep upstream protection.\n- Pi loads \`pi/index.js\`; OpenCode calls the native v2 \`setup(ctx)\` in \`opencode/plugin.js\`; DSH runs \`server.mjs --agent opencode\`.\n- Requires Node >=24.15 when the host runs it under Node.\n- Do not call \`ctxm_upgrade\`; use the suite's build/release path.\n`;
   const generated = new Map([["package.json", packageJson], ["README.md", readme]]);
   const vendored = JSON.stringify({
     upstream,
-    fork: { toolPrefix: "ctxm_", outputOwner: "agent-skills/context-rewrite" },
+    fork: { toolPrefix: "ctxm_", outputOwner: "host-native" },
     files: Object.fromEntries([...files].map(([rel, abs]) => [rel, sha(fs.readFileSync(abs))]).sort()),
     generated: Object.fromEntries([...generated].map(([rel, body]) => [rel, sha(Buffer.from(body))]).sort()),
   }, null, 2) + "\n";
@@ -147,7 +147,7 @@ for (let i = 2; i <= 99; i++) {
   catch { break; }
 }
 const notes = [
-  `context-mode ${upstream.version}（${upstream.commit}）fork：9 个 \`ctxm_*\` 工具，主宿主自动外置由 agent-skills 无损 snapshot 统一负责。需要 Node >=24.15。`,
+  `context-mode ${upstream.version}（${upstream.commit}）fork：9 个 \`ctxm_*\` 工具，主宿主使用原生输出门控。需要 Node >=24.15。`,
   "",
   "Pi：通过 `pi-setup.sh` 安装；OpenCode v2：通过 `opencode-setup.sh --plugins-only` 安装；DSH：通过 `dsh-setup.sh` 安装。",
   "",

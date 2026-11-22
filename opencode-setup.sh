@@ -3,14 +3,19 @@
 # 仓库: brilliantrough/agent-skills
 #
 # 用法：bash opencode-setup.sh [-y|--yes] [--plugins-only|--check]；先安装 OpenCode V2，再拉取预构建包。
-# 完整安装含宿主升级(默认 Y)、配置、依赖与通用 skills；--plugins-only 仅插件及 context-mode skills；--check 下载校验后退出。
+# 两阶段：collect_setup_plan 先做只读探测（命令、代理、npm 版本、live 配置），把宿主升级、Python/uv 兜底、
+#   Bun、Node、Ponytail、Magic Context、配置写入、自动更新、claude-mem、compaction、TUI 按键、uv、
+#   skills 组、外部设计依赖、AGENTS.tail、可选模块与凭据一次性问完，结果放 PLAN_*；
+#   之后各步骤只按计划执行，不再提问。-y 与无 tty 都在计划阶段取默认值。
+# 完整安装含宿主升级(默认 Y)、配置、依赖与通用 skills；--plugins-only 仅插件及 context-mode skills；--check 只读校验后退出（不问安装项）。
 # 配置默认关闭 OpenCode 自动更新(update:disable)，宿主只在本脚本里升级。
 # 更新前先退出 TUI 和后台服务；已知旧入口移到配置目录 .agent-skills-backups/。
-# 第三方 npm 插件先查本地/npm latest；Ponytail 常规更新默认 Y，Magic Context 单独默认 Y；claude-mem 由官方安装器更新 runtime 与宿主入口。
+# 第三方 npm 插件先查本地/npm latest；Ponytail 常规更新默认 Y，Magic Context 单独默认 Y（共享 context.db 风险单独提示）；claude-mem 由官方安装器更新 runtime 与宿主入口。
 # 确认后只备份移走对应 latest 缓存并改回官方包登记；下次宿主启动下载。
 # 不启动服务、不迁移数据库；宿主升级在本脚本里问一次(默认 Y)后执行(opencode upgrade)，自动更新默认关闭；官方 npm 缺包由宿主启动时下载。
-# 配置：本地私密值保留；provider.models 与套件 reviewer 的模型/档位随模板刷新；v2 原生 providers 不改写。
-# -y 采用各项默认选择（默认 N 仍跳过）；凭据可交互输入或通过环境变量填写。
+# 配置：本地敏感值保留；四个 newapi provider、自有 web/codegraph MCP 的非敏感结构由模板/模块接管。
+# AGENTS.tail 记忆规范块默认写入当前项目（计划阶段可跳过）；--check 不写任何配置。
+# 凭据可交互输入或通过环境变量填写。
 # OPENCODE_CONFIG_DIR 优先，其次 XDG_CONFIG_HOME/opencode。Windows 使用 Git Bash。
 
 set -euo pipefail
@@ -34,13 +39,13 @@ nbin() { # 可执行文件的宿主路径:MSYS 的 command -v 会去掉 .exe,宿
   if [ "$IS_WIN" = 1 ] && [ -f "$1.exe" ]; then npath "$1.exe"; else npath "$1"; fi
 }
 BIN_EXT=""; [ "$IS_WIN" = 1 ] && BIN_EXT=".exe"   # 手写兜底路径要带 .exe(PATH 查找不用)
-resolve_python3() { # python3 就绪返回 0;否则 python → py → uv 自管理 3.12(缺 uv 征得同意后装)。ask 在后面定义,调用时才解析
+resolve_python3() { # python3 就绪返回 0;否则 python → py → uv 自管理 3.12；函数与 UV_PY 导出给子 Bash
   # 候选一律先 -c pass 试跑:Windows 商店的 python.exe 占位 stub 能 command -v 到,一跑就报错
   if command -v python3 >/dev/null 2>&1 && python3 -c pass >/dev/null 2>&1; then return 0; fi
-  if command -v python >/dev/null 2>&1 && python -c pass >/dev/null 2>&1; then python3() { python "$@"; }; return 0; fi
-  if command -v py >/dev/null 2>&1 && py -3 -c pass >/dev/null 2>&1; then python3() { py -3 "$@"; }; return 0; fi
+  if command -v python >/dev/null 2>&1 && python -c pass >/dev/null 2>&1; then python3() { python "$@"; }; export -f python3; return 0; fi
+  if command -v py >/dev/null 2>&1 && py -3 -c pass >/dev/null 2>&1; then python3() { py -3 "$@"; }; export -f python3; return 0; fi
+  [ "${PLAN_PYTHON_UV:-1}" = 1 ] || return 1
   command -v uv >/dev/null 2>&1 || [ -x "$HOME/.local/bin/uv$BIN_EXT" ] || {
-    ask "没有可用的 Python 3;用 uv 装一个自管理的 Python 3.12(会先装 uv 本体)?" Y || return 1
     local sh_tmp rc=1
     sh_tmp="$(mktemp)" || return 1
     if curl -fsSL --connect-timeout 8 -m 60 -o "$sh_tmp" https://astral.sh/uv/install.sh; then
@@ -55,12 +60,13 @@ resolve_python3() { # python3 就绪返回 0;否则 python → py → uv 自管�
   local p; p="$(uv python find 3.12 2>/dev/null || true)"
   [ -n "$p" ] || return 1
   if [ "$IS_WIN" = 1 ] && command -v cygpath >/dev/null 2>&1; then p="$(cygpath -u "$p")"; fi
-  UV_PY="$p"; python3() { "$UV_PY" "$@"; }
+  UV_PY="$p"; export UV_PY; python3() { "$UV_PY" "$@"; }; export -f python3
 }
 
-# -y/--yes(或环境变量 ASSUME_YES=1)「默认安装」:不再逐项确认,一律取默认值 —— 默认 Y 的照做
-# (装缺件、字段级合并写配置、刷新 base skills),默认 N 的跳过(notify 首装、算力/知识组、无代理继续、AGENTS.md 注入)。
-# 唯一还会问的是凭据(网关 + 6 个 api key);没有终端时静默跳过、占位符保留(无人值守用环境变量预填)。
+# -y/--yes(或环境变量 ASSUME_YES=1)「默认安装」:计划阶段不再逐项确认,一律取默认值 —— 默认 Y 的照做
+# (装缺件、字段级合并写配置、刷新 base skills、写 AGENTS.tail 记忆块),默认 N 的跳过(算力/知识/ppt 组)。
+# 凭据在计划末尾一并收集;没有终端时静默跳过、占位符保留(无人值守用环境变量预填)。
+# 所有提问集中在 collect_setup_plan;执行段只按 PLAN_* 执行,不再提问。
 ASSUME_YES="${ASSUME_YES:-}"
 PLUGINS_ONLY=0; CHECK_ONLY=0
 while [ $# -gt 0 ]; do
@@ -74,12 +80,15 @@ while [ $# -gt 0 ]; do
   默认             完整配置、插件、依赖与通用 skills；默认 base，交互可选全组
   --plugins-only   同步插件及 context-mode skills，转换旧配置格式；不更新模型/Python/通用 skills
   --check          下载校验自维护包、查询第三方版本、检查配置；不部署，不更改配置/认证/数据库
-  -y, --yes        采用各项默认值（默认 N 仍跳过）；凭据仍可询问
+  -y, --yes        计划阶段采用各项默认值（默认 N 仍跳过）；凭据仍可交互询问
 先安装 OpenCode V2；V1 请先自行升级。精简模式需要已有 Python 3、curl、Bun。
+所有确认与凭据在开头一次问完（代理、宿主升级、依赖、插件刷新、配置写入、skills 组、外部设计依赖、
+模块选择、AGENTS.tail、凭据），之后只执行不再提问；--check 只做校验，不做安装选择。
 已知旧入口备份到 $CFG/.agent-skills-backups/；不启动宿主、不迁移数据库。
 查询 Ponytail/Magic Context 的本地版本与 npm latest；失败只警告。Ponytail 有新版默认 Y，钉版/本地路径默认 N。
-Magic Context 旧缓存路径自动迁回官方包名，保留当前缓存；--check 只预览。实际刷新另问、默认 Y，确认后下次启动下载。
+Magic Context 旧缓存路径自动迁回官方包名，保留当前缓存；--check 只预览。实际刷新默认 Y，确认后下次启动下载。
 官方 claude-mem 安装器更新 runtime/入口/MCP，会停止共享 worker；--check 只报告、不询问刷新，仍联网，宿主 --version 可能写日志。
+AGENTS.tail 记忆规范块默认写入当前项目 AGENTS.md 尾部，计划阶段可跳过。
 HELP
       exit 0 ;;
     *) echo "未知参数: $1(支持 -y|--yes / --plugins-only / --check / -h|--help)" >&2; exit 2 ;;
@@ -94,7 +103,7 @@ if [[ "$OC_VERSION" =~ (^|[[:space:]])v?([12])\.[0-9]+\.[0-9]+ ]]; then OC_MAJOR
 else echo "ERROR: 无法识别或暂不支持的 OpenCode 版本: $OC_VERSION" >&2; exit 1; fi
 [ "$OC_MAJOR" = 2 ] || { echo "ERROR: 当前 setup 只维护 OpenCode V2；请先升级宿主，现有配置未改动。" >&2; exit 1; }
 echo "客户端: $OC_VERSION → v$OC_MAJOR 插件包；自动更新默认关闭,宿主只在本脚本里升级/不迁移数据库"
-OC_RELEASE="opencode-plugins-1.0.25"
+OC_RELEASE="opencode-plugins-1.0.26"
 CFG="${OPENCODE_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/opencode}"
 PLUGINS="$CFG/plugins"
 CLAUDE_PLUGIN="$PLUGINS/claude-mem.js"
@@ -120,19 +129,83 @@ ask() { # $1=提示 $2=默认(Y/N,缺省 N)
   fi
 }
 
-# 宿主升级：自动更新关掉之后，升级只发生在这里（默认 Y，失败只警告）。
-# --plugins-only / --check 只碰插件与配置，不升级宿主。
-if [ "$PLUGINS_ONLY" = 0 ] && ask "更新 OpenCode 到最新版(opencode upgrade)?" Y; then
-  if opencode upgrade; then
-    OC_VERSION="$(opencode --version)"
-    if [[ "$OC_VERSION" =~ (^|[[:space:]])v?(2)\.[0-9]+\.[0-9]+ ]]; then
-      OC_MAJOR="${BASH_REMATCH[2]}"; echo "客户端: $OC_VERSION → v$OC_MAJOR"
-    else echo "ERROR: 升级后版本不受支持($OC_VERSION)，配置未改动" >&2; exit 1; fi
-  else echo "WARN: opencode upgrade 失败，继续用当前版本 $OC_VERSION" >&2; fi
-fi
-# 本仓原始文件入口：skills 同步器、项目规范块等；插件产物从固定 release 获取。
-SELF_RAW="https://raw.githubusercontent.com/${AGENT_SKILLS_REPO:-brilliantrough/agent-skills}/${AGENT_SKILLS_REF:-main}"
-RAW="$SELF_RAW/templates"  # 配置模板随本仓分发(templates/),与脚本同一 ref
+# 宿主升级挪到计划阶段之后（见 collect_setup_plan 调用处），避免提问前就升级。
+# 代理探测与计划段共用。
+net_ok() { curl -fsSI --connect-timeout 5 -m 8 -o /dev/null https://github.com; }
+# 计划结果默认值(collect_setup_plan 会覆盖);未定义时按 0/skip 处理
+PLAN_PROXY=1; PLAN_UPGRADE=0; PLAN_PYTHON_UV=0; PLAN_BUN=0; PLAN_NODE=0; PLAN_PONYTAIL=0
+PLAN_MC_REFRESH=0; PLAN_WRITE_CFG=1; PLAN_FORCE_MANUAL=0; PLAN_CLAUDE_MEM=0
+PLAN_COMPACTION=0; PLAN_TUI_KEYS=0; PLAN_UV_INSTALL=0; PLAN_UV_UPGRADE=0; PLAN_UV_MIRROR=0
+PLAN_SKILLS_EXTERNAL=install; PLAN_AGENTS_TAIL=0; SKILL_GROUPS=(); MODULE_SELECTION=""; MODULE_RUN=""
+# ---- 源码基准:模板、skills 与模块都从一棵本地源码树取,不再逐个下载 GitHub raw ----
+# 默认复用/更新受管 clone($XDG_DATA_HOME/agent-skills/source),与开发副本分开;
+# AGENT_SKILLS_SOURCE 显式指向已有工作树时只读使用(不 pull、不修改),便于候选安装。
+# 更新失败但已有克隆时 WARN 后继续并报出所用 commit,不把陈旧克隆静默当成最新。
+SELF_RAW=""; RAW=""
+file_url() { # 绝对路径 → file:// URL:空格/#/?/%/[/] 必须转义,其余(含 UTF-8)原样保留
+  local p="$1" prefix="file://" out="" c i
+  if [ "${IS_WIN:-0}" = 1 ] && command -v cygpath >/dev/null 2>&1; then
+    p="$(cygpath -m "$p")"; prefix="file:///"
+  fi
+  for ((i = 0; i < ${#p}; i++)); do
+    c="${p:i:1}"
+    case "$c" in
+      ' ') out="$out%20" ;;
+      '#'|'?'|'%'|'['|']') out="$out$(printf '%%%02X' "'$c")" ;;
+      *) out="$out$c" ;;
+    esac
+  done
+  printf '%s%s' "$prefix" "$out"
+}
+
+acquire_source() {
+  local root repo repo_url ref commit updated=0 created=0
+  repo="${AGENT_SKILLS_REPO:-brilliantrough/agent-skills}"
+  ref="${AGENT_SKILLS_REF:-main}"
+  root="${XDG_DATA_HOME:-$HOME/.local/share}/agent-skills/source"
+  if [ -n "${AGENT_SKILLS_SOURCE:-}" ]; then
+    root="$AGENT_SKILLS_SOURCE"
+    [ -d "$root/skills" ] && [ -d "$root/templates" ] || {
+      echo "ERROR: AGENT_SKILLS_SOURCE=$root 不是本仓工作树(缺 skills/ 或 templates/)" >&2; return 1; }
+    root="$(cd "$root" && pwd)"
+    echo "源: $root(显式 AGENT_SKILLS_SOURCE,只读)"
+  else
+    command -v git >/dev/null 2>&1 || {
+      echo "ERROR: 需要 git 维护源码基准 $root;或设 AGENT_SKILLS_SOURCE 指向已有本仓工作树" >&2; return 1; }
+    if [ ! -d "$root/.git" ]; then
+      echo "首次克隆 $repo@$ref -> $root"
+      [ -d "$root" ] || created=1
+      mkdir -p "$root" && git -C "$root" init -q || return 1
+    fi
+    # AGENT_SKILLS_REPO 既可是 owner/name,也可是可克隆 URL(file:///path、https://…)
+    case "$repo" in
+      *://*|/*|.*) repo_url="$repo" ;;
+      *) repo_url="https://github.com/$repo.git" ;;
+    esac
+    if ! git -C "$root" remote set-url origin "$repo_url" 2>/dev/null; then
+      git -C "$root" remote add origin "$repo_url" || return 1
+    fi
+    if git -C "$root" fetch --depth 1 -q origin "$ref" 2>/dev/null \
+      && git -C "$root" checkout -q --force --detach FETCH_HEAD 2>/dev/null; then
+      updated=1
+    fi
+    commit="$(git -C "$root" rev-parse --short HEAD 2>/dev/null || true)"
+    if [ "$updated" != 1 ]; then
+      [ -n "$commit" ] || {
+        [ "$created" != 1 ] || rm -rf "$root"
+        echo "ERROR: 取不到源码 $repo@$ref,且 $root 没有可用副本;检查代理/git,或设 AGENT_SKILLS_SOURCE" >&2; return 1; }
+      echo "WARN: 更新 $repo@$ref 失败,继续用已有克隆 $commit(可能不是最新)" >&2
+    fi
+    echo "源: $root($repo@$ref,$commit)"
+  fi
+  [ -d "$root/skills" ] && [ -d "$root/templates" ] || {
+    echo "ERROR: 源码基准 $root 缺 skills/ 或 templates/" >&2; return 1; }
+  SOURCE_ROOT="$root"
+  SELF_RAW="$(file_url "$root")"
+  RAW="$SELF_RAW/templates"
+  # 子脚本(modules/run.sh、skills-sync.sh)复用同一棵树,不二次克隆
+  export SOURCE_ROOT SELF_RAW RAW AGENT_SKILLS_SOURCE="$root"
+}
 # merge_cfg <url> <dest> — 拉本仓模板后做「字段级」合并,而非整文件覆盖:
 #   模板中的非敏感字段值优先 → 新默认值能下发到服务器;
 #   隐私内容永不覆盖:敏感键(api key / secret / token / password / credential / bearer / auth /
@@ -146,6 +219,7 @@ RAW="$SELF_RAW/templates"  # 配置模板随本仓分发(templates/),与脚本�
 # 目的就是同一台服务器上不同用户互不冲突;写出来是为了可见、可查,不改变取值)。
 # 已存在的键一律保留(自定义端口/主机不被覆盖)。改前存 .bak。
 ensure_mem_worker_keys() {
+  [ "${PLAN_WRITE_CFG:-1}" = 1 ] || return 0
   local f="${1:-$SETTINGS}"
   [ -f "$f" ] || return 0
   local out
@@ -225,39 +299,378 @@ ask_value() { # $1=提示(括号里写协议/分组等说明) $2=输出变量 $3
   fi
 }
 
-# 只在「首次部署」(目标文件缺失或仍是 <YOUR_*> 占位符)时问,重跑不打扰
+config_probe() { # $1=provider|embedding|mem|gateway|mcp $2=名称，其余为配置文件；0=有，1=缺，2=无法读取
+  local node_bin kind name f rc
+  local files=()
+  kind="$1"; name="$2"; shift 2
+  for f in "$@"; do [ ! -f "$f" ] || files+=("$(npath "$f")"); done
+  [ "${#files[@]}" -gt 0 ] || return 1
+  node_bin="$(command -v node 2>/dev/null || true)"
+  [ -n "$node_bin" ] || [ ! -x "$HOME/.local/share/pi-node/current/bin/node" ] || node_bin="$HOME/.local/share/pi-node/current/bin/node"
+  if [ -z "$node_bin" ]; then
+    echo "WARN: 无可用 Node，无法核对既有配置；本次不追问，保留原值并用手工或环境变量补项" >&2
+    return 2
+  fi
+  "$node_bin" - "$kind" "$name" "${files[@]}" <<'JS'
+const fs = require('node:fs');
+const [kind, name, ...files] = process.argv.slice(2);
+function stripJsonc(text) {
+  let out = '', string = false, escaped = false, line = false, block = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i], next = text[i + 1];
+    if (line) { if (c === '\n') { out += c; line = false; } continue; }
+    if (block) { if (c === '*' && next === '/') { block = false; i++; } else if (c === '\n') out += c; continue; }
+    if (string) {
+      out += c;
+      if (escaped) escaped = false;
+      else if (c === '\\') escaped = true;
+      else if (c === '"') string = false;
+      continue;
+    }
+    if (c === '"') { out += c; string = true; continue; }
+    if (c === '/' && next === '/') { line = true; i++; continue; }
+    if (c === '/' && next === '*') { block = true; i++; continue; }
+    out += c;
+  }
+  return out.replace(/("(?:\\.|[^"\\])*")|,(\s*[}\]])/g, (match, string, tail) => string || tail);
+}
+let unreadable = false;
+const docs = files.map(file => {
+  try {
+    const text = stripJsonc(fs.readFileSync(file, 'utf8'));
+    return text.trim() ? JSON.parse(text) : {};
+  } catch { unreadable = true; return null; }
+});
+if (unreadable) process.exit(2);
+const object = value => value && typeof value === 'object' && !Array.isArray(value);
+function merge(base, over) {
+  const out = object(base) ? {...base} : {};
+  if (!object(over)) return out;
+  for (const [key, value] of Object.entries(over)) {
+    out[key] = object(out[key]) && object(value) ? merge(out[key], value) : value;
+  }
+  return out;
+}
+const doc = docs.reduce(merge, {});
+const credential = /^(api[_-]?key|authorization|token|secret|password|passwd|bearer|key)$/i;
+const present = value => typeof value === 'string' && value.length > 0;
+function hasKey(value, pattern, skipModels = false) {
+  if (!value || typeof value !== 'object') return false;
+  for (const [key, child] of Object.entries(value)) {
+    if (skipModels && key === 'models') continue;
+    if (pattern.test(key) && present(child)) return true;
+    if (hasKey(child, pattern, skipModels)) return true;
+  }
+  return false;
+}
+function baseUrl(value) {
+  if (!value || typeof value !== 'object') return false;
+  const settings = object(value.settings) ? value.settings : {};
+  const options = object(value.options) ? value.options : {};
+  return [value.baseUrl, value.baseURL, value.base_url, value.endpoint,
+          value.CLAUDE_MEM_OPENROUTER_BASE_URL,
+          settings.baseUrl, settings.baseURL, settings.base_url, settings.endpoint,
+          options.baseUrl, options.baseURL, options.base_url, options.endpoint].some(present);
+}
+function provider(doc, id) { return doc.providers?.[id] ?? doc.provider?.[id]; }
+let ok = false;
+if (kind === 'provider') ok = hasKey(provider(doc, name), credential, true);
+else if (kind === 'embedding') ok = hasKey(doc.embedding, credential);
+else if (kind === 'mem') ok = hasKey(doc, /^CLAUDE_MEM_OPENROUTER_API_KEY$/);
+else if (kind === 'gateway') {
+  const providers = ['claude-newapi', 'codex-newapi', 'anthropic-newapi', 'gemini-newapi'];
+  ok = providers.every(id => baseUrl(provider(doc, id))) && baseUrl(doc.embedding) && baseUrl(doc);
+} else if (kind === 'mcp') {
+  const flat = object(doc.mcpServers) ? doc.mcpServers : {};
+  const nested = object(doc.mcp?.servers) ? doc.mcp.servers : {};
+  const candidates = [flat.web, flat['mcphub-web'], nested.web, nested['mcphub-web'], doc.mcp?.web];
+  ok = candidates.some(entry => entry && typeof entry === 'object' &&
+    (present(entry.url) || present(entry.baseUrl) || present(entry.command) ||
+     (Array.isArray(entry.command) && entry.command.length > 0)));
+}
+process.exit(ok ? 0 : 1);
+JS
+  rc=$?
+  [ "$rc" != 2 ] || echo "WARN: 既有配置无法解析；本次不追问，保留原值并先修复 JSON／JSONC" >&2
+  return "$rc"
+}
+
+has_provider_config() { config_probe provider "$1" "$CFG/opencode.json" "$CFG/opencode.jsonc"; }
+has_embedding_config() { config_probe embedding '' "$MC_CFG"; }
+has_mem_config() { config_probe mem '' "$SETTINGS"; }
+has_gateway_config() { config_probe gateway '' "$CFG/opencode.json" "$CFG/opencode.jsonc" "$MC_CFG" "$SETTINGS"; }
+has_mcp_config() { config_probe mcp '' "$CFG/opencode.json" "$CFG/opencode.jsonc"; }
+
+# 按最终生效配置的实际槽位判断；占位符算已有，无法读取与确实缺项分开处理。
 needs_gateway_fill() {
-  local f
-  for f in "$CFG/opencode.json" "$SETTINGS" "$MC_CFG"; do
-    [ -f "$f" ] || return 0
-    grep -q '<YOUR_' "$f" 2>/dev/null && return 0
+  local provider rc=0
+  has_gateway_config || rc=$?
+  [ "$rc" != 2 ] || return 2
+  [ "$rc" = 0 ] || return 0
+  for provider in claude-newapi codex-newapi anthropic-newapi gemini-newapi; do
+    rc=0; has_provider_config "$provider" || rc=$?
+    [ "$rc" != 2 ] || return 2
+    [ "$rc" = 0 ] || return 0
   done
+  rc=0; has_embedding_config || rc=$?
+  [ "$rc" != 2 ] || return 2
+  [ "$rc" = 0 ] || return 0
+  rc=0; has_mem_config || rc=$?
+  [ "$rc" != 2 ] || return 2
+  [ "$rc" = 0 ] || return 0
   return 1
 }
 
-collect_gateway_values() {
-  needs_gateway_fill || return 0
-  [ -z "$GW_BASE" ] && ask_value "统一网关完整地址" GW_BASE 0 "$DEFAULT_GW"
-  if [ -z "$GW_BASE" ]; then
-    echo "未提供网关地址:模板里的 <YOUR_*> 占位符保留,装完手工填(见文末清单)"
-    return 0
-  fi
-  [ -z "$K_CLAUDE" ]    && ask_value "claude-newapi 的 API key(anthropic 协议 · claude 模型 · 网关 claude code 分组)" K_CLAUDE 1
-  [ -z "$K_CODEX" ]     && ask_value "codex-newapi 的 API key(openai responses 协议 · gpt 模型 · 网关 codex 分组)" K_CODEX 1
-  [ -z "$K_ANTHROPIC" ] && ask_value "anthropic-newapi 的 API key(anthropic 协议 · 国产模型 · 网关 coding anthropic 分组)" K_ANTHROPIC 1
-  [ -z "$K_GEMINI" ]    && ask_value "gemini-newapi 的 API key(gemini 原生协议 · gemini 模型 · 网关 gemini 分组)" K_GEMINI 1
-  [ -z "$K_EMBED" ]     && ask_value "magic-context embedding 的 API key(openai 协议 · 嵌入模型 · 任意分组)" K_EMBED 1
-  [ -z "$K_MEM" ]       && ask_value "claude-mem 的 API key(openai chat completions · mem-1 · coding openai / coding anthropic / codex / default 分组均可)" K_MEM 1
-  [ -z "$MCPHUB_HOST" ] && ask_value "mcphub MCP host(如 mcp.example.com)" MCPHUB_HOST
-  local m=""
-  for kv in "claude:$K_CLAUDE" "codex:$K_CODEX" "anthropic:$K_ANTHROPIC" "gemini:$K_GEMINI" "embedding:$K_EMBED" "claude-mem:$K_MEM"; do
-    [ -n "${kv#*:}" ] || m="$m ${kv%%:*}"
-  done
-  echo "凭据:网关 $GW_BASE;留空(占位符保留)的 key:${m:-无}"
+needs_mcphub_fill() {
+  local rc=0
+  has_mcp_config || rc=$?
+  [ "$rc" != 2 ] || return 2
+  [ "$rc" = 0 ] && return 1
   return 0
 }
 
-# 把已提供的值填进模板(python 负责 JSON 转义);未提供则原样保留占位符。
+collect_gateway_values() {
+  local need_keys=0 need_mcp=0 have_gw=0 gw_note
+  needs_gateway_fill && need_keys=1
+  needs_mcphub_fill && need_mcp=1
+  [ "$need_keys" = 1 ] || [ "$need_mcp" = 1 ] || return 0
+  if [ "$need_keys" = 1 ]; then
+    has_gateway_config && have_gw=1
+    [ -z "$GW_BASE" ] || have_gw=1
+    [ "$have_gw" = 1 ] || ask_value "统一网关完整地址" GW_BASE '' "$DEFAULT_GW"
+    [ -z "$GW_BASE" ] || have_gw=1
+    if [ "$have_gw" = 0 ]; then
+      echo "未提供网关地址:模板里的 <YOUR_*> 占位符保留,装完手工填(见文末清单)"
+    else
+      has_provider_config claude-newapi || [ -n "$K_CLAUDE" ] || ask_value "claude-newapi 的 API key(anthropic 协议 · claude 模型 · 网关 claude code 分组)" K_CLAUDE 1
+      has_provider_config codex-newapi || [ -n "$K_CODEX" ] || ask_value "codex-newapi 的 API key(openai responses 协议 · gpt 模型 · 网关 codex 分组)" K_CODEX 1
+      has_provider_config anthropic-newapi || [ -n "$K_ANTHROPIC" ] || ask_value "anthropic-newapi 的 API key(anthropic 协议 · 国产模型 · 网关 coding anthropic 分组)" K_ANTHROPIC 1
+      has_provider_config gemini-newapi || [ -n "$K_GEMINI" ] || ask_value "gemini-newapi 的 API key(gemini 原生协议 · gemini 模型 · 网关 gemini 分组)" K_GEMINI 1
+      has_embedding_config || [ -n "$K_EMBED" ] || ask_value "magic-context embedding 的 API key(openai 协议 · 嵌入模型 · 任意分组)" K_EMBED 1
+      has_mem_config || [ -n "$K_MEM" ] || ask_value "claude-mem 的 API key(openai chat completions · mem-1 · coding openai / coding anthropic / codex / default 分组均可)" K_MEM 1
+    fi
+  fi
+  [ "$need_mcp" = 1 ] && [ -z "$MCPHUB_HOST" ] && ask_value "mcphub MCP host(如 mcp.example.com)" MCPHUB_HOST
+  if [ "$need_keys" = 1 ]; then
+    gw_note="$GW_BASE"; [ -n "$gw_note" ] || gw_note="本机已有"; [ "$have_gw" = 1 ] || gw_note="未提供"
+    echo "凭据:网关 $gw_note;已有配置未改动,未提供的缺项保留占位符"
+  fi
+  return 0
+}
+
+# ---- 计划阶段:只读探测 + 一次性收集全部确认与凭据,结果放 PLAN_* ----
+# 执行段只按 PLAN_* 执行,不再提问。-y 与无 tty 在这一阶段取默认值。
+# 需要新增确认时只在这里加,并把结果在下方对应步骤用掉。
+plan_pony_default() { # 只读:与 deploy.py 的 plugin_versions 同规则;钉版/本地路径/同版本/探测失败 → N
+  local f ver latest
+  for f in "$CFG/opencode.json" "$CFG/opencode.jsonc"; do
+    [ -f "$f" ] || continue
+    grep -q 'ponytailPackage' "$f" 2>/dev/null && { echo N; return 0; }
+    # 官方 @latest／无版本登记之外的都是钉版或本地路径
+    if grep -oE '"@dietrichgebert/ponytail(@[^"]*)?' "$f" 2>/dev/null | grep -qvE '"@dietrichgebert/ponytail(@latest)?$'; then
+      echo N; return 0
+    fi
+    # 本地路径登记（file:、相对/绝对路径、盘符）；skills.paths 里的 .../ponytail/skills 不算
+    if grep -oE '"(file:|\.{1,2}/|/)[^"]*ponytail[^"]*"|"[A-Za-z]:[^"]*ponytail[^"]*"' "$f" 2>/dev/null | grep -qv '/skills"$'; then
+      echo N; return 0
+    fi
+  done
+  ver=""
+  for cache in "${XDG_CACHE_HOME:-$HOME/.cache}"/opencode/npm/'@dietrichgebert/ponytail@latest'; do
+    [ -d "$cache" ] || continue
+    # 与 deploy.py 一致：只认纯数字代次目录并取最大；没有代次时用缓存根
+    gen="$(find "$cache" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | grep -E '/[0-9]+$' | sort -n | tail -1)"
+    f="${gen:-$cache}/node_modules/@dietrichgebert/ponytail/package.json"
+    [ -f "$f" ] || continue
+    ver="$(grep -o '"version"[[:space:]]*:[[:space:]]*"[^"]*"' "$f" 2>/dev/null | head -1 | sed 's/.*"\([^"]*\)"$/\1/')"
+  done
+  if [ -z "$ver" ]; then
+    echo "提示: 未检测到 Ponytail @latest 缓存版本，缺包由宿主启动安装，本次不刷新" >&2
+    echo N; return 0
+  fi
+  latest="$(curl -fsSL --connect-timeout 5 -m 15 https://registry.npmjs.org/@dietrichgebert%2Fponytail/latest 2>/dev/null \
+    | grep -o '"version"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"\([^"]*\)"$/\1/')"
+  if [ -z "$latest" ]; then
+    echo "提示: 未能只读查询 Ponytail npm latest,保留现状(不刷新;需要更新时手工确认)" >&2
+    echo N; return 0
+  fi
+  if [ -n "$ver" ]; then
+    if [ "$ver" = "$latest" ]; then echo "提示: Ponytail 本地缓存已是 npm latest $latest,无需更新" >&2; echo N; return 0; fi
+    local highest
+    highest="$(printf '%s\n%s\n' "$ver" "$latest" | sort -V 2>/dev/null | tail -1 || :)"
+    if [ -z "$highest" ]; then
+      echo "提示: 无法比较 Ponytail 版本($ver / $latest),保留现状" >&2; echo N; return 0
+    fi
+    if [ "$highest" = "$ver" ]; then
+      echo "提示: Ponytail 本地 $ver 不低于 npm latest $latest,不降级" >&2; echo N; return 0
+    fi
+  fi
+  echo Y
+}
+
+collect_setup_plan() {
+  local proxy uv_present=0 npx_present=0 bun_present=0 uvcfg
+  # --check 只校验下载与配置:不询问,也不做代理探测等任何安装前判断。
+  if [ "$CHECK_ONLY" = 1 ]; then
+    PLAN_PROXY=1; PLAN_UPGRADE=0; PLAN_PYTHON_UV=0; PLAN_BUN=0; PLAN_NODE=0; PLAN_PONYTAIL=0
+    PLAN_MC_REFRESH=0; PLAN_WRITE_CFG=0; PLAN_FORCE_MANUAL=0; PLAN_CLAUDE_MEM=0
+    PLAN_COMPACTION=0; PLAN_TUI_KEYS=0; PLAN_UV_INSTALL=0; PLAN_UV_UPGRADE=0; PLAN_UV_MIRROR=0
+    PLAN_SKILLS_EXTERNAL=skip; PLAN_AGENTS_TAIL=0; SKILL_GROUPS=(base); MODULE_SELECTION=""
+    # --check 也要核对模板与迁移脚本,因此同样需要源码树;不询问、不写配置
+    acquire_source || exit 1
+    MODULE_RUN="$SOURCE_ROOT/modules/run.sh"
+    [ -f "$MODULE_RUN" ] || MODULE_RUN=""
+    return 0
+  fi
+
+  # 0) 代理:无代理变量且直连 github 不通时才问(其余情况只打印)
+  proxy="${http_proxy:-${https_proxy:-${all_proxy:-${HTTP_PROXY:-${HTTPS_PROXY:-${ALL_PROXY:-}}}}}}"
+  if [ -n "$proxy" ]; then
+    echo "代理: $proxy"
+    PLAN_PROXY=1
+  elif net_ok 2>/dev/null; then
+    echo "未设代理环境变量,但直连 github.com 可达(可能是透明代理),继续"
+    PLAN_PROXY=1
+  else
+    echo "提醒: 未检测到代理环境变量(大小写的 http(s)_proxy / all_proxy 都查了),且直连 github.com 不通。"
+    echo "      建议先 export http_proxy/https_proxy 再继续;有透明代理则可忽略。"
+    if ask "仍要继续吗？" N; then PLAN_PROXY=1; else PLAN_PROXY=0; fi
+  fi
+
+  if command -v uv >/dev/null 2>&1 || [ -x "$HOME/.local/bin/uv$BIN_EXT" ]; then uv_present=1; fi
+  if command -v npx >/dev/null 2>&1; then npx_present=1; fi
+  if command -v bun >/dev/null 2>&1; then bun_present=1; fi
+
+  # 1) 宿主升级与依赖
+  if [ "$PLUGINS_ONLY" = 0 ]; then
+    if ask "更新 OpenCode 到最新版(opencode upgrade)?" Y; then PLAN_UPGRADE=1; else PLAN_UPGRADE=0; fi
+    if ! { command -v python3 >/dev/null 2>&1 && python3 -c pass >/dev/null 2>&1; } \
+       && ! { command -v python >/dev/null 2>&1 && python -c pass >/dev/null 2>&1; } \
+       && ! { command -v py >/dev/null 2>&1 && py -3 -c pass >/dev/null 2>&1; }; then
+      if ask "缺少 Python 3 时用 uv 装自管理的 Python 3.12?" Y; then PLAN_PYTHON_UV=1; else PLAN_PYTHON_UV=0; fi
+    else PLAN_PYTHON_UV=0; fi
+  else
+    PLAN_UPGRADE=0; PLAN_PYTHON_UV=0
+  fi
+  if [ "$PLUGINS_ONLY" = 0 ] && [ "$bun_present" = 0 ]; then
+    if ask "是否安装 Bun（配置转换与 context-mode 所需）？" Y; then PLAN_BUN=1; else PLAN_BUN=0; fi
+  else PLAN_BUN=0; fi
+  if [ "$PLUGINS_ONLY" = 0 ] && [ "$npx_present" = 0 ]; then
+    echo "未检测到 npx(claude-mem 官方安装器与 skills 安装需要 Node)。"
+    if ask "是否安装 fnm + Node LTS？" Y; then PLAN_NODE=1; else PLAN_NODE=0; fi
+  else PLAN_NODE=0; fi
+
+  # 2) 第三方插件缓存刷新
+  # Ponytail 默认值由只读探测直接决定：只有确认有可更新版本才询问，其余（钉版/本地路径/同版本/更高/探测失败）跳过。
+  if [ "$(plan_pony_default)" = Y ]; then
+    if ask "是否将 Ponytail 更新为 npm latest（旧缓存备份；钉版/本地登记不动）?" Y; then
+      PLAN_PONYTAIL=1
+    else PLAN_PONYTAIL=0; fi
+  else
+    PLAN_PONYTAIL=0
+    echo "Ponytail: 无需更新或无法只读探测(钉版／本地路径／同版本／更高／查询失败)，跳过并保留现状。"
+  fi
+  echo "注意：新版首次加载可能迁移共享 context.db。确认前请退出 OpenCode/Desktop/Pi 并备份共享库；同机 Pi 版本需另行同步。"
+  if ask "是否刷新 Magic Context（已确认相关宿主停用并备份）?" Y; then PLAN_MC_REFRESH=1; else PLAN_MC_REFRESH=0; fi
+
+  if [ "$PLUGINS_ONLY" = 1 ]; then
+    # 精简模式到此为止:配置、skills、uv、模块都不执行
+    if command -v npx >/dev/null 2>&1 && ask "更新 claude-mem runtime／官方插件／MCP（会停止共享 worker，之后手工重启）?" Y; then
+      PLAN_CLAUDE_MEM=1
+    else PLAN_CLAUDE_MEM=0; fi
+    PLAN_WRITE_CFG=1; PLAN_FORCE_MANUAL=0; PLAN_COMPACTION=0; PLAN_TUI_KEYS=0
+    PLAN_UV_INSTALL=0; PLAN_UV_UPGRADE=0; PLAN_UV_MIRROR=0
+    PLAN_SKILLS_EXTERNAL=skip; PLAN_AGENTS_TAIL=0; SKILL_GROUPS=(base); MODULE_SELECTION=""
+    # 精简模式仍读本地源码树的迁移脚本，但只在确实需要 web MCP 改名时才取源，
+    # 无关的离线机器不因缺源码而中断。
+    if grep -qs '"mcphub-web"[[:space:]]*:' "$CFG/opencode.json" "$CFG/opencode.jsonc"; then
+      acquire_source || exit 1
+    fi
+    return 0
+  fi
+
+  # 3) 配置写入与自动更新档位(只读检查 live 配置)
+  if ask "写入/更新套件管理的配置文件（字段级合并，API key 等敏感值保留）?" Y; then PLAN_WRITE_CFG=1; else PLAN_WRITE_CFG=0; fi
+  PLAN_FORCE_MANUAL=0
+  if [ "$PLAN_WRITE_CFG" = 1 ] && grep -qE '"update"[[:space:]]*:[[:space:]]*(true|"auto")|"autoupdate"[[:space:]]*:[[:space:]]*(true|"auto")' \
+     "$CFG/opencode.json" "$CFG/opencode.jsonc" 2>/dev/null; then
+    if ask "OpenCode 当前允许自动更新(升级会打断正在运行的进程),改为只在 setup 里手动升级?" Y; then PLAN_FORCE_MANUAL=1; fi
+  fi
+  if [ "$PLAN_WRITE_CFG" = 1 ]; then
+    if { command -v npx >/dev/null 2>&1 || [ "$PLAN_NODE" = 1 ]; } \
+       && ask "更新 claude-mem runtime／官方插件／MCP（会停止共享 worker，之后手工重启）?" Y; then
+      PLAN_CLAUDE_MEM=1
+    else PLAN_CLAUDE_MEM=0; fi
+    if ask "在 opencode.json 写入 compaction auto=false(让 magic-context 接管压缩;已有 compaction 则跳过)?" Y; then
+      PLAN_COMPACTION=1
+    else PLAN_COMPACTION=0; fi
+    if ask "统一 TUI 按键为 Enter 发送、Shift+Enter 换行，取消旧 Ctrl+Enter/Ctrl+J 发送绑定?" Y; then
+      PLAN_TUI_KEYS=1
+    else PLAN_TUI_KEYS=0; fi
+  else
+    # 不写配置时这些步骤无处落地，也不让官方安装器改写 opencode.json。
+    PLAN_CLAUDE_MEM=0; PLAN_COMPACTION=0; PLAN_TUI_KEYS=0
+  fi
+
+  # 4) uv(安装/升级/镜像);镜像目标按平台算好
+  uvcfg="$HOME/.config/uv/uv.toml"
+  if [ "$IS_WIN" = 1 ] && [ -n "${APPDATA:-}" ]; then uvcfg="$(cygpath -u "$APPDATA")/uv/uv.toml"; fi
+  if [ "$uv_present" = 0 ]; then
+    if ask "未检测到 uv,安装 uv(astral.sh 官方脚本,装到 ~/.local/bin)?" Y; then PLAN_UV_INSTALL=1; else PLAN_UV_INSTALL=0; fi
+    PLAN_UV_UPGRADE=0
+  else
+    PLAN_UV_INSTALL=0
+    if ask "uv 有新版本时升级(uv self update)?" Y; then PLAN_UV_UPGRADE=1; else PLAN_UV_UPGRADE=0; fi
+  fi
+  if grep -q 'pypi.tuna' "$uvcfg" 2>/dev/null || [ -f "$uvcfg" ]; then
+    PLAN_UV_MIRROR=0   # 已配置或已有用户自建文件:沿用现有处理,只报告
+  elif ask "配置 uv 用清华 PyPI 镜像($uvcfg)?" Y; then PLAN_UV_MIRROR=1
+  else PLAN_UV_MIRROR=0; fi
+
+  # 5) skills 分组、外部设计依赖、AGENTS.tail
+  SKILL_GROUPS=(base)
+  ask "安装/更新 research 组(算法研究、实验、PyTorch 性能与 kernel;每次刷新·漂移自动备份)?" N && SKILL_GROUPS+=(research)
+  ask "安装/更新 accel 组(算力平台模板;缺才装·本机特化不覆盖)?" N && SKILL_GROUPS+=(accel)
+  ask "安装/更新 kb 组(公共算力知识;每次刷新)?" N && SKILL_GROUPS+=(kb)
+  ask "安装/更新 ppt 组(南大 HTML/PPTX、Dashi、ppt-master 与独立依赖;需 Node 20+、Python 3.10+)?" N && SKILL_GROUPS+=(ppt)
+  case "${SKILLS_EXTERNAL:-}" in
+    skip) PLAN_SKILLS_EXTERNAL=skip ;;
+    install) PLAN_SKILLS_EXTERNAL=install ;;
+    *) if ask "安装外部设计依赖（ui-ux-pro-max / huashu-design / design-taste-frontend）?" Y; then
+         PLAN_SKILLS_EXTERNAL=install
+       else PLAN_SKILLS_EXTERNAL=skip; fi ;;
+  esac
+  case "${AGENTS_TAIL:-}" in
+    0) PLAN_AGENTS_TAIL=0 ;;
+    1) PLAN_AGENTS_TAIL=1 ;;
+    *) if ask "把记忆系统规范块(AGENTS.tail)写入当前目录 AGENTS.md 最尾部?" Y; then
+         PLAN_AGENTS_TAIL=1
+       else PLAN_AGENTS_TAIL=0; fi ;;
+  esac
+
+  # 6) 凭据(网关 + 各 api key):不写配置时无需凭据
+  #    放在源码解析之前,占位符/非法网关在任何 clone 或 mkdir 之前就拒绝
+  [ "$PLAN_WRITE_CFG" = 1 ] && collect_gateway_values
+
+  # 7) 可选模块:这里只问一次并记下名单,执行时按名单装
+  # 源码基准在全部确认与凭据之后解析:此前不 clone、不 mkdir
+  MODULE_SELECTION=""
+  acquire_source || exit 1
+  MODULE_RUN="$SOURCE_ROOT/modules/run.sh"
+  [ -f "$MODULE_RUN" ] || MODULE_RUN=""
+  if [ -n "$MODULE_RUN" ]; then
+    local sel_args=(--host opencode --repo "${AGENT_SKILLS_REPO:-brilliantrough/agent-skills}" --ref "${AGENT_SKILLS_REF:-main}")
+    [ "${ASSUME_YES:-0}" = 1 ] && sel_args+=(--yes)
+    MODULE_SELECTION="$(bash "$MODULE_RUN" "${sel_args[@]}" --select)" || {
+      echo "WARN: 可选模块选择失败,本次跳过模块" >&2; MODULE_SELECTION=""
+    }
+  else
+    echo "WARN: 取不到 modules/run.sh,本次跳过可选模块" >&2
+  fi
+  return 0
+}
+
+
 # <YOUR_GATEWAY_HOST> 填到主机名:pi 的 anthropic-messages provider 要根域(/v1 会 404),
 # 而模板里的 <YOUR_GATEWAY_HOST>/v1 正好给 opencode/embedding/claude-mem 这类要 /v1 的。
 # 四个 <YOUR_NEWAPI_API_KEY> 在同一份模板里对应不同 key,只能按 provider 块就近替换
@@ -305,6 +718,7 @@ PYEOF
 # 拿不到 key 就不建文件——画图是可选能力,首次调用时工具自己提示。PI_IMAGE_GEN_API_KEY 可预填。
 # opencode-setup.sh 里那份必须与这里逐字节一致。
 ensure_image_gen() {
+  [ "${PLAN_WRITE_CFG:-1}" = 1 ] || return 0
   python3 - "$HOME/.local/share/agent-skills/image-gen.json" "${GW_BASE:-}" \
     "${PI_IMAGE_GEN_API_KEY:-${IMAGE_GEN_API_KEY:-}}" "$HOME/.pi/agent/models.json" <<'PYEOF'
 import json, os, re, sys
@@ -362,7 +776,7 @@ merge_cfg() {
   fi
   fill_template_placeholders "$tmp"
   if [ ! -f "$dest" ]; then
-    if ask "写入 $dest(来自 本仓模板,含占位符)?" Y; then
+    if [ "${PLAN_WRITE_CFG:-1}" = 1 ]; then
       mkdir -p "$(dirname "$target")"; cp "$tmp" "$target"; echo "wrote: $dest(含占位符)"
     else
       echo "跳过: $dest 未创建"
@@ -398,7 +812,7 @@ def load(p):  # JSONC 感知:去注释与尾逗号(字符串内的 // 不动)
             while i + 1 < n and not (t[i] == '*' and t[i + 1] == '/'): i += 1
             i += 2; continue
         out.append(c); i += 1
-    return json.loads(re.sub(r',(\s*[}\]])', r'\1', ''.join(out)))
+    return json.loads(re.sub(r'("(?:\\.|[^"\\])*")|,(\s*[}\]])', lambda m: m[1] or m[2], ''.join(out)))
 
 try:
     cur, new = load(dest), load(tpl)
@@ -413,11 +827,11 @@ def merge(cur, new):
         return new
     out = dict(cur)
     for k, v in new.items():
-        if k in cur and k.startswith('CLAUDE_MEM_') and k.endswith(('_BASE_URL', '_API_KEY', '_PORT', '_HOST')):
+        if k in cur and cur[k] is not None and cur[k] != '' and k.startswith('CLAUDE_MEM_') and k.endswith(('_BASE_URL', '_API_KEY', '_PORT', '_HOST')):
             continue  # 已有接口/凭据保留；模型名随模板
-        if k in cur and SENSITIVE.search(k):                       # 敏感键:本地值优先
+        if k in cur and cur[k] is not None and cur[k] != '' and SENSITIVE.search(k):                       # 敏感键:本地值优先
             continue
-        if k in cur and isinstance(v, str) and PLACEHOLDER.search(v):  # 占位值不覆盖已填内容
+        if k in cur and cur[k] is not None and cur[k] != '' and isinstance(v, str) and PLACEHOLDER.search(v):  # 占位值不覆盖已填内容
             continue
         if k in UNION_KEYS and isinstance(v, list) and isinstance(cur.get(k), list):
             out[k] = cur[k] + [x for x in v if x not in cur[k]]        # 并集:本地顺序 + 模板新增
@@ -425,7 +839,60 @@ def merge(cur, new):
         out[k] = merge(cur.get(k), v) if isinstance(v, dict) else v
     return out
 
+MANAGED_PROVIDERS = {"claude-newapi", "codex-newapi", "anthropic-newapi", "gemini-newapi"}
+MANAGED_MCP = {"web", "codegraph"}
+
+def managed_value(local, template):
+    """模板控制结构；递归保留本机敏感叶子，模板未列出的条目不删除。"""
+    if isinstance(template, list):
+        if not isinstance(local, list):
+            return template
+        unused = [x for x in local if isinstance(x, dict) and x.get("id") is not None]
+        out = []
+        for item in template:
+            match = None
+            if isinstance(item, dict) and item.get("id") is not None:
+                match = next((x for x in unused if x.get("id") == item.get("id")), None)
+                if match is not None:
+                    unused.remove(match)
+            out.append(managed_value(match, item))
+        return out
+    if not isinstance(template, dict):
+        return template
+    out = dict(template)
+    if not isinstance(local, dict):
+        return out
+    for k, v in local.items():
+        if k == "maxTokens" and isinstance(v, (int, float)) and not isinstance(v, bool):
+            continue  # 数值预算是受管非敏感字段，模板值已在 out 中。
+        if SENSITIVE.search(k) and v is not None and v != '':
+            out[k] = v
+        elif isinstance(v, (dict, list)):
+            nested = managed_value(v, out.get(k, {} if isinstance(v, dict) else []))
+            if nested or k in out:
+                out[k] = nested
+    return out
+
+def takeover_group(cur, new, merged, key, managed_names):
+    old_group = cur.get(key) if isinstance(cur.get(key), dict) else {}
+    tpl_group = new.get(key) if isinstance(new.get(key), dict) else {}
+    if not tpl_group:
+        return
+    out_group = merged.get(key)
+    if not isinstance(out_group, dict):
+        out_group = {}
+        merged[key] = out_group
+    for name, template_value in tpl_group.items():
+        if name in managed_names:
+            out_group[name] = managed_value(old_group.get(name), template_value)
+
 merged = merge(cur, new)
+takeover_group(cur, new, merged, "providers", MANAGED_PROVIDERS)
+takeover_group(cur, new, merged, "provider", MANAGED_PROVIDERS)
+takeover_group(cur, new, merged, "mcpServers", MANAGED_MCP)
+if isinstance(new.get("mcp"), dict) and isinstance(merged.get("mcp"), dict):
+    takeover_group(cur.get("mcp") if isinstance(cur.get("mcp"), dict) else {},
+                   new["mcp"], merged["mcp"], "servers", MANAGED_MCP)
 # deprecated: memory-config-049；用户确认退役后删除此清理段。
 if os.path.basename(dest) == "magic-context.jsonc":
     for key in ("clear_reasoning_age", "smart_drops", "sidekick"):
@@ -447,7 +914,7 @@ PYEOF
   case "$out" in
     unchanged) echo "unchanged: $dest(已与模板一致,无需改动)"; rm -f "$cand" ;;
     "")        echo "WARN: $dest 合并失败,保留原文件" >&2; rm -f "$cand"; return 1 ;;
-    *)         if ask "更新 $dest($out;api key 等敏感值保留,原文件存 $bak)?" Y; then
+    *)         if [ "${PLAN_WRITE_CFG:-1}" = 1 ]; then
                  cp "$dest" "$bak"; mv "$cand" "$target"; echo "updated: $dest"
                else
                  echo "保留原文件: $dest"; rm -f "$cand"; return 2
@@ -458,6 +925,7 @@ PYEOF
 # 记忆后端必须走 OpenAI 兼容的 openrouter provider;安装器或旧配置写成 claude 时纠正。
 # 只改这一个键,模型/接口/凭据原样保留。
 ensure_mem_provider() {
+  [ "${PLAN_WRITE_CFG:-1}" = 1 ] || return 0
   local f="$1" tmp target
   [ -f "$f" ] || return 0
   target="$(rpath "$f")" || return 1
@@ -480,18 +948,18 @@ PY
 
 echo "== opencode 一键配置 =="
 
-# ---- 0. 代理环境提醒 ----
-# 大小写都查;无代理环境变量时再探测直连(排除路由器层透明代理的情况)
-proxy="${http_proxy:-${https_proxy:-${all_proxy:-${HTTP_PROXY:-${HTTPS_PROXY:-${ALL_PROXY:-}}}}}}"
-net_ok() { curl -fsSI --connect-timeout 5 -m 8 -o /dev/null https://github.com; }
-if [ -n "$proxy" ]; then
-  echo "代理: $proxy"
-elif net_ok 2>/dev/null; then
-  echo "未设代理环境变量,但直连 github.com 可达(可能是透明代理),继续"
-else
-  echo "提醒: 未检测到代理环境变量(大小写的 http(s)_proxy / all_proxy 都查了),且直连 github.com 不通。"
-  echo "      建议先 export http_proxy/https_proxy 再继续;有透明代理则可忽略。"
-  ask "仍要继续吗？" || exit 1
+# ---- 0. 计划阶段:一次问完(代理、宿主升级、依赖、插件、配置、skills、模块、凭据) ----
+collect_setup_plan
+[ "$PLAN_PROXY" = 1 ] || { echo "已取消:未确认在无代理环境下继续。"; exit 1; }
+
+# ---- 0.1 宿主升级(自动更新关掉之后,升级只发生在这里;失败只警告) ----
+if [ "$PLAN_UPGRADE" = 1 ]; then
+  if opencode upgrade; then
+    OC_VERSION="$(opencode --version)"
+    if [[ "$OC_VERSION" =~ (^|[[:space:]])v?(2)\.[0-9]+\.[0-9]+ ]]; then
+      OC_MAJOR="${BASH_REMATCH[2]}"; echo "客户端: $OC_VERSION → v$OC_MAJOR"
+    else echo "ERROR: 升级后版本不受支持($OC_VERSION)，配置未改动" >&2; exit 1; fi
+  else echo "WARN: opencode upgrade 失败，继续用当前版本 $OC_VERSION" >&2; fi
 fi
 
 # ---- 1. 依赖: python3(必需;缺失时用 uv 自管理 3.12 兜底,Git for Windows 不带 python) ----
@@ -501,8 +969,14 @@ if [ "$PLUGINS_ONLY" = 1 ]; then
   elif command -v py >/dev/null 2>&1 && py -3 -c pass >/dev/null 2>&1; then python3() { py -3 "$@"; }
   else echo "ERROR: 插件检查／同步需要现成的 Python 3；请先安装或运行完整 setup" >&2; exit 1; fi
 else
-resolve_python3 || { echo "ERROR: 没有可用的 Python 3(配置写入依赖它)。可手工装(winget install Python.Python.3.12 / apt install python3)或允许脚本用 uv 装后重跑。" >&2; exit 1; }
-
+  # 计划阶段已决定 PLAN_PYTHON_UV;未选 uv 兜底且没有现成 Python 时直接报错,不在这里补问。
+  if [ "$PLAN_PYTHON_UV" = 0 ] && ! { command -v python3 >/dev/null 2>&1 && python3 -c pass >/dev/null 2>&1; } \
+     && ! { command -v python >/dev/null 2>&1 && python -c pass >/dev/null 2>&1; } \
+     && ! { command -v py >/dev/null 2>&1 && py -3 -c pass >/dev/null 2>&1; }; then
+    echo "ERROR: 没有可用的 Python 3,且计划阶段未选择用 uv 兜底(配置写入依赖它)。可手工装 Python 3 后重跑。" >&2; exit 1
+  fi
+  resolve_python3 || { echo "ERROR: 没有可用的 Python 3(配置写入依赖它)。可手工装(winget install Python.Python.3.12 / apt install python3)或允许脚本用 uv 装后重跑。" >&2; exit 1; }
+  # resolve_python3 消费前置的 PLAN_PYTHON_UV，并把 fallback 解释器导出给子 Bash。
 fi
 
 # ---- 1.1 下载对应主版本的发布包；下载/解包失败即停止，保留原配置 ----
@@ -532,20 +1006,20 @@ migrate_opencode_config() {
 }
 
 # ---- 配置迁移依赖：完整安装补齐 Bun；精简模式只检查 ----
-if [ "$PLUGINS_ONLY" != 1 ] && ! command -v bun >/dev/null 2>&1; then
-  if ask "是否安装 Bun（配置转换与 context-mode 所需）？" Y; then
-    curl -fsSL --connect-timeout 8 -m 60 https://bun.sh/install | bash
-    export PATH="$HOME/.bun/bin:$PATH"
-  fi
+if [ "$PLAN_BUN" = 1 ]; then
+  curl -fsSL --connect-timeout 8 -m 60 https://bun.sh/install | bash
+  export PATH="$HOME/.bun/bin:$PATH"
 fi
 
 # deprecated: mcphub-web-rename；用户确认退役后删除此段及 migrate-web-mcp.py。
 web_mcp_ready=1
 if grep -qs '"mcphub-web"[[:space:]]*:' "$CFG/opencode.json" "$CFG/opencode.jsonc"; then
   web_args=()
-  [ "$CHECK_ONLY" = 1 ] || web_args+=(--apply)
-  if ! curl -fsSL --connect-timeout 8 -m 30 -o "$oc_stage/migrate-web-mcp.py" "$SELF_RAW/migrate-web-mcp.py" \
-    || ! python3 "$oc_stage/migrate-web-mcp.py" opencode "$(npath "$CFG/opencode.json")" "$(npath "$CFG/opencode.jsonc")" "${web_args[@]}"; then
+  [ "$CHECK_ONLY" = 1 ] || [ "$PLAN_WRITE_CFG" != 1 ] || web_args+=(--apply)
+  if [ ! -f "$SOURCE_ROOT/migrate-web-mcp.py" ]; then
+    web_mcp_ready=0
+    echo "ERROR: 源码树缺 migrate-web-mcp.py($SOURCE_ROOT);web MCP 改名未完成,跳过主配置模板合并" >&2
+  elif ! python3 "$(npath "$SOURCE_ROOT/migrate-web-mcp.py")" opencode "$(npath "$CFG/opencode.json")" "$(npath "$CFG/opencode.jsonc")" "${web_args[@]}"; then
     web_mcp_ready=0
     echo "WARN: web MCP 改名未完成，跳过主配置模板合并；其他插件继续部署" >&2
   fi
@@ -558,23 +1032,19 @@ if [ "$CHECK_ONLY" = 1 ]; then
 fi
 
 # deprecated: config-v2-native；迁移期结束后删除旧格式转换，保留原生 V2 模板合并。
-migrate_opencode_config --apply || exit 1
+if [ "$PLAN_WRITE_CFG" = 1 ]; then
+  migrate_opencode_config --apply || exit 1
+fi
 
-# ---- 第三方 npm 插件：询问后刷新；不启动宿主、不修改共享数据库 ----
+# ---- 第三方 npm 插件：按计划刷新；不启动宿主、不修改共享数据库 ----
 plugin_args=()
-pony_default="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1],encoding="utf-8"))["@dietrichgebert/ponytail"]["prompt"] or "")' "$(npath "$oc_stage/versions.json")")"
-pony_default="${pony_default%$'\r'}"
-if [ -n "$pony_default" ]; then
-  if ask "是否将 Ponytail 更新为 npm latest（旧缓存备份；钉版/本地登记将改回官方包，下次启动下载）?" "$pony_default"; then
-    plugin_args+=(--refresh-ponytail)
-  else
-    echo "跳过 Ponytail 更新，保留缓存和登记。"
-  fi
+if [ "$PLAN_PONYTAIL" = 1 ]; then
+  plugin_args+=(--refresh-ponytail)
+else
+  echo "跳过 Ponytail 更新，保留缓存和登记。"
 fi
 echo "Magic Context 旧缓存路径会迁回官方 @latest，保留已装缓存；自定义路径与钉版不动。"
-echo "如需更新插件，可另行确认刷新：备份移走 OpenCode 的 latest 缓存，下次启动重新下载。"
-echo "注意：新版首次加载可能迁移共享 context.db。确认前请退出 OpenCode/Desktop/Pi 并备份共享库；同机 Pi 版本需另行同步。"
-if ask "是否刷新 Magic Context（已确认相关宿主停用并备份）?" Y; then
+if [ "$PLAN_MC_REFRESH" = 1 ]; then
   plugin_args+=(--refresh-magic-context)
 else
   echo "跳过 Magic Context 刷新：保留缓存，仅迁移可安全复用的旧缓存路径登记；如有 WARN，启动前仍需处理。"
@@ -587,40 +1057,36 @@ if ! command -v npx >/dev/null 2>&1 && command -v fnm >/dev/null 2>&1; then
   eval "$(fnm env --shell bash)"
   fnm use default || true
 fi
-if ! command -v npx >/dev/null 2>&1; then
+if [ "$PLAN_NODE" = 1 ]; then
   echo "未检测到 npx(claude-mem 官方安装器与 skills 安装需要 Node)。"
-  if ask "是否安装 fnm + Node LTS？" Y; then
-    curl -fsSL --connect-timeout 8 -m 60 https://fnm.vercel.app/install | bash
-    export PATH="$HOME/.local/share/fnm:$PATH"
-    eval "$(fnm env)"
-    fnm install --lts
-    fnm default lts-latest
-    eval "$(fnm env)"
-    command -v npx >/dev/null 2>&1 || {
-      if [ "$IS_WIN" = 1 ]; then
-        echo "ERROR: 安装后 npx 仍不可用。可改用 winget install OpenJS.NodeJS.LTS 装 Node,重开 Git Bash 后重跑本脚本。" >&2
-      else
-        echo "ERROR: 安装后 npx 仍不可用,请重开终端后重跑本脚本" >&2
-      fi
-      exit 1
-    }
-    echo "Node $(node --version) 就绪"
-  else
-    echo "跳过 Node(claude-mem 安装与 skills 安装将不可用)"
-  fi
+  curl -fsSL --connect-timeout 8 -m 60 https://fnm.vercel.app/install | bash
+  export PATH="$HOME/.local/share/fnm:$PATH"
+  eval "$(fnm env)"
+  fnm install --lts
+  fnm default lts-latest
+  eval "$(fnm env)"
+  command -v npx >/dev/null 2>&1 || {
+    if [ "$IS_WIN" = 1 ]; then
+      echo "ERROR: 安装后 npx 仍不可用。可改用 winget install OpenJS.NodeJS.LTS 装 Node,重开 Git Bash 后重跑本脚本。" >&2
+    else
+      echo "ERROR: 安装后 npx 仍不可用,请重开终端后重跑本脚本" >&2
+    fi
+    exit 1
+  }
+  echo "Node $(node --version) 就绪"
+elif ! command -v npx >/dev/null 2>&1; then
+  echo "跳过 Node(claude-mem 安装与 skills 安装将不可用)"
 fi
 
 fi
 
-if [ "$PLUGINS_ONLY" != 1 ]; then
+if [ "$PLUGINS_ONLY" != 1 ] && [ "$PLAN_WRITE_CFG" = 1 ]; then
 # ---- 3. 部署 settings.json(字段级合并 本仓模板;下载失败用内嵌模板兜底)----
-# 凭据先问:下面步骤 3(claude-mem settings)、3.1(magic-context)、4(opencode.json)都要用它填占位符
-collect_gateway_values
+# 凭据已在计划阶段收集
 ensure_image_gen
 mkdir -p "$HOME/.claude-mem"
 mc_rc=0; merge_cfg "$RAW/opencode/claude-mem.settings.json" "$SETTINGS" || mc_rc=$?
 if [ "$mc_rc" = 1 ] && [ ! -f "$SETTINGS" ]; then   # 只在模板下载失败时用内嵌兜底
-  if ask "写入 $SETTINGS(内嵌兜底模板,含占位符)?" Y; then
   cat > "$SETTINGS" <<'EOF'
 {
   "CLAUDE_MEM_RUNTIME": "worker",
@@ -634,14 +1100,11 @@ if [ "$mc_rc" = 1 ] && [ ! -f "$SETTINGS" ]; then   # 只在模板下载失败�
   "CLAUDE_MEM_CONTEXT_FULL_COUNT": "0",
   "CLAUDE_MEM_CONTEXT_SHOW_LAST_SUMMARY": "true",
   "CLAUDE_MEM_LLM_TIMEOUT_MS": "120000",
-  "CLAUDE_MEM_SKIP_TOOLS": "ListMcpResourcesTool,SlashCommand,Skill,TodoWrite,AskUserQuestion,question,ask_user_question,list,ls,list_mcp_resources,list_mcp_resource_templates,read,bash,BashOutput,grep,glob,find,mcp,ctx_search,ctx_expand,ctx_reduce,context_rewrite,context_output_read,mem_search,mem_timeline,mem_get_observations,claude_mem_search,claude-mem_mem_search,claude-mem_search,claude-mem_timeline,claude-mem_get_observations",
+  "CLAUDE_MEM_SKIP_TOOLS": "ListMcpResourcesTool,SlashCommand,Skill,TodoWrite,AskUserQuestion,question,ask_user_question,list,ls,list_mcp_resources,list_mcp_resource_templates,read,bash,BashOutput,grep,glob,find,mcp,ctx_search,ctx_expand,ctx_reduce,context_rewrite,mem_search,mem_timeline,mem_get_observations,claude_mem_search,claude-mem_mem_search,claude-mem_search,claude-mem_timeline,claude-mem_get_observations",
   "CLAUDE_MEM_OPENROUTER_API_KEY": "<YOUR_API_KEY>"
 }
 EOF
   echo "wrote: $SETTINGS(含占位符)"
-  else
-    echo "跳过: $SETTINGS 未创建"
-  fi
 fi
 ensure_mem_worker_keys "$SETTINGS" 2>/dev/null || true
 echo "claude-mem worker: http://$(mem_worker_url "$SETTINGS")(健康检查: curl -s http://$(mem_worker_url "$SETTINGS")/api/health)"
@@ -649,7 +1112,6 @@ echo "claude-mem worker: http://$(mem_worker_url "$SETTINGS")(健康检查: curl
 # ---- 3.1 magic-context 配置文件(字段级合并 本仓模板;historian.model 必填,否则插件报错)----
 mcc_rc=0; merge_cfg "$RAW/opencode/magic-context.jsonc" "$MC_CFG" || mcc_rc=$?
 if [ "$mcc_rc" = 1 ] && [ ! -f "$MC_CFG" ]; then   # 只在模板下载失败时用内嵌兜底
-  if ask "写入 $MC_CFG(内嵌兜底模板,含占位符)?" Y; then
   mkdir -p "$HOME/.config/cortexkit"
   cat > "$MC_CFG" <<'EOF'
 {
@@ -675,46 +1137,16 @@ if [ "$mcc_rc" = 1 ] && [ ! -f "$MC_CFG" ]; then   # 只在模板下载失败时
 }
 EOF
   echo "wrote: $MC_CFG(含占位符;historian/dreamer 的 model 用 <provider>/<model-id>)"
-  else
-    echo "跳过: $MC_CFG 未创建"
-  fi
 fi
 
 # ---- 4. opencode.json(来自本仓 templates/:providers/agents/mcp/插件条目/compaction)----
-# 已转换为 V2；刷新 provider.models 和套件 reviewer 的模型/档位，保留 settings、其它角色等本地字段。
+# 已转换为 V2；四个 newapi provider 与自有 MCP 的非敏感结构随模板刷新，敏感值与本地额外条目保留。
 # 老 opencode.jsonc 的值自动并入 opencode.json 后退役为 .migrated.bak
 # 自动更新默认关闭；已有 notify/disable 保留，auto 问一次。
 oc_tpl="$(mktemp "$oc_stage/template.XXXXXX")"; oc_cand="$(mktemp)"
 oc_link="$CFG/opencode.json"
 oc_target="$(rpath "$oc_link")"
-# 已有配置里的自动更新档位:只有 auto 才问一次,notify/disable/false 是本机明确选择,原样保留
-oc_cur_update="$(python3 - "$oc_target" "$OC_MAJOR" <<'PY_OC_UPDATE'
-import json, re, sys
-p, major = sys.argv[1], sys.argv[2]
-try:
-    t = open(p, encoding='utf-8').read()
-    t = re.sub(r'^\s*(//|/\*).*$', '', t, flags=re.M)
-    d = json.loads(re.sub(r',(\s*[}\]])', r'\1', t))
-except Exception:
-    sys.exit(0)
-# 只区分「自动」与「已手动」:notify/disable/false 都是本机明确选过的,不再问
-if major == '2':
-    value = d.get('update')
-    if value is None:                       # v2 仍可能留着 v1 的 autoupdate
-        value = d.get('autoupdate')
-    if value is None:
-        sys.exit(0)
-else:
-    value = d.get('autoupdate')
-    if value is None:
-        sys.exit(0)
-print('auto' if value is True or value == 'auto' else 'keep')
-PY_OC_UPDATE
-)"
-oc_force_manual=0
-if [ "$oc_cur_update" = "auto" ] && ask "OpenCode 当前允许自动更新(升级会打断正在运行的进程),改为只在 setup 里手动升级?" Y; then
-  oc_force_manual=1
-fi
+oc_force_manual="$PLAN_FORCE_MANUAL"
 # 上次跳过的 key 这次补上:先填本地文件里的占位符(改前存 .bak),再走正常合并(live 优先)
 if [ -f "$CFG/opencode.json" ] && [ -n "$GW_BASE$K_CLAUDE$K_CODEX$K_ANTHROPIC$K_GEMINI$K_EMBED$K_MEM$MCPHUB_HOST" ] \
    && grep -q '<YOUR_' "$CFG/opencode.json" 2>/dev/null; then
@@ -725,7 +1157,7 @@ fi
 if [ "$web_mcp_ready" = 1 ] && curl -fsSL --connect-timeout 8 -m 30 -o "$oc_tpl" "$RAW/opencode/opencode.json"; then
   bun "$(npath "$oc_stage/migrate-config.mjs")" --apply "$(npath "$oc_tpl")" || exit 1
   fill_template_placeholders "$oc_tpl"
-  oc_out="$(python3 - "$CFG/opencode.json" "$CFG/opencode.jsonc" "$oc_tpl" "$oc_cand" "$OC_MAJOR" "$oc_force_manual" <<'PYEOF'
+  oc_out="$(python3 - "$CFG/opencode.json" "$CFG/opencode.jsonc" "$oc_tpl" "$oc_cand" "$OC_MAJOR" "$oc_force_manual" "$PLAN_COMPACTION" <<'PYEOF'
 import json, re, os, sys
 
 target_p, jsonc_p, tpl_p = sys.argv[1:4]
@@ -748,7 +1180,7 @@ def strip_jsonc(t):  # 注释感知的 JSONC 剥离(字符串内的 // 不动),�
             while i + 1 < n and not (t[i] == '*' and t[i + 1] == '/'): i += 1
             i += 2; continue
         out.append(c); i += 1
-    return re.sub(r',(\s*[}\]])', r'\1', ''.join(out))
+    return re.sub(r'("(?:\\.|[^"\\])*")|,(\s*[}\]])', lambda m: m[1] or m[2], ''.join(out))
 
 def load(p):
     try:
@@ -771,16 +1203,54 @@ def deep_merge(base, over, layered=False):  # layered：合并本机两个配置
         return out
     return over
 
+sensitive = re.compile(r'(api[_-]?key|secret|token|password|passwd|credential|bearer|auth|cookie|ingest|webhook|base[_-]?url|url|endpoint|host|(^|[._-])key$)', re.I)
+MANAGED_PROVIDERS = {'claude-newapi', 'codex-newapi', 'anthropic-newapi', 'gemini-newapi'}
+MANAGED_MCP = {'web', 'codegraph'}
+
+def managed_value(local, template):
+    if isinstance(template, list):
+        if not isinstance(local, list):
+            return template
+        unused = [x for x in local if isinstance(x, dict) and x.get('id') is not None]
+        out = []
+        for item in template:
+            match = None
+            if isinstance(item, dict) and item.get('id') is not None:
+                match = next((x for x in unused if x.get('id') == item.get('id')), None)
+                if match is not None:
+                    unused.remove(match)
+            out.append(managed_value(match, item))
+        return out
+    if not isinstance(template, dict):
+        return template
+    out = dict(template)
+    if not isinstance(local, dict):
+        return out
+    for k, v in local.items():
+        if k == 'maxTokens' and isinstance(v, (int, float)) and not isinstance(v, bool):
+            continue  # 数值预算随模板，不因 token 字样误作凭据。
+        if sensitive.search(k) and v is not None and v != '':
+            out[k] = v
+        elif isinstance(v, (dict, list)):
+            nested = managed_value(v, out.get(k, {} if isinstance(v, dict) else []))
+            if nested or k in out:
+                out[k] = nested
+    return out
+
 tpl = json.load(open(tpl_p, encoding='utf-8'))
 
 live_json, live_jsonc = load(target_p), load(jsonc_p)
 live = deep_merge(live_json, live_jsonc, layered=True)
+# 用户拒绝或已有顶层 compaction 时都不让模板覆盖；已有 prune 等设置原样保留。
+if sys.argv[7] != '1' or 'compaction' in live:
+    tpl.pop('compaction', None)
 tpl.pop('plugins', None)  # 插件登记由 deploy.py 管理。
 
 merged = deep_merge(tpl, live)
-reviewer = (tpl.get('agents') or {}).get('consolidation-reviewer', {})
-if 'model' in reviewer:
-    merged['agents']['consolidation-reviewer']['model'] = reviewer['model']
+for role in ('consolidation-reviewer', 'verification-reviewer'):
+    reviewer = (tpl.get('agents') or {}).get(role, {})
+    if 'model' in reviewer:
+        merged['agents'][role]['model'] = reviewer['model']
 # 已有更新策略保留，只有用户确认后才关闭 auto。
 major, force_manual = sys.argv[5], sys.argv[6] == '1'
 if major != '2':
@@ -791,11 +1261,23 @@ tpl_prov = tpl.get('providers') or {}
 live_prov = live.get('providers') or {}
 mp = merged.setdefault('providers', {}) if tpl_prov else {}
 for name, p in tpl_prov.items():
-    if name in live_prov:
-        # 已存在的 provider:保留 settings、headers 等本地节点，只换 models。
+    if name in MANAGED_PROVIDERS:
+        # 套件接管结构，递归保留 provider/模型列表里的敏感叶子。
+        mp[name] = managed_value(live_prov.get(name), p)
+    elif name in live_prov:
+        # 其它 provider 维持原语义：只换 models。
         mp[name] = {**live_prov[name], 'models': p.get('models', {})}
     elif name not in mp:
-        mp[name] = p  # 模板新增 provider，凭据占位符由填空流程处理。
+        mp[name] = p
+
+tpl_mcp = tpl.get('mcp') or {}
+tpl_servers = tpl_mcp.get('servers') or {}
+live_servers = (live.get('mcp') or {}).get('servers') or {}
+if tpl_servers:
+    ms = merged.setdefault('mcp', {}).setdefault('servers', {})
+    for name, server in tpl_servers.items():
+        if name in MANAGED_MCP:
+            ms[name] = managed_value(live_servers.get(name), server)
 
 out = json.dumps(merged, indent=2, ensure_ascii=False) + '\n'
 same = load(target_p) == merged   # 按 JSON 语义比较:只有格式化/键序不同不算变更(避免每轮重写)
@@ -803,7 +1285,7 @@ msgs = []
 if not same:
     with open(sys.argv[4], 'w', encoding='utf-8') as f:
         f.write(out)
-    msgs.append(('%d 个 provider 的 models 和 reviewer 模型/档位按模板刷新,其余本地字段保留' % len(tpl_prov)) if live else '首次写入(含占位符)')
+    msgs.append('受管 newapi provider/MCP 非敏感结构按模板刷新；敏感值、本地额外条目和其它 provider 配置保留' if live else '首次写入(含占位符)')
 if os.path.exists(jsonc_p):
     msgs.append('退役 opencode.jsonc(值已并入)')
 print(';'.join(msgs) if msgs else 'unchanged')
@@ -812,20 +1294,16 @@ PYEOF
   case "$oc_out" in
     unchanged) echo "unchanged: $CFG/opencode.json" ;;
     "")        echo "WARN: opencode.json 合并失败,现有配置未改动" >&2 ;;
-    *)         if ask "更新 $CFG/opencode.json($oc_out)?" Y; then
-                 if [ -s "$oc_cand" ]; then
-                   if [ -f "$CFG/opencode.json" ]; then
-                     cp -p "$CFG/opencode.json" "$CFG/opencode.json.bak-$(date +%Y%m%d%H%M%S)"
-                   fi
-                   mv "$oc_cand" "$oc_target"
+    *)         if [ -s "$oc_cand" ]; then
+                 if [ -f "$CFG/opencode.json" ]; then
+                   cp -p "$CFG/opencode.json" "$CFG/opencode.json.bak-$(date +%Y%m%d%H%M%S)"
                  fi
-                 echo "updated: $CFG/opencode.json"
-                 if [ -f "$CFG/opencode.jsonc" ]; then
-                   mv "$CFG/opencode.jsonc" "$CFG/opencode.jsonc.migrated-$(date +%Y%m%d%H%M%S).bak"
-                   echo "retired: opencode.jsonc(值已并入 opencode.json)"
-                 fi
-               else
-                 echo "保留原文件: $CFG/opencode.json"
+                 mv "$oc_cand" "$oc_target"
+               fi
+               echo "updated: $CFG/opencode.json($oc_out)"
+               if [ -f "$CFG/opencode.jsonc" ]; then
+                 mv "$CFG/opencode.jsonc" "$CFG/opencode.jsonc.migrated-$(date +%Y%m%d%H%M%S).bak"
+                 echo "retired: opencode.jsonc(值已并入 opencode.json)"
                fi ;;
   esac
 else
@@ -886,13 +1364,24 @@ if [ "$cm_ok" != 1 ]; then
 fi
 
 # ---- 5. 按客户端主版本部署；配置只替换本套件管理的条目 ----
-python3 "$oc_stage/deploy.py" "$oc_stage" "$(npath "$CFG")" "$OC_MAJOR" "${plugin_args[@]}"
-echo "Ponytail 已登记官方包；已确认更新的包将在下次启动重新下载，其余沿用缓存。setup 不启动宿主。"
-if [[ " ${plugin_args[*]} " == *" --refresh-magic-context "* ]]; then
-  echo "Magic Context 已安排刷新；下次启动下载最新版并由插件处理迁移（本脚本未运行迁移）。"
+# 未写入配置时仍部署插件资产，但显式跳过插件登记/主配置写入/JSONC 退役，避免旧 provider 配新 plugins。
+deploy_args=()
+[ "$PLAN_WRITE_CFG" = 1 ] || deploy_args+=(--no-config-write)
+if [ "$PLAN_WRITE_CFG" != 1 ] && ! grep -q -- '--no-config-write' "$oc_stage/deploy.py"; then
+  echo "WARN: 已下载 release 尚不支持无配置写入部署；为保护现有配置，本次跳过 v2 插件部署与全部插件登记（context-mode 资产已单独同步）。更新 release 后重跑。"
+else
+  python3 "$oc_stage/deploy.py" "$oc_stage" "$(npath "$CFG")" "$OC_MAJOR" "${plugin_args[@]}" "${deploy_args[@]}"
+  if [ "$PLAN_WRITE_CFG" = 1 ]; then
+    echo "Ponytail 已登记官方包；已确认更新的包将在下次启动重新下载，其余沿用缓存。setup 不启动宿主。"
+    if [[ " ${plugin_args[*]} " == *" --refresh-magic-context "* ]]; then
+      echo "Magic Context 已安排刷新；下次启动下载最新版并由插件处理迁移（本脚本未运行迁移）。"
+    fi
+  else
+    echo "插件资产已部署；未登记 Ponytail／自维护包，也未刷新 Ponytail／Magic Context 缓存。"
+  fi
 fi
 # ---- claude-mem：配置合并后由官方安装器更新 runtime、插件与 MCP ----
-if command -v npx >/dev/null 2>&1 && ask "更新 claude-mem runtime／官方插件／MCP（会停止共享 worker，之后手工重启）?" Y; then
+if [ "$PLAN_CLAUDE_MEM" = 1 ]; then
   (
     backup="$CFG/.agent-skills-backups/$(date +%Y%m%d%H%M%S)-claude-mem"
     mkdir -p "$backup" || exit 1
@@ -962,7 +1451,7 @@ PY_MEM_MIGRATE
 elif ! command -v npx >/dev/null 2>&1; then
   echo "WARN: 未检测到 npx，跳过 claude-mem 更新" >&2
 fi
-ensure_mem_provider "$SETTINGS"
+if [ "$PLAN_WRITE_CFG" = 1 ]; then ensure_mem_provider "$SETTINGS"; fi
 
 if [ "$PLUGINS_ONLY" = 1 ]; then
   echo "插件部署完成；Magic Context 未就绪的 WARN 仍需处理。宿主与共享数据库未由 setup 升级。"
@@ -970,20 +1459,38 @@ if [ "$PLUGINS_ONLY" = 1 ]; then
 fi
 
 # ---- 5.1 compaction 关闭(manual setup 要求:magic-context 接管压缩;完整 jsonc 已含则跳过)----
-if ! grep -qs '"compaction"' "$CFG/opencode.jsonc" "$CFG/opencode.json" 2>/dev/null && \
-   ask "在 $CFG/opencode.json 写入 compaction auto=false(让 magic-context 接管压缩)?" Y; then
-python3 - "$CFG/opencode.json" <<'PYEOF'
-import json, os, sys
-path = sys.argv[1]
-cfg = {}
-if os.path.exists(path):
-    with open(path) as f:
-        text = f.read()
-    if text.strip():
-        cfg = json.loads(text)
-if "compaction" not in cfg:
+if [ "$PLAN_COMPACTION" = 1 ] && [ "$PLAN_WRITE_CFG" = 1 ]; then
+python3 - "$CFG/opencode.json" "$CFG/opencode.jsonc" <<'PYEOF'
+import json, re, sys
+path, jsonc_path = sys.argv[1:3]
+def load(p):
+    try:
+        text = open(p, encoding="utf-8").read()
+    except FileNotFoundError:
+        return {}
+    out, i, n, instr = [], 0, len(text), False
+    while i < n:
+        c = text[i]
+        if instr:
+            out.append(c)
+            if c == "\\": out.append(text[i + 1]); i += 2; continue
+            if c == '"': instr = False
+            i += 1; continue
+        if c == '"': instr = True; out.append(c); i += 1; continue
+        if c == "/" and i + 1 < n and text[i + 1] == "/":
+            while i < n and text[i] != "\n": i += 1
+            continue
+        if c == "/" and i + 1 < n and text[i + 1] == "*":
+            i += 2
+            while i + 1 < n and not (text[i] == "*" and text[i + 1] == "/"): i += 1
+            i += 2; continue
+        out.append(c); i += 1
+    cleaned = re.sub(r'("(?:\\.|[^"\\])*")|,(\s*[}\]])', lambda m: m[1] or m[2], "".join(out))
+    return json.loads(cleaned) if cleaned.strip() else {}
+cfg = load(path)
+if "compaction" not in cfg and "compaction" not in load(jsonc_path):
     cfg["compaction"] = {"auto": False}
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2, ensure_ascii=False)
         f.write("\n")
     print(f"added: compaction auto=false -> {path}")
@@ -1022,7 +1529,7 @@ def load(p):  # JSONC 感知:去注释与尾逗号(字符串内的 // 不动)
             while i + 1 < n and not (t[i] == '*' and t[i + 1] == '/'): i += 1
             i += 2; continue
         out.append(c); i += 1
-    return json.loads(re.sub(r',(\s*[}\]])', r'\1', ''.join(out)))
+    return json.loads(re.sub(r'("(?:\\.|[^"\\])*")|,(\s*[}\]])', lambda m: m[1] or m[2], ''.join(out)))
 want = {"input_submit": "return", "input_newline": "shift+return", "prompt_submit": "none"}
 if path.endswith("/cli.json") or path.endswith("\\cli.json"):
     want = {k.replace("_", "."): v for k,v in want.items()}
@@ -1049,25 +1556,22 @@ else:
 PYEOF
 }
 kb_rc=0; kb_out="$(tui_keys_py check)" || kb_rc=$?
-if [ "$kb_rc" -eq 3 ]; then
+if [ "$kb_rc" -eq 3 ] && [ "$PLAN_TUI_KEYS" = 1 ] && [ "$PLAN_WRITE_CFG" = 1 ]; then
   printf '%s\n' "$kb_out"
-  if ask "统一为 Enter 发送、Shift+Enter 换行,取消旧 Ctrl+Enter/Ctrl+J 发送绑定(仅更新 $TUI_CFG 的三个相关按键)?" Y; then
-    tui_keys_py apply
-  else
-    echo "保留原按键: $TUI_CFG"
-  fi
+  tui_keys_py apply
 else
   printf '%s\n' "$kb_out"
+  if [ "$kb_rc" -eq 3 ]; then echo "保留原按键: $TUI_CFG"; fi
 fi
 
 # 含密钥的配置统一 600(与 pi/codex 两侧一致;含本机路径的脚本文件不下调)
-chmod 600 "$SETTINGS" "$MC_CFG" "$CFG/opencode.json" 2>/dev/null || true
+if [ "$PLAN_WRITE_CFG" = 1 ]; then chmod 600 "$SETTINGS" "$MC_CFG" "$CFG/opencode.json" 2>/dev/null || true; fi
 
 # ---- 6. notify 插件(brilliantrough/opencode-notify-hub,GitHub Release 预构建包)----
 # 每次拉最新 release 的 zip,与已装文件比对:一致就不动,不同才备份 .bak-时间戳 再替换。
 NOTIFY_TARGET="$PLUGINS/session-notify.js"
 if [ "$OC_MAJOR" = 1 ] && command -v curl >/dev/null 2>&1; then
-  if [ -f "$NOTIFY_TARGET" ] || ask "未找到 notify 插件,从 GitHub Release 下载最新 opencode-notify-plugin?" N; then
+  if [ -f "$NOTIFY_TARGET" ]; then
     _new="$NOTIFY_TARGET.new"
     notify_ver="$(python3 - "$_new" <<'PYEOF' || true
 import json, sys, urllib.request, zipfile
@@ -1106,32 +1610,26 @@ fi
 # base/research 每次刷新且漂移先备份;accel 缺才装(本机特化不覆盖);kb 每次刷新。
 # 客户端实体直落 ~/.agents/skills/<名>(装了 Claude Code 时同步 ~/.claude/skills/<名>)。
 # 同步器随后用 npx skills 补装外部设计依赖、更新已登记第三方。
-_ss="$(mktemp --suffix=.sh 2>/dev/null || mktemp)"
-if curl -fsSL --connect-timeout 8 -m 60 -o "$_ss" "$SELF_RAW/skills-sync.sh"; then
-  SKILL_GROUPS=(base)
-  ask "安装/更新 research 组(算法研究、实验、PyTorch 性能与 kernel;每次刷新·漂移自动备份)?" N && SKILL_GROUPS+=(research)
-  ask "安装/更新 accel 组(算力平台模板;缺才装·本机特化不覆盖)?" N && SKILL_GROUPS+=(accel)
-  ask "安装/更新 kb 组(公共算力知识;每次刷新)?" N && SKILL_GROUPS+=(kb)
-  ask "安装/更新 ppt 组(南大 HTML/PPTX、Dashi、ppt-master 与独立依赖;需 Node 20+、Python 3.10+)?" N && SKILL_GROUPS+=(ppt)
-  ASSUME_YES="${ASSUME_YES:-0}" bash "$_ss" "${SKILL_GROUPS[@]}" || echo "WARN: skills 同步未完全成功" >&2
+_ss="$SOURCE_ROOT/skills-sync.sh"
+if [ -f "$_ss" ]; then
+  SKILLS_EXTERNAL="$PLAN_SKILLS_EXTERNAL" AGENTS_TAIL="$PLAN_AGENTS_TAIL" ASSUME_YES=1 \
+    AGENT_SKILLS_SOURCE="$SOURCE_ROOT" \
+    bash "$_ss" "${SKILL_GROUPS[@]}" || echo "WARN: skills 同步未完全成功" >&2
 else
-  echo "WARN: skills-sync.sh 下载失败,跳过(检查代理)" >&2
+  echo "WARN: 源码树缺 skills-sync.sh,跳过 skills 同步" >&2
 fi
-rm -f "$_ss"
 
 # ---- 8. uv(可选;strictdoc 由 modules/strictdoc 安装)----
 UVP="$HOME/.local/bin/uv$BIN_EXT"
-if ! command -v uv >/dev/null 2>&1 && [ ! -x "$UVP" ]; then
-  if ask "未检测到 uv,安装 uv(astral.sh 官方脚本,装到 ~/.local/bin)?" Y; then
-    uv_sh="$(mktemp)"
-    if curl -fsSL --connect-timeout 8 -m 60 -o "$uv_sh" https://astral.sh/uv/install.sh; then
-      UV_INSTALL_DIR="$HOME/.local/bin" UV_NO_MODIFY_PATH=1 sh "$uv_sh" \
-        || echo "WARN: uv 安装脚本退出码非 0,请看上方输出" >&2
-    else
-      echo "WARN: uv 安装脚本下载失败(检查代理)" >&2
-    fi
-    rm -f "$uv_sh"
+if [ "$PLAN_UV_INSTALL" = 1 ]; then
+  uv_sh="$(mktemp)"
+  if curl -fsSL --connect-timeout 8 -m 60 -o "$uv_sh" https://astral.sh/uv/install.sh; then
+    UV_INSTALL_DIR="$HOME/.local/bin" UV_NO_MODIFY_PATH=1 sh "$uv_sh" \
+      || echo "WARN: uv 安装脚本退出码非 0,请看上方输出" >&2
+  else
+    echo "WARN: uv 安装脚本下载失败(检查代理)" >&2
   fi
+  rm -f "$uv_sh"
 fi
 UV_BIN="$(command -v uv 2>/dev/null || echo "$UVP")"
 if [ -x "$UV_BIN" ]; then
@@ -1144,7 +1642,7 @@ if [ -x "$UV_BIN" ]; then
   elif [ "$uv_latest" != "$uv_cur" ]; then
     if [ "$IS_WIN" = 1 ] && [[ "$UV_BIN" == */Python*/Scripts/uv* ]]; then
       echo "uv 由 Python 环境安装(${uv_cur:-未知}),请用原安装方式升级;跳过 uv self update"
-    elif ask "uv ${uv_cur:-未知} → $uv_latest,升级(uv self update)?" Y; then
+    elif [ "$PLAN_UV_UPGRADE" = 1 ]; then
       "$UV_BIN" self update || echo "WARN: uv 自升级失败(系统包管理器装的请用系统方式升级)" >&2
     fi
   else
@@ -1157,7 +1655,7 @@ if [ -x "$UV_BIN" ]; then
     echo "uv PyPI 镜像已配置(清华),跳过"
   elif [ -f "$UVCFG" ]; then
     echo "跳过 uv 镜像:$UVCFG 已存在(非本脚本写入),不覆盖"
-  elif ask "配置 uv 用清华 PyPI 镜像($UVCFG)?" Y; then
+  elif [ "$PLAN_UV_MIRROR" = 1 ]; then
     mkdir -p "$(dirname "$UVCFG")"
     printf '%s\n' 'index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"' > "$UVCFG"
     echo "wrote: $UVCFG"
@@ -1166,25 +1664,27 @@ else
   echo "提示: 未检测到 uv;strictdoc 模块会跳过安装(.sdoc 校验依赖),装好 uv 后重跑本脚本即可"
 fi
 
-# ---- 可选模块:统一分发(新增模块只加 modules/<名>/,本脚本不用改)----
-_amod="$(cd "$(dirname "$0")" 2>/dev/null && pwd)/modules/run.sh"
-if [ ! -f "$_amod" ]; then
-  _amod="$(mktemp)"
-  curl -fsSL --connect-timeout 8 -m 60 -o "$_amod" "$SELF_RAW/modules/run.sh" 2>/dev/null || _amod=""
-fi
-_mod_yes=""; [ "${ASSUME_YES:-0}" = 1 ] && _mod_yes="--yes"
-if [ -n "$_amod" ]; then
-  bash "$_amod" --host opencode --repo "${AGENT_SKILLS_REPO:-brilliantrough/agent-skills}" \
-    --ref "${AGENT_SKILLS_REF:-main}" $_mod_yes || echo "WARN: 模块安装未完全成功" >&2
+# ---- 可选模块:按计划阶段选好的名单执行(新增模块只加 modules/<名>/,本脚本不用改)----
+if [ -n "$MODULE_RUN" ] && [ -n "$MODULE_SELECTION" ]; then
+  # 不写配置时模块仍可装 CLI 等资产，但让需登记 MCP 的模块跳过写 opencode.json。
+  AGENT_SKILLS_NO_CONFIG_WRITE="$([ "$PLAN_WRITE_CFG" = 1 ] && echo 0 || echo 1)" \
+  bash "$MODULE_RUN" --host opencode --repo "${AGENT_SKILLS_REPO:-brilliantrough/agent-skills}" \
+    --ref "${AGENT_SKILLS_REF:-main}" --selected "$MODULE_SELECTION" || echo "WARN: 模块安装未完全成功" >&2
+elif [ -z "$MODULE_RUN" ]; then
+  echo "提示: 本次取不到 modules/run.sh,可选模块未执行"
 else
-  echo "WARN: 取不到 modules/run.sh,跳过可选模块" >&2
+  echo "模块: 本次没有选中任何模块"
 fi
-
 # ---- 完成:占位符清单 + 收尾动作 ----
 echo ""
 echo "== done. 需要你手工完成的 =="
 n=1
-echo "$n. 网关/凭据:脚本启动时已问过「统一网关 + 6 个 api key」并填进各配置(可用环境变量预填、非交互跑:PI_GATEWAY_BASE_URL / PI_GATEWAY_API_KEY / MCPHUB_HOST)"; n=$((n+1))
+if [ "$PLAN_WRITE_CFG" = 1 ]; then
+  echo "$n. 网关/凭据:已按有效配置免问或按需收集并合并；剩余缺项见下(可用环境变量预填、非交互跑:PI_GATEWAY_BASE_URL / PI_GATEWAY_API_KEY / MCPHUB_HOST)"
+else
+  echo "$n. 网关/凭据:本次未写配置，未收集或合并凭据；现有值保留"
+fi
+n=$((n+1))
 echo "   当时跳过了才会剩下占位符(<YOUR_*>):"
 _ph=0
 for _f in "$SETTINGS" "$MC_CFG" "$CFG/opencode.json"; do
@@ -1192,12 +1692,22 @@ for _f in "$SETTINGS" "$MC_CFG" "$CFG/opencode.json"; do
     echo "   - $_f:$(grep -o '<YOUR_[A-Z_]*>' "$_f" | sort -u | tr '\n' ' ')"; _ph=1
   fi
 done
-[ "$_ph" = 0 ] && echo "   (无,凭据已齐)"
+if [ "$_ph" = 0 ]; then
+  _grc=0; needs_gateway_fill || _grc=$?
+  _mrc=0; needs_mcphub_fill || _mrc=$?
+  if [ "$_grc" = 1 ] && [ "$_mrc" = 1 ]; then
+    echo "   (无,已按有效配置核对网关、凭据与 MCP)"
+  elif [ "$_grc" = 2 ] || [ "$_mrc" = 2 ]; then
+    echo "   WARN: 配置无法解析，不能确认凭据是否齐全"
+  else
+    echo "   WARN: 仍有空缺的网关、凭据或 MCP 槽位；不能用“无占位符”代替核对"
+  fi
+fi
 echo "   提示:claude-mem 走 openrouter(OpenAI 协议),它的 key 与 magic-context embedding 的各自独立"
 echo "$n. 重启 claude-mem worker 并验证:"; n=$((n+1))
 echo "      cd ~/.claude/plugins/marketplaces/thedotmack && npm run worker:restart"
 echo "      curl -s http://$(mem_worker_url "$SETTINGS")/api/health   # 端口取自 $SETTINGS(见下方提示)"
-echo "$n. 项目接入记忆系统(可选):skills 同步时会问一次;也可手动把本仓库 AGENTS.tail.md 的 memory-system 块粘到项目 AGENTS.md 的最尾部"; n=$((n+1))
+echo "$n. 项目接入记忆系统:已按计划写入(AGENTS_TAIL)或跳过;也可手动把本仓库 AGENTS.tail.md 的 memory-system 块粘到项目 AGENTS.md 的最尾部"; n=$((n+1))
 if command -v codegraph >/dev/null 2>&1 || [ -x "$HOME/.local/bin/codegraph" ]; then
   echo "$n. 代码知识图谱(按项目):cd <项目> && codegraph init(建 .codegraph/ 索引,之后自动增量同步;不 init 则 MCP 无内容可查)"; n=$((n+1))
 fi

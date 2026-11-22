@@ -93,15 +93,13 @@ fi
 
 with_design=0
 if [ "$with_light_science" = 0 ]; then
-  migrate_obsolete_skills
-
-  # 非交互默认安装；SKILLS_EXTERNAL=skip 只跳安装，不跳迁移。
+  # 先完成选择，再迁移或安装；SKILLS_EXTERNAL=skip 时不做任何更新。
   with_design=1
   if [ "${SKILLS_EXTERNAL:-install}" = skip ]; then
-    echo "SKILLS_EXTERNAL=skip：跳过外部设计依赖安装"
+    echo "SKILLS_EXTERNAL=skip：跳过外部设计依赖安装与迁移"
     with_design=0
   fi
-  if [ "$with_design" = 1 ] && [ "$ASSUME_YES" = 0 ] && [ -t 0 ]; then
+  if [ -z "${SKILLS_EXTERNAL+x}" ] && [ "$with_design" = 1 ] && [ "$ASSUME_YES" = 0 ] && [ -t 0 ]; then
     printf '外部设计依赖（3 个）：%s\n' "$DESIGN_SKILLS"
     printf 'personal-ui-taste 按需引用；不装则降级为内置方法。安装/更新？[Y/n] '
     read -r ans || ans=y
@@ -109,6 +107,7 @@ if [ "$with_light_science" = 0 ]; then
       [Nn]*) echo "已跳过设计依赖；稍后安装：bash $ROOT/skills-external.sh"; with_design=0 ;;
     esac
   fi
+  [ "$with_design" = 0 ] || migrate_obsolete_skills
 fi
 [ "$with_design" = 1 ] || [ "$with_ppt" = 1 ] || [ "$with_light_science" = 1 ] || exit 0
 
@@ -205,11 +204,16 @@ JS
 )
 names=()
 for name in $third; do
+  if [ "$with_design" = 0 ]; then
+    case " $DESIGN_SKILLS " in
+      *" $name "*) echo "按前置选择跳过设计依赖更新: $name"; continue ;;
+    esac
+  fi
   if claude_safe "$name"; then names+=("$name"); fi
 done
 if [ "${#names[@]}" -gt 0 ]; then
   echo "更新检查沿用上游 CLI；网络检查错误以其原始输出为准，退出 0 不保证全部最新。"
-  NODE_USE_ENV_PROXY="${NODE_USE_ENV_PROXY:-1}" npx -y skills@latest update -g "${names[@]}" || status=1
+  NODE_USE_ENV_PROXY="${NODE_USE_ENV_PROXY:-1}" npx -y skills@latest update -g -y "${names[@]}" || status=1
 fi
 [ "$status" = 0 ] || echo "WARN: 外部 skill 未完全就绪，请检查上方输出后重跑" >&2
 exit "$status"

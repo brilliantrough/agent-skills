@@ -9,7 +9,8 @@
 #
 # 用法:skills-sync.sh [all|base|research|accel|kb|ppt ...]
 #       无参数/all = 全部组;可传多个组(例如 base research);setup 默认至少传 base。
-# 源:从 GitHub 拉取 tarball 到 ~/.cache/agent-skills-src；默认main，分支验收可设AGENT_SKILLS_REF，Fork 验收可设AGENT_SKILLS_REPO。
+# 源:与四个 setup 共用一棵本地源码树(默认受管 clone,见 acquire_source);
+#     AGENT_SKILLS_SOURCE 指向已有工作树时只读使用;分支/Fork 验收仍用 AGENT_SKILLS_REF / AGENT_SKILLS_REPO。
 set -euo pipefail
 
 SCOPE_ARGS=("$@")
@@ -31,23 +32,106 @@ else
   done
 fi
 
+# ---- 开始即收集本脚本的全部选择；根 setup 可用环境变量预答，后续不再提问 ----
+if [ -z "${AGENTS_TAIL+x}" ]; then
+  AGENTS_TAIL=1
+  if [ "${ASSUME_YES:-0}" != 1 ] && { : </dev/tty; } 2>/dev/null; then
+    printf '把记忆系统规范块写进 %s/AGENTS.md 的最尾部(项目自身内容在前)? [Y/n] ' "$PWD"
+    read -r sync_answer </dev/tty || sync_answer=""
+    case "${sync_answer:-Y}" in [Nn]*) AGENTS_TAIL=0 ;; esac
+  fi
+fi
+if [ -z "${SKILLS_EXTERNAL+x}" ]; then
+  SKILLS_EXTERNAL=install
+  if [ "${ASSUME_YES:-0}" != 1 ] && { : </dev/tty; } 2>/dev/null; then
+    printf '安装/更新 3 个外部设计依赖? [Y/n] '
+    read -r sync_answer </dev/tty || sync_answer=""
+    case "${sync_answer:-Y}" in [Nn]*) SKILLS_EXTERNAL=skip ;; esac
+  fi
+fi
+export AGENTS_TAIL SKILLS_EXTERNAL
+
 ref="${AGENT_SKILLS_REF:-main}"
 repo="${AGENT_SKILLS_REPO:-brilliantrough/agent-skills}"
-cache="$HOME/.cache/agent-skills-src"
-mkdir -p "$cache"
-echo "拉取 GitHub $ref tarball -> $cache"
-curl -fsSL --connect-timeout 10 -m 120 -o "$cache/src.tgz" \
-  "https://codeload.github.com/$repo/tar.gz/refs/heads/$ref"
-source_root="$cache/agent-skills-source"
-rm -rf "$source_root"; mkdir -p "$source_root"
-tar -xzf "$cache/src.tgz" --strip-components=1 -C "$source_root"; rm -f "$cache/src.tgz"
+# ---- 源码基准:模板、skills 与模块都从一棵本地源码树取,不再逐个下载 GitHub raw ----
+# 默认复用/更新受管 clone($XDG_DATA_HOME/agent-skills/source),与开发副本分开;
+# AGENT_SKILLS_SOURCE 显式指向已有工作树时只读使用(不 pull、不修改),便于候选安装。
+# 更新失败但已有克隆时 WARN 后继续并报出所用 commit,不把陈旧克隆静默当成最新。
+SELF_RAW=""; RAW=""
+file_url() { # 绝对路径 → file:// URL:空格/#/?/%/[/] 必须转义,其余(含 UTF-8)原样保留
+  local p="$1" prefix="file://" out="" c i
+  if [ "${IS_WIN:-0}" = 1 ] && command -v cygpath >/dev/null 2>&1; then
+    p="$(cygpath -m "$p")"; prefix="file:///"
+  fi
+  for ((i = 0; i < ${#p}; i++)); do
+    c="${p:i:1}"
+    case "$c" in
+      ' ') out="$out%20" ;;
+      '#'|'?'|'%'|'['|']') out="$out$(printf '%%%02X' "'$c")" ;;
+      *) out="$out$c" ;;
+    esac
+  done
+  printf '%s%s' "$prefix" "$out"
+}
+
+acquire_source() {
+  local root repo repo_url ref commit updated=0 created=0
+  repo="${AGENT_SKILLS_REPO:-brilliantrough/agent-skills}"
+  ref="${AGENT_SKILLS_REF:-main}"
+  root="${XDG_DATA_HOME:-$HOME/.local/share}/agent-skills/source"
+  if [ -n "${AGENT_SKILLS_SOURCE:-}" ]; then
+    root="$AGENT_SKILLS_SOURCE"
+    [ -d "$root/skills" ] && [ -d "$root/templates" ] || {
+      echo "ERROR: AGENT_SKILLS_SOURCE=$root 不是本仓工作树(缺 skills/ 或 templates/)" >&2; return 1; }
+    root="$(cd "$root" && pwd)"
+    echo "源: $root(显式 AGENT_SKILLS_SOURCE,只读)"
+  else
+    command -v git >/dev/null 2>&1 || {
+      echo "ERROR: 需要 git 维护源码基准 $root;或设 AGENT_SKILLS_SOURCE 指向已有本仓工作树" >&2; return 1; }
+    if [ ! -d "$root/.git" ]; then
+      echo "首次克隆 $repo@$ref -> $root"
+      [ -d "$root" ] || created=1
+      mkdir -p "$root" && git -C "$root" init -q || return 1
+    fi
+    # AGENT_SKILLS_REPO 既可是 owner/name,也可是可克隆 URL(file:///path、https://…)
+    case "$repo" in
+      *://*|/*|.*) repo_url="$repo" ;;
+      *) repo_url="https://github.com/$repo.git" ;;
+    esac
+    if ! git -C "$root" remote set-url origin "$repo_url" 2>/dev/null; then
+      git -C "$root" remote add origin "$repo_url" || return 1
+    fi
+    if git -C "$root" fetch --depth 1 -q origin "$ref" 2>/dev/null \
+      && git -C "$root" checkout -q --force --detach FETCH_HEAD 2>/dev/null; then
+      updated=1
+    fi
+    commit="$(git -C "$root" rev-parse --short HEAD 2>/dev/null || true)"
+    if [ "$updated" != 1 ]; then
+      [ -n "$commit" ] || {
+        [ "$created" != 1 ] || rm -rf "$root"
+        echo "ERROR: 取不到源码 $repo@$ref,且 $root 没有可用副本;检查代理/git,或设 AGENT_SKILLS_SOURCE" >&2; return 1; }
+      echo "WARN: 更新 $repo@$ref 失败,继续用已有克隆 $commit(可能不是最新)" >&2
+    fi
+    echo "源: $root($repo@$ref,$commit)"
+  fi
+  [ -d "$root/skills" ] && [ -d "$root/templates" ] || {
+    echo "ERROR: 源码基准 $root 缺 skills/ 或 templates/" >&2; return 1; }
+  SOURCE_ROOT="$root"
+  SELF_RAW="$(file_url "$root")"
+  RAW="$SELF_RAW/templates"
+  # 子脚本(modules/run.sh、skills-sync.sh)复用同一棵树,不二次克隆
+  export SOURCE_ROOT SELF_RAW RAW AGENT_SKILLS_SOURCE="$root"
+}
+
+acquire_source || exit 1
+source_root="$SOURCE_ROOT"
 SRC="$source_root/skills"
 [ -d "$SRC" ] || { echo "ERROR: 源目录不完整 $SRC" >&2; exit 1; }
 with_ppt=0
 case " $SYNC_GROUPS " in
   *" ppt "*)
     [ -f "$SRC/ppt/nju-ppt/scripts/prepare.py" ] && [ -f "$SRC/ppt/nju-ppt/scripts/prepare_html.mjs" ] || {
-      echo "ERROR: 下载的 $ref 尚不包含完整 ppt 组；不要用旧版或仅有 SKILL.md 的副本冒充安装成功" >&2; exit 1;
+      echo "ERROR: $ref 源码树尚不包含完整 ppt 组；不要用旧版或仅有 SKILL.md 的副本冒充安装成功" >&2; exit 1;
     }
     with_ppt=1 ;;
 esac
@@ -119,18 +203,24 @@ done
 
 echo "== 本仓 skills 同步完成:装 $N_INST,更新 $N_UPD,保留 $N_KEEP,未变 $N_SAME =="
 
-# Claude Code 的独立审查代理(consolidator 整理后调用);有差异先备份再写,链接写入目标
-claude_agent_src="$source_root/templates/claude/agents/consolidation-reviewer.md"
-claude_agent="$HOME/.claude/agents/consolidation-reviewer.md"
-if [ -d "$HOME/.claude" ] && [ -d "$LIVE/consolidator" ] && [ -f "$claude_agent_src" ]; then
-  if [ -f "$claude_agent" ] && cmp -s "$claude_agent_src" "$claude_agent"; then
-    echo "unchanged: $claude_agent"
-  else
-    mkdir -p "$HOME/.claude/agents"
-    [ ! -f "$claude_agent" ] || cp -p "$claude_agent" "$claude_agent.bak-$TS"
-    cat "$claude_agent_src" > "$claude_agent"; echo "wrote: $claude_agent"
+# Claude Code 的两类独立审查代理;有差异先备份再写,链接写入目标
+for claude_role in consolidation-reviewer verification-reviewer; do
+  case "$claude_role" in
+    consolidation-reviewer) claude_skill=consolidator ;;
+    verification-reviewer) claude_skill=verification ;;
+  esac
+  claude_agent_src="$source_root/templates/claude/agents/$claude_role.md"
+  claude_agent="$HOME/.claude/agents/$claude_role.md"
+  if [ -d "$HOME/.claude" ] && [ -d "$LIVE/$claude_skill" ] && [ -f "$claude_agent_src" ]; then
+    if [ -f "$claude_agent" ] && cmp -s "$claude_agent_src" "$claude_agent"; then
+      echo "unchanged: $claude_agent"
+    else
+      mkdir -p "$HOME/.claude/agents"
+      [ ! -f "$claude_agent" ] || cp -p "$claude_agent" "$claude_agent.bak-$TS"
+      cat "$claude_agent_src" > "$claude_agent"; echo "wrote: $claude_agent"
+    fi
   fi
-fi
+done
 echo "== 外部 skills:设计依赖(询问后安装)、PPT引擎(按组) + 更新已登记第三方(不含本仓) =="
 status=0
 if [ "$with_ppt" = 1 ]; then
@@ -174,18 +264,15 @@ if [ "$with_ppt" = 1 ]; then
   node "$html_script" --home "$home_native" --install || status=1
 fi
 
-# ---- 项目接入记忆系统(可选,默认不写):把 memory-system 块写进当前目录 AGENTS.md 最尾部 ----
-# 通用步骤,四个 setup 都经本脚本执行;源用本次已下载的 tarball,不额外联网;
+# ---- 项目接入记忆系统(默认写入):把 memory-system 块写进当前目录 AGENTS.md 最尾部 ----
+# 通用步骤,四个 setup 都经本脚本执行;源用本次解析出的源码树,不额外联网;
 # 幂等:同块不动 / 旧块原位替换 / 无块追加,文件其余内容原样保留。
-# -y(ASSUME_YES=1) 与非交互(无控制终端)一律跳过,不新增提问。
+# 选择已在脚本开头完成；AGENTS_TAIL=0 可跳过，-y 与非交互默认写入。
 inject_agents_md() {
-  local tail_src="$source_root/AGENTS.tail.md" target="$PWD/AGENTS.md" ans=""
+  local tail_src="$source_root/AGENTS.tail.md" target="$PWD/AGENTS.md"
+  [ "$AGENTS_TAIL" = 1 ] || return 0
+  case "$(pwd -P)/" in "$source_root/"*) echo "跳过: AGENTS.md 位于只读源码树"; return 0 ;; esac
   [ -f "$tail_src" ] || { echo "WARN: 源里没有 AGENTS.tail.md,跳过记忆规范块" >&2; return 0; }
-  [ "${ASSUME_YES:-0}" = 1 ] && return 0
-  { : </dev/tty; } 2>/dev/null || return 0
-  printf '把记忆系统规范块写进 %s 的最尾部(项目自身内容在前)? [y/N] ' "$target"
-  read -r ans </dev/tty || ans=""
-  case "${ans:-N}" in [Yy]*) ;; *) return 0 ;; esac
   python3 - "$tail_src" "$target" <<'PY'
 import pathlib, re, sys
 
@@ -196,13 +283,28 @@ if not m:
 block = m.group(0)
 
 p = pathlib.Path(sys.argv[2])
-old = p.read_text(encoding="utf8") if p.exists() else ""
-cur = re.search(r"<!-- memory-system:start -->.*?<!-- memory-system:end -->", old, re.S)
-if cur and cur.group(0) == block:
+old = p.read_bytes().decode("utf-8") if p.exists() else ""
+starts = list(re.finditer(r"<!-- memory-system:start -->", old))
+ends = list(re.finditer(r"<!-- memory-system:end -->", old))
+if len(starts) != len(ends) or len(starts) > 1 or (starts and starts[0].start() > ends[0].start()):
+    print(f"WARN: {p} 的 memory-system 标记残缺或重复，原样保留；请手工整理标记对", file=sys.stderr)
+    raise SystemExit(1)
+cur = re.search(r"<!-- memory-system:start -->.*?<!-- memory-system:end -->", old, re.S) if starts else None
+crlf = old.count("\r\n")
+lf = old.count("\n") - crlf
+newline = "\r\n" if crlf > lf else "\n"
+out_block = block.replace("\n", newline)
+if cur and cur.group(0).replace("\r\n", "\n") == block:
     print("记忆规范块已是最新: " + str(p))
     raise SystemExit(0)
-new = (old[:cur.start()] + block + old[cur.end():]) if cur else (old.rstrip("\n") + "\n\n" + block + "\n" if old else block + "\n")
-p.write_text(new, encoding="utf8")
+if cur:
+    new = old[:cur.start()] + out_block + old[cur.end():]
+elif old:
+    separator = "" if old.endswith(newline * 2) else (newline if old.endswith(newline) else newline * 2)
+    new = old + separator + out_block + newline
+else:
+    new = out_block + newline
+p.write_bytes(new.encode("utf-8"))
 print(("记忆规范块已更新: " if cur else "记忆规范块已追加: ") + str(p))
 PY
 }

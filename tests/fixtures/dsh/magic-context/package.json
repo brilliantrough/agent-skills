@@ -1,0 +1,1 @@
+{ "name": "dsh-plugin-magic-context", "version": "0.0.0-test", "private": true, "type": "module", "main": "lib/index.js" }

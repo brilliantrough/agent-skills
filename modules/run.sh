@@ -5,7 +5,7 @@
 # modules/<名>/ 目录，根脚本零改动。
 #
 # 用法: bash modules/run.sh --host pi|opencode|codex|dsh [--repo <owner/name>] [--ref <branch>]
-#                             [--yes] [--list] [--only <名>]
+#                             [--yes] [--list] [--only <名>] [--select | --selected <名单>]
 #
 # 模块契约（详见 modules/README.md）:
 #   必须有 setup.sh，文件头用注释声明元数据:
@@ -23,6 +23,9 @@ REF="${AGENT_SKILLS_REF:-main}"
 YES=0
 LIST=0
 ONLY=""
+SELECT=0
+SELECTED=""
+SELECTED_SET=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --host) HOST="${2:-}"; shift 2 ;;
@@ -30,6 +33,8 @@ while [ "$#" -gt 0 ]; do
     --ref) REF="${2:-}"; shift 2 ;;
     --yes|-y) YES=1; shift ;;
     --list) LIST=1; shift ;;
+    --select) SELECT=1; shift ;;
+    --selected) SELECTED="${2:-}"; SELECTED_SET=1; shift 2 ;;
     --only) ONLY="${2:-}"; shift 2 ;;
     -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
     *) echo "未知参数: $1" >&2; exit 2 ;;
@@ -37,29 +42,22 @@ while [ "$#" -gt 0 ]; do
 done
 [ -n "$HOST" ] || HOST="$(basename "$0" | sed 's/-setup\.sh$//')"
 
-# ---- 模块目录：本地仓库优先；被下载到临时目录时拉一次 tarball ----
+# ---- 模块目录：只从本脚本所在源码树读取(--repo/--ref 保留兼容,不再下载) ----
 here="$(cd "$(dirname "$0")" && pwd)"
 MDIR="$here"
-cleanup=""
-if ! compgen -G "$MDIR/*/setup.sh" >/dev/null; then
-  tmp="$(mktemp -d)"; cleanup="$tmp"
-  trap 'rm -rf "$cleanup"' EXIT
-  curl -fsSL --connect-timeout 8 -m 120 "https://github.com/$REPO/archive/refs/heads/$REF.tar.gz" -o "$tmp/m.tgz" \
-    || { echo "ERROR: 取不到模块目录（下载失败）" >&2; exit 1; }
-  tar -xzf "$tmp/m.tgz" -C "$tmp" || { echo "ERROR: 解包失败" >&2; exit 1; }
-  MDIR="$(echo "$tmp"/*/modules)"
-  [ -d "$MDIR" ] || { echo "ERROR: 包内没有 modules/" >&2; exit 1; }
-fi
 
 meta() { sed -n "s/^# $2:[[:space:]]*//p" "$1" | head -1; }
 
 ask_mod() {
   local q="$1" d="${2:-N}" a=""
   if [ "$YES" = 1 ]; then [ "$d" = Y ]; return $?; fi
-  [ -t 0 ] || return 1
-  printf '%s [%s] ' "$q" "$([ "$d" = Y ] && echo 'Y/n' || echo 'y/N')" >&2
-  read -r a </dev/tty || a=""
-  case "${a:-$d}" in [Yy]*) return 0 ;; *) return 1 ;; esac
+  if { : </dev/tty; } 2>/dev/null; then
+    printf '%s [%s] ' "$q" "$([ "$d" = Y ] && echo 'Y/n' || echo 'y/N')" >&2
+    read -r a </dev/tty || a=""
+    case "${a:-$d}" in [Yy]*) return 0 ;; *) return 1 ;; esac
+  else
+    [ "$d" = Y ]  # 无控制终端与 -y 一样取默认值，不在执行阶段补问。
+  fi
 }
 
 if [ "$LIST" = 1 ]; then
@@ -72,15 +70,33 @@ if [ "$LIST" = 1 ]; then
 fi
 
 ran=0; failed=0
+selection="$SELECTED"
+if [ "$SELECTED_SET" = 0 ]; then
+  # 先问完全部模块，再执行；根 setup 的 --select 阶段在这里只输出名单，不安装。
+  selection=""
+  for d in "$MDIR"/*/; do
+    [ -f "$d/setup.sh" ] || continue
+    name="$(meta "$d/setup.sh" module)"; name="${name:-$(basename "$d")}"
+    [ -z "$ONLY" ] || [ "$ONLY" = "$name" ] || continue
+    hosts="$(meta "$d/setup.sh" hosts)"; hosts="${hosts:-any}"
+    if [ "$hosts" != any ] && ! echo ",$hosts," | grep -q ",$HOST,"; then continue; fi
+    desc="$(meta "$d/setup.sh" desc)"; desc="${desc:-模块 $name}"
+    def="$(meta "$d/setup.sh" default)"; def="${def:-N}"
+    if ask_mod "安装 $name($desc)?" "$def"; then selection="${selection:+$selection$'\n'}$name"; fi
+  done
+fi
+if [ "$SELECT" = 1 ]; then
+  [ -z "$selection" ] || printf '%s\n' "$selection"
+  exit 0
+fi
 for d in "$MDIR"/*/; do
   [ -f "$d/setup.sh" ] || continue
   name="$(meta "$d/setup.sh" module)"; name="${name:-$(basename "$d")}"
   [ -z "$ONLY" ] || [ "$ONLY" = "$name" ] || continue
   hosts="$(meta "$d/setup.sh" hosts)"; hosts="${hosts:-any}"
   if [ "$hosts" != any ] && ! echo ",$hosts," | grep -q ",$HOST,"; then continue; fi
+  [[ $'\n'$selection$'\n' == *$'\n'"$name"$'\n'* ]] || continue
   desc="$(meta "$d/setup.sh" desc)"; desc="${desc:-模块 $name}"
-  def="$(meta "$d/setup.sh" default)"; def="${def:-N}"
-  ask_mod "安装 $name($desc)?" "$def" || continue
   echo "== 模块 $name =="
   bash "$d/setup.sh" --host "$HOST" || { echo "WARN: 模块 $name 未完成" >&2; failed=$((failed+1)); }
   ran=$((ran+1))

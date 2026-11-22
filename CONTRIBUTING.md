@@ -117,7 +117,7 @@ ask "安装/更新 X 组(说明;缺才装·本机特化不覆盖)?" N && GROUPS+
 
 - **新增可选能力要在四个入口都加询问**，默认 N。只在 Pi/OpenCode 里加、忘了 DSH 与 Codex，会出现"同样装一套，某台机器就是少一个能力"。确实无法共用的（需要特定宿主的插件机制）在 PR 里说明原因并同步 README 的宿主覆盖表。
 - `AGENTS.tail.md` 是会被粘进目标项目 `AGENTS.md` 尾部的规范块，改它等于改所有人的提示词——单独成 PR 说明动机。
-- 新增行为在 `tests/` 留一个可离线重跑的脚本：本地 fixture、不联网、不碰真实 `HOME`。
+- 新增行为在 `tests/` 留一个可离线重跑的脚本：本地 fixture、不联网、不碰真实 `HOME`，并接入 `bash scripts/check.sh --with-tests`；准入与证据边界见 [`tests/README.md`](tests/README.md)。
 
 ## 四、幂等与执行顺序（提交前必做）
 
@@ -162,15 +162,15 @@ diff <(cat before.md) <(cat after.md)
 
 ## 六、提交前自检
 
-仓库的完整自检脚本不随分发；这一半是公开的，提交前跑：
+私有全量自检不随分发；公开检查与可离线行为回归在提交前统一运行：
 
 ```bash
-bash scripts/check.sh
+bash scripts/check.sh --with-tests
 ```
 
-它检查：脚本语法、skills 组结构（组目录白名单 / `SKILL.md` 必在 / 不跨组重名）、README 计数与实际数量一致、已入库文件里的个人路径与内网地址、`skills-sync.sh` 取源仍走 GitHub。
+无参数的 `bash scripts/check.sh` 只跑快速公开体检：脚本语法、skills 组结构、README 计数、敏感值、取源与分发约束。`--with-tests` 额外执行统一入口登记的离线行为测试；测试准入、跳过语义及真实宿主边界见 [`tests/README.md`](tests/README.md)。
 
-再跑与改动相关的回归（不联网、不碰真实 `HOME`）：
+定位问题时可单跑相关回归（不联网、不碰真实 `HOME`）：
 
 ```bash
 python3 tests/merge-private-preservation.py   # 私密值保留

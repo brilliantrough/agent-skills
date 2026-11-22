@@ -17,9 +17,9 @@ bash /tmp/opencode-setup.sh --plugins-only
 | --- | --- | --- |
 | 默认完整安装 | 插件、依赖、配置、通用 skills；按交互选择执行；宿主升级需显式确认 | 数据库升级 |
 | `--plugins-only` | 旧配置转原生 V2、自维护包、context-mode 及其 skills、官方包登记、claude-mem runtime／入口／MCP、旧入口迁移 | 模型模板、Python 环境、通用 skills、按键统一 |
-| `--check` | 下载校验自维护发布包，检查配置与 Magic Context，查询 Ponytail／Magic Context 版本，列出管理路径和待退役项 | 部署、更改配置／认证／数据库；也不试运行插件或检查全部依赖 |
+| `--check` | 下载校验自维护发布包，检查配置与 Magic Context，查询 Ponytail／Magic Context 版本，列出管理路径和待退役项 | 部署、更改配置／认证／数据库；也不试运行插件或检查全部依赖；全程不提问，不先做代理探测等安装前判断 |
 
-- 完整安装默认同步 base 24 个 skills；交互可分别选择 research、accel、kb、ppt，全部选中时为 43 个，另同步三个外部设计 skills；选 ppt 另补外部 `ppt-master` 与独立 Python 环境。实体位于 `~/.agents/skills/`；context-mode 自带 skills 位于 `$CFG/skill/`。
+- 完整安装默认同步 base 25 个 skills；交互可分别选择 research、accel、kb、ppt，全部选中时为 44 个，另同步三个外部设计 skills；选 ppt 另补外部 `ppt-master` 与独立 Python 环境。实体位于 `~/.agents/skills/`；context-mode 自带 skills 位于 `$CFG/skill/`。
 - `-y`／`--yes` 取各项默认值，**不是全部同意**；research、accel、kb 组默认跳过。查看输出中的 WARN，缺包或网络失败后重跑。
 - 两个精简模式要求已有 Python 3、curl、Bun；完整安装可补齐 Bun。`--check` 仍联网，宿主 `--version` 可能写日志，不是零文件系统写入。
 - `$CFG`：`OPENCODE_CONFIG_DIR` 优先，否则 `$XDG_CONFIG_HOME/opencode` 或 `~/.config/opencode`。Windows 用 Git Bash；本轮 v1/v2 迁移尚未做 Windows 实机验收。
@@ -33,7 +33,7 @@ bash /tmp/opencode-setup.sh --plugins-only
 仅发布 `opencode-plugins-v2.tar.gz`；旧 V1 文件保留用于识别与迁移，不再发布新版 V1 资产。
 
 - `later`：共用 Agent 工具逻辑；v1/v2 各有 TUI 适配。输入框排程与 Agent 工具排程独立，分别随 TUI／服务端进程退出清除。
-- `context_rewrite`：共用 `context-rewrite/core.mjs`、`output-store.mjs`，分别适配两代工具与消息 API；包含近期纠错、持久外置和全文取回。
+- `context_rewrite`：共用 `context-rewrite/core.mjs`，各宿主适配自己的历史 API；只负责近期纠错，大输出使用宿主原生门控。
 - `claude-mem`：由官方安装器维护 `$CFG/plugins/claude-mem.js`，bundle 自带 OpenCode v1 `server` 与 v2 `setup` 入口；setup 在配置合并之后调用官方安装器更新 runtime／入口／MCP，OpenCode 负责加载。安装器停止共享 worker；已有 settings 原样恢复，之后手工重启 worker。
 - v2 额外适配旧工具 API、会话事件与请求亲和性；不要求目标机编译。
 
@@ -51,7 +51,7 @@ bash /tmp/opencode-setup.sh --plugins-only
 版本检查与刷新：
 
 - 只检查套件引用的 Ponytail、Magic Context：按配置与当前宿主缓存读取本地实际版本，联网查询官方 npm `latest`。不扫描或更新用户自行安装的其他包。
-- Ponytail 稳定版有新版时询问，普通 npm／`@latest` 登记默认 Y；钉版或本地路径默认 N。版本一致不重装，本地更高不降级；非稳定版本只提示人工核对。缺包交宿主安装，已有缓存但版本未知可询问刷新。
+- Ponytail 稳定版有新版时询问，普通 npm／`@latest` 登记默认 Y；钉版、`file:`／本地路径、版本一致或本地更高默认 N。计划阶段只读探测配置登记与当前宿主 `@latest` 缓存版本，再查 npm `latest`；探测不到（无 curl／网络失败／缓存缺失）时保留现状默认 N 并提示，不假装已检测。版本一致不重装，本地更高不降级；非稳定版本只提示人工核对。缺包或缓存版本不可读时不刷新；缺包交宿主启动安装，异常缓存留人工核对。
 - 确认 Ponytail 刷新后，只备份移走其 `@latest` 缓存到 `.agent-skills-backups/<时间戳>/ponytail-cache/`，登记改为官方 `@latest`，保留 options。钉版缓存和任意本地源码目录不删除。
 - 查询失败：显示 WARN，不据此刷新；`--check` 不询问。`-y`／无终端采用各项默认值，Ponytail 普通登记可刷新，钉版／本地路径跳过；Magic Context 按默认 Y 安排刷新，显式选 N 才保留缓存。
 - 此时仅**安排更新**；下载与加载发生在下次宿主启动。日常仍可用 OpenCode v2 `/plugins` 更新，不必每次运行 setup；版本一致不等于加载正常，npm latest 也不保证兼容任意旧宿主。
@@ -71,6 +71,8 @@ Magic Context 操作：
 
 默认安装与 `--plugins-only` 使用同一个部署器。既能更新旧散装插件，也能从旧分版本包升级；无需先手工删除。
 
+计划阶段选择不写配置时，支持 `--no-config-write` 的发布包仍按选择部署插件资产与 context-mode，但跳过插件登记、不改 `opencode.json`／`cli.json`、不退役旧 JSONC，也跳过需要改配置的 claude-mem 官方安装器、compaction 与按键；模块里的 codegraph 只装 CLI、不登记 MCP，Ponytail／Magic Context 缓存也不移动。旧发布包若不认识该开关，setup 会跳过 v2 插件部署与全部插件登记并明确 WARN，context-mode 资产仍单独同步；更新发布包后重跑。这样不会出现旧 provider 配新 `plugins` 的混写。
+
 | 情况 | 处理 |
 | --- | --- |
 | 旧散装／旧 v1 包 → v2 | 部署 `v2/`，登记 `plugins`，停用旧 server／TUI 入口及内置 Ponytail 配置；claude-mem 使用官方 v2 `setup` |
@@ -80,7 +82,7 @@ Magic Context 操作：
 - 管理固定安装路径；不按文件名子串删除用户插件。未知第三方登记保留，兼容性仍需自行确认。
 - v1→v2 退役：旧 wrapper／later／纠错、`plugins/zz-agent-skills.js`、`tui-plugins/later/`、`context-rewrite/`、旧 context-mode 入口与目录、notify、旧请求头插件。
 - 插件资产备份到 `$CFG/.agent-skills-backups/<时间戳>/<原相对路径>`；同时移走 `plugins/context-mode.bak-*` 遗留目录，避免被 v2 再次扫描。配置文件保留相邻 `.bak*` 备份。
-- 先把旧字段转为原生 V2，再在线获取模板。完整安装经确认刷新 `providers.<名称>.models` 和 `agents.consolidation-reviewer.model`（包含 `#max` variant）；已有 provider 的 `settings`、headers、私密值、本地独有 provider、其它角色及 reviewer 的提示词／权限保留。精简插件模式仅转换格式，不更新模型／代理配置。
+- 开头一次收集全部选择、缺项凭据与模块名单，随后连续执行。先把旧字段转为原生 V2，再在线获取模板；四个 `*-newapi` provider 与套件自有 `web`／`codegraph` MCP 的非敏感结构由模板或对应模块接管，本机非空敏感值（含模型列表按 `id` 对齐的嵌套值）保留，空串／`null` 槽位可用本次新凭据补齐，数值 `maxTokens` 随模板。已有顶层 `compaction` 时无论是否选择关闭都整体保留；只有缺失且用户确认时才写入 `auto:false`。CodeGraph 仅接管 local 条目，JSON／JSONC 中 remote／带 `url` 的条目均原样保留并 WARN；JSONC 需要变更时先归一化。其它 provider 只刷新 models，本地独有 provider、其它角色及 reviewer 的提示词／权限保留；reviewer 的模型／档位仍按模板。精简插件模式仅转换格式，不更新模型／代理配置。
 - `opencode.jsonc` 合并到 `opencode.json` 后备份退役；输入为符号链接时，只移动链接本身，目标文件不删除。v2 已有 `cli.json` 时保留；没有时合并旧 `tui.json(c)` 为 `tui.json`，由宿主首启迁移 action、界面与 state。完整安装的按键设置另行确认。
 - 除确认的 Ponytail／Magic Context 缓存刷新外，不清理 npm 插件缓存；认证、会话库与外置正文不动。**插件备份不是整机快照，也不替代数据库备份。**
 

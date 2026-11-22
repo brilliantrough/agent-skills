@@ -258,7 +258,7 @@ def cli_config(cfg):
     return cfg / 'tui.json', old
 
 
-def install(root, cfg, major, check=False, refresh_mc=False, refresh_ponytail=False):
+def install(root, cfg, major, check=False, refresh_mc=False, refresh_ponytail=False, write_config=True):
     if major != 2:
         raise ValueError('仅支持 OpenCode V2')
     manifest = load(root / 'MANIFEST.json')
@@ -279,7 +279,7 @@ def install(root, cfg, major, check=False, refresh_mc=False, refresh_ponytail=Fa
     entries = [*config.get('plugin', []), *config.get('plugins', [])]
     if major == 1 and ((cfg / 'v2').exists() or (cfg / 'cli.json').exists() or 'plugins' in config):
         raise ValueError('该配置已用于 v2；v1 请使用隔离配置目录，不自动降级数据库或插件')
-    mc = magic_context(entries, major, cfg, refresh_mc)
+    mc = magic_context(entries, major, cfg, refresh_mc) if write_config else None
     entries = [e for e in entries if not owned(e, cfg) and not is_mc(e)]
     if refresh_ponytail:
         entries = [refreshed_entry(e, PONYTAIL, major) if matches_package(e, PONYTAIL) else e for e in entries]
@@ -330,14 +330,21 @@ def install(root, cfg, major, check=False, refresh_mc=False, refresh_ponytail=Fa
             if not cache.exists():
                 continue
             destination = cfg / '.agent-skills-backups' / STAMP / folder / cache.parent.parent.name / cache.name
-            writable_cache(cache)
+            if write_config:
+                writable_cache(cache)
             cache_backups.append((cache, destination))
             print(f'refresh: {cache} -> {destination}')
-        print(f'{name}: 改用 @latest；下次宿主启动下载，setup 不访问共享数据库、不更新 Pi 包')
+        if write_config:
+            print(f'{name}: 改用 @latest；下次宿主启动下载，setup 不访问共享数据库、不更新 Pi 包')
+        else:
+            print(f'{name}: 已请求刷新，但无配置写入；本次保留缓存与登记')
     if check:
         print('ready: 发布包和配置检查完成；Magic Context 状态见上方 WARN（未写入）')
         return
-    for cache, destination in cache_backups:
+    if not write_config:
+        print('跳过: 配置写入已取消，不登记插件、不改 opencode.json/cli.json、不退役旧 JSONC，也不移走缓存')
+        print('      Ponytail/Magic Context 刷新若已选，需要写配置才生效；可重跑并允许写入配置')
+    for cache, destination in (cache_backups if write_config else []):
         destination.parent.mkdir(parents=True, exist_ok=True)
         try:
             shutil.move(str(cache), str(destination))
@@ -363,6 +370,9 @@ def install(root, cfg, major, check=False, refresh_mc=False, refresh_ponytail=Fa
             retire(destination, cfg, follow=True)
         temporary.replace(target_path)
         print(f'deployed: {destination}')
+    if not write_config:
+        print(f'OpenCode v{major} 插件资产已部署；配置登记、旧入口退役与 JSONC 迁移按计划跳过')
+        return
     for path in obsolete:
         retire(path, cfg)
     write(target, config)
@@ -379,7 +389,7 @@ if __name__ == '__main__':
     try:
         install(Path(sys.argv[1]), Path(sys.argv[2]), int(sys.argv[3]),
                 '--check' in sys.argv[4:], '--refresh-magic-context' in sys.argv[4:],
-                '--refresh-ponytail' in sys.argv[4:])
+                '--refresh-ponytail' in sys.argv[4:], '--no-config-write' not in sys.argv[4:])
         if '--versions' in sys.argv[4:]:
             plugin_versions(Path(sys.argv[2]), int(sys.argv[3]), Path(sys.argv[sys.argv.index('--versions') + 1]))
     except Exception as error:

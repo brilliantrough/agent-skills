@@ -4,8 +4,10 @@
 
 ```bash
 bash modules/run.sh --list                      # 看有哪些模块、默认装不装
-bash modules/run.sh --host pi                   # 逐个询问后安装(默认 N)
+bash modules/run.sh --host pi                   # 开头一次选完，再统一安装
 bash modules/run.sh --host opencode --only agent-reach
+bash modules/run.sh --host pi --select --yes    # 只输出默认选择，不安装
+bash modules/run.sh --host pi --selected strictdoc
 ```
 
 ## 目录结构
@@ -52,7 +54,7 @@ modules/<名>/
 | 模块 | 默认 | 宿主 | 说明 |
 | --- | --- | --- | --- |
 | `strictdoc` | Y | any | `.sdoc` 校验工具（`uv tool install strictdoc==0.28.1`）；无 uv 时跳过提示 |
-| `codegraph` | Y | pi,opencode,codex | 代码知识图谱 CLI + MCP 注册；Pi 的条目由配置模板提供 |
+| `codegraph` | Y | pi,opencode,codex | 代码知识图谱 CLI + MCP 注册；Pi 的条目由配置模板提供。OpenCode 配置根同 setup（`OPENCODE_CONFIG_DIR` > `$XDG_CONFIG_HOME/opencode` > `~/.config/opencode`）；同时识别旧式 `mcp.codegraph` 与 `mcp.servers.codegraph`，JSON／JSONC 中已有 remote／带 `url` 的条目均保留；JSONC 需要变更时先由根 setup 归一化；不写配置的计划只装 CLI |
 | `agent-reach` | N | any | 官方只读检索 CLI + 无头浏览器；安装器来自 base 组的 `agent-reach-install` skill |
 | [`light-science`](light-science/README.md) | N | any | 需 research 组；固定版 literature-search／light-chart，不装整包或 Python／R 环境；含非商业许可资源 |
 

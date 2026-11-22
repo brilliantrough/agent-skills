@@ -40,8 +40,8 @@ edit("src/core/contracts/constants.ts", "tool-contract", (s) => {
   return s;
 });
 
-// 主宿主由 context-rewrite/output-store 提供无损快照；Pi 子代理没有该扩展，保留上游保护。
-edit("src/core/hooks/dispatch.ts", "single-output-owner", (s) => once(s,
+// 主宿主使用原生输出门控；Pi 子代理没有该原生组合时，保留上游保护。
+edit("src/core/hooks/dispatch.ts", "native-output-gates", (s) => once(s,
   '  // step 5: replace, DECISIONS-r9 F1 split. Subagent case B/C (ADR-0016), and the main agent on a row',
   '  // agent-skills: the main host uses context-output snapshots; Pi subagents keep upstream protection.\n' +
   '  if (process.env.MAGIC_CONTEXT_PI_SUBAGENT !== "1") return ALLOW;\n' +
@@ -126,7 +126,7 @@ const INSTRUCTIONS = `context-mode provides on-demand code execution and FTS ret
 
 Use native Read/Grep for exact source and edits, native Bash for short output and one-off local aggregation, and native Code Mode for multi-tool/MCP orchestration. Use ctx_execute for large or noisy local output, ctx_batch for several command outputs queried together, and ctx_index/ctx_search only for material you will query again. Print enough evidence in one pass; do not guess unknown content through repeated searches.
 
-The main agent-skills host owns automatic output snapshots through context-rewrite/output-store. context-mode does not replace large tool results, deny large Reads, or force WebFetch/Bash through ctxm there. Use context_output_read for exact snapshots; index a snapshot path explicitly only for repeated retrieval.
+The host's native output gates own truncation previews, saved output paths and pagination. context-mode does not replace large tool results, deny large Reads, or force WebFetch/Bash through ctxm on main hosts. Use native Read with offset/limit for full output paths; index a path explicitly only for repeated retrieval. Pi subagents retain upstream protection.
 
 ctx_upgrade is disabled in this fork: use the suite's context-mode/setup.sh maintenance path.
 `;

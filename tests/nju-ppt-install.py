@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Isolated installer branch checks with a local main-tarball fixture; no real HOME or downloads."""
+"""Isolated installer branch checks against a local git source tree; no real HOME or downloads."""
 
 import json
 import os
@@ -7,7 +7,6 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
-import tarfile
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,9 +32,14 @@ def write(path, text):
     path.chmod(0o755)
 
 
-def archive(target, source):
-    with tarfile.open(target, "w:gz") as t:
-        t.add(source, arcname="agent-skills-main", filter=lambda m: None if "__pycache__" in m.name else m)
+def commit(repo):
+    """把 fixture 工作树提交到 main(首次同时初始化并建验收分支)。"""
+    env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@example.invalid",
+               GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@example.invalid")
+    cmds = [] if (repo / ".git").exists() else [["init", "-q", "-b", "main"]]
+    cmds += [["add", "-A"], ["commit", "-qm", "fixture"]]
+    for cmd in cmds:
+        assert subprocess.run(["git", "-C", str(repo), *cmd], env=env, check=False).returncode == 0, cmd
 
 
 def external_checks(tmp, env):
@@ -124,16 +128,12 @@ def main():
             dirs_exist_ok=True, ignore=shutil.ignore_patterns("__pycache__"),
         )
         write(source / "skills-external.sh", '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "$EXTERNAL_LOG"\n')
-        package = tmp / "main.tgz"
-        archive(package, source)
+        # 真实本仓工作树同时有 templates/;acquire_source 用它判定"像不像本仓"
+        write(source / "templates/pi/settings.json", "{}\n")
+        commit(source)
+        subprocess.run(["git", "-C", str(source), "branch", "feat/nju-ppt-optional"], check=True)
         bindir = tmp / "bin"
-        write(bindir / "curl", '''#!/usr/bin/env bash
-out=""
-while [ "$#" -gt 0 ]; do
-  if [ "$1" = -o ]; then out="$2"; shift 2; else shift; fi
-done
-cp "$FIXTURE_ARCHIVE" "$out"
-''')
+        bindir.mkdir()
         write(bindir / "fixture-python", '''#!/usr/bin/env bash
 if [ "$1" = -c ]; then exit 0; fi
 printf '%s\\n' "$*" >> "$PREPARE_LOG"
@@ -148,7 +148,7 @@ exec "$REAL_NODE" "$@"
 ''')
         env = dict(os.environ)
         env.update({
-            "FIXTURE_ARCHIVE": posix(package), "EXTERNAL_LOG": posix(tmp / "external.log"),
+            "AGENT_SKILLS_SOURCE": posix(source), "EXTERNAL_LOG": posix(tmp / "external.log"),
             "PREPARE_LOG": posix(tmp / "prepare.log"),
             "FIXTURE_BIN": posix(bindir),
             "NJU_PPT_PYTHON": posix(bindir / "fixture-python"),
@@ -164,7 +164,6 @@ exec "$REAL_NODE" "$@"
             p = run([
                 BASH, "--noprofile", "--norc", "-c",
                 'export PATH="$FIXTURE_BIN:$PATH"; '
-                '[ "$(command -v curl)" = "$FIXTURE_BIN/curl" ] || exit 99; '
                 'exec bash "$@"', "--", str(ROOT / "skills-sync.sh"), *groups,
             ], e)
             assert (p.returncode == 0) == success, (groups, p.returncode, p.stdout[-2500:], p.stderr)
@@ -188,8 +187,8 @@ exec "$REAL_NODE" "$@"
         assert "--install" in (tmp / "html.log").read_text() and "--home" in (tmp / "html.log").read_text()
         assert (skill / "scripts/prepare_html.mjs").is_file()
         branch_home = tmp / "branch HOME"
-        branch_result = install(branch_home, "ppt", extra={"AGENT_SKILLS_REF": "feat/nju-ppt-optional"})
-        assert "feat/nju-ppt-optional tarball" in branch_result.stdout
+        branch_result = install(branch_home, "ppt", extra={"AGENT_SKILLS_SOURCE": posix(source)})
+        assert "只读" in branch_result.stdout
         assert (branch_home / ".agents/skills/nju-ppt/SKILL.md").is_file()
         install(home, "ppt")
         backups = home / ".local/share/agent-skills/.backups/ppt"
@@ -210,21 +209,27 @@ exec "$REAL_NODE" "$@"
         install(tmp / "failed prepare", "ppt", success=False, extra={"PREPARE_EXIT": "1"})
         install(tmp / "failed html", "ppt", success=False, extra={"HTML_EXIT": "1"})
         (source / "skills/ppt/nju-ppt/scripts/prepare.py").unlink()
-        archive(package, source)
+        commit(source)
         p = install(tmp / "old main", "ppt", success=False)
         assert "main" in p.stderr and "ppt" in p.stderr
         print("PASS all/invalid groups/missing Python/failed preparation/old main error propagation")
 
-        for name in ["opencode-setup.sh", "pi-setup.sh", "codex-setup.sh", "dsh-setup.sh"]:
+        ppt_plans = {
+            "opencode-setup.sh": r"SKILL_GROUPS\+=\(ppt\)",
+            "pi-setup.sh": r"PLAN_SKILL_PPT=1",
+            "codex-setup.sh": r"PLAN_SKILL_PPT=1",
+            "dsh-setup.sh": r'PLAN_SKILLS\+=" ppt"',
+        }
+        for name, plan in ppt_plans.items():
             text = (ROOT / name).read_text(encoding="utf-8")
-            assert re.search(r'''ask ['"][^'"\n]*ppt 组[^'"\n]*['"] N && SKILL_GROUPS\+=\(ppt\)''', text), name
+            assert re.search(r'''ask ['"][^'"\n]*ppt 组[^'"\n]*['"] N && ''' + plan, text), name
             assert "Dashi" in next(line for line in text.splitlines() if "ask " in line and "ppt 组" in line), name
-            assert "SKILL_GROUPS=(base)" in text
+            assert ('PLAN_SKILLS=" base"' if name == "dsh-setup.sh" else "SKILL_GROUPS=(base)") in text
             assert '${AGENT_SKILLS_REF:-main}' in text, name
             assert '${AGENT_SKILLS_REPO:-brilliantrough/agent-skills}' in text, name
         print("PASS four setup entry points: PPT declares Dashi, defaults to N; base remains default")
         external_checks(tmp, env)
-        print("NOTE: non-PPT payload, download, external stage and Python invocation were fixtures; not a real GitHub install")
+        print("NOTE: local git source tree, external stage and Python invocation were fixtures; not a real GitHub install")
 
 
 if __name__ == "__main__":

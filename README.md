@@ -28,12 +28,12 @@
 | 能力 | OpenCode | Pi | DSH | Codex |
 |---|---|---|---|---|
 | skills 基础组 + `research`/`accel`/`kb`/`ppt` 可选组 | ✓ | ✓ | ✓ | ✓ |
-| `agent-reach` 只读检索 CLI（询问，默认 N） | ✓ | ✓ | ✓ | ✓ |
-| 记忆规范块写进项目 `AGENTS.md`（询问，默认 N） | ✓ | ✓ | ✓ | ✓ |
+| `agent-reach` 只读检索 CLI（前置选择，默认 N） | ✓ | ✓ | ✓ | ✓ |
+| 记忆规范块写进项目 `AGENTS.md`（开头选择，默认 Y） | ✓ | ✓ | ✓ | ✓ |
 
-表格里后半段三项都由共用脚本实现（`skills-sync.sh`、`skills-external.sh`），四个入口只负责问一次并透传选择；宿主特有的部分留在各自的 `*-setup.sh`。DSH 与 Codex 不含配置合并，`AGENTS.md` 规范块随 skills 同步一问，不再需要手工粘。
+表格里的共用能力都由脚本在开头统一选择并透传，宿主特有部分留在各自的 `*-setup.sh`。`AGENTS.md` 规范块默认追加或原位更新，不再需要手工粘贴。
 
-[快速安装](#快速安装) · [Skills](#skills本仓-43-个) · [首次部署](#首次部署只需要网关--5-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [DSH](dsh/README.md) · [OpenCode](#opencode-安装与迁移) · [更新](#更新) · [贡献](CONTRIBUTING.md)
+[快速安装](#快速安装) · [Skills](#skills本仓-44-个) · [首次部署](#首次部署只需要网关--6-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [DSH](dsh/README.md) · [OpenCode](#opencode-安装与迁移) · [更新](#更新) · [贡献](CONTRIBUTING.md)
 
 ## 快速安装
 
@@ -77,7 +77,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.com/brilliantrough/agent-skills/main/skills-sync.sh)" -- base
 ```
 
-`base` 安装基础 24 个；`base research` 追加 9 个科研／算法研究 skill；`all` 或无参数安装五组共 43 个，含 PPT 组及其独立 Python 依赖。也可把 `research`、`accel`、`kb`、`ppt` 作为额外参数传给 `skills-sync.sh`。所有组都默认补装三个外部设计 skill，并更新符合条件的已登记第三方；只有选中 `ppt` 才补装 `ppt-master` 并准备独立环境。Light-Science 文献／数据图另走默认 N 的[可选模块](modules/light-science/README.md)，选 research 不自动安装它们。需要 curl、git、Node/npx；安装位置 `~/.agents/skills/`，重开会话生效。
+`base` 安装基础 25 个；`base research` 追加 9 个科研／算法研究 skill；`all` 或无参数安装五组共 44 个，含 PPT 组及其独立 Python 依赖。也可把 `research`、`accel`、`kb`、`ppt` 作为额外参数传给 `skills-sync.sh`。所有组都默认补装三个外部设计 skill，并更新符合条件的已登记第三方；只有选中 `ppt` 才补装 `ppt-master` 并准备独立环境。Light-Science 文献／数据图另走默认 N 的[可选模块](modules/light-science/README.md)，选 research 不自动安装它们。需要 curl、git、Node/npx；安装位置 `~/.agents/skills/`，重开会话生效。
 
 **Codex（best effort）**
 
@@ -90,34 +90,33 @@ bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.co
 没有单独的 setup，直接用上面的 `skills-sync.sh` 一行命令。检测到 `~/.claude` 时：
 
 - 在 `~/.claude/skills/<名>` 建指向 `~/.agents/skills/<名>` 的符号链接。Claude Code 不读 `~/.agents/skills`，但会跟随逐个 skill 的链接；Git Bash 没有真链接，退回复制。
-- 随 base 组把 `consolidation-reviewer` 写到 `~/.claude/agents/`，供 `consolidator` 整理后做独立审查。
+- 随 base 组把 `verification-reviewer` 与 `consolidation-reviewer` 写到 `~/.claude/agents/`，分别供独立功能复核和整理后审查。
 - 不安装 Magic Context、context-mode 和 `later`。记忆用 `docs/` 下的 StrictDoc、claude-mem 官方插件（自行安装）和 Claude Code 自带的记忆；规范块里的 Pi／OpenCode 工具名在这里不存在，按块内说明改用自带能力。
 - Claude Code 直接读取项目的 `AGENTS.md`；读不到时在 `CLAUDE.md` 里写一行 `@AGENTS.md`。
 
-### `-y` 与逐项确认
+### `-y` 与一次前置选择
 
-以下 `-y` 说明适用于 OpenCode、Pi、Codex；DSH 缺少凭据时会停止，须先用环境变量提供或改用交互安装。
+四个入口都先完成只读探测，在开头集中列出全部安装选择；凭据和可选模块也在这一阶段处理。确认完成后才按顺序安装、更新和写配置，执行中不再穿插提问。
 
-`-y` 取各项默认值，不再逐项确认：
+`-y` 对所有确认取默认值；默认 Y 执行，默认 N 跳过。`AGENTS.md` 尾块现在默认 Y，包括 `-y` 和无 tty。共享 worker、Magic Context 数据库等高风险操作仍保留独立选项，不因流程合并而改变风险边界。
 
-| 默认值 | 行为 | 项目 |
-|---|---|---|
-| Y | 执行 | 装缺件、字段级合并配置（保留本地敏感值）、刷新 skills、升级 Pi 本体与普通包、独立升级 Magic Context |
-| N | 跳过 | research／accel／kb 可选组、notify 首装（仅 OpenCode v1）、无代理继续、AGENTS.md 注入 |
-| 凭据 | 仍询问 | 无终端则跳过，保留占位符；无人值守可用环境变量预填 |
+| 项目 | 行为 |
+|---|---|
+| 依赖、普通配置与 skills | 按开头选择连续执行；写前备份，敏感值保留 |
+| 已有凭据／MCP 配置 | 无论是否 `-y`、值是否为占位符，都不再询问 |
+| 首次部署缺少配置 | 只在开头收集缺项；无终端时保留占位符或用环境变量预填 |
+| 可选模块 | 先一次性选完，再统一安装 |
 
-等价写法：`--yes`、`ASSUME_YES=1`、`curl -fsSL <脚本 URL> | bash -s -- -y`。
-
-**逐项确认：不传 `-y`。** 写前列出变更（含模型名 / `models`），可逐项拒绝。
+等价写法：`--yes`、`ASSUME_YES=1`（DSH 使用 `-y`）、`curl -fsSL <脚本 URL> | bash -s -- -y`。
 
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/opencode-setup.sh)"
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/pi-setup.sh)"
 ```
 
-## Skills（本仓 43 个）
+## Skills（本仓 44 个）
 
-基础 24 个；科研／算法研究 9 个；算力模板 7 个、公共知识 2 个与 PPT 1 个按需选装。`research`、`kb` 与 `ppt` 随仓库刷新，`accel` 缺才装；外部设计依赖默认询问安装，Light-Science 精选集成另行选择，不复制到本仓、不计入上述数量。
+基础 25 个；科研／算法研究 9 个；算力模板 7 个、公共知识 2 个与 PPT 1 个按需选装。`research`、`kb` 与 `ppt` 随仓库刷新，`accel` 缺才装；外部设计依赖在开头统一选择、默认安装，Light-Science 精选集成另行选择，不复制到本仓、不计入上述数量。
 
 ### 工程技能
 
@@ -180,28 +179,36 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 
 知识库可保留带条件的案例、阴性结果和一次昂贵踩坑；模型/硬件/版本是适用条件，个人路径、凭据和运行状态留在项目记录。使用后的补条件、反例和更正回到唯一维护源，不要求每次贡献都新建skill；历史快照与安装副本不独立演化。
 
-### 阶段整理与独立审查
+### 功能 Verification 与整理审查
 
-手动说“用 consolidator 整理这次改动”，或“只整理 `docs/project_memory`”：主 Agent 按 **Ponytail** 风格整理，再委派 `consolidation-reviewer` 只读审查；不自动运行，不新增调度器。记忆整理原位重组正文，主线讲清、次要过程简述；保留可恢复基线、实质信息和必要证据，不只是另加摘要，也不追求压缩率。
+主 Agent 负责运行真实路径并留下证据。跨模块、高风险、发布或证据存疑时，再委派 `verification-reviewer` 独立复核验收条件、功能行为和测试有效性；普通小改动不每次委派。套件只提供角色与简洁优先的证据纪律，具体验收条件、命令、fixture、平台和风险矩阵以项目本地资料为准，不预制通用测试。Reviewer 的仓库只读是行为合同，Bash／shell 仍可能写文件，不冒充文件系统沙箱；需要硬隔离的项目使用宿主沙箱或容器。显式使用 `consolidator` 整理时，才由 `consolidation-reviewer` 检查语义保持、真实保护、简洁性及误删／该删未删。两种 Reviewer 都不代替 lint、真实宿主或用户最终验收。
 
-- `skills/base/consolidator/` 随 base 安装，含唯一审查规范 `references/reviewer.md`。
-- Pi：像 explore/general 一样，由 setup 安装 Markdown 定义；继续使用原版 `pi-subagents-j0k3r`。
-- OpenCode：原生 `agents.consolidation-reviewer` 配置，完整 setup 接入；仅 `--plugins-only` 不更新代理配置。
-- Codex ≥0.158.0：setup 安装 `agents/consolidation-reviewer.toml`；只读职责由提示词约束，provider／sandbox 继承父会话，角色文件中的 `sandbox_mode` 不建立独立只读沙箱。
-- DSH：原生 preset + `consolidation_review` 委派工具；沿用 spawn，不新增执行器。
-- Claude Code：`skills-sync.sh` 随 base 组安装 `~/.claude/agents/consolidation-reviewer.md`；模型继承主会话，只读职责由提示词和工具清单约束。
-- 代理配置来自本仓 `templates/`；Pi/Codex/Claude Code 文件有变化先备份，OpenCode 完整 setup 经确认刷新 reviewer 的模型／档位，其它角色及本地字段保留。只装 skill 不等于已经注册子代理。
+- `skills/base/verification/` 提供风险触发与功能交接合同，`references/reviewer.md` 是唯一功能审查规范；`skills/base/consolidator/` 继续维护整理审查规范。
+- Pi：由 setup 安装两份 Markdown 角色定义；继续使用原版 `pi-subagents-j0k3r`。
+- OpenCode：完整 setup 配置原生 `agents.verification-reviewer` 与 `agents.consolidation-reviewer`；仅 `--plugins-only` 不更新代理配置。
+- Codex ≥0.158.0：setup 安装两份原生 TOML 角色。官方明确自定义 agent 文件中的 `sandbox_mode`、`model_provider` 等字段不覆盖父会话，因此两份角色都不写 `sandbox_mode`；仓库禁写、临时目录和禁联网是行为合同，不冒充独立文件系统沙箱。
+- DSH：原生 presets 加 `verification_review`／`consolidation_review` 委派工具；沿用 spawn，不新增执行器。
+- Claude Code：`skills-sync.sh` 随 base 组安装两份 `~/.claude/agents/` 定义；模型继承主会话，权限由提示词和工具清单约束。
+- 代理配置来自本仓 `templates/`；Pi/Codex/Claude Code 文件有变化先备份，OpenCode 完整 setup 经确认刷新两种 Reviewer 的模型／档位，其它角色及本地字段保留。只装 skill 不等于已经注册子代理。
 
-审查角色统一使用 **GPT 6.2 Sol + max**；只改 `consolidation-reviewer`，不改变 `explore/general` 或主会话默认值：
+本仓额外提供项目特化的漏装检查。默认只读并对漏装返回非零；`--apply` 才调用对应现有 setup，Reviewer 本身不修改 live：
+
+```bash
+bash scripts/verify-subagents.sh
+bash scripts/verify-subagents.sh --apply          # 各 setup 仍在开头集中确认
+bash scripts/verify-subagents.sh --apply --yes    # 显式接受默认升级与共享 worker 副作用
+```
+
+审查角色统一使用 **GPT 6.2 Sol + max**；只改 `verification-reviewer` 与 `consolidation-reviewer`，不改变 `explore/general` 或主会话默认值：
 
 | 宿主 | 模型与思考强度的配置位置／字段 |
 | --- | --- |
-| Pi | `pi/agents/consolidation-reviewer.md`：`model: codex-newapi/gpt-6.2-sol`、`effort: max` |
-| OpenCode V2 | `opencode/opencode.json`：`agents.consolidation-reviewer.model = "codex-newapi/gpt-6.2-sol#max"`，选择模型目录中 `reasoningEffort: "max"` 的 variant |
-| DSH | `dsh/cordis.patch.json` 的 `tool-consolidation-review.config.agentOptions`：`provider: "codex-newapi"`、`model: "gpt-6.2-sol"`、`reasoningEffort: "max"` |
-| Codex | `codex/agents/consolidation-reviewer.toml`：`model = "gpt-6.2-sol"`、`model_reasoning_effort = "max"`；provider 沿用父会话，不能在角色中单独切换 |
+| Pi | `pi/agents/{verification,consolidation}-reviewer.md`：`model: codex-newapi/gpt-6.2-sol`、`effort: max` |
+| OpenCode V2 | `opencode/opencode.json`：`agents.<角色>.model = "codex-newapi/gpt-6.2-sol#max"`，选择模型目录中 `reasoningEffort: "max"` 的 variant |
+| DSH | `dsh/cordis.patch.json` 的 `tool-{verification,consolidation}-review.config.agentOptions`：`provider: "codex-newapi"`、`model: "gpt-6.2-sol"`、`reasoningEffort: "max"` |
+| Codex | `codex/agents/{verification,consolidation}-reviewer.toml`：`model = "gpt-6.2-sol"`、`model_reasoning_effort = "max"`；provider 沿用父会话，不能在角色中单独切换 |
 
-上述路径均相对本仓 `templates/`。Pi 同名 `model_profiles` 或项目角色可覆盖全局定义，更新后用 `subagent_list_agents` 核对；DSH 的固定选择属于专用 `consolidation_review` 入口，不是 preset 的全局模型锁。`max` 不是 `xhigh` 的别名；还需所选模型目录和服务端支持该值，配置解析成功不等于网关已接受。
+上述路径均相对本仓 `templates/`。Pi 同名 `model_profiles` 或项目角色可覆盖全局定义，更新后用 `subagent_list_agents` 核对；DSH 的固定选择属于专用委派入口，不是 preset 的全局模型锁。`max` 不是 `xhigh` 的别名；还需所选模型目录和服务端支持该值，配置解析成功不等于网关已接受。
 
 ### 任务工作流（自制）
 
@@ -211,6 +218,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 |---|---|---|
 | `goal-first` | 研究、开发和计划的主线约束 | 保持交付、当前未知、下一步和收口条件；不因意外发现静默扩展范围 |
 | [`trust-pyramid`](skills/base/trust-pyramid/SKILL.md) | 日常开发、重构与审查的工程质量约束 | 五层原则＋六类条件化规则配方＋工具映射；按项目选择并落实 |
+| [`verification`](skills/base/verification/SKILL.md) | 跨模块、高风险、发布或证据存疑的功能复核 | 验收条件与真实路径 → 主 Agent 验证 → 按风险委派 `verification-reviewer` → 报告证据和未验证范围 |
 | `quick-do` | 行为明确的小修小补 | 读代码 → 当前会话修改、验证；不 grilling、不写计划 |
 | `steady-do` | 日常功能、插件、扩展 | 理解项目 → 分轮澄清 → 当前会话实现、验证；不写交接文档 |
 | `plan-brief` | 长程多阶段任务 | 澄清 → 计划 `docs/plans/<slug>.md` + 启动 prompt → 新会话执行 → 报告 → 原会话审查 |
@@ -231,7 +239,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 
 `goal-first` 在代码任务中引导加载 `trust-pyramid`；`steady-do`、`consolidator`、`writing-skill` 在修重复问题或固化规则时指向它。原型包含[五层原则](skills/base/trust-pyramid/SKILL.md)、[六类质量规则配方](skills/base/trust-pyramid/references/quality-recipes.md)和[工具映射／检查示例](skills/base/trust-pyramid/references/static-checks.md)：注释与补丁、依赖边界、API 与状态、重复维护、副作用与错误、工作区与产物。每类给出适用条件、好坏示例、检查方式和例外；项目选择后将具体 API、目录和检查写回自身配置。Verification 可由 Agent 或项目自动执行，按任务授权、成本与副作用确定范围，不要求人逐次触发。
 
-试用时可以说：“用 trust-pyramid，为这个项目选出适用的质量规则，并落实当前最重要的一项。”仅想讨论则说明“先设计，不修改”。安装 skill 不自动启用所有规则或证明项目质量；首次试用重点反馈是否触发、误报／漏报以及维护负担，通用修正回流 skill。套件仓库自己的规则落在 `scripts/check.sh`：第 6–8 节检查 skill 的链接与锚点、frontmatter 与体量、README 索引与互引、shell 脚本头和共用函数一致性，报错自带改法。
+试用时可以说：“用 trust-pyramid，为这个项目选出适用的质量规则，并落实当前最重要的一项。”仅想讨论则说明“先设计，不修改”。安装 skill 不自动启用所有规则或证明项目质量；首次试用重点反馈是否触发、误报／漏报以及维护负担，通用修正回流 skill。套件仓库自己的规则落在 `scripts/check.sh`：第 6–8 节检查 skill 的链接与锚点、frontmatter 与体量、README 索引与互引、shell 脚本头和共用函数一致性，报错自带改法。完整离线行为回归统一运行 `bash scripts/check.sh --with-tests`，准入与证据边界见 [`tests/README.md`](tests/README.md)。
 
 ### 个人领域知识（自制）
 
@@ -317,7 +325,8 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 bash skills-sync.sh ppt
 ```
 
-- 同步器默认下载GitHub main，不读取本地工作树；分支验收可设 `AGENT_SKILLS_REF`，入口URL也须指向同一分支；Fork 验收另设 `AGENT_SKILLS_REPO=用户/agent-skills`
+- 同步器默认使用 `${XDG_DATA_HOME:-~/.local/share}/agent-skills/source` 受管 clone：首次 clone，后续 fetch 精确 ref；离线但有旧 clone 时 WARN 并报告实际 commit，不冒充最新
+- 候选工作树可设 `AGENT_SKILLS_SOURCE="$PWD"`，只读取、不 pull、不修改；默认远端可用 `AGENT_SKILLS_REF`／`AGENT_SKILLS_REPO` 调整，不再逐文件下载 raw 或 tarball
 - 选中 PPT 即允许安装缺失的 `ppt-master`、Dashi 及独立 Python／Node 依赖；需要 Node.js 20+、npm、Python 3.10+，可用 `NJU_PPT_PYTHON` 指定单个解释器路径
 - Python 环境位于 `~/.local/share/agent-skills/nju-ppt/venv`，HTML 环境位于同级 `html/<指纹>/project`；不改系统 Python 或共享 Dashi 源码，不安装 Office／字体／系统代理
 - 模板随 `nju-ppt` 打包，用完整外部root安装到本次项目，不修改 `ppt-master` 全局索引
@@ -325,10 +334,10 @@ bash skills-sync.sh ppt
 - `.md/.txt`基础路径无需AI图像API密钥；DOCX/PDF/旁白等沿用上游按需依赖与许可
 - 单独用其它skill管理器复制本包，不代表引擎、Python依赖已自动准备
 
-功能分支推送后试装（不改 main，不改插件和模型配置）：入口 URL、`AGENT_SKILLS_REPO` 和 `AGENT_SKILLS_REF` 必须指向同一 Fork 与分支，不能只执行本地 setup 后仍下载 main：
+功能分支或当前工作树试装（不改 main、不改插件和模型配置）：显式指定只读候选源码树，避免默认受管 clone 仍取 main：
 
 ```bash
-AGENT_SKILLS_REPO=The2813509163/agent-skills AGENT_SKILLS_REF=html bash -c "$(curl -fsSL https://raw.githubusercontent.com/The2813509163/agent-skills/html/skills-sync.sh)" -- ppt
+AGENT_SKILLS_SOURCE="$PWD" bash skills-sync.sh ppt
 ```
 
 使用示例：
@@ -346,7 +355,7 @@ HTML 分支：
 
 | 平台／能力 | 新分发链验证状态 |
 | --- | --- |
-| Windows Git Bash＋Python | 隔离HOME的分支测试通过；main tarball和外部阶段用替身，未冒充真实线上安装 |
+| Windows Git Bash＋Python | 隔离HOME的分支测试通过；源码与外部阶段使用隔离fixture，未冒充真实线上安装 |
 | 引擎及核心依赖 | 上游CLI真实下载 `ppt-master`、全新venv安装、包内模板契约与项目内安装通过 |
 | Windows原生导出及PowerPoint | 11页型审阅通过（2图表＋1表格）；另用完整TXT新做15页成稿，2原生表格、15页备注，PowerPoint检查182个文本框无溢出 |
 | 新用户自动触发 | 本轮在原会话显式加载仓库新包和隔离引擎；真正全新OpenCode用户会话尚未测，不将两者等同 |
@@ -392,14 +401,14 @@ HTML 分支：
 
 只引用、可选集成、代装依赖是不同关系。当前`skills-external.sh`还会更新锁表中的符合条件第三方；不能仅凭“本套件未首装”推断不会代更新，独立领域资源遵循自己的安装通道。
 
-## 首次部署：只需要网关 + 5 个 key
+## 首次部署：只需要网关 + 6 个 key
 
-Pi、OpenCode、Codex 三个 setup 脚本统一收集、填入凭据；目标文件均无 `<YOUR_*>` 占位符则跳过。DSH 使用独立凭据引用，详见 [DSH 接入](dsh/README.md)。
+Pi、OpenCode、Codex 三个 setup 在开头统一收集凭据。本机已有对应 API 凭据或 MCP 配置时就跳过该类输入，**占位符也算已有配置**；只有缺项才询问。DSH 使用独立凭据引用，详见 [DSH 接入](dsh/README.md)。
 
 | 输入 | 回车行为 |
 |---|---|
 | 网关 | 使用默认 `https://api.pezayo.com/v1`；输入 `-` 则保留占位符 |
-| 各 key | 跳过、保留占位符；重跑可补 |
+| 各 key | 跳过、保留占位符；之后按末尾清单手工补 |
 | mcphub MCP host | 可选，回车跳过；Codex 侧不问 |
 
 ### 填写位置
@@ -442,14 +451,14 @@ Pi、OpenCode、Codex 三个 setup 脚本统一收集、填入凭据；目标文
 | `PI_CLAUDE_MEM_API_KEY` | claude-mem |
 | `MCPHUB_HOST` | mcphub MCP host |
 
-- 跳过的占位符：按脚本末尾“文件 / 缺失项”清单手工补，或重跑脚本
+- 跳过的占位符：按脚本末尾“文件 / 缺失项”清单手工补；重跑不会只因占位符再次追问
 - 非 `/v1` 风格网关：填完核对 `pi/models.json` 的 anthropic 根域与 claude-mem 的 BASE_URL
 - 仍需手工配置：
   - `pi/auth.json`：zai/kimi 等内置 provider 的 coding-plan key
   - `~/.func`：由 dot_file 的 `linux-setup.sh` 部署
   - `NOTIFY_*` 环境变量：仅安装 notify 时需要
 
-> **凭据与 claude-mem 已有模型不覆盖，包括 `-y` 模式。** Magic Context 模型仍跟模板走；交互模式先列变更再确认。字段范围见[配置合并](#配置合并)。
+> **凭据与 claude-mem 已有模型不覆盖，包括 `-y` 模式。** Magic Context 模型仍跟模板走；配置写入在开头统一确认。四个 `*-newapi` provider 与套件自有 MCP 的非敏感字段由模板接管，本机敏感值保留。字段范围见[配置合并](#配置合并)。
 
 ## Windows（Git Bash）
 
@@ -519,14 +528,14 @@ PS：上游 `install.ps1` / winget 面向零前提用户；本项目约定 Git B
 | claude-mem | 优先复用 `~/.claude/plugins/marketplaces/thedotmack` runtime；缺失/过旧时询问官方 `--ide codex-cli` 安装器 |
 | 本地记忆插件 | 注册 `claude-mem@claude-mem-local`，自带 MCP、skills、hooks |
 | Ponytail | 官方 `ponytail@ponytail`；Node 须在启动 Codex 的 PATH 中 |
-| CodeGraph | 缺则装 CLI，以 `codex mcp add` 注册；保留现有 `mcp_servers.codegraph`，各项目运行 `codegraph init` |
+| CodeGraph | 由 `modules/codegraph` 处理：缺则装 CLI，以 `codex mcp add` 注册；保留现有 `mcp_servers.codegraph`，各项目运行 `codegraph init` |
 | skills | 共用同步器刷新 base（漂移先备份），补装四个外部设计 skill、更新已登记第三方 |
 | Magic Context / notify | 不安装；不动原生压缩；缺 `ctx_*` 的记忆技能仅 best effort |
 
 ### 配置与共享资产安全
 
 - 写前列待添加项、确认并备份；TOML 由 Codex CLI 写入
-- 不管理模型/认证；保留已安装或显式禁用项，重跑不自动升级
+- 不管理模型/认证；保留已安装或显式禁用项，重跑不自动升级。无可用 Python、无法核对 TOML 时，本次跳过 claude-mem 配置与官方安装器，安装 Python 后重跑
 - `~/.claude-mem/settings.json` 原样保留（含 provider/URL/key）；官方安装器临时改写后也恢复
 - 首次创建 OpenAI 兼容后端占位符，需手填
 
@@ -729,7 +738,7 @@ OpenCode setup 单独询问是否刷新 Magic Context，默认 Y；v2 兼容基�
 
 ### context-mode fork
 
-**不要装上游 `npm:context-mode`。** 它与 magic-context 都注册 `ctx_search`，Pi 会因同名工具 `process.exit(1)`；脚本检测到会提示卸载。
+**不要装上游 `npm:context-mode`。** 它与 magic-context 都注册 `ctx_search`，Pi 会因同名工具 `process.exit(1)`；脚本检测到会提示卸载。清理只针对确认的上游包、mksglu 地址或包元数据确认的旧 clone，相似名称的其他包保留。
 
 本仓库 fork：
 
@@ -789,7 +798,7 @@ bash /tmp/opencode-setup.sh --plugins-only
 
 | 模式 | 处理范围 |
 | --- | --- |
-| 默认完整安装 | 插件、配置、依赖与通用 skills；默认 base 24 个，交互可选 research、accel、kb、ppt，全部选中时为 43 个，另同步外部设计 skills；选 ppt 另补引擎与独立 Python 环境 |
+| 默认完整安装 | 插件、配置、依赖与通用 skills；默认 base 25 个，交互可选 research、accel、kb、ppt，全部选中时为 44 个，另同步外部设计 skills；选 ppt 另补引擎与独立 Python 环境 |
 | `--plugins-only` | 旧配置转原生 V2、自维护插件、context-mode 及其 skills、官方包登记、claude-mem runtime／入口／MCP；不更新模型／Python／通用 skills |
 | `--check` | 下载校验自维护包，检查配置，查询 Ponytail／Magic Context 本地与 npm 版本；不询问、不改配置、认证或数据库 |
 
@@ -800,7 +809,7 @@ bash /tmp/opencode-setup.sh --plugins-only
 | v2 | `opencode-plugins-v2.tar.gz` → `v2/`，含 server 与 TUI 入口 | `plugins`、`cli.json` |
 
 - **旧插件迁移**：旧散装入口和旧 v1 包统一纳管；v1→v2 后移入 `$CFG/.agent-skills-backups/<时间戳>/`，不留在自动扫描目录。无需手工删除；相同内容不重写，不自动降级回 v1。
-- **保留范围**：私密值、provider 本地设置、未知第三方配置、认证、会话库和外置正文。转换复用官方 2.2.3 归一化器，在本机执行；改前备份，冲突停止，无变化不写入。
+- **保留范围**：私密值、非受管 provider 的本地设置、未知第三方配置、认证、会话库和外置正文。受管 newapi／MCP 只保留敏感值，其余结构随模板。转换复用官方 2.2.3 归一化器，在本机执行；改前备份，冲突停止，无变化不写入。
 - Ponytail：官方包由宿主加载；宿主会自动安装缺失包，但不会替换已有缓存。setup 维护时查询本地版本与 npm `latest`，有新版默认询问刷新；确认后只刷新该官方包，不调用宿主 plugin CLI。
 - **Magic Context**：独立询问刷新，默认 Y；确认后备份移走 latest 缓存、登记官方 `@latest`。选 N 保留现状并继续，兼容性 WARN 不等于可用。
 - **context-mode**：独立 release，部署到 `vendor/context-mode/`。notify 旧入口备份停用。
@@ -1021,16 +1030,11 @@ v2 的 `cli.json` 使用点分 action 名：
 
 **终端边界：** Shift+Enter 需要终端传递不同于 Enter 的输入。若 Ctrl+Enter 被编码成普通 Enter/LF，应用无法还原物理按键；“不绑定”不保证所有终端按下都无效果。
 
-### 8. 近期纠错与大输出外置
+### 8. 近期纠错与原生输出门控
 
-V2 预构建包已包含，不另装独立入口：
+V2 预构建包已包含 `context_rewrite(ids, note)`：撤下近期无用调用及结果，仅改变模型发送视图；原始历史与命令副作用保留，编号独立于 Magic Context 的 tag。
 
-- `context_rewrite(ids, note)`：撤下近期无用调用及结果，仅改变模型发送视图；原始历史与命令副作用保留
-- 自动外置：普通文本默认 ≥16 KiB，留下预览、状态和持久文件指针
-- `context_output_read`：分页或 `full=true` 取回原文；显式全文不再次外置
-- Magic Context 仍主管长期历史与记忆；编号独立，不使用它的 tag
-
-完整参数、存储目录与宿主边界见 [上下文插件说明](context-rewrite/README.md)。
+大输出由 Pi／OpenCode／DSH 原生门控处理：按截断提示、输出文件或 spill 路径，用原生 Read 的 offset/limit 继续读取。自研自动外置和 `context_output_read` 已从新资产移除；**发布后重跑对应 setup 并重启宿主才生效**，源码或候选包本身不改变 live。既有快照文件不删除，仍可按普通文本读取。完整边界见 [上下文插件说明](context-rewrite/README.md)。
 
 ## OpenCode V2 最小配置参考
 
@@ -1062,11 +1066,11 @@ npm 缺失包在 OpenCode 启动时自动安装；已有包不会因重启自动
 
 ### Skills
 
-本仓库 skill 由四个 setup 脚本调用的 `skills-sync.sh`（仓库根）分组同步，**重跑完整 setup 刷新所选组**；OpenCode 的 `--plugins-only` 不更新通用 skills。始终从 GitHub 拉取 `main` tarball 安装；分组即仓库 `skills/{base,research,accel,kb}/` 目录，新增 skill 放入对应组目录即可，无名单维护：
+本仓库 skill 由四个 setup 脚本调用的 `skills-sync.sh`（仓库根）分组同步，**重跑完整 setup 刷新所选组**；OpenCode 的 `--plugins-only` 不更新通用 skills。源码默认取自受管本地 Git clone，首次 clone、后续 fetch；`AGENT_SKILLS_SOURCE` 可只读指定候选工作树。编译插件不走源码安装，仍由各自 Release 分发。分组即仓库 `skills/{base,research,accel,kb,ppt}/` 目录，新增 skill 放入对应组目录即可，无名单维护：
 
 | 组 | 策略 |
 |---|---|
-| base（品味/流程，24） | 每次随仓库刷新；本地有未回流改动先整目录备份到 `~/.local/share/agent-skills/.backups/` 再覆盖（回流后删备份） |
+| base（品味/流程，25） | 每次随仓库刷新；本地有未回流改动先整目录备份到 `~/.local/share/agent-skills/.backups/` 再覆盖（回流后删备份） |
 | research（科研／算法研究，9） | 每次随仓库刷新；本地有未回流改动先按组备份再覆盖 |
 | accel（算力平台模板，7） | 缺才装；本机特化后永不覆盖 |
 | kb（公共知识，2） | 每次随仓库刷新，不备份 |
@@ -1095,7 +1099,7 @@ bash skills-external.sh --ppt  # 另补缺ppt-master；不代替ppt组和独立P
 | 插件 | 更新方式 |
 |---|---|
 | Pi 本体与已装包，magic-context 除外 | 步骤 2，默认 Y；逐包 `pi update <spec> --no-approve`，不用 `--all` |
-| 本仓库 Pi git 包 / npm 包 | 同步骤 2，含 UI/later/耗时/主题；`pi-autoname@0.6.8` 钉版，Pi 会跳过 |
+| 本仓库 Pi 本地路径包 / npm 外部包 | setup 从 SOURCE_ROOT staged 到 `~/.pi/agent/vendor/agent-skills`，按根 lockfile 复用或安装依赖，并退役旧 git 登记；npm 外部包同步骤 2，含 `pi-autoname@0.6.8` 钉版 |
 | magic-context（Pi） | 步骤 3.1 独立询问，默认 Y |
 | Magic Context（OpenCode） | 独立询问、默认 Y；确认后备份移走其 latest 缓存并登记 `@latest`，下次宿主启动下载；Pi 包另行同步 |
 | OpenCode 自维护包（later、context_rewrite） | setup 的固定版本 V2 release；插件备份放 `$CFG/.agent-skills-backups/`；claude-mem runtime 与宿主入口由官方安装器维护 |
@@ -1112,23 +1116,24 @@ bash skills-external.sh --ppt  # 另补缺ppt-master；不代替ppt组和独立P
 **共同规则**
 
 - 有变更先备份，无变更不写；OpenCode 插件目录用 `.agent-skills-backups/`，配置沿用相邻 `.bak*` 备份
-- 非敏感字段跟模板；本地独有键保留
+- 非敏感字段跟模板；本地独有键保留，但受管 provider／MCP 条目内部例外
+- 四个 `*-newapi` provider 与套件自有 MCP（`web`、`codegraph`）由模板完整管理：可增删模型、开关和非敏感字段；本机敏感值及其嵌套字段保留，模型列表按 `id` 对齐敏感叶子；数值 `maxTokens` 随模板。模板未列出的 provider／MCP 条目不删除；CodeGraph 仅接管 local，remote 或带 `url` 的现有条目保留并提示
 - 敏感键、本机已有值对应的模板 `<占位符>`：保留本地值
 - magic-context 合并后由 JSONC 规整为 JSON；注释保留在 `.bak`，不在新文件中
 
 | 文件 | 更新策略 / 特例 |
 |---|---|
-| `~/.config/opencode/opencode.json` | 先备份并转换旧字段，再在线获取 V2 模板；完整 setup 刷新 `providers.<名称>.models` 和套件 reviewer 的模型／档位，保留已有 provider 的 `settings`、headers 等本地字段及其它角色。插件模式仅转换格式与规范登记；路径遵循 `OPENCODE_CONFIG_DIR`／XDG |
+| `~/.config/opencode/opencode.json` | 先备份并转换旧字段，再在线获取 V2 模板；四个 `*-newapi` 的结构、models 与非敏感设置由模板接管，敏感值保留。其它 provider 只刷新 models，保留本地 settings／headers；自定义 provider、角色与未知第三方配置保留。插件模式仅转换格式与规范登记；路径遵循 `OPENCODE_CONFIG_DIR`／XDG |
 | `~/.claude-mem/settings.json` | `CLAUDE_MEM_*_MODEL` 随模板统一为 `mem-1`；API key、Base URL、port／host 保留，缺失键按模板补齐；`CLAUDE_MEM_PROVIDER` 仍强制 `openrouter` |
 | `~/.config/cortexkit/magic-context.jsonc` | 模型及其他非敏感字段仍随模板；historian／dreamer 的 OpenCode、Pi 默认模型为 `codex-newapi/gpt-6-luna`，embedding 不变 |
-| `~/.pi/agent/{settings,models,mcp}.json` | 非敏感字段随模板，由 `pi-setup.sh` 处理；已有 `tuiMode` 保留本地选择；mcp.json 本地命令路径在合并前替换；旧共享 MCP 只读迁移，不再部署 |
+| `~/.pi/agent/{settings,models,mcp}.json` | 非敏感字段随模板，由 `pi-setup.sh` 处理；四个 `*-newapi` 与 `web`／`codegraph` 条目按受管规则合并，敏感值保留。已有 `tuiMode` 保留本地选择；mcp.json 本地命令路径在合并前替换；旧共享 MCP 只读迁移，不再部署 |
 | `~/.pi/agent/agents/*.md` | 整文件部署；有差异才写，原文件留时间戳备份 |
 
 **隐私保护边界**
 
-- 键名命中 `SENSITIVE`，或模板值为 `<占位符>`：机器上已有值永不覆盖
+- 键名命中 `SENSITIVE`，或模板值为 `<占位符>`：机器上已有值永不覆盖；数值 `maxTokens` 是模型预算而非凭据，随模板更新
 - `SENSITIVE`：`api[_-]?key` / `secret` / `token` / `password` / `credential` / `bearer` / `auth` / `cookie` / `ingest` / `webhook` / `base[_-]?url` / `url` / `endpoint` / `host` / 以 `key` 结尾
-- OpenCode 配置的本地值优先；插件登记规范化，provider 模型与套件 reviewer 路由按上表单独刷新，其它角色选择保留
+- OpenCode 非受管配置的本地值优先；插件登记规范化，受管 newapi／MCP 与套件 reviewer 路由按上表刷新，其它角色选择保留
 - 模型字段中，`CLAUDE_MEM_*_MODEL` 随模板统一为 `mem-1`；API key、Base URL、port／host 保留。Magic Context 的 model 仍由脚本接管但本轮不改值。
 - 整文件覆盖的 `agent-skills-ui.json` / `agent-skills-editor.json` / `keybindings.json` 不含隐私内容
 

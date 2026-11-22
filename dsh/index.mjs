@@ -1,7 +1,6 @@
 import { createUserMessage } from "@deepseek-ai/dsh-llm";
 import { defineTool } from "@deepseek-ai/dsh-tools";
 import { DESCRIPTION, TOOL, artifact, indexOperations, isRecord, makeRecord, marker, windowSize } from "../context-rewrite/core.mjs";
-import { createOutputStore, READ_DESCRIPTION, READ_TOOL } from "../context-rewrite/output-store.mjs";
 
 export const name = "agent-skills-context";
 export const inject = ["tools", "sessions"];
@@ -54,7 +53,7 @@ export function rewrite(session, ids, note, window) {
 }
 
 export function apply(ctx) {
-  const window = windowSize(), store = createOutputStore();
+  const window = windowSize();
   ctx.tools.register(defineTool({
     name: TOOL, description: DESCRIPTION + " In DSH, all tool calls in one assistant step are one operation.",
     parameters: { ids: { type: "array", items: { type: "integer" }, required: true }, note: { type: "string", required: true } },
@@ -65,26 +64,14 @@ export function apply(ctx) {
       return rewrite(exec.agent.session, ids, note, window);
     },
   }));
-  ctx.tools.register(defineTool({
-    name: READ_TOOL, description: READ_DESCRIPTION,
-    parameters: { id: { type: "string", required: true }, offset: { type: "integer" }, full: { type: "boolean" } },
-    output, async execute(args, exec) { return store.retrieve(args, exec.signal); },
-  }));
   ctx.on("tools/post-execute", async (exec, result, next) => {
     const decision = await next();
     if (!exec.agent || exec.parent || decision.kind !== "accept" || exec.name === TOOL) return decision;
-    const content = decision.content ?? result.content;
     // 有其它策略改写结构化 value 时，保留它的权威输出。
     if (Object.hasOwn(decision, "value")) return decision;
-    let projected = content;
-    try {
-      const saved = await store.capture(content.filter((b) => b.type === "text").map((b) => b.text), {
-        tool: exec.name, input: exec.arguments, status: result.isError ? "error" : "completed",
-      });
-      if (saved) projected = [{ type: "text", text: saved.pointer }, ...content.filter((b) => b.type !== "text")];
-    } catch (error) { ctx.logger.warn("[context_output] 保存失败，保留原输出：%s", String(error)); }
+    const content = decision.content ?? result.content;
     const { index } = history(exec.agent.session);
     const op = index.operations.find((o) => o.assistant.data.message.content.some((c) => c.type === "tool-call" && c.id === exec.rootCallId));
-    return { ...decision, content: op ? [{ type: "text", text: marker(op) }, ...projected] : projected };
+    return { ...decision, content: op ? [{ type: "text", text: marker(op) }, ...content] : content };
   });
 }

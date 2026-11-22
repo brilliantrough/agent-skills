@@ -1,0 +1,46 @@
+---
+name: verification
+description: 按风险进行独立功能 Verification：依据项目本地验收条件、真实路径和可失败测试复核功能。Use for 跨模块／高风险改动、发布前功能复核、证据存疑，或用户明确要求 Verification、verification-reviewer。普通验证由主 Agent 完成；具体验证方法以项目资料为准，不预制通用测试矩阵，不代替 Consolidation 或用户验收。
+---
+
+# Verification：项目驱动的功能复核
+
+套件只提供角色和证据纪律：**简洁优先，覆盖关键风险，不追求形式上的大而全。** 具体验收条件、命令、fixture、平台和运行环境由项目决定，通用 skill 不预制测试矩阵。
+
+## 分工
+
+- **主 Agent**：先完成自己的最小真实验证，对实现和证据负责。
+- **`verification-reviewer`**：按风险独立复核需求覆盖、真实行为和测试有效性；不编辑实现，不作整理签收。
+- **`consolidation-reviewer`**：只在显式整理后审查 Codebase／API 语义、真实保护、简洁性及误删／该删未删。
+- **lint／schema／类型检查**：执行确定性规则，不证明功能正确；Reviewer 不冒充这些工具的结果。
+
+## 先读项目，再决定怎么验
+
+优先读取项目的 `AGENTS.md`、测试说明、现有检查入口和验收文档。由当前需求与本地资料确定：
+
+1. 用户可见结果和必须保持的行为；
+2. 最小真实路径、关键失败路径与高风险场景；
+3. 可用 fixture、隔离方式、平台及成本边界；
+4. 哪些证据必须由真实宿主或用户实机提供。
+
+项目没有现成矩阵时，按当前需求选择最小覆盖并说明假设，不在套件里另造通用矩阵。已有测试能覆盖时不新增平行验证器；确需新回归，接入项目现有入口。
+
+## 按风险委派
+
+跨模块、共享接口、数据迁移、权限／防损、发布回滚、证据存疑，或用户明确要求时，主 Agent 在自有验证后调用 `verification-reviewer`。局部低风险且已有直接行为覆盖的改动不每次委派。
+
+交接必须自包含：目标与验收条件、基线与完整差异、项目本地验证入口、已有结果与 SKIP、禁区及可用隔离环境。审查期间冻结相关文件。需要联网、真实服务、生产数据或昂贵计算时，必须另有用户授权；Reviewer 不自行扩大范围。
+
+统一规范见 [references/reviewer.md](references/reviewer.md)，宿主只保存原生角色配置：
+
+- Pi：`subagent_run(agent="verification-reviewer")`；OpenCode：同名原生 `subagent`。
+- DSH：`verification_review`；Codex：`spawn_agent(agent_type="verification-reviewer")`。
+- Claude Code：`subagent_type="verification-reviewer"`。
+
+只装 skill 不等于角色已注册，缺失时披露。发现漏装或 live 漂移时，由主 Agent 使用项目现有安装入口显式更新，再复核真实加载；Reviewer 不直接修改 live。临时 `general` 可作功能审查，但不证明该角色已安装或可加载。
+
+## 交付口径
+
+Reviewer 只读仓库，可在独立临时目录运行项目检查和最小复现，不联网、不安装、不读写 live 环境。无法安全隔离就写未验证。这里的只读是行为合同，不是文件系统沙箱；Bash／shell 仍可能写文件，需要硬隔离的项目应使用宿主沙箱或容器。
+
+最终分别报告：已验证行为与证据、发现的问题、SKIP／未验证环境，以及证据来自静态检查、隔离执行、真实宿主还是用户验收。通过只覆盖本次范围，不消除 SKIP，不代替用户最终验收。

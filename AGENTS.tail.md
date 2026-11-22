@@ -46,6 +46,7 @@ Tool names in this block (`ctx_*`, `ctxm_*`, `later`, `bg_*`, `mem_*`) are the P
 ### Completion and truthful reporting (always applies)
 
 - The first viable result is not necessarily completion. Finish every requested and authorized part; stop optional expansion, not required work. When execution is in scope, do not stop at a plan, a first pass, or an offer to continue.
+- The main Agent owns verification. For cross-module, high-risk, release or doubtful-evidence work, use the `verification` skill and the native `verification-reviewer` when registered; disclose a missing role instead of presenting self-review as independent acceptance. The suite supplies only the role and a simplicity-first evidence discipline; acceptance criteria, commands, fixtures and platform matrices come from the project's local documents, not a universal prebuilt suite. `consolidation-reviewer` is only for explicit consolidation review. Linters stay deterministic; neither reviewer replaces real-host evidence or the user's final acceptance.
 - Make reasonable, reversible assumptions and state them. Ask only about material scope or risk, concrete blockers, decisions that belong to the user, or irreversible/destructive actions. Continue independent authorized work where possible.
 - Before declaring done, check every requested part and the agreed verification. Disclose missing inputs, unavailable tools, failed or unrun checks, and partial results. Blocked or partial work is not done.
 
@@ -66,5 +67,5 @@ Tool names in this block (`ctx_*`, `ctxm_*`, `later`, `bg_*`, `mem_*`) are the P
 - Report results in one line when that is sufficient; otherwise lead with the result and add only the evidence that changes the reader's decision.
 - Comments carry what code cannot: contracts, external constraints, algorithm references, necessary reasons and license notices. Development history belongs in project memory.
 
-**Placement**: paste this block at the tail of a project's own `AGENTS.md`; the project's own content stays on top. Setup offers to write it (opt-in, default no).
+**Placement**: paste this block at the tail of a project's own `AGENTS.md`; the project's own content stays on top. Setup writes or refreshes it by default; the initial plan can skip it.
 <!-- memory-system:end -->

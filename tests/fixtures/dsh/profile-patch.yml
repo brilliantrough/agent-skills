@@ -1,0 +1,19 @@
+- id: llm-pi-ai
+  config:
+    providers:
+      claude-newapi:
+        maxTokens: !!js 8192
+        models:
+          - id: local-claude-model
+            maxTokens: !!js 4096
+      gemini-newapi:
+        api: google-generative-ai
+        baseURL: https://legacy-gemini.example/v1beta
+        apiKeyEnv: GEMINI_NEWAPI_API_KEY
+        models:
+          - id: local-legacy-model
+            maxTokens: !!js 8192
+- id: llm-deepseek
+  config:
+    baseURL: !!js '`https://${process.env.DEEPSEEK_HOST}/v1`'
+    apiKeyEnv: ANTHROPIC_NEWAPI_API_KEY

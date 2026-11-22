@@ -26,11 +26,11 @@ const decide = readFileSync(join(REPO, "src/core/policy/decide.ts"), "utf8");
 const fetchSource = readFileSync(join(REPO, "src/core/sandbox/fetch.ts"), "utf8");
 const dbSource = readFileSync(join(REPO, "src/core/store/db.ts"), "utf8");
 const instructions = readFileSync(join(REPO, "src/prompt/instructions.md"), "utf8");
-check("主宿主只有 context-output 一个自动外置 owner", dispatch.includes('MAGIC_CONTEXT_PI_SUBAGENT !== "1") return ALLOW'));
+check("主宿主使用原生输出门控，无 context-mode 自动替换", dispatch.includes('MAGIC_CONTEXT_PI_SUBAGENT !== "1") return ALLOW'));
 check("主宿主不叠加上游路由拦截", decide.includes('MAGIC_CONTEXT_PI_SUBAGENT !== "1") return ALLOW') && decide.indexOf('MAGIC_CONTEXT_PI_SUBAGENT !== "1") return ALLOW') > decide.indexOf("if (hit !== null) return deny"));
 check("显式代理与 origin SSRF 检查采用上游 #1403", fetchSource.includes("D-1403-PROXY-NOT-TARGET-1") && fetchSource.includes("await checkProxiedTarget(current, signal)"));
 check("Bun 原子建库发布前显式 checkpoint", dbSource.includes('raw.exec("PRAGMA wal_checkpoint(TRUNCATE)")'));
-check("系统提示写清 Bash、原生 Code Mode 与 snapshot", instructions.includes("native Bash") && instructions.includes("native Code Mode") && instructions.includes("context_output_read"));
+check("系统提示写清 Bash、原生 Code Mode 与原生输出门控", instructions.includes("native Bash") && instructions.includes("native Code Mode") && instructions.includes("native output gates") && instructions.includes("offset/limit"));
 
 for (const rel of ["server.mjs", "pi/index.js", "opencode/plugin.js"]) {
   const body = readFileSync(join(REPO, "release-out", rel), "utf8");
@@ -95,7 +95,7 @@ try {
   const sections = {};
   await handlers.get("before_agent_start")({ prompt: "verify", systemPrompt: "base", systemPromptOptions: { sections } }, ctx);
   check("Pi 注册 9 个 ctxm_* 工具", same([...tools.keys()].sort(), TOOLS), [...tools.keys()].join(" "));
-  check("Pi 注入中立路由和单一 snapshot 说明", sections.context_mode?.includes("native Code Mode") && sections.context_mode?.includes("context_output_read"));
+  check("Pi 注入中立路由和原生输出门控说明", sections.context_mode?.includes("native Code Mode") && sections.context_mode?.includes("native output gates"));
   const executed = await tools.get("ctxm_execute").execute("exec", { language: "javascript", code: "console.log('pi-ok')" }, new AbortController().signal);
   check("Pi ctxm_execute 真实执行", executed.content?.[0]?.text.trim() === "pi-ok", JSON.stringify(executed));
   const replaced = await handlers.get("tool_result")({ toolName: "bash", toolCallId: "large", input: { command: "produce-large-output" }, content: [{ type: "text", text: large }], isError: false }, ctx);
@@ -130,7 +130,7 @@ try {
   const dispose = await mod.setup(ctx);
   const exec = await tools.get("ctxm_execute").execute({ language: "javascript", code: "console.log('oc-ok')" }, { sessionID: "verify-oc-v2", id: "exec", signal: new AbortController().signal });
   const indexed = await tools.get("ctxm_index").execute({ path: "context-mode/guidance.md" }, { sessionID: "verify-oc-v2", id: "index", signal: new AbortController().signal });
-  const searched = await tools.get("ctxm_search").execute({ queries: ["context_output_read"] }, { sessionID: "verify-oc-v2", id: "search", signal: new AbortController().signal });
+  const searched = await tools.get("ctxm_search").execute({ queries: ["fullOutputPath"] }, { sessionID: "verify-oc-v2", id: "search", signal: new AbortController().signal });
   await handlers.tool["execute.before"]({ tool: "read", sessionID: "verify-oc-v2", id: "read-large", input: { path: ${JSON.stringify(bigFile)} }, agent: "main" });
   await handlers.tool["execute.before"]({ tool: "webfetch", sessionID: "verify-oc-v2", id: "webfetch", input: { url: "https://example.com" }, agent: "main" });
   const after = { tool: "bash", sessionID: "verify-oc-v2", id: "large", input: { command: "produce-large-output" }, agent: "main", status: "completed", result: { content: [{ type: "text", text: ${JSON.stringify(large)} }] } };
@@ -155,10 +155,10 @@ try {
   check("OpenCode/Bun 注册 9 个直接工具", same(result.names, TOOLS) && result.codemode === false && result.pinned === undefined, result.names.join(" "));
   check("OpenCode ctxm_execute 真实执行", result.exec?.trim() === "oc-ok", result.exec);
   check("OpenCode 索引真实建库", typeof result.indexed === "string" && !result.indexed.includes("disk I/O error"), result.indexed);
-  check("OpenCode 检索真实读库", result.searched?.includes("context_output_read"), result.searched?.slice(0, 500));
+  check("OpenCode 检索真实读库", result.searched?.includes("context-mode/guidance.md") && result.searched?.includes("主宿主由 Pi／OpenCode／DSH 各自处理大输出") && result.searched?.includes("fullOutputPath"), result.searched?.slice(0, 500));
   check("OpenCode journal 无静默写库失败", !stderr.includes("journal write failed") && !stderr.includes("store failed"), stderr.slice(0, 500));
   check("OpenCode 大输出、大读与 WebFetch 不被强制改道", result.largeSame === true);
-  check("OpenCode 系统提示来自 v2 中立路由", result.prompt.includes("native Code Mode") && result.prompt.includes("context_output_read"));
+  check("OpenCode 系统提示来自 v2 中立路由", result.prompt.includes("native Code Mode") && result.prompt.includes("native output gates"));
 } catch (error) {
   check("OpenCode/Bun 官方 setup(ctx) 真实加载", false, String(error.stderr ?? error.stdout ?? error.message).slice(-1500));
 }
@@ -200,9 +200,9 @@ if (existsSync(join(piRoot, "server.mjs"))) {
     const indexed = await rpc(4, "tools/call", { name: "ctxm_index", arguments: { path: "context-mode/guidance.md" } });
     const indexText = indexed.result?.content?.map((part) => part.text ?? "").join("\n") ?? "";
     check("MCP 显式索引本地文件", !indexed.error && !indexed.result?.isError, indexText || JSON.stringify(indexed));
-    const searched = await rpc(5, "tools/call", { name: "ctxm_search", arguments: { queries: ["context_output_read"] } });
+    const searched = await rpc(5, "tools/call", { name: "ctxm_search", arguments: { queries: ["fullOutputPath"] } });
     const searchText = searched.result?.content?.map((part) => part.text ?? "").join("\n") ?? "";
-    check("MCP 检索已索引内容", !searched.error && !searched.result?.isError && searchText.includes("context_output_read"), searchText.slice(0, 600) || JSON.stringify(searched));
+    check("MCP 检索已索引内容", !searched.error && !searched.result?.isError && searchText.includes("context-mode/guidance.md") && searchText.includes("主宿主由 Pi／OpenCode／DSH 各自处理大输出") && searchText.includes("fullOutputPath"), searchText.slice(0, 600) || JSON.stringify(searched));
     const fetched = await rpc(6, "tools/call", { name: "ctxm_index", arguments: { url } });
     const fetchText = fetched.result?.content?.map((part) => part.text ?? "").join("\n") ?? "";
     check("MCP ctxm_index(url) 真实抓取", !fetched.error && !fetched.result?.isError, fetchText || JSON.stringify(fetched));

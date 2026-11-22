@@ -206,8 +206,7 @@
             }
           ]
         },
-        "gemini-newapi": {
-          "api": "google-generative-ai",
+        "google": {
           "baseURL": "<YOUR_GEMINI_NEWAPI_BASE_URL>",
           "apiKeyEnv": "GEMINI_NEWAPI_API_KEY",
           "models": [
@@ -292,6 +291,42 @@
         {
           "id": "reviewer-readonly",
           "name": "agent-skills-dsh/reviewer-policy"
+        }
+      ]
+    }
+  },
+  {
+    "id": "tool-verification-review",
+    "config": {
+      "provider": "spawn",
+      "toolName": "verification_review",
+      "agentPreset": "verification-reviewer",
+      "allowedAgentPresets": ["verification-reviewer"],
+      "agentOptions": {
+        "provider": "codex-newapi",
+        "model": "gpt-6.2-sol",
+        "reasoningEffort": "max"
+      }
+    }
+  },
+  {
+    "id": "agent-skills-verification-reviewer",
+    "config": {
+      "id": "verification-reviewer",
+      "name": "verification-reviewer",
+      "description": "独立功能 Verification：验收条件、真实行为、高风险复现与测试有效性。",
+      "plugins": [
+        {
+          "id": "verification-reviewer-persona",
+          "name": "@deepseek-ai/dsh-persona",
+          "config": {
+            "prefix": "你是独立功能 Verification 审查者。先读取 ~/.agents/skills/verification/references/reviewer.md，按其中规范和主会话交付的验收条件审查。仓库与正式环境只读，不修改代码、文档或记忆，不再委派；仅报告有证据的功能问题与未验证项。若规范文件缺失，报告给主会话。只能运行项目已有检查和独立临时目录中的最小复现；不得联网、安装、读写 live 配置或共享运行时，不得写入仓库。无法安全隔离时明确未验证。",
+            "complete": true
+          }
+        },
+        {
+          "id": "verification-reviewer-execution",
+          "name": "agent-skills-dsh/verification-policy"
         }
       ]
     }

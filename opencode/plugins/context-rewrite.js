@@ -1,5 +1,4 @@
 import { tool } from "@opencode-ai/plugin";
-import { createOutputStore, OUTPUT_META, READ_TOOL, READ_DESCRIPTION } from "../../context-rewrite/output-store.mjs";
 import { TOOL, META, DESCRIPTION, windowSize, indexOperations, makeRecord, artifact, marker, isRecord } from "../../context-rewrite/core.mjs";
 
 function snapshot(message) {
@@ -18,7 +17,6 @@ function snapshot(message) {
 
 export default async function ContextRewrite({ client, directory }) {
   const window = windowSize();
-  const outputStore = createOutputStore();
   const visibleBySession = new Map();
   const rowsBySession = new Map();
   async function readHistory(sessionID) {
@@ -48,16 +46,6 @@ export default async function ContextRewrite({ client, directory }) {
 
   return {
     tool: {
-      [READ_TOOL]: tool({
-        description: READ_DESCRIPTION,
-        args: {
-          id: tool.schema.string().regex(/^[a-f0-9]{64}$/).describe("context_output 的完整 id"),
-          offset: tool.schema.number().int().nonnegative().optional().describe("UTF-8 字节偏移；使用上页 next_offset，不是行号"),
-          full: tool.schema.boolean().optional().describe("显式取回全文，不再自动外置；默认分页"),
-        },
-        // 正文在 after hook 填入，避免插件工具的原生 50 KiB 截断再次裁掉显式取回。
-        async execute() { return { title: "外置原文取回", output: "" }; },
-      }),
       [TOOL]: tool({
         description: DESCRIPTION + ` Current window: ${window} completed operations.`,
         args: {
@@ -71,38 +59,6 @@ export default async function ContextRewrite({ client, directory }) {
           return { title: "近期上下文纠正", output: artifact(record), metadata: { [META]: record } };
         },
       }),
-    },
-    async "tool.execute.after"(input, output) {
-      if (input.callID?.includes("/")) return; // OpenCode codemode 子调用返回原数据供脚本计算。
-      if (input.tool === READ_TOOL) {
-        output.output = await outputStore.retrieve(input.args);
-        return;
-      }
-      const metadata = output.metadata ?? {};
-      // read 注入的项目指令不隐藏；下一次不再携带指令时可正常外置。
-      if (input.tool === "read" && metadata.loaded?.length) return;
-      const mcpContent = Array.isArray(output.content) ? output.content : undefined;
-      const texts = mcpContent ? mcpContent.flatMap((p) => p.type === "text" ? [p.text]
-        : p.type === "resource" && typeof p.resource?.text === "string" ? [p.resource.text] : [])
-        : typeof output.output === "string" ? [output.output] : [];
-      const fullOutputPath = !mcpContent && metadata.truncated ? metadata.outputPath : undefined;
-      const filePath = input.tool === "read" && metadata.display?.type === "file" ? metadata.display.path : undefined;
-      try {
-        const record = await outputStore.capture(texts, {
-          tool: input.tool, input: input.args, sourcePath: fullOutputPath ?? filePath,
-          force: Boolean(fullOutputPath || (filePath && metadata.truncated && input.args.limit === undefined)),
-          scope: fullOutputPath ? "host_saved_output_completeness_unverified" : filePath ? "complete_file_snapshot" : "tool_result_snapshot_may_be_host_truncated",
-          warning: fullOutputPath ? "The host spill file may already be incomplete. Retrieval returns exactly this snapshot; missing bytes cannot be recovered by this plugin." : undefined,
-          status: metadata.exit !== undefined ? `exit_code=${metadata.exit}` : output.isError ? "error" : "completed",
-        });
-        if (!record) return;
-        if (mcpContent) output.content = [{ type: "text", text: record.pointer }, ...mcpContent.filter((p) =>
-          p.type !== "text" && !(p.type === "resource" && typeof p.resource?.text === "string"))];
-        else output.output = record.pointer;
-        output.metadata = { ...metadata, [OUTPUT_META]: record };
-      } catch (error) {
-        console.error("[context_output] 保存失败，保留原始输出：", error);
-      }
     },
     async "experimental.chat.messages.transform"(_input, output) {
       const sessionID = output.messages.find((m) => m.info.sessionID)?.info.sessionID;

@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
-import { execSync } from 'node:child_process';
-import { existsSync, mkdtempSync, writeFileSync, rmSync, readdirSync } from 'node:fs';
-import { tmpdir, homedir } from 'node:os';
+import { existsSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -9,19 +8,12 @@ import { pathToFileURL } from 'node:url';
 // 时先发 session_shutdown 再发 session_start，而扩展模块只加载一次。
 const root = process.cwd();
 
-// 定位 Pi 安装目录：PI_HOST_DIR 显式指定，否则在常见位置找；找不到就跳过（不硬编码个人路径）。
+// 定位 Pi：显式 PI_HOST_DIR 时只认该路径，否则只看仓库 node_modules；不搜索 live HOME。
 function findHost() {
   const pkg = '@earendil-works/pi-coding-agent';
-  const cands = [];
-  if (process.env.PI_HOST_DIR) cands.push(process.env.PI_HOST_DIR);
-  cands.push(join(homedir(), '.pi', 'agent', 'npm', 'node_modules', pkg));
-  const shared = join(homedir(), '.local', 'share', 'pi-node');
-  if (existsSync(shared)) {
-    for (const d of readdirSync(shared)) cands.push(join(shared, d, 'lib', 'node_modules', pkg));
-  }
-  try {
-    cands.push(join(execSync('npm root -g', { encoding: 'utf8' }).trim(), pkg));
-  } catch {}
+  const cands = process.env.PI_HOST_DIR
+    ? [process.env.PI_HOST_DIR]
+    : [resolve(root, 'node_modules', pkg)];
   return cands.find((p) => existsSync(join(p, 'dist', 'core', 'extensions', 'loader.js')));
 }
 const host = findHost();

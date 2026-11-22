@@ -407,5 +407,5 @@ for (const text of TEXTS) {
 	}
 }
 
-console.log(failures === 0 ? "\nALL OK" : `\n${failures} FAILURES`);
+console.log(failures === 0 ? "\nPASS: 复制清洗" : `\n${failures} FAILURES`);
 process.exit(failures === 0 ? 0 : 1);
