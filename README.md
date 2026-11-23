@@ -858,6 +858,15 @@ npx claude-mem install --ide opencode
 
 setup 先移除受管同名 MCP 项，交官方安装器刷新，再统一转换为 `mcp.servers.claude-mem`；旧 Bun 条目交安装器更新为 Node。自定义命令、环境变量或禁用项保留并提示。旧 wrapper／lib 文件移到备份，不再运行。
 
+**可选：让 OpenCode／Pi 发现官方 `mem-search`。** 16.0.4 随包的 `plugin/skills/` 有 30 个技能；安装了宿主插件不等于这些技能都已注册。Linux 本机验证过，只链接查询技能即可让两个宿主使用上游原文（在目标名未占用、该技能未被用户禁用时执行）：
+
+```bash
+src="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/marketplaces/thedotmack/plugin/skills/mem-search"
+src="$(cd -- "$src" && pwd -P)" && test -f "$src/SKILL.md" && mkdir -p ~/.agents/skills && ln -sT "$src" ~/.agents/skills/mem-search
+```
+
+用新会话确认 `mem-search` 可加载。日常找旧决定用它；反复就一批历史观察提问时，再考虑 `knowledge-agent`，先确认该宿主实际有 corpus 工具。无需复制整包、安装第二份 MCP 或把每个任务都变成知识库。
+
 #### ② settings 与 worker
 
 配置文件：`~/.claude-mem/settings.json`。

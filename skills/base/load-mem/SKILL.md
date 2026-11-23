@@ -39,7 +39,7 @@ If a past attempt, trade-off or recurring failure matters and the answer is miss
 Use the installed catalog, not a remembered tool name. With Smart search, search for an index, inspect the timeline at a useful ID, then fetch only the observations that matter. Stop on sufficient evidence. Check scope on a miss; verify historical claims against the current implementation before acting.
 
 - OpenCode's official plugin may expose `claude_mem_search`, `claude_mem_timeline` and `claude_mem_get_observations`. Its official MCP offers the same Smart search path and additional tools. In V2 discover tools via Code Mode; use either route, not both for the same lookup.
-- In Claude Code use the plugin's `mem-search` skill and MCP tools when present. In Pi use the installed `mem_*` tools. Tool names and arguments vary by host and version. If the MCP or skill is missing, use available recall tools; do not register a second server to match another host's tool count.
+- When the official `mem-search` skill is discoverable, use its host-specific Smart search recipe. In Pi use the installed `mem_*` tools. If the skill is absent, use the available recall tools; do not register another server just to match another host's catalog.
 
 ## Read with the right interpretation
 

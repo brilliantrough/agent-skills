@@ -311,6 +311,7 @@ fi
 
 # StrictDoc memory is optional; check only the two memory directories, not deliverables.
 python3 skills/base/save-mem/scripts/check_size.py docs || err "StrictDoc 记忆超限或无法检查"
+python3 skills/base/discipline/scripts/check_block.py AGENTS.md || err "纪律块结构检查失败"
 
 # ---- 8. shell lint：脚本头、行尾、共用实现不分叉 ----
 echo "== 8. shell lint =="
@@ -488,6 +489,7 @@ if [ "$WITH_TESTS" = 1 ]; then
   t_case tests/pi-setup-shell-messages.py "$pwhy" python3 tests/pi-setup-shell-messages.py
   t_case tests/check-gate.py "$pwhy" python3 tests/check-gate.py
   t_case tests/memory-size.py "$pwhy" python3 tests/memory-size.py
+  t_case tests/discipline-block.py "$pwhy" python3 tests/discipline-block.py
   t_case tests/source-bench.py "$pwhy" python3 tests/source-bench.py
   t_case skills/ppt/nju-ppt/scripts/test_check_brief.py "$pwhy" python3 skills/ppt/nju-ppt/scripts/test_check_brief.py
 
