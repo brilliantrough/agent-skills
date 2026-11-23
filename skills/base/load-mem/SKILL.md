@@ -30,7 +30,7 @@ Recover enough context to work as a continuing project partner, so the user does
 | claude-mem | Cross-session observations of decisions, attempted solutions, failures, fixes, and actual work | Pi native `mem_*`; OpenCode `claude_mem_search` or claude-mem MCP tools; Claude Code plugin tools; see below |
 | Code, config, and git | Evidence of what exists and what actually changed | Relevant files, call chains, and history |
 
-The same knowledge may appear in several sources. That overlap helps recall, availability, and cross-checking.
+The same knowledge may appear in several sources. Reuse sufficient evidence; existing overlap is not an instruction to create copies.
 
 ## Recall with claude-mem
 

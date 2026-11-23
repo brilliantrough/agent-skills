@@ -23,7 +23,7 @@ Use judgment about investigation depth, document structure, storage overlap, and
 
 ## Build a useful memory foundation
 
-The companion `save-mem` skill describes memory maintenance and StrictDoc mechanics. Its `assets/docs-skeleton/` is a starting point; locate it through the skill registry or the sibling `../save-mem/` directory.
+Follow the project's existing StrictDoc grammar. For a new layout, use the skeleton at `../save-mem/assets/docs-skeleton/`.
 
 | Common location | Useful content |
 |---|---|
@@ -39,7 +39,7 @@ The companion `save-mem` skill describes memory maintenance and StrictDoc mechan
   - A root AGENTS `user-discipline` block remains binding user instruction above those records: keep it where it is, unchanged; it is never migrated into StrictDoc or turned into background memory.
   - Statuses such as Active, Proposed, Deprecated, and Superseded keep the distinction as the project evolves.
 - When sources conflict or the intended rule is unclear, surface the consequential question to the user. Record a rationale only when it is known, and label inferred policy as inferred. If a settled decision has genuinely changed, maintain the current norm and briefly tell the user; ordinary memory and explanatory cleanup can be more flexible.
-- The same fact or decision may also be stored in Magic Context. Choose the overlap that improves recall and resilience.
+- Do not mirror the baseline into a database. Existing observations can stay where they are.
 
 ## Preserve the project while improving readability
 

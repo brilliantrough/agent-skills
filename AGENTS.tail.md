@@ -9,19 +9,19 @@
 
 ## Project Memory System
 
-StrictDoc (`docs/`), Magic Context and claude-mem work together. Their content may overlap; choose storage, depth and timing by judgment.
+StrictDoc (`docs/`), Magic Context and claude-mem work together. Default to no memory write. Use one store for a new durable fact; do not manually mirror it across stores.
 
 Tool names in this block (`ctx_*`, `ctxm_*`, `later`, `bg_*`, `mem_*`) are the Pi and OpenCode ones. On a host without them, such as Claude Code, use its native equivalents: its own memory and context management, background tasks, web tools and the claude-mem plugin. StrictDoc in `docs/` is plain text and works on every host.
 
 - **Session start**: run `load-mem`. Read project instructions and any user-discipline block, then the project profile (default `docs/handbook/project-profile.sdoc`), then task-relevant memory and source. Without a profile, continue with targeted recall instead of surveying the whole repo.
-- **Milestones and before ending work**: run `save-mem`. When the project's shape, major research routes or key understanding change, update the profile with `project-profile`. Initialize memory with `migrate-mem`.
+- **Milestones**: use `save-mem` for lasting outcomes. Leave StrictDoc untouched after routine work. Only an explicit request or a consequential phase outcome warrants a brief human-readable conclusion; use the existing node and skip process details. When the project's shape, major research routes or key understanding change, update the profile with `project-profile`. Initialize memory with `migrate-mem`.
 - **Recall before asking**: for prior decisions, attempted solutions, recurring failures or cross-session work, search claude-mem, StrictDoc and Magic Context (`ctx_search`) before asking the user to repeat context. Injected memory is a partial view. Tool names differ per host; `load-mem` lists them.
 - **Source of truth**: below live user instructions and the discipline block, current StrictDoc norms win when records disagree. `Active` decisions are current rules; proposals, retired decisions, journal entries and reports are history and stay distinguishable.
 - **Read narrowly**: grep the StrictDoc tree, e.g. `grep -B1 -A1 '^STATUS: Active' docs/project_memory/decisions.sdoc`, then read only the matched node.
 - **Norms change, history stays**: when the user changes a decision or a settled change is clear, add a successor, mark the old node `Superseded` and say so briefly. Guesses and one-off attempts do not change norms.
 - **Saving is maintenance, not accumulation**: each save rewrites, merges or deletes repeated and stale wording in place. Record conclusions, real constraints, open risks and necessary evidence; leave out tool logs, hash/diff/manifest ledgers and disclaimers.
 - **Reorganizing memory**: only when the user asks, with `consolidator`. Keep a recoverable baseline; facts, status, referenced IDs and evidence stay traceable.
-- **Risks**: record open concerns, unproven assumptions, method weaknesses and the distance to the goal in `docs/project_memory/risks.sdoc` when it exists, including concerns the user voices before there is evidence.
+- **Risks**: keep a consequential blocker and its reopening condition in the existing handoff. Update a StrictDoc risk entry only when a milestone or explicit request warrants it.
 - **Validate**: after changing `.sdoc` or StrictDoc config, run `strictdoc export .` from the docs root and fix failures before calling the update done.
 
 ### Technical writing and replies (always applies)
