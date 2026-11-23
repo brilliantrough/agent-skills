@@ -34,25 +34,12 @@ The same knowledge may appear in several sources. Reuse sufficient evidence; exi
 
 ## Recall with claude-mem
 
-- When earlier decisions, attempts, fixes, or work history could change the next action, proactively search claude-mem before asking the user to repeat them or redoing the investigation. Use it alongside the other stores from the start, whether or not Magic Context has already answered.
-- Automatic capture, injected context, and active search are different. An injected index is a partial view, and a miss in Magic Context says nothing about claude-mem. If evidence is already sufficient, skip duplicate queries. Empty results can reflect project/platform scope rather than an empty database.
+If a past attempt, trade-off or recurring failure matters and the answer is missing, search claude-mem before repeating the investigation or asking the user. Automatic capture and the injected session summary are not a full search. If the answer is already supported, stop; do not query every store.
 
-### Recognize the host's tools
+Use the installed catalog, not a remembered tool name. With Smart search, search for an index, inspect the timeline at a useful ID, then fetch only the observations that matter. Stop on sufficient evidence. Check scope on a miss; verify historical claims against the current implementation before acting.
 
-These are all entry points to **claude-mem**. Names below reflect claude-mem 13.39.0, Pi 1.2.0 and OpenCode 2.0.29 (2026-10-14); discover the actual catalog and parameter schema when versions or server names differ.
-
-| Integration | Tool names / access | Recall flow |
-|---|---|---|
-| Pi official native extension | `mem_search`, `mem_timeline`, `mem_get_observations` — no MCP prefix | Search with `query`/`limit`; inspect useful anchors with `mem_timeline`; fetch selected IDs with `mem_get_observations` |
-| OpenCode plugin's simple search | `claude_mem_search` | `query` only; not the full MCP workflow |
-| OpenCode claude-mem MCP | Server tools `mem_search`, `search`, `timeline`, `get_observations`, etc.; v2 Code Mode example: `tools["claude-mem"].mem_search(...)`; direct exposure example: `claude-mem_mem_search` | MCP `mem_search` supports guided/auto retrieval; use its own schema and returned next-step guidance |
-| Pi with an additionally configured claude-mem MCP | Example: `mcp__claude_mem__mem_search` | MCP contract (differs from the native Pi contract); this extra MCP is optional |
-| Claude Code with the claude-mem plugin | Plugin MCP tools, e.g. `mcp__plugin_claude-mem_mcp-search__search`, `timeline`, `get_observations` (seen 2026-11-18) | Search for an index, `timeline` around useful anchors, then fetch selected IDs. Magic Context is not installed there; use Claude Code's own memory alongside StrictDoc |
-
-- MCP examples assume the server key `claude-mem`. Use the catalog's exact prefix, punctuation, and call signature; OpenCode and Pi expose them differently. In Code Mode, search its catalog if a tool is not listed.
-- **Same basename does not mean same parameters:** Pi native `mem_search` does not accept MCP `mode`, `continuation`, or `selectedIds`. MCP guided replies supply the continuation and selectable IDs; auto mode performs bounded retrieval in one call. Older MCP `search` → `timeline` → `get_observations` remains a separate layered interface.
-- Fetch only the context/details needed to answer the question; an adequate index needs no further expansion. If injected text says `get_observations` or `mem-search skill`, map it to the available claude-mem tools; that skill may not be installed. On native Pi, detail retrieval is `mem_get_observations`.
-- Treat retrieved observations as historical evidence. Verify changed facts against current norms and source before acting on them.
+- OpenCode's official plugin may expose `claude_mem_search`, `claude_mem_timeline` and `claude_mem_get_observations`. Its official MCP offers the same Smart search path and additional tools. In V2 discover tools via Code Mode; use either route, not both for the same lookup.
+- In Claude Code use the plugin's `mem-search` skill and MCP tools when present. In Pi use the installed `mem_*` tools. Tool names and arguments vary by host and version. If the MCP or skill is missing, use available recall tools; do not register a second server to match another host's tool count.
 
 ## Read with the right interpretation
 

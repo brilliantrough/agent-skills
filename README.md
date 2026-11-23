@@ -13,7 +13,7 @@
 
 统一的是协作与证据底线，不是所有人的整套环境。`base/research/accel/kb/ppt`继续表达安装选择与更新策略；当前默认配置是推荐组合，不等于每项个人偏好都是团队规范。
 
-知识可以通过skill交付；独立与否取决于使用者、共同演化的内容和发布责任，不按深浅或文件数划线。成熟领域自行发展，主体引用；实际复用出现反复的检索/冲突/发布困难时再补设施，不预建通用知识平台。
+独立能力按使用者和发布责任划分，成熟领域由主体引用。上游补齐能力后，用原有验收场景验证；通过就退役对应的本地补丁、入口和过时指引，只保留仍解决实际问题的适配。
 
 | 宿主 | 定位 |
 |---|---|
@@ -752,7 +752,7 @@ OpenCode setup 单独询问是否刷新 Magic Context，默认 Y；v2 兼容基�
 
 本仓库 fork：
 
-- 基于上游 **2.2.1**，将 9 个工具改名为 `ctxm_*`；主宿主自动外置统一由本仓无损 snapshot 负责
+- 基于上游 **2.2.1**，将 9 个工具改名为 `ctxm_*`；大输出按[宿主原生读取方式](context-rewrite/README.md)处理
 - 只带 `context-mode`、`ctx-doctor`、`ctx-stats` 三个 skills；v1 的旧 references 与单工具命令 skills 不再分发
 - 产物走 GitHub release，不进 git 历史；开发机发布：`bash context-mode/setup.sh --publish`
 - 目标机无需 clone 或上游开发依赖；Pi 实际运行 Node 必须 **≥24.15**，不满足时 setup 保留旧版并警告，不静默替换
@@ -854,7 +854,7 @@ npx claude-mem install --ide opencode
 
 #### ① MCP 查询工具
 
-官方 13.35.0 安装器为 OpenCode 登记 `mcp.claude-mem`，命令是 `[Node绝对路径, mcp-server.cjs绝对路径]`；setup 不另写命令。原生 `claude_mem_search` 是简化搜索，MCP 提供更多查询／保存能力，两者均为官方设计。
+本机 claude-mem 16.0.4 的 OpenCode 插件已提供 `claude_mem_search`、`claude_mem_timeline`、`claude_mem_get_observations`，可以独立完成分层召回。官方安装器另登记 MCP，提供带项目等筛选参数的搜索及其它工具；不需要手动再注册。历史决定或失败原因会影响当前任务、注入摘要又不足时，按 `load-mem` 主动检索，用一条路径查够即停。
 
 setup 先移除受管同名 MCP 项，交官方安装器刷新，再统一转换为 `mcp.servers.claude-mem`；旧 Bun 条目交安装器更新为 Node。自定义命令、环境变量或禁用项保留并提示。旧 wrapper／lib 文件移到备份，不再运行。
 
