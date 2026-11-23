@@ -858,14 +858,9 @@ npx claude-mem install --ide opencode
 
 setup 先移除受管同名 MCP 项，交官方安装器刷新，再统一转换为 `mcp.servers.claude-mem`；旧 Bun 条目交安装器更新为 Node。自定义命令、环境变量或禁用项保留并提示。旧 wrapper／lib 文件移到备份，不再运行。
 
-**可选：让 OpenCode／Pi 发现官方 `mem-search`。** 16.0.4 随包的 `plugin/skills/` 有 30 个技能；安装了宿主插件不等于这些技能都已注册。Linux 本机验证过，只链接查询技能即可让两个宿主使用上游原文（在目标名未占用、该技能未被用户禁用时执行）：
+**`mem-search` 随 Pi／OpenCode setup 自动接入。** 允许写配置并安装（或已经安装）官方宿主插件时，setup 在本机官方包找到 `plugin/skills/mem-search`，在 `~/.agents/skills/mem-search` 建目录链接；Windows 使用目录联接。每台机器指向自己的上游原件，不复制、不引用开发机路径。OpenCode 的 `--plugins-only` 也执行此步，`--check` 不写。两端重跑复用同一入口；缺少官方文件或遇到已有异源同名项时明确报错，不覆盖。未选择记忆插件且本机没有插件时不安装这个 skill。
 
-```bash
-src="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/marketplaces/thedotmack/plugin/skills/mem-search"
-src="$(cd -- "$src" && pwd -P)" && test -f "$src/SKILL.md" && mkdir -p ~/.agents/skills && ln -sT "$src" ~/.agents/skills/mem-search
-```
-
-用新会话确认 `mem-search` 可加载。日常找旧决定用它；反复就一批历史观察提问时，再考虑 `knowledge-agent`，先确认该宿主实际有 corpus 工具。无需复制整包、安装第二份 MCP 或把每个任务都变成知识库。
+新会话可加载 `mem-search`；其它上游 skills 不整包引入。`knowledge-agent` 仅在反复分析同一批观察且宿主具备 corpus 工具时考虑。
 
 #### ② settings 与 worker
 

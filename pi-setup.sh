@@ -1942,6 +1942,11 @@ elif [ "${PLAN_MEM_RUNTIME:-0}" = 1 ] && [ "${PLAN_WRITE_CFG:-1}" = 1 ]; then
   ensure_mem_provider "$MC_SETTINGS"
 fi
 
+if [ "${PLAN_WRITE_CFG:-0}" = 1 ] && { [ "${PLAN_MEM_RUNTIME:-0}" = 1 ] || [ -f "$AGENT_DIR/extensions/claude-mem/index.js" ]; }; then
+  [ -f "$AGENT_DIR/extensions/claude-mem/index.js" ] || { echo "ERROR: Pi claude-mem 扩展未就绪，不能启用 mem-search" >&2; exit 1; }
+  node "$(npath "$SOURCE_ROOT/scripts/link-mem-search.mjs")" "$(npath "${CLAUDE_CONFIG_DIR:-$HOME/.claude}")" "$(npath "$HOME/.agents/skills")"
+fi
+
 # deprecated: claude-mem-legacy 迁移段；用户确认退役后整段删除。
 if [ "${PLAN_WRITE_CFG:-0}" = 1 ] && { [ "${PLAN_MCP_MIGRATE:-0}" = 1 ] || [ "${PLAN_MEM_RUNTIME:-0}" = 1 ] || [ "${PLAN_LEGACY_CLEAN:-0}" = 1 ]; } \
    && [ -f "$AGENT_DIR/extensions/claude-mem/index.js" ] && [ -f "$MCP_CONFIG" ]; then

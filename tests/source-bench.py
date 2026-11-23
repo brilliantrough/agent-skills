@@ -143,6 +143,7 @@ def entry_asset_closure():
         "scripts/verify-subagents.sh", "skills/base/verification/SKILL.md",
         "skills/base/save-mem/scripts/check_size.py",
         "skills/base/discipline/scripts/check_block.py",
+        "scripts/link-mem-search.mjs",
         "skills/base/verification/references/reviewer.md", "dsh/verification-policy.mjs",
     }
     for line in text.splitlines():

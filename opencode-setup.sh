@@ -1596,7 +1596,7 @@ if [ "$PLAN_CLAUDE_MEM" = 1 ]; then
     trap 'exit 130' INT
     trap 'exit 143' TERM
     # 官方安装器会重写同名 MCP；先保留用户自定义或禁用的登记。
-    python3 - "$(npath "$CFG/opencode.json")" "$(npath "$HOME")" <<'PY_MEM_MIGRATE' || exit 1
+    python3 - "$(npath "$CFG/opencode.json")" "$(npath "$HOME")" <<'PY_MEM_MIGRATE' || exit $?
 import json, re, sys
 from pathlib import Path
 path, home = Path(sys.argv[1]), sys.argv[2].replace('\\', '/').rstrip('/')
@@ -1608,7 +1608,8 @@ for servers in (mcp, mcp.get('servers', {})):
         continue
     command = entry.get('command', []) if isinstance(entry, dict) else []
     if not isinstance(command, list):
-        sys.exit('WARN: claude-mem MCP 命令不是官方格式，保留原值并跳过安装器')
+        print('WARN: claude-mem MCP 命令不是官方格式，保留原值并跳过安装器', file=sys.stderr)
+        sys.exit(3)
     script = str(command[1]).replace('\\', '/') if len(command) == 2 else ''
     managed_script = script == home + '/.claude/plugins/marketplaces/thedotmack/plugin/scripts/mcp-server.cjs'
     managed_script |= bool(re.fullmatch(re.escape(home) + r'/\.claude/plugins/cache/thedotmack/claude-mem/[^/]+/(?:plugin/)?scripts/mcp-server\.cjs', script))
@@ -1617,7 +1618,8 @@ for servers in (mcp, mcp.get('servers', {})):
             or not managed_script or entry.get('type', 'local') != 'local'
             or set(entry) - {'type', 'command', 'enabled', 'disabled'}
             or entry.get('enabled') is False or entry.get('disabled') is True):
-        sys.exit('WARN: claude-mem MCP 有自定义或禁用配置，保留原值；跳过官方安装器，需单独处理')
+        print('WARN: claude-mem MCP 有自定义或禁用配置，保留原值；跳过官方安装器，需单独处理', file=sys.stderr)
+        sys.exit(3)
 # 官方安装器仍写旧形状；先移除受管同名项，安装后统一归一化。
 if 'claude-mem' in mcp.get('servers', {}):
     del mcp['servers']['claude-mem']
@@ -1628,11 +1630,21 @@ PY_MEM_MIGRATE
     migrate_opencode_config --apply || exit 1
     completed=1
     echo "claude-mem 官方安装器已结束；共享 settings 原样恢复，备份在 $backup"
-  ) || echo "WARN: claude-mem 未完成更新，请检查上方官方安装输出；其他插件已部署" >&2
+  ) || {
+    if [ "$?" = 3 ]; then mem_install_skipped=1
+    else echo "WARN: claude-mem 未完成更新，请检查上方官方安装输出；其他插件已部署" >&2; fi
+  }
 elif ! command -v npx >/dev/null 2>&1; then
   echo "WARN: 未检测到 npx，跳过 claude-mem 更新" >&2
 fi
 if [ "$PLAN_WRITE_CFG" = 1 ]; then ensure_mem_provider "$SETTINGS"; fi
+
+if [ "$PLAN_WRITE_CFG" = 1 ] && [ "${mem_install_skipped:-0}" = 0 ] && { [ "$PLAN_CLAUDE_MEM" = 1 ] || [ -f "$CLAUDE_PLUGIN" ]; }; then
+  [ -f "$CLAUDE_PLUGIN" ] || { echo "ERROR: OpenCode claude-mem 插件未就绪，不能启用 mem-search" >&2; exit 1; }
+  [ -n "${SOURCE_ROOT:-}" ] || acquire_source
+  mem_js=node; command -v node >/dev/null 2>&1 || mem_js=bun
+  "$mem_js" "$(npath "$SOURCE_ROOT/scripts/link-mem-search.mjs")" "$(npath "${CLAUDE_CONFIG_DIR:-$HOME/.claude}")" "$(npath "$HOME/.agents/skills")"
+fi
 
 if [ "$PLUGINS_ONLY" = 1 ]; then
   echo "插件部署完成；Magic Context 未就绪的 WARN 仍需处理。宿主与共享数据库未由 setup 升级。"

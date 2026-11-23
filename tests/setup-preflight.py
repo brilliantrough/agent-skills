@@ -902,6 +902,44 @@ printf 'WRITE=%s|EXTERNAL=%s|PONY=%s\n' "$PLAN_WRITE_CFG" "$PLAN_SKILLS_EXTERNAL
     print("OpenCode 只读计划：Ponytail 各档位与 --check 零询问；DSH 重跑选择不被 patch 包裹")
 
 
+def check_mem_search_setup():
+    """Run each setup's actual discovery step without invoking a shared worker installer."""
+    for host, choice in [('pi', 'PLAN_MEM_RUNTIME'), ('opencode', 'PLAN_CLAUDE_MEM')]:
+        source = (ROOT / f'{host}-setup.sh').read_text()
+        call = source.index('"$(npath "$SOURCE_ROOT/scripts/link-mem-search.mjs')
+        begin = source.rindex('\nif ', 0, call)
+        assert source.index(f'install --ide {host}') < begin < source.index('_ss="$SOURCE_ROOT/skills-sync.sh"')
+        if host == 'opencode':
+            assert call < source.index('if [ "$PLUGINS_ONLY" = 1 ]; then', call)
+        body = 'set -eu\nnpath() { printf %s "$1"; }\n'
+        if host == 'opencode':
+            body += 'unset SOURCE_ROOT\nfile_url() { printf "file://%s" "$1"; }\n' + function(ROOT / 'opencode-setup.sh', 'acquire_source')[0] + '\n'
+        body += source[begin:source.index('\nfi\n', call)+4]
+        with tempfile.TemporaryDirectory() as tmp:
+            home = pathlib.Path(tmp)
+            skill = home / 'custom config/plugins/marketplaces/thedotmack/plugin/skills/mem-search'
+            dest = home / '.agents/skills/mem-search'
+            plugin = home / ('pi/extensions/claude-mem/index.js' if host == 'pi' else 'plugins/claude-mem.js')
+            env = dict(os.environ, HOME=tmp, SOURCE_ROOT=str(ROOT), AGENT_SKILLS_SOURCE=str(ROOT), CLAUDE_CONFIG_DIR=str(home/'custom config'),
+                       AGENT_DIR=str(home/'pi'), CLAUDE_PLUGIN=str(plugin), PLAN_WRITE_CFG='1')
+            def run(selected='0', write='1'):
+                return subprocess.run(['bash', '-c', body], env=dict(env, **{choice:selected, 'PLAN_WRITE_CFG':write}), capture_output=True)
+            assert run().returncode == 0 and not dest.exists()
+            assert run('1').returncode != 0 and not dest.exists()
+            plugin.parent.mkdir(parents=True); plugin.touch()
+            assert run('1').returncode != 0 and not dest.exists()
+            skill.mkdir(parents=True); (skill/'SKILL.md').write_text('official')
+            assert run('1','0').returncode == 0 and not dest.exists()
+            assert run('1').returncode == 0 and (dest/'SKILL.md').samefile(skill/'SKILL.md')
+            assert b'unchanged:' in run().stdout
+            (skill/'SKILL.md').write_text('updated'); assert (dest/'SKILL.md').read_text() == 'updated'
+            if os.name == 'nt': dest.rmdir()  # junction, not its target
+            else: dest.unlink()
+            dest.mkdir(); (dest/'SKILL.md').write_text('mine')
+            assert run().returncode != 0 and (dest/'SKILL.md').read_text() == 'mine'
+    print('mem-search：Pi/OpenCode setup 正式接线、冷机、重跑、冲突与只读模式通过')
+
+
 def check_agents_tail():
     body, _, _ = function(ROOT / "skills-sync.sh", "inject_agents_md")
     with tempfile.TemporaryDirectory(prefix="setup-agents-") as d:
@@ -1289,6 +1327,7 @@ def main():
     check_opencode_source_assets()
     check_modules_local_only()
     check_agents_tail()
+    check_mem_search_setup()
     check_setup_preferences()
     print("PASS: setup 前置选择回归")
 
