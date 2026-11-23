@@ -331,6 +331,9 @@ LOCKED = {
     "npath": ALL3, "rpath": ALL3, "nbin": ALL3, "resolve_python3": ALL3,
     "ask": ALL3, "ask_value": ALL3, "fill_template_placeholders": ALL3, "mem_worker_url": ALL3,
     "file_url": SETUPS + ["skills-sync.sh"], "acquire_source": SETUPS + ["skills-sync.sh"],
+    "preference_get": SETUPS, "preference_put": SETUPS, "preferences_init": SETUPS,
+    "preferences_filter_modules": SETUPS, "preferences_lock": SETUPS,
+    "preferences_commit_locked": SETUPS, "preferences_commit": SETUPS,
     "net_ok": PI_OC, "config_probe": PI_OC, "collect_gateway_values": PI_OC, "ensure_mem_provider": PI_OC,
     "ensure_mem_worker_keys": PI_OC, "ensure_image_gen": PI_OC,
 }

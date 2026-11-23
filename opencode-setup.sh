@@ -68,16 +68,18 @@ resolve_python3() { # python3 就绪返回 0;否则 python → py → uv 自管�
 # 凭据在计划末尾一并收集;没有终端时静默跳过、占位符保留(无人值守用环境变量预填)。
 # 所有提问集中在 collect_setup_plan;执行段只按 PLAN_* 执行,不再提问。
 ASSUME_YES="${ASSUME_YES:-}"
-PLUGINS_ONLY=0; CHECK_ONLY=0
+PLUGINS_ONLY=0; CHECK_ONLY=0; CHOOSE=0
 while [ $# -gt 0 ]; do
   case "$1" in
     -y|--yes) ASSUME_YES=1 ;;
+    --choose) CHOOSE=1 ;;
     --plugins-only) PLUGINS_ONLY=1 ;;
     --check) CHECK_ONLY=1; PLUGINS_ONLY=1 ;;
     -h|--help)
       cat <<'HELP'
-用法: bash <本脚本> [-y|--yes] [--plugins-only|--check]
-  默认             完整配置、插件、依赖与通用 skills；默认 base，交互可选全组
+用法: bash <本脚本> [-y|--yes] [--choose] [--plugins-only|--check]
+  默认             完整配置、插件、依赖与通用 skills；有本机偏好时摘要一次确认后复用
+  --choose         忽略已保存答案并逐项选择，完成后保存新偏好
   --plugins-only   同步插件及 context-mode skills，转换旧配置格式；不更新模型/Python/通用 skills
   --check          下载校验自维护包、查询第三方版本、检查配置；不部署，不更改配置/认证/数据库
   -y, --yes        计划阶段采用各项默认值（默认 N 仍跳过）；凭据仍可交互询问
@@ -91,7 +93,7 @@ Magic Context 旧缓存路径自动迁回官方包名，保留当前缓存；--c
 AGENTS.tail 记忆规范块默认写入当前项目 AGENTS.md 尾部，计划阶段可跳过。
 HELP
       exit 0 ;;
-    *) echo "未知参数: $1(支持 -y|--yes / --plugins-only / --check / -h|--help)" >&2; exit 2 ;;
+    *) echo "未知参数: $1(支持 -y|--yes / --choose / --plugins-only / --check / -h|--help)" >&2; exit 2 ;;
   esac
   shift
 done
@@ -110,7 +112,7 @@ CLAUDE_PLUGIN="$PLUGINS/claude-mem.js"
 SETTINGS="$HOME/.claude-mem/settings.json"
 MC_CFG="$HOME/.config/cortexkit/magic-context.jsonc"
 
-ask() { # $1=提示 $2=默认(Y/N,缺省 N)
+ask_builtin() { # $1=提示 $2=默认(Y/N,缺省 N)
   local a="" def="${2:-N}" hint="y/N"
   [ "$def" = Y ] && hint="Y/n"
   # -y(默认安装):不再逐项确认,直接取默认 —— 默认 Y 的照做,默认 N 的跳过(凭据由 ask_value 单独问)
@@ -127,6 +129,171 @@ ask() { # $1=提示 $2=默认(Y/N,缺省 N)
   else
     [ "$def" = Y ]  # 非交互(无 tty):按该询问的默认值
   fi
+}
+
+# 本机安装偏好：只保存经过校验的是非选择与模块名单，不保存凭据，也不执行文件内容。
+PREF_FILE=""; PREF_SESSION=""; PREF_ORIGINAL=""; PREF_REUSE=0; PREF_WRITE=1; PREF_COUNT=0
+PREF_KNOWN_KEYS="SHARED_PROXY SHARED_PYTHON_UV SHARED_NODE SHARED_BUN SHARED_UV_INSTALL SHARED_UV_UPGRADE SHARED_UV_MIRROR SHARED_RESEARCH SHARED_ACCEL SHARED_KB SHARED_PPT SHARED_EXTERNAL SHARED_AGENTS_TAIL \
+PI_GIT_BASH PI_INSTALL PI_UPDATE PI_PKGS PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_CM_GROUP PI_MCP_MIGRATE PI_WRITE_CFG PI_MEM_RUNTIME PI_LEGACY_CLEAN PI_MODULES PI_MODULES_KNOWN \
+OC_UPGRADE OC_PONYTAIL OC_MC_REFRESH OC_CLAUDE_MEM OC_WRITE_CFG OC_FORCE_MANUAL OC_COMPACTION OC_TUI_KEYS OC_MODULES OC_MODULES_KNOWN \
+CODEX_WRITE_CFG CODEX_MEM_INSTALLER CODEX_PLUGINS CODEX_HOOKS CODEX_REVIEWER CODEX_MODULES CODEX_MODULES_KNOWN \
+DSH_NODE DSH_SKILLS DSH_MODULES DSH_MODULES_KNOWN"
+PREF_RISKY_KEYS="SHARED_PROXY OC_UPGRADE PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_MEM_RUNTIME OC_MC_REFRESH OC_CLAUDE_MEM CODEX_MEM_INSTALLER"
+preference_get() {
+  local key="$1" line
+  line="$(printf '%s\n' "$PREF_SESSION" | grep "^${key}=" | tail -1)"
+  [ -n "$line" ] || return 1
+  printf '%s' "${line#*=}"
+}
+preference_put() {
+  local key="$1" value="$2" current
+  [[ "$key" =~ ^(SHARED|PI|OC|CODEX|DSH)_[A-Z0-9_]+$ ]] || return 1
+  case " $PREF_KNOWN_KEYS " in *" $key "*) ;; *) return 1 ;; esac
+  case "$key" in *_MODULES|*_MODULES_KNOWN) [[ "$value" =~ ^[a-z0-9_,-]*$ ]] || return 1 ;;
+    *) [[ "$value" =~ ^[01]$ ]] || return 1 ;;
+  esac
+  if current="$(preference_get "$key")" && [ "$current" = "$value" ]; then return 0; fi
+  PREF_SESSION="$(printf '%s\n' "$PREF_SESSION" | grep -v "^${key}=" || true)"
+  PREF_SESSION="${PREF_SESSION:+$PREF_SESSION
+}${key}=${value}"
+}
+preferences_init() {
+  local line key value lineno=0
+  if [ "${CHOOSE:-0}" = 1 ]; then ASSUME_YES=""; YES=0; fi
+  PREF_FILE="${AGENT_SKILLS_PREFERENCES:-${XDG_CONFIG_HOME:-$HOME/.config}/agent-skills/preferences.conf}"
+  case "$PREF_FILE" in /*|[A-Za-z]:/*) ;; *) PREF_FILE="$PWD/${PREF_FILE#./}" ;; esac
+  PREF_SESSION="# agent-skills 本机安装偏好；只含非敏感选择，勿写入凭据"
+  PREF_ORIGINAL=""; PREF_REUSE=0; PREF_WRITE=1
+  [ "${CHECK_ONLY:-0}" = 0 ] && [ "${PLUGINS_ONLY:-0}" = 0 ] || PREF_WRITE=0
+  if [ -L "$PREF_FILE" ]; then
+    echo "WARN: 安装偏好目标是符号链接，忽略且不会替换" >&2
+  elif [ -f "$PREF_FILE" ]; then
+    PREF_ORIGINAL="$(cat "$PREF_FILE")"
+    while IFS= read -r line || [ -n "$line" ]; do
+      lineno=$((lineno+1))
+      line="${line%$'\r'}"
+      case "$line" in
+        ''|'#'*) continue ;;
+        *=*)
+          key="${line%%=*}"; value="${line#*=}"
+          preference_put "$key" "$value" || echo "WARN: 忽略安装偏好第 $lineno 行（键或值无效）" >&2
+          ;;
+        *) echo "WARN: 忽略安装偏好第 $lineno 行（格式无效）" >&2 ;;
+      esac
+    done < "$PREF_FILE"
+  fi
+  PREF_COUNT="$(printf '%s\n' "$PREF_SESSION" | grep -c '=' || true)"
+  if [ "$PREF_COUNT" -gt 0 ] && [ "${CHOOSE:-0}" != 1 ] && [ "${CHECK_ONLY:-0}" = 0 ]; then
+    if [ -n "${ASSUME_YES:-}" ] || [ "${YES:-0}" = 1 ]; then
+      PREF_REUSE=1
+    else
+      echo "安装偏好: $PREF_FILE"
+      printf '%s\n' "$PREF_SESSION" | while IFS= read -r line; do
+        case "$line" in
+          *_MODULES=*|*_MODULES_KNOWN=*) printf '%s=<待当前源码校验>\n' "${line%%=*}" ;;
+          *) printf '%s\n' "$line" ;;
+        esac
+      done
+      if ask_builtin "按以上安装偏好继续（否则逐项修改）？" Y; then PREF_REUSE=1; fi
+    fi
+  fi
+}
+ask() { # $1=提示 $2=默认 $3=稳定偏好键(可选)
+  local key="${3:-}" value rc answer=0
+  if [ -n "$key" ] && [ "${PREF_REUSE:-0}" = 1 ]; then
+    if value="$(preference_get "$key")"; then
+      [ "$value" = 1 ]; rc=$?
+    else
+      case " $PREF_RISKY_KEYS " in
+        *" $key "*) if ask_builtin "$1" "${2:-N}"; then rc=0; else rc=$?; fi ;;
+        *) if [ "${2:-N}" = Y ]; then rc=0; else rc=1; fi ;;
+      esac
+    fi
+  else
+    if ask_builtin "$1" "${2:-N}"; then rc=0; else rc=$?; fi
+  fi
+  [ "$rc" = 0 ] && answer=1
+  if [ -n "$key" ] && ! preference_put "$key" "$answer"; then
+    echo "WARN: 安装偏好键未登记，已忽略" >&2
+  fi
+  case "$key" in *_WRITE_CFG) PREF_WRITE="$answer" ;; esac
+  return "$rc"
+}
+preferences_filter_modules() {
+  local dir name valid="" line value item filtered key session="$PREF_SESSION"
+  printf '%s\n' "$PREF_SESSION" | grep -qE '_(MODULES|MODULES_KNOWN)=' || return 0
+  [ -n "${SOURCE_ROOT:-}" ] && [ -d "$SOURCE_ROOT/modules" ] || return 1
+  for dir in "$SOURCE_ROOT"/modules/*/; do
+    [ -f "$dir/setup.sh" ] || continue
+    name="$(sed -n 's/^# module:[[:space:]]*//p' "$dir/setup.sh" | head -1)"
+    name="${name:-$(basename "$dir")}"
+    valid="${valid:+$valid }$name"
+  done
+  while IFS= read -r line; do
+    case "$line" in
+      *_MODULES=*|*_MODULES_KNOWN=*)
+        key="${line%%=*}"; value="${line#*=}"; filtered=""
+        for item in ${value//,/ }; do
+          case " $valid " in
+            *" $item "*) filtered="${filtered:+$filtered,}$item" ;;
+          esac
+        done
+        [ "$filtered" = "$value" ] || preference_put "$key" "$filtered" || return 1
+        ;;
+    esac
+  done < <(printf '%s\n' "$session")
+}
+preferences_lock() {
+  PREF_LOCK="${PREF_FILE}.lock"
+  if ! mkdir "$PREF_LOCK" 2>/dev/null; then
+    echo "WARN: 检测到安装偏好锁: $PREF_LOCK；若确认无安装进程，可人工删除该目录后重试" >&2
+    return 1
+  fi
+  if ! printf '%s\n' "$$" > "$PREF_LOCK/pid"; then
+    rm -f "$PREF_LOCK/pid"; rmdir "$PREF_LOCK" 2>/dev/null || true
+    echo "WARN: 无法记录安装偏好锁，本次跳过" >&2; return 1
+  fi
+}
+preferences_commit_locked() {
+  (
+  trap 'rm -f "$PREF_LOCK/pid"; rmdir "$PREF_LOCK" 2>/dev/null || true' EXIT
+  local dir tmp current
+  dir="$(dirname "$PREF_FILE")"
+  if [ -L "$PREF_FILE" ] || { [ -e "$PREF_FILE" ] && [ ! -f "$PREF_FILE" ]; }; then
+    echo "WARN: 安装偏好目标已变为非普通文件或符号链接，未保存" >&2; return 0
+  fi
+  current=""; [ ! -f "$PREF_FILE" ] || current="$(cat "$PREF_FILE")"
+  if [ "$current" = "$PREF_SESSION" ]; then
+    echo "安装偏好: 未变化 ($PREF_FILE)"
+    return 0
+  fi
+  if [ "$current" != "$PREF_ORIGINAL" ]; then
+    echo "WARN: 安装偏好在本次运行期间已被其它进程修改，本次不覆盖；请重跑以合并选择" >&2
+    return 0
+  fi
+  tmp="$(mktemp "$dir/.preferences.XXXXXX")" || { echo "WARN: 无法暂存安装偏好" >&2; return 0; }
+  if printf '%s\n' "$PREF_SESSION" > "$tmp" && chmod 600 "$tmp" && mv "$tmp" "$PREF_FILE"; then
+    echo "安装偏好: 已保存 ($PREF_FILE)"
+  else
+    rm -f "$tmp"; echo "WARN: 安装偏好保存失败；安装计划不变" >&2
+  fi
+  )
+}
+preferences_commit() {
+  local dir
+  [ "${PREF_WRITE:-0}" = 1 ] || { echo "安装偏好: 本次为只读／精简模式或拒绝配置写入，不保存"; return 0; }
+  if [ -L "$PREF_FILE" ] || { [ -e "$PREF_FILE" ] && [ ! -f "$PREF_FILE" ]; }; then
+    echo "WARN: 安装偏好目标不是普通文件或是符号链接，未保存" >&2; return 0
+  fi
+  PREF_COUNT="$(printf '%s\n' "$PREF_SESSION" | grep -c '=' || true)"
+  [ "$PREF_COUNT" -gt 0 ] || return 0
+  preferences_filter_modules || { echo "WARN: 模块偏好未通过当前源码校验，未保存" >&2; return 0; }
+  dir="$(dirname "$PREF_FILE")"
+  if [ ! -d "$dir" ]; then
+    mkdir -p "$dir" && chmod 700 "$dir" || { echo "WARN: 无法创建安装偏好目录: $dir" >&2; return 0; }
+  fi
+  preferences_lock || return 0
+  preferences_commit_locked
 }
 
 # 宿主升级挪到计划阶段之后（见 collect_setup_plan 调用处），避免提问前就升级。
@@ -534,7 +701,7 @@ collect_setup_plan() {
   else
     echo "提醒: 未检测到代理环境变量(大小写的 http(s)_proxy / all_proxy 都查了),且直连 github.com 不通。"
     echo "      建议先 export http_proxy/https_proxy 再继续;有透明代理则可忽略。"
-    if ask "仍要继续吗？" N; then PLAN_PROXY=1; else PLAN_PROXY=0; fi
+    if ask "仍要继续吗？" N SHARED_PROXY; then PLAN_PROXY=1; else PLAN_PROXY=0; fi
   fi
 
   if command -v uv >/dev/null 2>&1 || [ -x "$HOME/.local/bin/uv$BIN_EXT" ]; then uv_present=1; fi
@@ -543,27 +710,27 @@ collect_setup_plan() {
 
   # 1) 宿主升级与依赖
   if [ "$PLUGINS_ONLY" = 0 ]; then
-    if ask "更新 OpenCode 到最新版(opencode upgrade)?" Y; then PLAN_UPGRADE=1; else PLAN_UPGRADE=0; fi
+    if ask "更新 OpenCode 到最新版(opencode upgrade)?" Y OC_UPGRADE; then PLAN_UPGRADE=1; else PLAN_UPGRADE=0; fi
     if ! { command -v python3 >/dev/null 2>&1 && python3 -c pass >/dev/null 2>&1; } \
        && ! { command -v python >/dev/null 2>&1 && python -c pass >/dev/null 2>&1; } \
        && ! { command -v py >/dev/null 2>&1 && py -3 -c pass >/dev/null 2>&1; }; then
-      if ask "缺少 Python 3 时用 uv 装自管理的 Python 3.12?" Y; then PLAN_PYTHON_UV=1; else PLAN_PYTHON_UV=0; fi
+      if ask "缺少 Python 3 时用 uv 装自管理的 Python 3.12?" Y SHARED_PYTHON_UV; then PLAN_PYTHON_UV=1; else PLAN_PYTHON_UV=0; fi
     else PLAN_PYTHON_UV=0; fi
   else
     PLAN_UPGRADE=0; PLAN_PYTHON_UV=0
   fi
   if [ "$PLUGINS_ONLY" = 0 ] && [ "$bun_present" = 0 ]; then
-    if ask "是否安装 Bun（配置转换与 context-mode 所需）？" Y; then PLAN_BUN=1; else PLAN_BUN=0; fi
+    if ask "是否安装 Bun（配置转换与 context-mode 所需）？" Y SHARED_BUN; then PLAN_BUN=1; else PLAN_BUN=0; fi
   else PLAN_BUN=0; fi
   if [ "$PLUGINS_ONLY" = 0 ] && [ "$npx_present" = 0 ]; then
     echo "未检测到 npx(claude-mem 官方安装器与 skills 安装需要 Node)。"
-    if ask "是否安装 fnm + Node LTS？" Y; then PLAN_NODE=1; else PLAN_NODE=0; fi
+    if ask "是否安装 fnm + Node LTS？" Y SHARED_NODE; then PLAN_NODE=1; else PLAN_NODE=0; fi
   else PLAN_NODE=0; fi
 
   # 2) 第三方插件缓存刷新
   # Ponytail 默认值由只读探测直接决定：只有确认有可更新版本才询问，其余（钉版/本地路径/同版本/更高/探测失败）跳过。
   if [ "$(plan_pony_default)" = Y ]; then
-    if ask "是否将 Ponytail 更新为 npm latest（旧缓存备份；钉版/本地登记不动）?" Y; then
+    if ask "是否将 Ponytail 更新为 npm latest（旧缓存备份；钉版/本地登记不动）?" Y OC_PONYTAIL; then
       PLAN_PONYTAIL=1
     else PLAN_PONYTAIL=0; fi
   else
@@ -571,11 +738,11 @@ collect_setup_plan() {
     echo "Ponytail: 无需更新或无法只读探测(钉版／本地路径／同版本／更高／查询失败)，跳过并保留现状。"
   fi
   echo "注意：新版首次加载可能迁移共享 context.db。确认前请退出 OpenCode/Desktop/Pi 并备份共享库；同机 Pi 版本需另行同步。"
-  if ask "是否刷新 Magic Context（已确认相关宿主停用并备份）?" Y; then PLAN_MC_REFRESH=1; else PLAN_MC_REFRESH=0; fi
+  if ask "是否刷新 Magic Context（已确认相关宿主停用并备份）?" Y OC_MC_REFRESH; then PLAN_MC_REFRESH=1; else PLAN_MC_REFRESH=0; fi
 
   if [ "$PLUGINS_ONLY" = 1 ]; then
     # 精简模式到此为止:配置、skills、uv、模块都不执行
-    if command -v npx >/dev/null 2>&1 && ask "更新 claude-mem runtime／官方插件／MCP（会停止共享 worker，之后手工重启）?" Y; then
+    if command -v npx >/dev/null 2>&1 && ask "更新 claude-mem runtime／官方插件／MCP（会停止共享 worker，之后手工重启）?" Y OC_CLAUDE_MEM; then
       PLAN_CLAUDE_MEM=1
     else PLAN_CLAUDE_MEM=0; fi
     PLAN_WRITE_CFG=1; PLAN_FORCE_MANUAL=0; PLAN_COMPACTION=0; PLAN_TUI_KEYS=0
@@ -590,21 +757,21 @@ collect_setup_plan() {
   fi
 
   # 3) 配置写入与自动更新档位(只读检查 live 配置)
-  if ask "写入/更新套件管理的配置文件（字段级合并，API key 等敏感值保留）?" Y; then PLAN_WRITE_CFG=1; else PLAN_WRITE_CFG=0; fi
+  if ask "写入/更新套件管理的配置文件（字段级合并，API key 等敏感值保留）?" Y OC_WRITE_CFG; then PLAN_WRITE_CFG=1; else PLAN_WRITE_CFG=0; fi
   PLAN_FORCE_MANUAL=0
   if [ "$PLAN_WRITE_CFG" = 1 ] && grep -qE '"update"[[:space:]]*:[[:space:]]*(true|"auto")|"autoupdate"[[:space:]]*:[[:space:]]*(true|"auto")' \
      "$CFG/opencode.json" "$CFG/opencode.jsonc" 2>/dev/null; then
-    if ask "OpenCode 当前允许自动更新(升级会打断正在运行的进程),改为只在 setup 里手动升级?" Y; then PLAN_FORCE_MANUAL=1; fi
+    if ask "OpenCode 当前允许自动更新(升级会打断正在运行的进程),改为只在 setup 里手动升级?" Y OC_FORCE_MANUAL; then PLAN_FORCE_MANUAL=1; fi
   fi
   if [ "$PLAN_WRITE_CFG" = 1 ]; then
     if { command -v npx >/dev/null 2>&1 || [ "$PLAN_NODE" = 1 ]; } \
-       && ask "更新 claude-mem runtime／官方插件／MCP（会停止共享 worker，之后手工重启）?" Y; then
+       && ask "更新 claude-mem runtime／官方插件／MCP（会停止共享 worker，之后手工重启）?" Y OC_CLAUDE_MEM; then
       PLAN_CLAUDE_MEM=1
     else PLAN_CLAUDE_MEM=0; fi
-    if ask "在 opencode.json 写入 compaction auto=false(让 magic-context 接管压缩;已有 compaction 则跳过)?" Y; then
+    if ask "在 opencode.json 写入 compaction auto=false(让 magic-context 接管压缩;已有 compaction 则跳过)?" Y OC_COMPACTION; then
       PLAN_COMPACTION=1
     else PLAN_COMPACTION=0; fi
-    if ask "统一 TUI 按键为 Enter 发送、Shift+Enter 换行，取消旧 Ctrl+Enter/Ctrl+J 发送绑定?" Y; then
+    if ask "统一 TUI 按键为 Enter 发送、Shift+Enter 换行，取消旧 Ctrl+Enter/Ctrl+J 发送绑定?" Y OC_TUI_KEYS; then
       PLAN_TUI_KEYS=1
     else PLAN_TUI_KEYS=0; fi
   else
@@ -616,34 +783,34 @@ collect_setup_plan() {
   uvcfg="$HOME/.config/uv/uv.toml"
   if [ "$IS_WIN" = 1 ] && [ -n "${APPDATA:-}" ]; then uvcfg="$(cygpath -u "$APPDATA")/uv/uv.toml"; fi
   if [ "$uv_present" = 0 ]; then
-    if ask "未检测到 uv,安装 uv(astral.sh 官方脚本,装到 ~/.local/bin)?" Y; then PLAN_UV_INSTALL=1; else PLAN_UV_INSTALL=0; fi
+    if ask "未检测到 uv,安装 uv(astral.sh 官方脚本,装到 ~/.local/bin)?" Y SHARED_UV_INSTALL; then PLAN_UV_INSTALL=1; else PLAN_UV_INSTALL=0; fi
     PLAN_UV_UPGRADE=0
   else
     PLAN_UV_INSTALL=0
-    if ask "uv 有新版本时升级(uv self update)?" Y; then PLAN_UV_UPGRADE=1; else PLAN_UV_UPGRADE=0; fi
+    if ask "uv 有新版本时升级(uv self update)?" Y SHARED_UV_UPGRADE; then PLAN_UV_UPGRADE=1; else PLAN_UV_UPGRADE=0; fi
   fi
   if grep -q 'pypi.tuna' "$uvcfg" 2>/dev/null || [ -f "$uvcfg" ]; then
     PLAN_UV_MIRROR=0   # 已配置或已有用户自建文件:沿用现有处理,只报告
-  elif ask "配置 uv 用清华 PyPI 镜像($uvcfg)?" Y; then PLAN_UV_MIRROR=1
+  elif ask "配置 uv 用清华 PyPI 镜像($uvcfg)?" Y SHARED_UV_MIRROR; then PLAN_UV_MIRROR=1
   else PLAN_UV_MIRROR=0; fi
 
   # 5) skills 分组、外部设计依赖、AGENTS.tail
   SKILL_GROUPS=(base)
-  ask "安装/更新 research 组(算法研究、实验、PyTorch 性能与 kernel;每次刷新·漂移自动备份)?" N && SKILL_GROUPS+=(research)
-  ask "安装/更新 accel 组(算力平台模板;缺才装·本机特化不覆盖)?" N && SKILL_GROUPS+=(accel)
-  ask "安装/更新 kb 组(公共算力知识;每次刷新)?" N && SKILL_GROUPS+=(kb)
-  ask "安装/更新 ppt 组(南大 HTML/PPTX、Dashi、ppt-master 与独立依赖;需 Node 20+、Python 3.10+)?" N && SKILL_GROUPS+=(ppt)
+  ask "安装/更新 research 组(算法研究、实验、PyTorch 性能与 kernel;每次刷新·漂移自动备份)?" N SHARED_RESEARCH && SKILL_GROUPS+=(research)
+  ask "安装/更新 accel 组(算力平台模板;缺才装·本机特化不覆盖)?" N SHARED_ACCEL && SKILL_GROUPS+=(accel)
+  ask "安装/更新 kb 组(公共算力知识;每次刷新)?" N SHARED_KB && SKILL_GROUPS+=(kb)
+  ask "安装/更新 ppt 组(南大 HTML/PPTX、Dashi、ppt-master 与独立依赖;需 Node 20+、Python 3.10+)?" N SHARED_PPT && SKILL_GROUPS+=(ppt)
   case "${SKILLS_EXTERNAL:-}" in
     skip) PLAN_SKILLS_EXTERNAL=skip ;;
     install) PLAN_SKILLS_EXTERNAL=install ;;
-    *) if ask "安装外部设计依赖（ui-ux-pro-max / huashu-design / design-taste-frontend）?" Y; then
+    *) if ask "安装外部设计依赖（ui-ux-pro-max / huashu-design / design-taste-frontend）?" Y SHARED_EXTERNAL; then
          PLAN_SKILLS_EXTERNAL=install
        else PLAN_SKILLS_EXTERNAL=skip; fi ;;
   esac
   case "${AGENTS_TAIL:-}" in
     0) PLAN_AGENTS_TAIL=0 ;;
     1) PLAN_AGENTS_TAIL=1 ;;
-    *) if ask "把记忆系统规范块(AGENTS.tail)写入当前目录 AGENTS.md 最尾部?" Y; then
+    *) if ask "把记忆系统规范块(AGENTS.tail)写入当前目录 AGENTS.md 最尾部?" Y SHARED_AGENTS_TAIL; then
          PLAN_AGENTS_TAIL=1
        else PLAN_AGENTS_TAIL=0; fi ;;
   esac
@@ -660,10 +827,22 @@ collect_setup_plan() {
   [ -f "$MODULE_RUN" ] || MODULE_RUN=""
   if [ -n "$MODULE_RUN" ]; then
     local sel_args=(--host opencode --repo "${AGENT_SKILLS_REPO:-brilliantrough/agent-skills}" --ref "${AGENT_SKILLS_REF:-main}")
+    local sel_env=("PATH=$PATH") saved_modules="" known_modules=""
     [ "${ASSUME_YES:-0}" = 1 ] && sel_args+=(--yes)
-    MODULE_SELECTION="$(bash "$MODULE_RUN" "${sel_args[@]}" --select)" || {
+    if [ "${PREF_REUSE:-0}" = 1 ]; then
+      saved_modules="$(preference_get OC_MODULES || true)"
+      known_modules="$(preference_get OC_MODULES_KNOWN || true)"
+      sel_env=("AGENT_SKILLS_MODULE_SELECTION=$saved_modules" "AGENT_SKILLS_MODULE_KNOWN=$known_modules")
+    fi
+    if MODULE_SELECTION="$(env "${sel_env[@]}" bash "$MODULE_RUN" "${sel_args[@]}" --select)"; then
+      preference_put OC_MODULES "${MODULE_SELECTION//$'\n'/,}"
+      if known_modules="$(bash "$MODULE_RUN" --host opencode --list)"; then
+        known_modules="$(printf '%s\n' "$known_modules" | awk '{print $1}' | paste -sd, -)"
+        preference_put OC_MODULES_KNOWN "$known_modules"
+      fi
+    else
       echo "WARN: 可选模块选择失败,本次跳过模块" >&2; MODULE_SELECTION=""
-    }
+    fi
   else
     echo "WARN: 取不到 modules/run.sh,本次跳过可选模块" >&2
   fi
@@ -949,8 +1128,10 @@ PY
 echo "== opencode 一键配置 =="
 
 # ---- 0. 计划阶段:一次问完(代理、宿主升级、依赖、插件、配置、skills、模块、凭据) ----
+preferences_init
 collect_setup_plan
 [ "$PLAN_PROXY" = 1 ] || { echo "已取消:未确认在无代理环境下继续。"; exit 1; }
+preferences_commit
 
 # ---- 0.1 宿主升级(自动更新关掉之后,升级只发生在这里;失败只警告) ----
 if [ "$PLAN_UPGRADE" = 1 ]; then

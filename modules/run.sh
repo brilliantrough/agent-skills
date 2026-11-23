@@ -18,6 +18,7 @@
 set -euo pipefail
 
 HOST=""
+HOST_EXPLICIT=0
 REPO="${AGENT_SKILLS_REPO:-brilliantrough/agent-skills}"
 REF="${AGENT_SKILLS_REF:-main}"
 YES=0
@@ -26,9 +27,13 @@ ONLY=""
 SELECT=0
 SELECTED=""
 SELECTED_SET=0
+MODULE_PREF_SET=0
+declare -p AGENT_SKILLS_MODULE_SELECTION >/dev/null 2>&1 && MODULE_PREF_SET=1
+: "${AGENT_SKILLS_MODULE_SELECTION:=}"
+: "${AGENT_SKILLS_MODULE_KNOWN:=}"
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --host) HOST="${2:-}"; shift 2 ;;
+    --host) HOST="${2:-}"; HOST_EXPLICIT=1; shift 2 ;;
     --repo) REPO="${2:-}"; shift 2 ;;
     --ref) REF="${2:-}"; shift 2 ;;
     --yes|-y) YES=1; shift ;;
@@ -63,7 +68,10 @@ ask_mod() {
 if [ "$LIST" = 1 ]; then
   for d in "$MDIR"/*/; do
     [ -f "$d/setup.sh" ] || continue
-    printf '%-24s %-4s %-10s %s\n' "$(meta "$d/setup.sh" module)" \
+    name="$(meta "$d/setup.sh" module)"; name="${name:-$(basename "$d")}"
+    hosts="$(meta "$d/setup.sh" hosts)"; hosts="${hosts:-any}"
+    if [ "$HOST_EXPLICIT" = 1 ] && [ "$hosts" != any ] && ! echo ",$hosts," | grep -q ",$HOST,"; then continue; fi
+    printf '%-24s %-4s %-10s %s\n' "$name" \
       "$(meta "$d/setup.sh" default)" "$(meta "$d/setup.sh" hosts)" "$(meta "$d/setup.sh" desc)"
   done
   exit 0
@@ -82,7 +90,16 @@ if [ "$SELECTED_SET" = 0 ]; then
     if [ "$hosts" != any ] && ! echo ",$hosts," | grep -q ",$HOST,"; then continue; fi
     desc="$(meta "$d/setup.sh" desc)"; desc="${desc:-模块 $name}"
     def="$(meta "$d/setup.sh" default)"; def="${def:-N}"
-    if ask_mod "安装 $name($desc)?" "$def"; then selection="${selection:+$selection$'\n'}$name"; fi
+    if [ "$MODULE_PREF_SET" = 1 ]; then
+      # 已选名单保持原样；上次未见过的模块才按当前默认值决定，交互模式只问这些新项。
+      if echo ",${AGENT_SKILLS_MODULE_SELECTION:-}," | grep -q ",$name,"; then
+        selection="${selection:+$selection$'\n'}$name"
+      elif ! echo ",${AGENT_SKILLS_MODULE_KNOWN:-}," | grep -q ",$name,"; then
+        if ask_mod "安装 $name($desc)?" "$def"; then selection="${selection:+$selection$'\n'}$name"; fi
+      fi
+    elif ask_mod "安装 $name($desc)?" "$def"; then
+      selection="${selection:+$selection$'\n'}$name"
+    fi
   done
 fi
 if [ "$SELECT" = 1 ]; then

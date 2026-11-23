@@ -4,6 +4,7 @@ import json
 import os
 import pathlib
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -974,6 +975,282 @@ def check_modules_local_only():
     print("模块分发：仅本地源码树取模块，缺模块不下载")
 
 
+def check_setup_preferences():
+    shared = {}
+    for fn in ("preference_get", "preference_put", "preferences_init", "ask", "preferences_filter_modules", "preferences_lock", "preferences_commit_locked", "preferences_commit"):
+        bodies = [function(ROOT / name, fn)[0] for name in SETUPS]
+        assert len(set(bodies)) == 1, f"四宿主偏好函数漂移: {fn}"
+        shared[fn] = bodies[0]
+    write_keys = {"pi-setup.sh": "PI_WRITE_CFG", "opencode-setup.sh": "OC_WRITE_CFG",
+                  "codex-setup.sh": "CODEX_WRITE_CFG", "dsh-setup.sh": ""}
+    constants = []
+    risky_constants = []
+    for name in SETUPS:
+        text = (ROOT / name).read_text(encoding="utf-8")
+        match = re.search(r'PREF_KNOWN_KEYS="(.*?)"\nPREF_RISKY_KEYS=', text, re.S)
+        assert match, f"{name}: 缺偏好键白名单"
+        allowed = frozenset(match.group(1).replace("\\\n", " ").split())
+        used = set(re.findall(r'\bask\s+[^\n;]*?\s+(?:Y|N|"\$def")\s+([A-Z][A-Z0-9_]+)', text))
+        assert used <= allowed, f"{name}: 未登记偏好键 {sorted(used - allowed)}"
+        constants.append((allowed, len(used)))
+        risky = re.search(r'^PREF_RISKY_KEYS="([^"]+)"', text, re.M)
+        assert risky, f"{name}: 缺高风险偏好键集合"
+        risky_constants.append(frozenset(risky.group(1).split()))
+    assert len({item[0] for item in constants}) == 1, "四宿主偏好键白名单漂移"
+    assert len(set(risky_constants)) == 1 and "OC_UPGRADE" in risky_constants[0], "高风险偏好键集合漂移"
+    assert all(count >= 7 for _, count in constants), f"偏好键覆盖异常: {constants}"
+    oc = (ROOT / "opencode-setup.sh").read_text(encoding="utf-8")
+    collect_at = oc.rindex("\ncollect_setup_plan\n")
+    proxy_at = oc.index('"$PLAN_PROXY" = 1', collect_at)
+    commit_at = oc.index("\npreferences_commit\n", collect_at)
+    assert collect_at < proxy_at < commit_at, "OpenCode 取消检查先于偏好保存的边界被破坏"
+    for name in SETUPS:
+        text = (ROOT / name).read_text(encoding="utf-8")
+        assert 'mod_env=("PATH=$PATH")' in text or 'sel_env=("PATH=$PATH")' in text, f"{name}: 空 env 数组未消除"
+    module_keys = {"pi-setup.sh": "PI_MODULES", "opencode-setup.sh": "OC_MODULES",
+                   "codex-setup.sh": "CODEX_MODULES", "dsh-setup.sh": "DSH_MODULES"}
+    for name in SETUPS:
+        path = ROOT / name
+        module_key = module_keys[name]
+        other_module_key = "OC_MODULES" if module_key == "PI_MODULES" else "PI_MODULES"
+        source = path.read_text(encoding="utf-8")
+        assert f"preference_get {module_key}" in source and f"preference_put {module_key}" in source
+        assert f"preference_get {module_key}_KNOWN" in source and f"preference_put {module_key}_KNOWN" in source
+        with tempfile.TemporaryDirectory(prefix="setup-preferences-") as d:
+            tmp = pathlib.Path(d)
+            pref = tmp / "config" / "agent-skills" / "preferences.conf"
+            parts = [function(path, "have_tty")[0]] if name == "dsh-setup.sh" else []
+            constants_block = re.search(r"(?ms)^PREF_FILE=.*?^PREF_RISKY_KEYS=[^\n]*$", source).group(0)
+            parts.append(constants_block)
+            parts.extend([function(path, "ask_builtin")[0], *shared.values()])
+            original = function(path, "ask_builtin")[0].replace("ask_builtin()", "ask_builtin_original()", 1)
+            parts.append(original)
+            write_key = write_keys[name]
+            driver = f'''
+set -e
+export AGENT_SKILLS_PREFERENCES={shlex.quote(str(pref))}
+export SOURCE_ROOT={shlex.quote(str(ROOT))}
+HOME={shlex.quote(str(tmp))}
+ASSUME_YES=""; YES=0; CHOOSE=0; CHECK_ONLY=0; PLUGINS_ONLY=0
+chmod 755 .
+preferences_init
+ask 'research' Y SHARED_RESEARCH
+! ask 'ppt' N SHARED_PPT
+preference_put {module_key} 'strictdoc,codegraph'
+preference_put {module_key}_KNOWN 'strictdoc,codegraph'
+'''
+            if write_key:
+                driver += f"ask 'write config' Y {write_key}\n"
+            driver += f'''
+preferences_commit
+grep -q '^SHARED_RESEARCH=1$' "$AGENT_SKILLS_PREFERENCES"
+grep -q '^SHARED_PPT=0$' "$AGENT_SKILLS_PREFERENCES"
+[ "$(stat -c %a "$AGENT_SKILLS_PREFERENCES")" = 600 ]
+[ "$(stat -c %a .)" = 755 ]
+[ "$(stat -c %a "$(dirname "$AGENT_SKILLS_PREFERENCES")")" = 700 ]
+before=$(sha256sum "$AGENT_SKILLS_PREFERENCES")
+ask_builtin() {{ return 1; }}
+preferences_init
+[ "$PREF_REUSE" = 0 ]
+ask_builtin() {{ ask_builtin_original "$@"; }}
+ASSUME_YES=1; YES=1
+preferences_init
+ask 'research' N SHARED_RESEARCH
+! ask 'ppt' Y SHARED_PPT
+preferences_commit
+[ "$(sha256sum "$AGENT_SKILLS_PREFERENCES")" = "$before" ]
+CHOOSE=1
+preferences_init
+[ -z "$ASSUME_YES" ] && [ "$YES" = 0 ]
+ask 'ppt' Y SHARED_PPT
+preferences_commit
+grep -q '^SHARED_PPT=1$' "$AGENT_SKILLS_PREFERENCES"
+CHOOSE=0
+printf '%s\n' 'SHARED_RESEARCH=1;echo SECRET_SENTINEL' 'UNKNOWN_KEY=1' 'BAD LINE' >> "$AGENT_SKILLS_PREFERENCES"
+cp "$AGENT_SKILLS_PREFERENCES" before-check
+CHECK_ONLY=1
+preferences_init > check-output 2>warnings
+[ ! -s check-output ]
+cmp -s "$AGENT_SKILLS_PREFERENCES" before-check
+if grep -q 'SECRET_SENTINEL' warnings; then echo 'FAIL: 非法行被回显' >&2; exit 1; fi
+[ ! -e SECRET_SENTINEL ]
+grep -q '忽略安装偏好' warnings
+CHECK_ONLY=0
+'''
+            if write_key:
+                driver += f'''
+sed -i 's/^{write_key}=1$/{write_key}=0/' "$AGENT_SKILLS_PREFERENCES"
+cp "$AGENT_SKILLS_PREFERENCES" before-no-write
+ASSUME_YES=1; YES=1
+preferences_init
+! ask 'write config' Y {write_key}
+preference_put SHARED_RESEARCH 0
+preferences_commit
+cmp -s "$AGENT_SKILLS_PREFERENCES" before-no-write
+'''
+            else:
+                driver += '''
+cp "$AGENT_SKILLS_PREFERENCES" before-read-only
+PLUGINS_ONLY=1
+preferences_init
+preference_put SHARED_RESEARCH 0
+preferences_commit
+cmp -s "$AGENT_SKILLS_PREFERENCES" before-read-only
+'''
+            driver += f'''
+printf 'SHARED_RESEARCH=1\\r\\nSHARED_PPT=0\\r\\n' > "$AGENT_SKILLS_PREFERENCES"
+CHOOSE=0; CHECK_ONLY=0; PLUGINS_ONLY=0; ASSUME_YES=1; YES=1
+preferences_init
+ask 'research' N SHARED_RESEARCH
+! ask 'ppt' Y SHARED_PPT
+ask_builtin() {{ printf '%s\n' "$1" >> prompts; [ "$2" = Y ]; }}
+: > prompts
+ask 'ordinary-missing' Y PI_UPDATE
+[ ! -s prompts ]
+ask 'risky-missing' Y OC_UPGRADE
+grep -q 'risky-missing' prompts
+ask_builtin() {{ ask_builtin_original "$@"; }}
+preferences_init
+printf 'OC_UPGRADE=1\n' >> "$AGENT_SKILLS_PREFERENCES"
+preference_put SHARED_RESEARCH 0
+preferences_commit
+grep -q '^OC_UPGRADE=1$' "$AGENT_SKILLS_PREFERENCES"
+grep -q '^SHARED_RESEARCH=1' "$AGENT_SKILLS_PREFERENCES"
+printf '%s\n' 'SHARED_RESEARCH=1' '{module_key}=secretmodulevalue,codegraph' 'PI_UNDECLARED_MODULES=codegraph' > "$AGENT_SKILLS_PREFERENCES"
+ASSUME_YES=""; YES=0; CHOOSE=0; CHECK_ONLY=0; PLUGINS_ONLY=0
+preferences_init > summary 2>warnings
+if grep -q 'secretmodulevalue' summary; then echo 'FAIL: 模块原值进入摘要' >&2; exit 1; fi
+if grep -q 'PI_UNDECLARED_MODULES' summary; then echo 'FAIL: 未声明键进入摘要' >&2; exit 1; fi
+grep -q '<待当前源码校验>' summary
+cp "$AGENT_SKILLS_PREFERENCES" before-invalid
+valid_source_root="$SOURCE_ROOT"
+SOURCE_ROOT=/nonexistent
+preferences_commit
+cmp -s "$AGENT_SKILLS_PREFERENCES" before-invalid
+SOURCE_ROOT="$valid_source_root"
+preferences_commit
+grep -q '^{module_key}=codegraph$' "$AGENT_SKILLS_PREFERENCES"
+if grep -q 'secretmodulevalue' "$AGENT_SKILLS_PREFERENCES"; then echo 'FAIL: 模块原值被写回' >&2; exit 1; fi
+if grep -q 'PI_UNDECLARED_MODULES' "$AGENT_SKILLS_PREFERENCES"; then echo 'FAIL: 未声明键被写回' >&2; exit 1; fi
+grep -q '^SHARED_RESEARCH=1$' "$AGENT_SKILLS_PREFERENCES"
+rm -f "$AGENT_SKILLS_PREFERENCES"
+mkdir "$AGENT_SKILLS_PREFERENCES"
+preferences_init
+preference_put SHARED_RESEARCH 1
+preferences_commit > directory-target 2>&1
+if grep -q '已保存' directory-target; then echo 'FAIL: 目录目标伪报保存' >&2; exit 1; fi
+[ -d "$AGENT_SKILLS_PREFERENCES" ]
+rmdir "$AGENT_SKILLS_PREFERENCES"
+printf 'SHARED_RESEARCH=1\n' > link-target
+ln -s "$PWD/link-target" "$AGENT_SKILLS_PREFERENCES"
+preferences_init > symlink-target 2>&1
+if grep -q 'SHARED_RESEARCH=1' symlink-target; then echo 'FAIL: 读取了符号链接目标' >&2; exit 1; fi
+preference_put SHARED_PPT 1
+preferences_commit >> symlink-target 2>&1
+[ -L "$AGENT_SKILLS_PREFERENCES" ]
+[ "$(cat link-target)" = 'SHARED_RESEARCH=1' ]
+if grep -q '已保存' symlink-target; then echo 'FAIL: 符号链接被替换' >&2; exit 1; fi
+rm "$AGENT_SKILLS_PREFERENCES"
+ln -s missing-target "$AGENT_SKILLS_PREFERENCES"
+preferences_init > broken-link 2>&1
+preferences_commit >> broken-link 2>&1
+[ -L "$AGENT_SKILLS_PREFERENCES" ]
+if grep -q '已保存' broken-link; then echo 'FAIL: 断链被替换' >&2; exit 1; fi
+rm "$AGENT_SKILLS_PREFERENCES"
+printf 'SHARED_RESEARCH=1\n' > "$AGENT_SKILLS_PREFERENCES"
+preferences_init
+preference_put SHARED_PPT 1
+mkdir "$AGENT_SKILLS_PREFERENCES.lock"
+printf '%s\n' "$$" > "$AGENT_SKILLS_PREFERENCES.lock/pid"
+cp "$AGENT_SKILLS_PREFERENCES" before-active-lock
+preferences_commit > active-lock 2>&1
+cmp -s "$AGENT_SKILLS_PREFERENCES" before-active-lock
+if grep -q '已保存' active-lock; then echo 'FAIL: 活动锁被忽略' >&2; exit 1; fi
+rm "$AGENT_SKILLS_PREFERENCES.lock/pid"
+rmdir "$AGENT_SKILLS_PREFERENCES.lock"
+mkdir "$AGENT_SKILLS_PREFERENCES.lock"
+cp "$AGENT_SKILLS_PREFERENCES" before-orphan-lock
+preferences_commit > orphan-lock 2>&1
+cmp -s "$AGENT_SKILLS_PREFERENCES" before-orphan-lock
+grep -q '人工删除' orphan-lock
+rmdir "$AGENT_SKILLS_PREFERENCES.lock"
+preferences_commit > recovered-lock
+grep -q '已保存' recovered-lock
+printf 'SHARED_RESEARCH=1\n' > "$AGENT_SKILLS_PREFERENCES"
+rm -f ready-a ready-b race-a race-b
+(
+  ASSUME_YES=1; YES=1; preferences_init
+  touch ready-a
+  while [ ! -f ready-b ]; do sleep 0.01; done
+  preference_put '{module_key}' codegraph
+  preferences_commit > race-a 2>&1
+) & race_a=$!
+(
+  ASSUME_YES=1; YES=1; preferences_init
+  touch ready-b
+  while [ ! -f ready-a ]; do sleep 0.01; done
+  preference_put {other_module_key} strictdoc
+  preferences_commit > race-b 2>&1
+) & race_b=$!
+wait "$race_a"; wait "$race_b"
+[ "$(grep -l '已保存' race-a race-b | wc -l)" = 1 ]
+if grep -q '^{module_key}=codegraph$' "$AGENT_SKILLS_PREFERENCES"; then
+  if grep -q '^{other_module_key}=strictdoc$' "$AGENT_SKILLS_PREFERENCES"; then echo 'FAIL: 并发写入覆盖先写者' >&2; exit 1; fi
+else
+  grep -q '^{other_module_key}=strictdoc$' "$AGENT_SKILLS_PREFERENCES"
+fi
+[ ! -e "$AGENT_SKILLS_PREFERENCES.lock" ]
+'''
+            driver += "! find . -name '.preferences.*' -print -quit | grep -q .\n"
+            script = tmp / "check.sh"
+            script.write_text("\n".join(parts) + driver, encoding="utf-8")
+            proc = subprocess.run(["bash", str(script)], cwd=tmp, env=os.environ.copy(),
+                                  capture_output=True, text=True)
+            assert proc.returncode == 0, f"{name}: 偏好回归失败\n{proc.stdout}\n{proc.stderr}"
+    with tempfile.TemporaryDirectory(prefix="setup-module-preferences-") as d:
+        listed = subprocess.run(["bash", str(ROOT / "modules/run.sh"), "--host", "pi", "--list"],
+                                capture_output=True, text=True, check=True).stdout
+        known = ",".join(line.split()[0] for line in listed.splitlines() if line.strip())
+        dsh_listed = subprocess.run(["bash", str(ROOT / "modules/run.sh"), "--host", "dsh", "--list"],
+                                    capture_output=True, text=True, check=True).stdout
+        assert "codegraph" not in {line.split()[0] for line in dsh_listed.splitlines() if line.strip()}
+        all_listed = subprocess.run(["bash", str(ROOT / "modules/run.sh"), "--list"],
+                                    capture_output=True, text=True, check=True).stdout
+        assert "codegraph" in {line.split()[0] for line in all_listed.splitlines() if line.strip()}
+        env = os.environ.copy() | {"AGENT_SKILLS_MODULE_SELECTION": "strictdoc,codegraph,not-a-module",
+                                  "AGENT_SKILLS_MODULE_KNOWN": known}
+        proc = subprocess.run(["bash", str(ROOT / "modules/run.sh"), "--host", "pi", "--select", "--yes"],
+                              cwd=d, env=env, capture_output=True, text=True)
+        assert proc.returncode == 0, proc.stderr
+        assert proc.stdout.splitlines() == ["codegraph", "strictdoc"], proc.stdout
+        env["AGENT_SKILLS_MODULE_SELECTION"] = ""
+        empty = subprocess.run(["bash", str(ROOT / "modules/run.sh"), "--host", "pi", "--select", "--yes"],
+                               cwd=d, env=env, capture_output=True, text=True)
+        assert empty.returncode == 0 and empty.stdout == "", empty.stdout + empty.stderr
+        modules = pathlib.Path(d) / "modules"
+        modules.mkdir()
+        (modules / "run.sh").write_text((ROOT / "modules/run.sh").read_text(encoding="utf-8"))
+        for name, default in (("alpha", "Y"), ("beta", "N")):
+            (modules / name).mkdir()
+            (modules / name / "setup.sh").write_text(
+                f"#!/usr/bin/env bash\n# module: {name}\n# desc: test\n# default: {default}\n# hosts: any\nexit 0\n")
+        fresh_env = os.environ.copy() | {"AGENT_SKILLS_MODULE_SELECTION": "", "AGENT_SKILLS_MODULE_KNOWN": ""}
+        fresh = subprocess.run(["bash", str(modules / "run.sh"), "--host", "pi", "--select", "--yes"],
+                               env=fresh_env, capture_output=True, text=True)
+        assert fresh.stdout.splitlines() == ["alpha"], fresh.stdout + fresh.stderr
+        fresh_env["AGENT_SKILLS_MODULE_KNOWN"] = "alpha,beta"
+        old = subprocess.run(["bash", str(modules / "run.sh"), "--host", "pi", "--select", "--yes"],
+                             env=fresh_env, capture_output=True, text=True)
+        assert old.stdout == "", old.stdout + old.stderr
+        (modules / "gamma").mkdir()
+        (modules / "gamma" / "setup.sh").write_text(
+            "#!/usr/bin/env bash\n# module: gamma\n# desc: new\n# default: Y\n# hosts: any\nexit 0\n")
+        added = subprocess.run(["bash", str(modules / "run.sh"), "--host", "pi", "--select", "--yes"],
+                               env=fresh_env, capture_output=True, text=True)
+        assert added.stdout.splitlines() == ["gamma"], added.stdout + added.stderr
+    print("安装偏好：保存/复用/choose/-y、模块新增与旧选择、CRLF、只读及非法输入均通过")
+
+
 def main():
     check_no_late_questions()
     if os.name == "nt":
@@ -997,6 +1274,7 @@ def main():
     check_opencode_source_assets()
     check_modules_local_only()
     check_agents_tail()
+    check_setup_preferences()
     print("PASS: setup 前置选择回归")
 
 

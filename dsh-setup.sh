@@ -75,19 +75,186 @@ acquire_source() {
   export SOURCE_ROOT SELF_RAW RAW AGENT_SKILLS_SOURCE="$root"
 }
 YES=0
+CHOOSE=0
 for arg in "$@"; do
   case "$arg" in
     -y|--yes) YES=1 ;;
-    *) printf '用法：bash dsh-setup.sh [-y]\n' >&2; exit 2 ;;
+    --choose) CHOOSE=1 ;;
+    *) printf '用法：bash dsh-setup.sh [-y|--yes] [--choose]\n' >&2; exit 2 ;;
   esac
 done
 have_tty() { { : </dev/tty; } 2>/dev/null; }  # 实际打开设备；-c 测试会误判并让 read 报错
-ask() {
+ask_builtin() {
   local answer
   if [[ "$YES" == 1 ]]; then [[ "$2" == Y ]]; return; fi
   have_tty || { [[ "$2" == Y ]]; return; }
   read -r -p "$1 [$2] " answer </dev/tty || answer=
   [[ "${answer:-$2}" =~ ^[Yy]$ ]]
+}
+
+# 本机安装偏好：只保存经过校验的是非选择与模块名单，不保存凭据，也不执行文件内容。
+PREF_FILE=""; PREF_SESSION=""; PREF_ORIGINAL=""; PREF_REUSE=0; PREF_WRITE=1; PREF_COUNT=0
+PREF_KNOWN_KEYS="SHARED_PROXY SHARED_PYTHON_UV SHARED_NODE SHARED_BUN SHARED_UV_INSTALL SHARED_UV_UPGRADE SHARED_UV_MIRROR SHARED_RESEARCH SHARED_ACCEL SHARED_KB SHARED_PPT SHARED_EXTERNAL SHARED_AGENTS_TAIL \
+PI_GIT_BASH PI_INSTALL PI_UPDATE PI_PKGS PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_CM_GROUP PI_MCP_MIGRATE PI_WRITE_CFG PI_MEM_RUNTIME PI_LEGACY_CLEAN PI_MODULES PI_MODULES_KNOWN \
+OC_UPGRADE OC_PONYTAIL OC_MC_REFRESH OC_CLAUDE_MEM OC_WRITE_CFG OC_FORCE_MANUAL OC_COMPACTION OC_TUI_KEYS OC_MODULES OC_MODULES_KNOWN \
+CODEX_WRITE_CFG CODEX_MEM_INSTALLER CODEX_PLUGINS CODEX_HOOKS CODEX_REVIEWER CODEX_MODULES CODEX_MODULES_KNOWN \
+DSH_NODE DSH_SKILLS DSH_MODULES DSH_MODULES_KNOWN"
+PREF_RISKY_KEYS="SHARED_PROXY OC_UPGRADE PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_MEM_RUNTIME OC_MC_REFRESH OC_CLAUDE_MEM CODEX_MEM_INSTALLER"
+preference_get() {
+  local key="$1" line
+  line="$(printf '%s\n' "$PREF_SESSION" | grep "^${key}=" | tail -1)"
+  [ -n "$line" ] || return 1
+  printf '%s' "${line#*=}"
+}
+preference_put() {
+  local key="$1" value="$2" current
+  [[ "$key" =~ ^(SHARED|PI|OC|CODEX|DSH)_[A-Z0-9_]+$ ]] || return 1
+  case " $PREF_KNOWN_KEYS " in *" $key "*) ;; *) return 1 ;; esac
+  case "$key" in *_MODULES|*_MODULES_KNOWN) [[ "$value" =~ ^[a-z0-9_,-]*$ ]] || return 1 ;;
+    *) [[ "$value" =~ ^[01]$ ]] || return 1 ;;
+  esac
+  if current="$(preference_get "$key")" && [ "$current" = "$value" ]; then return 0; fi
+  PREF_SESSION="$(printf '%s\n' "$PREF_SESSION" | grep -v "^${key}=" || true)"
+  PREF_SESSION="${PREF_SESSION:+$PREF_SESSION
+}${key}=${value}"
+}
+preferences_init() {
+  local line key value lineno=0
+  if [ "${CHOOSE:-0}" = 1 ]; then ASSUME_YES=""; YES=0; fi
+  PREF_FILE="${AGENT_SKILLS_PREFERENCES:-${XDG_CONFIG_HOME:-$HOME/.config}/agent-skills/preferences.conf}"
+  case "$PREF_FILE" in /*|[A-Za-z]:/*) ;; *) PREF_FILE="$PWD/${PREF_FILE#./}" ;; esac
+  PREF_SESSION="# agent-skills 本机安装偏好；只含非敏感选择，勿写入凭据"
+  PREF_ORIGINAL=""; PREF_REUSE=0; PREF_WRITE=1
+  [ "${CHECK_ONLY:-0}" = 0 ] && [ "${PLUGINS_ONLY:-0}" = 0 ] || PREF_WRITE=0
+  if [ -L "$PREF_FILE" ]; then
+    echo "WARN: 安装偏好目标是符号链接，忽略且不会替换" >&2
+  elif [ -f "$PREF_FILE" ]; then
+    PREF_ORIGINAL="$(cat "$PREF_FILE")"
+    while IFS= read -r line || [ -n "$line" ]; do
+      lineno=$((lineno+1))
+      line="${line%$'\r'}"
+      case "$line" in
+        ''|'#'*) continue ;;
+        *=*)
+          key="${line%%=*}"; value="${line#*=}"
+          preference_put "$key" "$value" || echo "WARN: 忽略安装偏好第 $lineno 行（键或值无效）" >&2
+          ;;
+        *) echo "WARN: 忽略安装偏好第 $lineno 行（格式无效）" >&2 ;;
+      esac
+    done < "$PREF_FILE"
+  fi
+  PREF_COUNT="$(printf '%s\n' "$PREF_SESSION" | grep -c '=' || true)"
+  if [ "$PREF_COUNT" -gt 0 ] && [ "${CHOOSE:-0}" != 1 ] && [ "${CHECK_ONLY:-0}" = 0 ]; then
+    if [ -n "${ASSUME_YES:-}" ] || [ "${YES:-0}" = 1 ]; then
+      PREF_REUSE=1
+    else
+      echo "安装偏好: $PREF_FILE"
+      printf '%s\n' "$PREF_SESSION" | while IFS= read -r line; do
+        case "$line" in
+          *_MODULES=*|*_MODULES_KNOWN=*) printf '%s=<待当前源码校验>\n' "${line%%=*}" ;;
+          *) printf '%s\n' "$line" ;;
+        esac
+      done
+      if ask_builtin "按以上安装偏好继续（否则逐项修改）？" Y; then PREF_REUSE=1; fi
+    fi
+  fi
+}
+ask() { # $1=提示 $2=默认 $3=稳定偏好键(可选)
+  local key="${3:-}" value rc answer=0
+  if [ -n "$key" ] && [ "${PREF_REUSE:-0}" = 1 ]; then
+    if value="$(preference_get "$key")"; then
+      [ "$value" = 1 ]; rc=$?
+    else
+      case " $PREF_RISKY_KEYS " in
+        *" $key "*) if ask_builtin "$1" "${2:-N}"; then rc=0; else rc=$?; fi ;;
+        *) if [ "${2:-N}" = Y ]; then rc=0; else rc=1; fi ;;
+      esac
+    fi
+  else
+    if ask_builtin "$1" "${2:-N}"; then rc=0; else rc=$?; fi
+  fi
+  [ "$rc" = 0 ] && answer=1
+  if [ -n "$key" ] && ! preference_put "$key" "$answer"; then
+    echo "WARN: 安装偏好键未登记，已忽略" >&2
+  fi
+  case "$key" in *_WRITE_CFG) PREF_WRITE="$answer" ;; esac
+  return "$rc"
+}
+preferences_filter_modules() {
+  local dir name valid="" line value item filtered key session="$PREF_SESSION"
+  printf '%s\n' "$PREF_SESSION" | grep -qE '_(MODULES|MODULES_KNOWN)=' || return 0
+  [ -n "${SOURCE_ROOT:-}" ] && [ -d "$SOURCE_ROOT/modules" ] || return 1
+  for dir in "$SOURCE_ROOT"/modules/*/; do
+    [ -f "$dir/setup.sh" ] || continue
+    name="$(sed -n 's/^# module:[[:space:]]*//p' "$dir/setup.sh" | head -1)"
+    name="${name:-$(basename "$dir")}"
+    valid="${valid:+$valid }$name"
+  done
+  while IFS= read -r line; do
+    case "$line" in
+      *_MODULES=*|*_MODULES_KNOWN=*)
+        key="${line%%=*}"; value="${line#*=}"; filtered=""
+        for item in ${value//,/ }; do
+          case " $valid " in
+            *" $item "*) filtered="${filtered:+$filtered,}$item" ;;
+          esac
+        done
+        [ "$filtered" = "$value" ] || preference_put "$key" "$filtered" || return 1
+        ;;
+    esac
+  done < <(printf '%s\n' "$session")
+}
+preferences_lock() {
+  PREF_LOCK="${PREF_FILE}.lock"
+  if ! mkdir "$PREF_LOCK" 2>/dev/null; then
+    echo "WARN: 检测到安装偏好锁: $PREF_LOCK；若确认无安装进程，可人工删除该目录后重试" >&2
+    return 1
+  fi
+  if ! printf '%s\n' "$$" > "$PREF_LOCK/pid"; then
+    rm -f "$PREF_LOCK/pid"; rmdir "$PREF_LOCK" 2>/dev/null || true
+    echo "WARN: 无法记录安装偏好锁，本次跳过" >&2; return 1
+  fi
+}
+preferences_commit_locked() {
+  (
+  trap 'rm -f "$PREF_LOCK/pid"; rmdir "$PREF_LOCK" 2>/dev/null || true' EXIT
+  local dir tmp current
+  dir="$(dirname "$PREF_FILE")"
+  if [ -L "$PREF_FILE" ] || { [ -e "$PREF_FILE" ] && [ ! -f "$PREF_FILE" ]; }; then
+    echo "WARN: 安装偏好目标已变为非普通文件或符号链接，未保存" >&2; return 0
+  fi
+  current=""; [ ! -f "$PREF_FILE" ] || current="$(cat "$PREF_FILE")"
+  if [ "$current" = "$PREF_SESSION" ]; then
+    echo "安装偏好: 未变化 ($PREF_FILE)"
+    return 0
+  fi
+  if [ "$current" != "$PREF_ORIGINAL" ]; then
+    echo "WARN: 安装偏好在本次运行期间已被其它进程修改，本次不覆盖；请重跑以合并选择" >&2
+    return 0
+  fi
+  tmp="$(mktemp "$dir/.preferences.XXXXXX")" || { echo "WARN: 无法暂存安装偏好" >&2; return 0; }
+  if printf '%s\n' "$PREF_SESSION" > "$tmp" && chmod 600 "$tmp" && mv "$tmp" "$PREF_FILE"; then
+    echo "安装偏好: 已保存 ($PREF_FILE)"
+  else
+    rm -f "$tmp"; echo "WARN: 安装偏好保存失败；安装计划不变" >&2
+  fi
+  )
+}
+preferences_commit() {
+  local dir
+  [ "${PREF_WRITE:-0}" = 1 ] || { echo "安装偏好: 本次为只读／精简模式或拒绝配置写入，不保存"; return 0; }
+  if [ -L "$PREF_FILE" ] || { [ -e "$PREF_FILE" ] && [ ! -f "$PREF_FILE" ]; }; then
+    echo "WARN: 安装偏好目标不是普通文件或是符号链接，未保存" >&2; return 0
+  fi
+  PREF_COUNT="$(printf '%s\n' "$PREF_SESSION" | grep -c '=' || true)"
+  [ "$PREF_COUNT" -gt 0 ] || return 0
+  preferences_filter_modules || { echo "WARN: 模块偏好未通过当前源码校验，未保存" >&2; return 0; }
+  dir="$(dirname "$PREF_FILE")"
+  if [ ! -d "$dir" ]; then
+    mkdir -p "$dir" && chmod 700 "$dir" || { echo "WARN: 无法创建安装偏好目录: $dir" >&2; return 0; }
+  fi
+  preferences_lock || return 0
+  preferences_commit_locked
 }
 resolve_python3() { # $1=最低 Python 3 小版本，默认 3.6；只接受能实际运行且版本足够的解释器
   local candidate minor="${1:-6}"
@@ -428,28 +595,28 @@ collect_setup_plan() {
   # 凭据先于一切：占位符/非法网关在此报错，早于任何下载、mkdir 与部署。
   collect_credentials
   if [[ -z "$NODE" ]]; then
-    ask '为 dsh 安装独立 Node 24（不更改系统 Node）？' Y || exit 1
+    ask '为 dsh 安装独立 Node 24（不更改系统 Node）？' Y DSH_NODE || exit 1
     PLAN_NODE=1
   fi
   # 源码基准是部署与 skills 的共同输入:凭据校验通过后才可能 clone、mkdir
   validate_collected_gateway_urls
   acquire_source || exit 1
   # 每次都问，不因已有 profile 而跳过：重跑仍默认 base、可选组、外部依赖、AGENTS 尾块与模块
-  if ask '同步基础 skills（base；复用 ~/.agents/skills）？' Y; then
+  if ask '同步基础 skills（base；复用 ~/.agents/skills）？' Y DSH_SKILLS; then
     PLAN_SKILLS=" base"
-    ask '安装/更新 research 组（算法研究、实验、PyTorch 性能与 kernel；每次刷新·漂移自动备份）？' N && PLAN_SKILLS+=" research"
-    ask '安装/更新 accel 组（算力平台模板；缺才装·本机特化不覆盖）？' N && PLAN_SKILLS+=" accel"
-    ask '安装/更新 kb 组（公共算力知识；每次刷新）？' N && PLAN_SKILLS+=" kb"
-    ask '安装/更新 ppt 组（南大 HTML/PPTX、Dashi、ppt-master 与独立依赖；需 Node 20+、Python 3.10+）？' N && PLAN_SKILLS+=" ppt"
+    ask '安装/更新 research 组（算法研究、实验、PyTorch 性能与 kernel；每次刷新·漂移自动备份）？' N SHARED_RESEARCH && PLAN_SKILLS+=" research"
+    ask '安装/更新 accel 组（算力平台模板；缺才装·本机特化不覆盖）？' N SHARED_ACCEL && PLAN_SKILLS+=" accel"
+    ask '安装/更新 kb 组（公共算力知识；每次刷新）？' N SHARED_KB && PLAN_SKILLS+=" kb"
+    ask '安装/更新 ppt 组（南大 HTML/PPTX、Dashi、ppt-master 与独立依赖；需 Node 20+、Python 3.10+）？' N SHARED_PPT && PLAN_SKILLS+=" ppt"
     case "${SKILLS_EXTERNAL:-}" in
       skip) PLAN_EXTERNAL_DESIGN=0 ;;
       install) ;;
-      *) ask '安装/更新外部设计依赖（ui-ux-pro-max、huashu-design、design-taste-frontend）？' Y || PLAN_EXTERNAL_DESIGN=0 ;;
+      *) ask '安装/更新外部设计依赖（ui-ux-pro-max、huashu-design、design-taste-frontend）？' Y SHARED_EXTERNAL || PLAN_EXTERNAL_DESIGN=0 ;;
     esac
     case "${AGENTS_TAIL:-}" in
       0) PLAN_AGENTS_TAIL=0 ;;
       1) ;;
-      *) ask '把记忆系统规范块写进当前目录 AGENTS.md 的最尾部（项目自身内容在前）？' Y || PLAN_AGENTS_TAIL=0 ;;
+      *) ask '把记忆系统规范块写进当前目录 AGENTS.md 的最尾部（项目自身内容在前）？' Y SHARED_AGENTS_TAIL || PLAN_AGENTS_TAIL=0 ;;
     esac
     # skills-sync 只有 AGENTS 尾块注入与 ppt 组用 python3；先确认再取模块名单，
     # 失败时不下载任何东西。可用时 export -f python3 让子 Bash 复用同一解释器。
@@ -464,12 +631,28 @@ collect_setup_plan() {
     PLAN_MOD_PATH="$SOURCE_ROOT/modules/run.sh"
     [[ -f "$PLAN_MOD_PATH" ]] || PLAN_MOD_PATH=""
     if [[ -n "$PLAN_MOD_PATH" ]]; then
+      local saved_modules="" known_modules="" mod_env=("PATH=$PATH")
       [[ "$YES" != 1 ]] || msel="--yes"
-      PLAN_MODULES="$(bash "$PLAN_MOD_PATH" --host dsh $msel --select || true)"
+      if [ "${PREF_REUSE:-0}" = 1 ]; then
+        saved_modules="$(preference_get DSH_MODULES || true)"
+        known_modules="$(preference_get DSH_MODULES_KNOWN || true)"
+        mod_env=("AGENT_SKILLS_MODULE_SELECTION=$saved_modules" "AGENT_SKILLS_MODULE_KNOWN=$known_modules")
+      fi
+      if PLAN_MODULES="$(env "${mod_env[@]}" bash "$PLAN_MOD_PATH" --host dsh $msel --select)"; then
+        preference_put DSH_MODULES "${PLAN_MODULES//$'\n'/,}"
+        if known_modules="$(bash "$PLAN_MOD_PATH" --host dsh --list)"; then
+          known_modules="$(printf '%s\n' "$known_modules" | awk '{print $1}' | paste -sd, -)"
+          preference_put DSH_MODULES_KNOWN "$known_modules"
+        fi
+      else
+        PLAN_MODULES=""
+      fi
     fi
   fi
 }
+preferences_init
 collect_setup_plan
+preferences_commit
 
 STAGE=$(mktemp -d)
 trap 'rm -rf "$STAGE"' EXIT

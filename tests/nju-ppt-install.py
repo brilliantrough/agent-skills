@@ -222,7 +222,7 @@ exec "$REAL_NODE" "$@"
         }
         for name, plan in ppt_plans.items():
             text = (ROOT / name).read_text(encoding="utf-8")
-            assert re.search(r'''ask ['"][^'"\n]*ppt 组[^'"\n]*['"] N && ''' + plan, text), name
+            assert re.search(r'''ask ['"][^'"\n]*ppt 组[^'"\n]*['"] N (?:[A-Z][A-Z0-9_]* )?&& ''' + plan, text), name
             assert "Dashi" in next(line for line in text.splitlines() if "ask " in line and "ppt 组" in line), name
             assert ('PLAN_SKILLS=" base"' if name == "dsh-setup.sh" else "SKILL_GROUPS=(base)") in text
             assert '${AGENT_SKILLS_REF:-main}' in text, name
