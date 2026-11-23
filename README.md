@@ -861,6 +861,8 @@ setup 先移除受管同名 MCP 项，交官方安装器刷新，再统一转换
 
 配置文件：`~/.claude-mem/settings.json`。
 
+采集采用 [Claude‑Mem 官方默认工具过滤](https://docs.claude-mem.ai/configuration)：只跳过 `ListMcpResourcesTool`、`SlashCommand`、`Skill`、`TodoWrite`、`AskUserQuestion`。`read`、`bash` 和检索工具不再被套件额外排除。这里筛的是工具事件，不是文件路径；事件进入采集范围不保证每次都生成长期观察。
+
 ```json
 {
   "CLAUDE_MEM_RUNTIME": "worker",

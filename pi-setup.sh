@@ -2001,7 +2001,7 @@ if [ "$mc_rc" = 1 ] && [ ! -f "$MC_SETTINGS" ]; then
   "CLAUDE_MEM_CONTEXT_FULL_COUNT": "0",
   "CLAUDE_MEM_CONTEXT_SHOW_LAST_SUMMARY": "true",
   "CLAUDE_MEM_LLM_TIMEOUT_MS": "120000",
-  "CLAUDE_MEM_SKIP_TOOLS": "ListMcpResourcesTool,SlashCommand,Skill,TodoWrite,AskUserQuestion,question,ask_user_question,list,ls,list_mcp_resources,list_mcp_resource_templates,read,bash,BashOutput,grep,glob,find,mcp,ctx_search,ctx_expand,ctx_reduce,context_rewrite,mem_search,mem_timeline,mem_get_observations,claude_mem_search,claude-mem_mem_search,claude-mem_search,claude-mem_timeline,claude-mem_get_observations",
+  "CLAUDE_MEM_SKIP_TOOLS": "ListMcpResourcesTool,SlashCommand,Skill,TodoWrite,AskUserQuestion",
   "CLAUDE_MEM_OPENROUTER_API_KEY": "<YOUR_API_KEY>"
 }
 EOF
