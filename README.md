@@ -190,7 +190,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 
 ### 功能 Verification 与整理审查
 
-主 Agent 负责运行真实路径并留下证据。跨模块、高风险、发布或证据存疑时，再委派 `verification-reviewer` 独立复核验收条件、功能行为和测试有效性；普通小改动不每次委派。套件只提供角色与简洁优先的证据纪律，具体验收条件、命令、fixture、平台和风险矩阵以项目本地资料为准，不预制通用测试。Reviewer 的仓库只读是行为合同，Bash／shell 仍可能写文件，不冒充文件系统沙箱；需要硬隔离的项目使用宿主沙箱或容器。显式使用 `consolidator` 整理时，才由 `consolidation-reviewer` 检查语义保持、真实保护、简洁性及误删／该删未删。两种 Reviewer 都不代替 lint、真实宿主或用户最终验收。
+主 Agent 负责运行真实路径并留下证据。新功能及跨模块、高风险、发布或证据存疑改动，委派 `verification-reviewer` 独立复核验收条件、功能行为和测试有效性；局部低风险修补不每次委派。新功能验证后，主 Agent 把最小可执行条目接入项目现有测试／检查入口，不另建平行清单。Reviewer 聚焦当前功能后，默认快查相关旧条目，不要求每次全量重跑，未运行项如实披露。套件只提供角色与简洁优先的证据纪律，具体验收条件、命令、fixture、平台和风险矩阵以项目本地资料为准，不预制通用测试。Reviewer 的仓库只读是行为合同，Bash／shell 仍可能写文件，不冒充文件系统沙箱；需要硬隔离的项目使用宿主沙箱或容器。显式使用 `consolidator` 整理时，才由 `consolidation-reviewer` 检查语义保持、真实保护、简洁性及误删／该删未删。两种 Reviewer 都不代替 lint、真实宿主或用户最终验收。
 
 - `skills/base/verification/` 提供风险触发与功能交接合同，`references/reviewer.md` 是唯一功能审查规范；`skills/base/consolidator/` 继续维护整理审查规范。
 - Pi：由 setup 安装两份 Markdown 角色定义；继续使用原版 `pi-subagents-j0k3r`。
@@ -227,7 +227,7 @@ bash scripts/verify-subagents.sh --apply --yes    # 显式接受默认升级与�
 |---|---|---|
 | `goal-first` | 研究、开发和计划的主线约束 | 保持交付、当前未知、下一步和收口条件；不因意外发现静默扩展范围 |
 | [`trust-pyramid`](skills/base/trust-pyramid/SKILL.md) | 日常开发、重构与审查的工程质量约束 | 五层原则＋六类条件化规则配方＋工具映射；按项目选择并落实 |
-| [`verification`](skills/base/verification/SKILL.md) | 跨模块、高风险、发布或证据存疑的功能复核 | 验收条件与真实路径 → 主 Agent 验证 → 按风险委派 `verification-reviewer`；套件更新另核对资产闭包、Release、部署和运行进程 |
+| [`verification`](skills/base/verification/SKILL.md) | 新功能与跨模块、高风险、发布或证据存疑的功能复核 | 主 Agent 验证并沉淀最小条目 → Reviewer 复核当前功能并快查相关旧条目；套件更新另核对资产闭包、Release、部署和运行进程 |
 | `quick-do` | 行为明确的小修小补 | 读代码 → 当前会话修改、验证；不 grilling、不写计划 |
 | `steady-do` | 日常功能、插件、扩展 | 理解项目 → 分轮澄清 → 当前会话实现、验证；不写交接文档 |
 | `plan-brief` | 长程多阶段任务 | 澄清 → 计划 `docs/plans/<slug>.md` + 启动 prompt → 新会话执行 → 报告 → 原会话审查 |

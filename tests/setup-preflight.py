@@ -1053,6 +1053,21 @@ ask_builtin() {{ return 1; }}
 preferences_init
 [ "$PREF_REUSE" = 0 ]
 ask_builtin() {{ ask_builtin_original "$@"; }}
+: > prompts
+ask_builtin() {{ printf '%s\n' "$1" >> prompts; ask_builtin_original "$@"; }}
+ASSUME_YES=""; YES=0
+preferences_init > summary-accepted
+[ "$PREF_REUSE" = 1 ]
+[ "$(wc -l < prompts)" = 1 ]
+ask 'research' N SHARED_RESEARCH
+! ask 'ppt' Y SHARED_PPT
+'''
+            if write_key:
+                driver += f"ask 'write config' N {write_key}\n"
+            driver += f'''
+[ "$(wc -l < prompts)" = 1 ]
+preferences_commit
+[ "$(sha256sum "$AGENT_SKILLS_PREFERENCES")" = "$before" ]
 ASSUME_YES=1; YES=1
 preferences_init
 ask 'research' N SHARED_RESEARCH
