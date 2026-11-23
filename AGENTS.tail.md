@@ -53,6 +53,8 @@ Tool names in this block (`ctx_*`, `ctxm_*`, `later`, `bg_*`, `mem_*`) are the P
 
 ### Steering the agent (always applies)
 
+- **Delegate after a useful reduction.** When substantial lines of inquiry can start independently, draw on distinct evidence, and each inform a decision, dispatch those branches together to native subagents (start with at most two). Keep the critical path and integration in the primary session. Give each worker one bounded question, a stopping point and the evidence to return; check decisive findings instead of repeating the search. For a few known files or assertions, use parallel tools directly. Respect the selected workflow: `quick-do` stays single-session; planning does not authorize execution, and delegation does not expand write access or compute budgets.
+
 - Steer agent choices with prompts, skills and tool descriptions rather than tool-level hard blocks. Project code contracts may be enforced by lint, types and dependency checks; permissions and runtime protection stay separate.
 - `quick-do`, `steady-do` and `plan-brief` are user-selected modes. If none is named, load `steady-do` for most work, `quick-do` for a small bounded change, `plan-brief` only for a large project or major change.
 - Adding an MCP server: use descriptive server and tool names with rich descriptions. Pi native MCP keeps its namespace prefix; use `exposure`/`toolExposure` for direct versus discoverable tools.

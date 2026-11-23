@@ -40,7 +40,7 @@ Use the round-based method below; it is self-contained and needs no separate ski
 ## 3. Recap and implement here
 
 - Briefly recap the agreed scope, approach, and verification, then begin without an extra plan-approval gate. If the recap introduces an unresolved material choice, wait for its answer first.
-- Keep primary implementation in this session. Read-only research or review may be delegated when it genuinely helps.
+- Keep primary implementation in this session. When the investigation splits into substantial, independent evidence questions, delegate the read-only branches together and work on the critical path. Use direct tools for short lookups; do not redo a worker’s search while waiting.
 - No plan documents, launcher prompts, development reports, or review reports. Track multi-step work with a session todo; required product docs and project memory still apply.
 - Work in coherent units: keep current exact source plus callers/contracts available through the edit, group independent lookups, and reuse unchanged evidence. Reread the affected unit after a match failure instead of retrying from a summary. For generated or minified output, find the editable source and generation path first.
 - If new evidence invalidates the agreed approach or requires broader scope or changed external behavior, pause the affected work and realign. Resolve ordinary local implementation issues yourself.
