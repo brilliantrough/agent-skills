@@ -30,7 +30,7 @@ check("主宿主使用原生输出门控，无 context-mode 自动替换", dispa
 check("主宿主不叠加上游路由拦截", decide.includes('MAGIC_CONTEXT_PI_SUBAGENT !== "1") return ALLOW') && decide.indexOf('MAGIC_CONTEXT_PI_SUBAGENT !== "1") return ALLOW') > decide.indexOf("if (hit !== null) return deny"));
 check("显式代理与 origin SSRF 检查采用上游 #1403", fetchSource.includes("D-1403-PROXY-NOT-TARGET-1") && fetchSource.includes("await checkProxiedTarget(current, signal)"));
 check("Bun 原子建库发布前显式 checkpoint", dbSource.includes('raw.exec("PRAGMA wal_checkpoint(TRUNCATE)")'));
-check("系统提示写清 Bash、原生 Code Mode 与原生输出门控", instructions.includes("native Bash") && instructions.includes("native Code Mode") && instructions.includes("native output gates") && instructions.includes("offset/limit"));
+check("系统提示区分原生文件操作、执行和输出门控", ["native Glob", "Grep", "Read", "Patch/Edit", "native Bash", "native Code Mode", "native output gates", "offset/limit"].every(term => instructions.includes(term)));
 
 for (const rel of ["server.mjs", "pi/index.js", "opencode/plugin.js"]) {
   const body = readFileSync(join(REPO, "release-out", rel), "utf8");

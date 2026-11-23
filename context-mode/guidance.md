@@ -1,6 +1,6 @@
 ---
 name: context-mode
-description: On-demand code execution and FTS retrieval for large or noisy command output, local datasets, and repeatedly queried documents. Use native Read/Grep for exact source and edits, native Bash for short output and one-off local aggregation, and the host's native Code Mode for multi-tool/MCP orchestration. Not a default wrapper for every tool call.
+description: Run and filter noisy commands, analyze local datasets, or index documents for repeated queries. For file tasks use the host's native Glob, Grep, Read and editing tools; use native Code Mode to coordinate host or MCP tools.
 ---
 
 # Context Mode：按下一步需要的信息选工具
@@ -11,8 +11,9 @@ description: On-demand code execution and FTS retrieval for large or noisy comma
 
 | 本次需要什么 | 路径 |
 |---|---|
-| 编辑用原文、完整函数／配置块、已知位置的片段 | 原生 Read／Grep；不用索引摘要代替源码 |
-| 短输出，或一次性的 Python／Node 过滤与聚合 | 原生 Bash，直接打印所需答案 |
+| 按文件名找路径；按文本或符号找位置 | 分别调用宿主的 Glob、Grep 工具（Pi：find、grep） |
+| 读已知路径或命中区间；修改文件 | 直接用 Read 读完整相关块；修改用宿主的 Patch／Edit，新建可用 Write |
+| 运行程序、测试或一次性计算 | 原生 Bash，直接返回结果 |
 | 组合多个宿主工具／MCP 工具并传递中间结果 | Pi／OpenCode 原生 Code Mode；context-mode 子进程不能调用宿主工具 |
 | 一个本地命令或脚本产生的大日志／大输出 | `ctxm_execute(language, code)`，只打印行动所需的证据 |
 | 分析一个本地大文件 | `ctxm_execute` 传 `file`，代码从 `CTX_FILE` 读取；精确原文仍用 Read |
@@ -42,7 +43,7 @@ description: On-demand code execution and FTS retrieval for large or noisy comma
 
 | 工具 | 替代或限制 |
 |---|---|
-| `ctxm_execute` | 短输出／一次性内联脚本 → Bash；多个宿主工具编排 → 原生 Code Mode；编辑 → Edit／Write |
+| `ctxm_execute` | 普通执行或一次性计算 → Bash；多个宿主工具编排 → 原生 Code Mode；文件操作见上表 |
 | `ctxm_batch` | 几条短结果直接消费 → 宿主并行；前项决定后项输入 → 分阶段调用；无 `concurrency` 参数 |
 | `ctxm_index` | 单次分析 → 直接执行并打印答案；大文本不要内联进 `content`，用 `path` |
 | `ctxm_search` | 已有足够证据 → 继续工作；未索引的资料 → 先读或先索引，不反复空搜 |
