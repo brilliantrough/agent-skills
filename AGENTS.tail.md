@@ -22,7 +22,7 @@ Tool names in this block (`ctx_*`, `ctxm_*`, `later`, `bg_*`, `mem_*`) are the P
 - **Saving is maintenance, not accumulation**: each save rewrites, merges or deletes repeated and stale wording in place. Record conclusions, real constraints, open risks and necessary evidence; leave out tool logs, hash/diff/manifest ledgers and disclaimers.
 - **Reorganizing memory**: only when the user asks, with `consolidator`. Keep a recoverable baseline; facts, status, referenced IDs and evidence stay traceable.
 - **Risks**: keep a consequential blocker and its reopening condition in the existing handoff. Update a StrictDoc risk entry only when a milestone or explicit request warrants it.
-- **Validate**: after changing `.sdoc` or StrictDoc config, run `strictdoc export .` from the docs root and fix failures before calling the update done.
+- **Validate**: if the existing conclusion already matches, leave the file alone. After editing StrictDoc memory, run the `save-mem` skill's `scripts/check_size.py docs` with Python 3 from the project root; condense overlong entries in place. After changing `.sdoc` or its config, also run `strictdoc export .` from the docs root.
 
 ### Technical writing and replies (always applies)
 

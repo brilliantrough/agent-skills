@@ -150,6 +150,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 | `migrate-mem` | 为已有项目建立/补全记忆，初始化可读的 StrictDoc 文档；不假定旧工作流、不搬原文件 |
 
 - 日常不写 StrictDoc；新增长期事实按需选一个记忆库，不手动三写。只有明确要求或重要阶段收口，才在已有文档留下几句目的、结论和必要边界。
+- 在目标项目根目录运行 `python3 ~/.agents/skills/save-mem/scripts/check_size.py docs` 可只读检查记忆预算：`project_memory/` 和 `handbook/` 的 `.sdoc` 合计最多 48 KiB、128 条，每条分别最多 640、1200 个字符（含节点字段）。本仓 `bash scripts/check.sh` 已接入；没有记忆文件时不创建。
 - 用户纪律块优先；其余项目记录冲突以 **StrictDoc 当前有效规范**为准
 - 明确决策后更新规范并简短告知；不因猜测或每次任务频繁改动
 - 文档默认中文；调查、存取路径由 Agent 判断
