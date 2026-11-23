@@ -122,16 +122,23 @@ def main():
             "tests/nju-ppt-editability.py", "skills/base/verification/SKILL.md",
             "skills/base/save-mem/scripts/check_size.py",
             "skills/base/discipline/scripts/check_block.py",
-            "scripts/link-mem-search.mjs",
+            "scripts/link-mem-search.mjs", "scripts/migrate-agents-tail.py",
             "skills/base/verification/references/reviewer.md", "dsh/verification-policy.mjs",
         ]
         for name in required:
             if name != "scripts/check.sh":
-                write_fixture(name)
+                if (ROOT / name).is_file():
+                    target = static_root / name
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(ROOT / name, target)
+                else:
+                    write_fixture(name)
         write_fixture("tests/formal.mjs", "")
         for name in ("pi-setup.sh", "opencode-setup.sh", "codex-setup.sh", "dsh-setup.sh",
                      "skills-sync.sh", "modules/run.sh", "modules/codegraph/setup.sh"):
-            write_fixture(name)
+            target = static_root / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(ROOT / name, target)
         git_fixture("init", "-q")
         git_fixture("add", "--", *required)
         result = run_static()

@@ -154,7 +154,11 @@ exec "$REAL_NODE" "$@"
             "NJU_PPT_PYTHON": posix(bindir / "fixture-python"),
             "HTML_LOG": posix(tmp / "html.log"), "REAL_NODE": posix(Path(shutil.which("node"))),
         })
-        for name in ["BASH_ENV", "ENV", "XDG_STATE_HOME"]:
+        # 公共规则同步不属于本测试目标；显式关闭并清掉宿主目录变量，避免读到 live 路径。
+        env.update({"AGENTS_TAIL": "0"})
+        for name in ["BASH_ENV", "ENV", "XDG_STATE_HOME", "PI_CODING_AGENT_DIR", "OPENCODE_CONFIG_DIR",
+                     "CLAUDE_CONFIG_DIR", "CODEX_HOME", "DSH_HOME", "DSH_AGENTS_HOME",
+                     "XDG_CONFIG_HOME", "AGENTS_TAIL_HOST"]:
             env.pop(name, None)
 
         def install(home, *groups, success=True, extra=None):

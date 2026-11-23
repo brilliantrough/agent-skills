@@ -36,7 +36,7 @@ fi
 if [ -z "${AGENTS_TAIL+x}" ]; then
   AGENTS_TAIL=1
   if [ "${ASSUME_YES:-0}" != 1 ] && { : </dev/tty; } 2>/dev/null; then
-    printf '把记忆系统规范块写进 %s/AGENTS.md 的最尾部(项目自身内容在前)? [Y/n] ' "$PWD"
+    printf '同步公共规则到本账号已安装宿主的用户级指令文件？[Y/n] '
     read -r sync_answer </dev/tty || sync_answer=""
     case "${sync_answer:-Y}" in [Nn]*) AGENTS_TAIL=0 ;; esac
   fi
@@ -264,49 +264,9 @@ if [ "$with_ppt" = 1 ]; then
   node "$html_script" --home "$home_native" --install || status=1
 fi
 
-# ---- 项目接入记忆系统(默认写入):把 memory-system 块写进当前目录 AGENTS.md 最尾部 ----
-# 通用步骤,四个 setup 都经本脚本执行;源用本次解析出的源码树,不额外联网;
-# 幂等:同块不动 / 旧块原位替换 / 无块追加,文件其余内容原样保留。
-# 选择已在脚本开头完成；AGENTS_TAIL=0 可跳过，-y 与非交互默认写入。
 inject_agents_md() {
-  local tail_src="$source_root/AGENTS.tail.md" target="$PWD/AGENTS.md"
   [ "$AGENTS_TAIL" = 1 ] || return 0
-  case "$(pwd -P)/" in "$source_root/"*) echo "跳过: AGENTS.md 位于只读源码树"; return 0 ;; esac
-  [ -f "$tail_src" ] || { echo "WARN: 源里没有 AGENTS.tail.md,跳过记忆规范块" >&2; return 0; }
-  python3 - "$tail_src" "$target" <<'PY'
-import pathlib, re, sys
-
-src = pathlib.Path(sys.argv[1]).read_text(encoding="utf8")
-m = re.search(r"<!-- memory-system:start -->.*?<!-- memory-system:end -->", src, re.S)
-if not m:
-    sys.exit("源文件里找不到 memory-system 块")
-block = m.group(0)
-
-p = pathlib.Path(sys.argv[2])
-old = p.read_bytes().decode("utf-8") if p.exists() else ""
-starts = list(re.finditer(r"<!-- memory-system:start -->", old))
-ends = list(re.finditer(r"<!-- memory-system:end -->", old))
-if len(starts) != len(ends) or len(starts) > 1 or (starts and starts[0].start() > ends[0].start()):
-    print(f"WARN: {p} 的 memory-system 标记残缺或重复，原样保留；请手工整理标记对", file=sys.stderr)
-    raise SystemExit(1)
-cur = re.search(r"<!-- memory-system:start -->.*?<!-- memory-system:end -->", old, re.S) if starts else None
-crlf = old.count("\r\n")
-lf = old.count("\n") - crlf
-newline = "\r\n" if crlf > lf else "\n"
-out_block = block.replace("\n", newline)
-if cur and cur.group(0).replace("\r\n", "\n") == block:
-    print("记忆规范块已是最新: " + str(p))
-    raise SystemExit(0)
-if cur:
-    new = old[:cur.start()] + out_block + old[cur.end():]
-elif old:
-    separator = "" if old.endswith(newline * 2) else (newline if old.endswith(newline) else newline * 2)
-    new = old + separator + out_block + newline
-else:
-    new = out_block + newline
-p.write_bytes(new.encode("utf-8"))
-print(("记忆规范块已更新: " if cur else "记忆规范块已追加: ") + str(p))
-PY
+  python3 "$source_root/scripts/migrate-agents-tail.py" --sync-global
 }
 inject_agents_md || status=1
 

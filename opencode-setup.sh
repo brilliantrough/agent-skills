@@ -14,7 +14,7 @@
 # 确认后只备份移走对应 latest 缓存并改回官方包登记；下次宿主启动下载。
 # 不启动服务、不迁移数据库；宿主升级在本脚本里问一次(默认 Y)后执行(opencode upgrade)，自动更新默认关闭；官方 npm 缺包由宿主启动时下载。
 # 配置：本地敏感值保留；四个 newapi provider、自有 web/codegraph MCP 的非敏感结构由模板/模块接管。
-# AGENTS.tail 记忆规范块默认写入当前项目（计划阶段可跳过）；--check 不写任何配置。
+# AGENTS.tail 记忆规范块默认写入 OpenCode 用户级规则文件（计划阶段可跳过）；--check 不写任何配置。
 # 凭据可交互输入或通过环境变量填写。
 # OPENCODE_CONFIG_DIR 优先，其次 XDG_CONFIG_HOME/opencode。Windows 使用 Git Bash。
 
@@ -64,7 +64,7 @@ resolve_python3() { # python3 就绪返回 0;否则 python → py → uv 自管�
 }
 
 # -y/--yes(或环境变量 ASSUME_YES=1)「默认安装」:计划阶段不再逐项确认,一律取默认值 —— 默认 Y 的照做
-# (装缺件、字段级合并写配置、刷新 base skills、写 AGENTS.tail 记忆块),默认 N 的跳过(算力/知识/ppt 组)。
+# (装缺件、字段级合并写配置、刷新 base skills、写用户级 AGENTS 规则块),默认 N 的跳过(算力/知识/ppt 组)。
 # 凭据在计划末尾一并收集;没有终端时静默跳过、占位符保留(无人值守用环境变量预填)。
 # 所有提问集中在 collect_setup_plan;执行段只按 PLAN_* 执行,不再提问。
 ASSUME_YES="${ASSUME_YES:-}"
@@ -90,7 +90,7 @@ while [ $# -gt 0 ]; do
 查询 Ponytail/Magic Context 的本地版本与 npm latest；失败只警告。Ponytail 有新版默认 Y，钉版/本地路径默认 N。
 Magic Context 旧缓存路径自动迁回官方包名，保留当前缓存；--check 只预览。实际刷新默认 Y，确认后下次启动下载。
 官方 claude-mem 安装器更新 runtime/入口/MCP，会停止共享 worker；--check 只报告、不询问刷新，仍联网，宿主 --version 可能写日志。
-AGENTS.tail 记忆规范块默认写入当前项目 AGENTS.md 尾部，计划阶段可跳过。
+AGENTS.tail 记忆规范块默认写入 OpenCode 用户级 AGENTS.md（所有项目共用），计划阶段可跳过。
 HELP
       exit 0 ;;
     *) echo "未知参数: $1(支持 -y|--yes / --choose / --plugins-only / --check / -h|--help)" >&2; exit 2 ;;
@@ -134,11 +134,11 @@ ask_builtin() { # $1=提示 $2=默认(Y/N,缺省 N)
 # 本机安装偏好：只保存经过校验的是非选择与模块名单，不保存凭据，也不执行文件内容。
 PREF_FILE=""; PREF_SESSION=""; PREF_ORIGINAL=""; PREF_REUSE=0; PREF_WRITE=1; PREF_COUNT=0
 PREF_KNOWN_KEYS="SHARED_PROXY SHARED_PYTHON_UV SHARED_NODE SHARED_BUN SHARED_UV_INSTALL SHARED_UV_UPGRADE SHARED_UV_MIRROR SHARED_RESEARCH SHARED_ACCEL SHARED_KB SHARED_PPT SHARED_EXTERNAL SHARED_AGENTS_TAIL \
-PI_GIT_BASH PI_INSTALL PI_UPDATE PI_PKGS PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_CM_GROUP PI_MCP_MIGRATE PI_WRITE_CFG PI_MEM_RUNTIME PI_LEGACY_CLEAN PI_MODULES PI_MODULES_KNOWN \
-OC_UPGRADE OC_PONYTAIL OC_MC_REFRESH OC_CLAUDE_MEM OC_WRITE_CFG OC_FORCE_MANUAL OC_COMPACTION OC_TUI_KEYS OC_MODULES OC_MODULES_KNOWN \
-CODEX_WRITE_CFG CODEX_MEM_INSTALLER CODEX_PLUGINS CODEX_HOOKS CODEX_REVIEWER CODEX_MODULES CODEX_MODULES_KNOWN \
-DSH_NODE DSH_SKILLS DSH_MODULES DSH_MODULES_KNOWN"
-PREF_RISKY_KEYS="SHARED_PROXY OC_UPGRADE PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_MEM_RUNTIME OC_MC_REFRESH OC_CLAUDE_MEM CODEX_MEM_INSTALLER"
+PI_AGENTS_TAIL PI_GIT_BASH PI_INSTALL PI_UPDATE PI_PKGS PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_CM_GROUP PI_MCP_MIGRATE PI_WRITE_CFG PI_MEM_RUNTIME PI_LEGACY_CLEAN PI_MODULES PI_MODULES_KNOWN \
+OC_AGENTS_TAIL OC_UPGRADE OC_PONYTAIL OC_MC_REFRESH OC_CLAUDE_MEM OC_WRITE_CFG OC_FORCE_MANUAL OC_COMPACTION OC_TUI_KEYS OC_MODULES OC_MODULES_KNOWN \
+CODEX_AGENTS_TAIL CODEX_WRITE_CFG CODEX_MEM_INSTALLER CODEX_PLUGINS CODEX_HOOKS CODEX_REVIEWER CODEX_MODULES CODEX_MODULES_KNOWN \
+DSH_AGENTS_TAIL DSH_NODE DSH_SKILLS DSH_MODULES DSH_MODULES_KNOWN"
+PREF_RISKY_KEYS="SHARED_PROXY PI_AGENTS_TAIL OC_AGENTS_TAIL CODEX_AGENTS_TAIL DSH_AGENTS_TAIL OC_UPGRADE PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_MEM_RUNTIME OC_MC_REFRESH OC_CLAUDE_MEM CODEX_MEM_INSTALLER"
 preference_get() {
   local key="$1" line
   line="$(printf '%s\n' "$PREF_SESSION" | grep "^${key}=" | tail -1)"
@@ -794,7 +794,7 @@ collect_setup_plan() {
   elif ask "配置 uv 用清华 PyPI 镜像($uvcfg)?" Y SHARED_UV_MIRROR; then PLAN_UV_MIRROR=1
   else PLAN_UV_MIRROR=0; fi
 
-  # 5) skills 分组、外部设计依赖、AGENTS.tail
+  # 5) skills 分组、外部设计依赖、用户级 AGENTS 规则块
   SKILL_GROUPS=(base)
   ask "安装/更新 research 组(算法研究、实验、PyTorch 性能与 kernel;每次刷新·漂移自动备份)?" N SHARED_RESEARCH && SKILL_GROUPS+=(research)
   ask "安装/更新 accel 组(算力平台模板;缺才装·本机特化不覆盖)?" N SHARED_ACCEL && SKILL_GROUPS+=(accel)
@@ -809,9 +809,11 @@ collect_setup_plan() {
   esac
   case "${AGENTS_TAIL:-}" in
     0) PLAN_AGENTS_TAIL=0 ;;
-    1) PLAN_AGENTS_TAIL=1 ;;
-    *) if ask "把记忆系统规范块(AGENTS.tail)写入当前目录 AGENTS.md 最尾部?" Y SHARED_AGENTS_TAIL; then
-         PLAN_AGENTS_TAIL=1
+    1) ;;
+    *) # 旧键 SHARED_AGENTS_TAIL 只代表项目级同意：拒绝继续生效，同意不升级为全局同意。
+       if [ "${PREF_REUSE:-0}" = 1 ] && [ "$(preference_get SHARED_AGENTS_TAIL || true)" = 0 ] \
+          && ! preference_get OC_AGENTS_TAIL >/dev/null; then PLAN_AGENTS_TAIL=0
+       elif ask "把记忆系统规范块写进 OpenCode 用户级 $CFG/AGENTS.md(所有项目共用)?" Y OC_AGENTS_TAIL; then PLAN_AGENTS_TAIL=1
        else PLAN_AGENTS_TAIL=0; fi ;;
   esac
 
@@ -1805,11 +1807,18 @@ fi
 # 同步器随后用 npx skills 补装外部设计依赖、更新已登记第三方。
 _ss="$SOURCE_ROOT/skills-sync.sh"
 if [ -f "$_ss" ]; then
-  SKILLS_EXTERNAL="$PLAN_SKILLS_EXTERNAL" AGENTS_TAIL="$PLAN_AGENTS_TAIL" ASSUME_YES=1 \
+  # 旧缓存里的 skills-sync 仍写当前项目;源码树缺用户级同步实现时不委派规则块,项目与全局都不动。
+  if [ "$PLAN_AGENTS_TAIL" = 1 ] && ! grep -q 'migrate-agents-tail.py' "$_ss"; then
+    echo "ERROR: 源码树 skills-sync.sh 不是用户级规则版本(缺 scripts/migrate-agents-tail.py);本次不改项目/全局 AGENTS,请更新源码树后重跑" >&2
+    PLAN_AGENTS_TAIL=0; tail_sync_failed=1
+  fi
+  SKILLS_EXTERNAL="$PLAN_SKILLS_EXTERNAL" AGENTS_TAIL="$PLAN_AGENTS_TAIL" \
+    AGENTS_TAIL_HOST=opencode OPENCODE_CONFIG_DIR="$CFG" ASSUME_YES=1 \
     AGENT_SKILLS_SOURCE="$SOURCE_ROOT" \
     bash "$_ss" "${SKILL_GROUPS[@]}" || echo "WARN: skills 同步未完全成功" >&2
 else
   echo "WARN: 源码树缺 skills-sync.sh,跳过 skills 同步" >&2
+  [ "$PLAN_AGENTS_TAIL" = 1 ] && { echo "ERROR: 无法写入记忆系统规则块,项目与全局 AGENTS 均未改动" >&2; tail_sync_failed=1; }
 fi
 
 # ---- 8. uv(可选;strictdoc 由 modules/strictdoc 安装)----
@@ -1900,7 +1909,7 @@ echo "   提示:claude-mem 走 openrouter(OpenAI 协议),它的 key 与 magic-co
 echo "$n. 重启 claude-mem worker 并验证:"; n=$((n+1))
 echo "      cd ~/.claude/plugins/marketplaces/thedotmack && npm run worker:restart"
 echo "      curl -s http://$(mem_worker_url "$SETTINGS")/api/health   # 端口取自 $SETTINGS(见下方提示)"
-echo "$n. 项目接入记忆系统:已按计划写入(AGENTS_TAIL)或跳过;也可手动把本仓库 AGENTS.tail.md 的 memory-system 块粘到项目 AGENTS.md 的最尾部"; n=$((n+1))
+echo "$n. 记忆系统规则:已按计划写入 OpenCode 用户级 $CFG/AGENTS.md(或跳过);项目自身的 AGENTS.md 保持原样,项目规则仍写在仓库里"; n=$((n+1))
 if command -v codegraph >/dev/null 2>&1 || [ -x "$HOME/.local/bin/codegraph" ]; then
   echo "$n. 代码知识图谱(按项目):cd <项目> && codegraph init(建 .codegraph/ 索引,之后自动增量同步;不 init 则 MCP 无内容可查)"; n=$((n+1))
 fi
@@ -1910,3 +1919,4 @@ if [ -f "$NOTIFY_TARGET" ]; then
   echo "      可选: NOTIFY_MACHINE=<机器名>(多机区分)"
 fi
 echo "$n. 退出旧 TUI 和后台服务后重启 OpenCode；官方 npm 缺包由宿主安装，会话库迁移也由宿主处理"
+[ "${tail_sync_failed:-0}" = 0 ] || { echo "ERROR: 记忆系统规则块未写入(源码树缺用户级同步实现),项目与全局 AGENTS 均未改动" >&2; exit 1; }

@@ -95,11 +95,11 @@ ask_builtin() {
 # 本机安装偏好：只保存经过校验的是非选择与模块名单，不保存凭据，也不执行文件内容。
 PREF_FILE=""; PREF_SESSION=""; PREF_ORIGINAL=""; PREF_REUSE=0; PREF_WRITE=1; PREF_COUNT=0
 PREF_KNOWN_KEYS="SHARED_PROXY SHARED_PYTHON_UV SHARED_NODE SHARED_BUN SHARED_UV_INSTALL SHARED_UV_UPGRADE SHARED_UV_MIRROR SHARED_RESEARCH SHARED_ACCEL SHARED_KB SHARED_PPT SHARED_EXTERNAL SHARED_AGENTS_TAIL \
-PI_GIT_BASH PI_INSTALL PI_UPDATE PI_PKGS PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_CM_GROUP PI_MCP_MIGRATE PI_WRITE_CFG PI_MEM_RUNTIME PI_LEGACY_CLEAN PI_MODULES PI_MODULES_KNOWN \
-OC_UPGRADE OC_PONYTAIL OC_MC_REFRESH OC_CLAUDE_MEM OC_WRITE_CFG OC_FORCE_MANUAL OC_COMPACTION OC_TUI_KEYS OC_MODULES OC_MODULES_KNOWN \
-CODEX_WRITE_CFG CODEX_MEM_INSTALLER CODEX_PLUGINS CODEX_HOOKS CODEX_REVIEWER CODEX_MODULES CODEX_MODULES_KNOWN \
-DSH_NODE DSH_SKILLS DSH_MODULES DSH_MODULES_KNOWN"
-PREF_RISKY_KEYS="SHARED_PROXY OC_UPGRADE PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_MEM_RUNTIME OC_MC_REFRESH OC_CLAUDE_MEM CODEX_MEM_INSTALLER"
+PI_AGENTS_TAIL PI_GIT_BASH PI_INSTALL PI_UPDATE PI_PKGS PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_CM_GROUP PI_MCP_MIGRATE PI_WRITE_CFG PI_MEM_RUNTIME PI_LEGACY_CLEAN PI_MODULES PI_MODULES_KNOWN \
+OC_AGENTS_TAIL OC_UPGRADE OC_PONYTAIL OC_MC_REFRESH OC_CLAUDE_MEM OC_WRITE_CFG OC_FORCE_MANUAL OC_COMPACTION OC_TUI_KEYS OC_MODULES OC_MODULES_KNOWN \
+CODEX_AGENTS_TAIL CODEX_WRITE_CFG CODEX_MEM_INSTALLER CODEX_PLUGINS CODEX_HOOKS CODEX_REVIEWER CODEX_MODULES CODEX_MODULES_KNOWN \
+DSH_AGENTS_TAIL DSH_NODE DSH_SKILLS DSH_MODULES DSH_MODULES_KNOWN"
+PREF_RISKY_KEYS="SHARED_PROXY PI_AGENTS_TAIL OC_AGENTS_TAIL CODEX_AGENTS_TAIL DSH_AGENTS_TAIL OC_UPGRADE PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_MEM_RUNTIME OC_MC_REFRESH OC_CLAUDE_MEM CODEX_MEM_INSTALLER"
 preference_get() {
   local key="$1" line
   line="$(printf '%s\n' "$PREF_SESSION" | grep "^${key}=" | tail -1)"
@@ -616,9 +616,13 @@ collect_setup_plan() {
     case "${AGENTS_TAIL:-}" in
       0) PLAN_AGENTS_TAIL=0 ;;
       1) ;;
-      *) ask '把记忆系统规范块写进当前目录 AGENTS.md 的最尾部（项目自身内容在前）？' Y SHARED_AGENTS_TAIL || PLAN_AGENTS_TAIL=0 ;;
+      *) # 旧键 SHARED_AGENTS_TAIL 只代表项目级同意：拒绝继续生效，同意不升级为全局同意。
+         if [ "${PREF_REUSE:-0}" = 1 ] && [ "$(preference_get SHARED_AGENTS_TAIL || true)" = 0 ] \
+            && ! preference_get DSH_AGENTS_TAIL >/dev/null; then PLAN_AGENTS_TAIL=0
+         elif ask "把记忆系统规范块写进 DSH 用户级 $DSH_HOME_DIR/AGENTS.md(所有项目共用)?" Y DSH_AGENTS_TAIL; then PLAN_AGENTS_TAIL=1
+         else PLAN_AGENTS_TAIL=0; fi ;;
     esac
-    # skills-sync 只有 AGENTS 尾块注入与 ppt 组用 python3；先确认再取模块名单，
+    # skills-sync 只有 AGENTS 尾块写入与 ppt 组用 python3；先确认再取模块名单，
     # 失败时不下载任何东西。可用时 export -f python3 让子 Bash 复用同一解释器。
     if [[ "$PLAN_AGENTS_TAIL" = 1 || "$PLAN_SKILLS" == *" ppt"* ]]; then
       [[ "$PLAN_SKILLS" == *" ppt"* ]] && python_min=10
@@ -720,9 +724,16 @@ if [[ -n "$previous" && -L "$previous" ]]; then
   esac
 fi
 if [[ -n "$PLAN_SKILLS" ]]; then
-  AGENTS_TAIL="$PLAN_AGENTS_TAIL" SKILLS_EXTERNAL="$([[ "$PLAN_EXTERNAL_DESIGN" = 1 ]] && echo install || echo skip)" \
+  _dsh_ss="$SOURCE_ROOT/skills-sync.sh"
+  # 旧缓存里的 skills-sync 仍写当前项目;缺脚本或不走用户级 helper 时不委派规则块,项目与全局都不动。
+  if [[ "$PLAN_AGENTS_TAIL" = 1 ]] && { [[ ! -f "$_dsh_ss" ]] || ! grep -q 'migrate-agents-tail.py' "$_dsh_ss"; }; then
+    printf 'ERROR: 源码树 skills-sync.sh 缺失或不走用户级规则 helper;本次不改项目/全局 AGENTS,请更新源码树后重跑\n' >&2
+    PLAN_AGENTS_TAIL=0; tail_sync_failed=1
+  fi
+  AGENTS_TAIL="$PLAN_AGENTS_TAIL" AGENTS_TAIL_HOST=dsh DSH_HOME="$DSH_HOME_DIR" \
+    SKILLS_EXTERNAL="$([[ "$PLAN_EXTERNAL_DESIGN" = 1 ]] && echo install || echo skip)" \
     ASSUME_YES="$YES" AGENT_SKILLS_SOURCE="$SOURCE_ROOT" \
-    bash "$SOURCE_ROOT/skills-sync.sh" $PLAN_SKILLS || printf 'WARN: skills 同步未完全成功\n' >&2
+    bash "$_dsh_ss" $PLAN_SKILLS || printf 'WARN: skills 同步未完全成功\n' >&2
 fi
 
 # ---- 可选模块:统一分发(新增模块只加 modules/<名>/,本脚本不用改)----
@@ -734,6 +745,7 @@ elif [[ -n "$PLAN_SKILLS" ]]; then
   printf 'WARN: 取不到 modules/run.sh,跳过可选模块\n' >&2
 fi
 printf '\n安装完成。新终端运行 dsh tui；批处理运行 dsh --profile headless "任务"。\n'
+[ "${tail_sync_failed:-0}" = 0 ] || { printf 'ERROR: 记忆系统规则块未写入(源码树缺用户级同步实现),项目与全局 AGENTS 均未改动\n' >&2; exit 1; }
 if [[ ! -f "$claude_bundle/lib/index.js" ]]; then
   printf 'claude-mem 官方安装命令：DSH_HOME=%q npx -y claude-mem@latest install --ide dsh --dsh-profile tui --no-auto-start\n' "$DSH_HOME_DIR"
 fi

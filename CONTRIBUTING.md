@@ -85,7 +85,7 @@ modules/<名>/
 
 `setup.sh` 的契约与 `modules/README.md` 一致：接收 `--host`、自身不提问、幂等、只改自己负责的东西、不留半成品。完整条目见 [modules/README.md](modules/README.md)。
 
-**AGENTS.block.md 默认不写。** `AGENTS.tail.md` 的内容会进每个项目、每次会话的提示，只有"每轮都在起作用"的约定才配占这个位置（记忆三件套、技术写作口径、上下文纪律）。显式调用的工具——`ppt-master` 做 PPT、`image_gen` 画图、`agent-reach` 读帖——靠 skill 的 `description` 就能被选中，写进去只是让所有人每一轮都为它付 token。判定：**每轮都在起作用，还是被叫到时才起作用？**
+**AGENTS.block.md 默认不写。** `AGENTS.tail.md` 的内容会进**每个会话**的提示（setup 写到宿主用户级文件，项目共用），只有"每轮都在起作用"的约定才配占这个位置（记忆三件套、技术写作口径、上下文纪律）。显式调用的工具——`ppt-master` 做 PPT、`image_gen` 画图、`agent-reach` 读帖——靠 skill 的 `description` 就能被选中，写进去只是让所有人每一轮都为它付 token。判定：**每轮都在起作用，还是被叫到时才起作用？**
 
 现有内联块（codegraph、strictdoc、notify 插件等）暂时不动，改到时顺手搬一个；不做一次性大迁移。
 
@@ -116,7 +116,7 @@ ask "安装/更新 X 组(说明;缺才装·本机特化不覆盖)?" N && GROUPS+
 另两条：
 
 - **新增可选能力要在四个入口都加询问**，默认 N。只在 Pi/OpenCode 里加、忘了 DSH 与 Codex，会出现"同样装一套，某台机器就是少一个能力"。确实无法共用的（需要特定宿主的插件机制）在 PR 里说明原因并同步 README 的宿主覆盖表。
-- `AGENTS.tail.md` 是会被粘进目标项目 `AGENTS.md` 尾部的规范块，改它等于改所有人的提示词——单独成 PR 说明动机。
+- `AGENTS.tail.md` 是会被写进各安装宿主用户级指令文件的规范块（setup 一次写、所有项目共用），改它等于改所有人的提示词——单独成 PR 说明动机。
 - 新增行为在 `tests/` 留一个可离线重跑的脚本：本地 fixture、不联网、不碰真实 `HOME`，并接入 `bash scripts/check.sh --with-tests`；准入与证据边界见 [`tests/README.md`](tests/README.md)。
 
 ## 四、幂等与执行顺序（提交前必做）
@@ -127,7 +127,7 @@ ask "安装/更新 X 组(说明;缺才装·本机特化不覆盖)?" N && GROUPS+
 
 | 问题 | 不幂等的典型症状 |
 | --- | --- |
-| 第二次跑会再追加一遍吗？ | `AGENTS.md` 里出现两份 memory-system 块 |
+| 第二次跑会再追加一遍吗？ | 用户级 `AGENTS.md` 里出现两份 memory-system 块 |
 | 会覆盖用户已有的值吗？ | 本机 `api_key` / `base_url` 被模板冲掉 |
 | 会重复下载或重复安装吗？ | 每次跑都重新拉包、装两遍浏览器、留两个 venv |
 | 失败后重跑能自愈吗？ | 上次半途中断后，目录里留着坏文件让下次直接报错 |

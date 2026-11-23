@@ -44,6 +44,8 @@ bash scripts/verify-subagents.sh --apply   # 调用现有 setup，集中确认�
 
 **安装简洁性条目**由 `tests/setup-preflight.py` 的 `check_setup_preferences()` 提供并已接入统一门禁：验证首次保存、二次摘要复用、`--choose`、`-y` 和新增模块默认值，确保用户确认一次配方后不被旧问题反复追问；同时覆盖凭据不写入、只读零保存及并发／链接保护。测试直接提取生产函数并在临时 HOME 运行，不读取真实偏好文件。
 
+**公共规范块条目**由 `tests/setup-preflight.py` 的 `check_agents_tail()`、`check_agents_tail_old_cache()` 与 `check_agents_tail_migration()` 提供并已接入统一门禁：`check_agents_tail()` 在隔离 HOME 里跑真实的 `inject_agents_md`，验证公共块只写各已安装宿主的用户级文件、重跑幂等、`AGENTS_TAIL=0` 零写入、`AGENTS_TAIL_HOST` 显式目标，以及 Codex 非空 override 与 Pi 现有规则文件被保留、残缺标记不被吞；`check_agents_tail_old_cache()` 把新 setup 的委派块接到一个仍写回 `$PWD/AGENTS.md` 的旧缓存 `skills-sync.sh`，验证它被发现、报错并以 `AGENTS_TAIL=0` 拒绝，不往当前项目写；`check_agents_tail_migration()` 在隔离 Git 夹具仓库跑真实 `scripts/migrate-agents-tail.py`，验证默认只预览、无宿主或用户级规则未部署时不清项目块、只有与发行历史完全匹配的块才被清理并留备份、定制块原样保留。三者都必须清除宿主目录环境变量并重定向 `HOME`，否则会改写本机 live 指令文件。
+
 ## 模拟与真实宿主的边界
 
 DSH 安装期校验复用 rc.2 的官方 schema、表达式和配置接口时，结论只能是“拒绝”或“未发现拒绝”。它不能证明宿主已经加载，也不应为复杂 Group／Include 行为另造一套语义推断；无法确定的结果应保守拒绝或交给真实宿主。

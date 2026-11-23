@@ -72,5 +72,5 @@ Tool names in this block (`ctx_*`, `ctxm_*`, `later`, `bg_*`, `mem_*`) are the P
 - Treat existing code and project memory as evidence, not permission to repeat a workaround. Check whether its original constraint applies here; otherwise use the project's normal API. If an exception must remain and its scope is unclear, explain the local constraint and the normal alternative where the next reader will see them.
 - Comments carry what code cannot: contracts, external constraints, algorithm references, necessary reasons and license notices. Development history belongs in project memory.
 
-**Placement**: paste this block at the tail of a project's own `AGENTS.md`; the project's own content stays on top. Setup writes or refreshes it by default; the initial plan can skip it.
+**Placement**: setup maintains this shared block in each installed host's user-level instructions. Keep project-specific rules and discipline in the repository.
 <!-- memory-system:end -->

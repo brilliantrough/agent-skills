@@ -59,7 +59,7 @@ resolve_python3() { # python3 就绪返回 0;否则 python → py → uv 自管�
 }
 
 # -y/--yes(或环境变量 ASSUME_YES=1)「默认安装」:前置计划采用默认值,默认 Y 执行、默认 N 跳过;
-# AGENTS.md 注入默认 Y。已有凭据不再询问,缺项凭据仍在计划阶段收集;无终端时占位符保留。
+# 用户级 AGENTS 规则块默认写入。已有凭据不再询问,缺项凭据仍在计划阶段收集;无终端时占位符保留。
 ASSUME_YES="${ASSUME_YES:-}"
 CHOOSE=0
 while [ $# -gt 0 ]; do
@@ -170,11 +170,11 @@ ask_builtin() { # $1=提示 $2=默认(Y/N,缺省 N)
 # 本机安装偏好：只保存经过校验的是非选择与模块名单，不保存凭据，也不执行文件内容。
 PREF_FILE=""; PREF_SESSION=""; PREF_ORIGINAL=""; PREF_REUSE=0; PREF_WRITE=1; PREF_COUNT=0
 PREF_KNOWN_KEYS="SHARED_PROXY SHARED_PYTHON_UV SHARED_NODE SHARED_BUN SHARED_UV_INSTALL SHARED_UV_UPGRADE SHARED_UV_MIRROR SHARED_RESEARCH SHARED_ACCEL SHARED_KB SHARED_PPT SHARED_EXTERNAL SHARED_AGENTS_TAIL \
-PI_GIT_BASH PI_INSTALL PI_UPDATE PI_PKGS PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_CM_GROUP PI_MCP_MIGRATE PI_WRITE_CFG PI_MEM_RUNTIME PI_LEGACY_CLEAN PI_MODULES PI_MODULES_KNOWN \
-OC_UPGRADE OC_PONYTAIL OC_MC_REFRESH OC_CLAUDE_MEM OC_WRITE_CFG OC_FORCE_MANUAL OC_COMPACTION OC_TUI_KEYS OC_MODULES OC_MODULES_KNOWN \
-CODEX_WRITE_CFG CODEX_MEM_INSTALLER CODEX_PLUGINS CODEX_HOOKS CODEX_REVIEWER CODEX_MODULES CODEX_MODULES_KNOWN \
-DSH_NODE DSH_SKILLS DSH_MODULES DSH_MODULES_KNOWN"
-PREF_RISKY_KEYS="SHARED_PROXY OC_UPGRADE PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_MEM_RUNTIME OC_MC_REFRESH OC_CLAUDE_MEM CODEX_MEM_INSTALLER"
+PI_AGENTS_TAIL PI_GIT_BASH PI_INSTALL PI_UPDATE PI_PKGS PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_CM_GROUP PI_MCP_MIGRATE PI_WRITE_CFG PI_MEM_RUNTIME PI_LEGACY_CLEAN PI_MODULES PI_MODULES_KNOWN \
+OC_AGENTS_TAIL OC_UPGRADE OC_PONYTAIL OC_MC_REFRESH OC_CLAUDE_MEM OC_WRITE_CFG OC_FORCE_MANUAL OC_COMPACTION OC_TUI_KEYS OC_MODULES OC_MODULES_KNOWN \
+CODEX_AGENTS_TAIL CODEX_WRITE_CFG CODEX_MEM_INSTALLER CODEX_PLUGINS CODEX_HOOKS CODEX_REVIEWER CODEX_MODULES CODEX_MODULES_KNOWN \
+DSH_AGENTS_TAIL DSH_NODE DSH_SKILLS DSH_MODULES DSH_MODULES_KNOWN"
+PREF_RISKY_KEYS="SHARED_PROXY PI_AGENTS_TAIL OC_AGENTS_TAIL CODEX_AGENTS_TAIL DSH_AGENTS_TAIL OC_UPGRADE PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_MEM_RUNTIME OC_MC_REFRESH OC_CLAUDE_MEM CODEX_MEM_INSTALLER"
 preference_get() {
   local key="$1" line
   line="$(printf '%s\n' "$PREF_SESSION" | grep "^${key}=" | tail -1)"
@@ -519,7 +519,11 @@ collect_setup_plan() {
   case "${AGENTS_TAIL:-}" in
     0) PLAN_AGENTS_TAIL=0 ;;
     1) ;;
-    *) ask '把记忆系统规范块写进当前目录 AGENTS.md 的最尾部(项目自身内容在前)?' Y SHARED_AGENTS_TAIL || PLAN_AGENTS_TAIL=0 ;;
+    *) # 旧键 SHARED_AGENTS_TAIL 只代表项目级同意：拒绝继续生效，同意不升级为全局同意。
+       if [ "${PREF_REUSE:-0}" = 1 ] && [ "$(preference_get SHARED_AGENTS_TAIL || true)" = 0 ] \
+          && ! preference_get CODEX_AGENTS_TAIL >/dev/null; then PLAN_AGENTS_TAIL=0
+       elif ask "把记忆系统规范块写进 Codex 用户级 $CFG/AGENTS.md(所有项目共用)?" Y CODEX_AGENTS_TAIL; then PLAN_AGENTS_TAIL=1
+       else PLAN_AGENTS_TAIL=0; fi ;;
   esac
   # 模块名单在任何执行之前一次问完;执行阶段只用 --selected 跑已选项
   # 计划末尾才解析源码基准:全部确认已完成,此前不 clone、不 mkdir
@@ -1023,17 +1027,24 @@ PY_REVIEWER_VERSION
 fi
 _ss="$SOURCE_ROOT/skills-sync.sh"
 if [ -f "$_ss" ]; then
+  if [ "$PLAN_AGENTS_TAIL" = 1 ] && ! grep -q 'migrate-agents-tail.py' "$_ss"; then
+    echo "ERROR: 源码树 skills-sync.sh 不是用户级规则版本(缺 scripts/migrate-agents-tail.py);本次不改项目/全局 AGENTS,请更新源码树后重跑" >&2
+    PLAN_AGENTS_TAIL=0; errors=$((errors + 1))
+  fi
   SKILL_GROUPS=(base)
   [ "$PLAN_SKILL_RESEARCH" = 1 ] && SKILL_GROUPS+=(research)
   [ "$PLAN_SKILL_ACCEL" = 1 ] && SKILL_GROUPS+=(accel)
   [ "$PLAN_SKILL_KB" = 1 ] && SKILL_GROUPS+=(kb)
   [ "$PLAN_SKILL_PPT" = 1 ] && SKILL_GROUPS+=(ppt)
   AGENTS_TAIL="$PLAN_AGENTS_TAIL" \
+  AGENTS_TAIL_HOST=codex CODEX_HOME="$CFG" \
   SKILLS_EXTERNAL="$([ "$PLAN_EXTERNAL_DESIGN" = 1 ] && echo install || echo skip)" \
     ASSUME_YES="${ASSUME_YES:-0}" AGENT_SKILLS_SOURCE="$SOURCE_ROOT" \
     bash "$_ss" "${SKILL_GROUPS[@]}" || warn 'skills 同步未完全成功'
 else
-  warn '源码树缺 skills-sync.sh,跳过 skills 同步'
+  [ "$PLAN_AGENTS_TAIL" = 1 ] \
+    && warn '源码树缺 skills-sync.sh,记忆系统规则块未写入;项目与全局 AGENTS 均未改动' \
+    || warn '源码树缺 skills-sync.sh,跳过 skills 同步'
 fi
 
 # ---- 可选模块:统一分发(新增模块只加 modules/<名>/,本脚本不用改)----

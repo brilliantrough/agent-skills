@@ -28,7 +28,7 @@ for f in pi-setup.sh opencode-setup.sh codex-setup.sh dsh-setup.sh skills-sync.s
 done
 while IFS= read -r f; do
   python3 -m py_compile "$f" 2>/dev/null || err "py_compile 失败: $f"
-done < <(find skills -name '*.py' -type f 2>/dev/null)
+done < <(find skills scripts -name '*.py' -type f 2>/dev/null)
 info "shell 与 python 语法检查完成"
 preflight_out="$(python3 tests/setup-preflight.py 2>&1)"; preflight_rc=$?
 printf '%s\n' "$preflight_out"
@@ -147,11 +147,12 @@ done
 [ "$tpl_missing" = 0 ] && info "setup 引用的模板都在 templates/"
 
 # 通用步骤只在共用脚本里实现一次；setup 里各写一份就会逐渐走偏
-grep -q 'memory-system:start' skills-sync.sh || err "skills-sync.sh 缺记忆规范块注入（四个 setup 共用）"
-for f in pi-setup.sh opencode-setup.sh codex-setup.sh dsh-setup.sh; do
-  grep -q 'memory-system:start' "$f" && err "$f 里又出现了记忆规范块实现（应只在 skills-sync.sh）"
+grep -q 'scripts/migrate-agents-tail.py' skills-sync.sh || err "skills-sync.sh 未调用共用的用户级规则同步脚本"
+for f in pi-setup.sh opencode-setup.sh codex-setup.sh dsh-setup.sh skills-sync.sh; do
+  grep -q 'memory-system:start' "$f" && err "$f 里出现了记忆规范块实现（应只在 scripts/migrate-agents-tail.py）"
 done
-info "记忆规范块注入只在 skills-sync.sh"
+[ -f scripts/migrate-agents-tail.py ] || err "缺 scripts/migrate-agents-tail.py"
+info "记忆规范块分发只在 scripts/migrate-agents-tail.py"
 
 # 模块契约：元数据齐全、默认 N（写 Y 必须在 desc 里说明）、四个 setup 都走通用分发
 for d in modules/*/; do

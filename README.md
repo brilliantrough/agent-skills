@@ -29,9 +29,9 @@
 |---|---|---|---|---|
 | skills 基础组 + `research`/`accel`/`kb`/`ppt` 可选组 | ✓ | ✓ | ✓ | ✓ |
 | `agent-reach` 只读检索 CLI（前置选择，默认 N） | ✓ | ✓ | ✓ | ✓ |
-| 记忆规范块写进项目 `AGENTS.md`（开头选择，默认 Y） | ✓ | ✓ | ✓ | ✓ |
+| 记忆规范块写进本宿主用户级指令（开头选择，默认 Y） | ✓ | ✓ | ✓ | ✓ |
 
-表格里的共用能力都由脚本在开头统一选择并透传，宿主特有部分留在各自的 `*-setup.sh`。`AGENTS.md` 规范块默认追加或原位更新，不再需要手工粘贴。
+表格里的共用能力都由脚本在开头统一选择并透传，宿主特有部分留在各自的 `*-setup.sh`。规范块写进各宿主的用户级文件（OpenCode `~/.config/opencode/AGENTS.md`、Pi `~/.pi/agent/AGENTS.md`、DSH `$DSH_HOME/AGENTS.md`、Codex `~/.codex/AGENTS.md`，Claude Code 为 `CLAUDE.md`），每个账号装一次、所有项目共用；项目自己的 `AGENTS.md` 不再被改写，项目规则仍写在仓库里。
 
 [快速安装](#快速安装) · [Skills](#skills本仓-44-个) · [首次部署](#首次部署只需要网关--6-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [DSH](dsh/README.md) · [OpenCode](#opencode-安装与迁移) · [更新](#更新) · [贡献](CONTRIBUTING.md)
 
@@ -92,7 +92,7 @@ bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.co
 - 在 `~/.claude/skills/<名>` 建指向 `~/.agents/skills/<名>` 的符号链接。Claude Code 不读 `~/.agents/skills`，但会跟随逐个 skill 的链接；Git Bash 没有真链接，退回复制。
 - 随 base 组把 `verification-reviewer` 与 `consolidation-reviewer` 写到 `~/.claude/agents/`，分别供独立功能复核和整理后审查。
 - 不安装 Magic Context、context-mode 和 `later`。记忆用 `docs/` 下的 StrictDoc、claude-mem 官方插件（自行安装）和 Claude Code 自带的记忆；规范块里的 Pi／OpenCode 工具名在这里不存在，按块内说明改用自带能力。
-- Claude Code 直接读取项目的 `AGENTS.md`；读不到时在 `CLAUDE.md` 里写一行 `@AGENTS.md`。
+- Claude Code 读取用户级 `~/.claude/CLAUDE.md` 和项目的 `AGENTS.md`；套件的公共块写入前者，项目文件按原样保留。
 
 ### `-y`、一次前置选择与本机偏好
 
@@ -155,7 +155,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 - 明确决策后更新规范并简短告知；不因猜测或每次任务频繁改动
 - 文档默认中文；调查、存取路径由 Agent 判断
 
-说“用 project-profile 为这个项目建立画像”，即可建立单文件整体说明；默认 `docs/handbook/project-profile.sdoc`，已有等价说明则原位完善。`migrate-mem` 初建接入，`load-mem` 先读，`save-mem` 随形态或关键研究认识变化局部更新，`consolidator` 阶段校准；不新增插件或后台扫描。科研主线可为同一个问题，多条路线并行，推进状态与证据强度分开；没有代码也能建立画像。画像帮助定位，行动前仍需核实相关实现或研究证据。已有项目需同步更新 AGENTS 规范块，不能只装 skill 就假定入口已接好。
+说“用 project-profile 为这个项目建立画像”，即可建立单文件整体说明；默认 `docs/handbook/project-profile.sdoc`，已有等价说明则原位完善。`migrate-mem` 初建接入，`load-mem` 先读，`save-mem` 随形态或关键研究认识变化局部更新，`consolidator` 阶段校准；不新增插件或后台扫描。科研主线可为同一个问题，多条路线并行，推进状态与证据强度分开；没有代码也能建立画像。画像帮助定位，行动前仍需核实相关实现或研究证据。规范块由 setup 写入宿主用户级文件；存量项目里的旧块按下面的迁移步骤显式清理，不要手工粘贴新副本。
 
 ### 用户纪律（自制）
 
@@ -177,7 +177,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 - **范围**：README、设计、计划、报告、runbook、变更、记忆、技术回复与状态更新；不限目录
 - **风格**：结论先行，结构服务读者；不强行分点／列表／表格，保留复杂因果所需的短段落
 - **执行**：每次交付做短检查；润色、去 AI 味或问题密集长文读取[完整目录](skills/base/readable-docs/references/anti-ai-style.md)，重写后复核事实
-- **接入**：安装 skill，将 [AGENTS.tail.md](AGENTS.tail.md) 规范块合入项目 `AGENTS.md`；已有项目也需更新
+- **接入**：安装 skill；公共写作口径随 setup 写入宿主用户级规范块（见 [AGENTS.tail.md](AGENTS.tail.md)），不必在每个项目重复粘贴
 - **边界**：默认只交最终稿；不批量重写旧文档，不改规范强度、代码或原始证据，不以 AI 检测分数验收
 
 ### Skill 编写与知识沉淀（自制）
@@ -384,7 +384,7 @@ HTML 分支：
 | nju-ppt（仅ppt组） | 外部 `hugohe3/ppt-master`＋`chuspeeism/dashi-ppt-skill`（固定0.4.14）；Python 3.10+独立venv＋Node 20+独立缓存，不把第三方源码纳入本仓 |
 
 - `.sdoc` 校验需要 `strictdoc`：脚本末尾检查 `uv`，缺则安装；可选全局安装 `uv tool install strictdoc==0.28.1`，升级用 `uv tool upgrade strictdoc`
-- 项目接入记忆系统：使用 [AGENTS.tail.md](AGENTS.tail.md) 中 `memory-system:start/end` 引导块
+- 记忆系统公共块：[AGENTS.tail.md](AGENTS.tail.md) 中的 `memory-system:start/end` 由 setup 写入各宿主用户级指令文件；存量项目里的旧块用 [迁移脚本](scripts/migrate-agents-tail.py) 显式清理
 
 ### 外部设计依赖
 
@@ -1124,6 +1124,20 @@ bash skills-external.sh --ppt  # 另补缺ppt-master；不代替ppt组和独立P
 | OpenCode 官方 Ponytail | 宿主负责缺包安装；setup 维护时查询版本，有新版默认询问刷新；确认后备份对应缓存并登记 `@latest`，不调用宿主 plugin CLI |
 
 **Magic Context 升级单独确认。** 先停所有共用 `context.db` 的宿主并备份；Pi 不用 `--all`，OpenCode setup 提供默认 Y 的独立刷新询问。选 Y 只备份移走它在 OpenCode 中的 latest 缓存、改回官方 npm 登记；不启动宿主、不访问数据库。选 N 保留现状，不阻塞其他插件；兼容性 WARN 须在启动前处理。
+
+### 公共规范块迁移（存量项目）
+
+setup 现在把 [AGENTS.tail.md](AGENTS.tail.md) 的 `memory-system` 块写进各宿主用户级指令文件，旧版本曾把同一块追加到项目自己的 `AGENTS.md`。存量项目默认不动：项目文件、现有块和自定义内容都保持原样，需要清理时显式运行迁移脚本。
+
+```bash
+python3 scripts/migrate-agents-tail.py PATH/TO/PROJECT [更多项目 ...]   # 默认只预览
+python3 scripts/migrate-agents-tail.py PATH/TO/PROJECT --apply          # 确认后清理受管块并备份
+```
+
+- 只清理与发行历史完全一致的受管块；顺序是先确认用户级规则已就位，再改项目文件。
+- 旧块被改过、或本地 Git 历史无法确认版本时保留并报错，请人工核对。
+- 历史版本从本仓本地 Git 读取、不联网。浅克隆（`--depth`）看不到旧版本，会把本可迁移的块当成未知而保留，因此迁移请使用有完整历史的维护 clone。
+- 项目 `AGENTS.md` 只剩受管块和一个换行时，清理后移除整个文件；改动前都留 `.bak-*` 备份。
 
 ### 配置合并
 

@@ -6,7 +6,7 @@
 #   全部确认在开始时一次性收集(collect_setup_plan):先只读探测现状,集中 ask 设置 PLAN_*,
 #   最后收集网关/凭据;之后安装/更新/写配置阶段只按 PLAN 行动,不再提问。
 #   询问默认:装缺的软件/包、写入条目 → [Y/n](回车即装);覆盖已有配置、无代理下继续、
-#            版本不一致强启用 → [y/N];非交互环境按各自默认执行。AGENTS.tail 注入默认 Y。
+#            版本不一致强启用 → [y/N];非交互环境按各自默认执行。AGENTS.tail 写入本宿主用户级规则文件，默认 Y。
 #   凭据(前置阶段只问这一处):统一网关(回车=默认 https://api.pezayo.com/v1)+ 6 个 api key
 #            (claude-newapi / codex-newapi / anthropic-newapi / magic-context embedding / claude-mem);
 #            回车=跳过,占位符保留,之后按清单手工补(四处 <YOUR_NEWAPI_API_KEY> 按 provider 名各填各的;
@@ -40,7 +40,7 @@
 #   8. strictdoc 由 modules/strictdoc 装(.sdoc 校验依赖;uv 的安装/自升级/镜像见 1.3)
 #
 # 用法:bash pi-setup.sh [-y|--yes]   (-y 默认安装:前置阶段只问一次凭据、其余一律取默认——默认 Y 的照做,
-#       默认 N 的跳过(pi update --all、插件缓存清理、magic-context 强启用、无代理继续),AGENTS.md 注入默认 Y;
+#       默认 N 的跳过(pi update --all、插件缓存清理、magic-context 强启用、无代理继续),用户级规则块默认写入;
 #       遵循 PI_CODING_AGENT_DIR,与 pi 一致)
 # Windows:在 Git Bash(不是 WSL)里跑同一份脚本;Python 缺失由 uv 兜底(curl/git 由 Git for Windows 自带)。
 
@@ -90,7 +90,7 @@ nbin() { # 可执行文件的宿主路径:MSYS 的 command -v 会去掉 .exe,宿
 }
 
 # -y/--yes(或环境变量 ASSUME_YES=1)「默认安装」:前置计划不再逐项确认,一律取默认值 —— 默认 Y 的照做
-# (装缺件、字段级合并写配置、刷新 skills、AGENTS.md 注入),默认 N 的跳过(覆盖缓存、版本不一致时强启用、无代理继续)。
+# (装缺件、字段级合并写配置、刷新 skills、写用户级 AGENTS 规则块),默认 N 的跳过(覆盖缓存、版本不一致时强启用、无代理继续)。
 # 唯一还会问的是凭据(网关 + 6 个 api key);没有终端时静默跳过、占位符保留(无人值守用环境变量预填)。
 ASSUME_YES="${ASSUME_YES:-}"
 CHOOSE=0
@@ -143,11 +143,11 @@ ask_builtin() { # $1=提示 $2=默认(Y/N,缺省 N)
 # 本机安装偏好：只保存经过校验的是非选择与模块名单，不保存凭据，也不执行文件内容。
 PREF_FILE=""; PREF_SESSION=""; PREF_ORIGINAL=""; PREF_REUSE=0; PREF_WRITE=1; PREF_COUNT=0
 PREF_KNOWN_KEYS="SHARED_PROXY SHARED_PYTHON_UV SHARED_NODE SHARED_BUN SHARED_UV_INSTALL SHARED_UV_UPGRADE SHARED_UV_MIRROR SHARED_RESEARCH SHARED_ACCEL SHARED_KB SHARED_PPT SHARED_EXTERNAL SHARED_AGENTS_TAIL \
-PI_GIT_BASH PI_INSTALL PI_UPDATE PI_PKGS PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_CM_GROUP PI_MCP_MIGRATE PI_WRITE_CFG PI_MEM_RUNTIME PI_LEGACY_CLEAN PI_MODULES PI_MODULES_KNOWN \
-OC_UPGRADE OC_PONYTAIL OC_MC_REFRESH OC_CLAUDE_MEM OC_WRITE_CFG OC_FORCE_MANUAL OC_COMPACTION OC_TUI_KEYS OC_MODULES OC_MODULES_KNOWN \
-CODEX_WRITE_CFG CODEX_MEM_INSTALLER CODEX_PLUGINS CODEX_HOOKS CODEX_REVIEWER CODEX_MODULES CODEX_MODULES_KNOWN \
-DSH_NODE DSH_SKILLS DSH_MODULES DSH_MODULES_KNOWN"
-PREF_RISKY_KEYS="SHARED_PROXY OC_UPGRADE PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_MEM_RUNTIME OC_MC_REFRESH OC_CLAUDE_MEM CODEX_MEM_INSTALLER"
+PI_AGENTS_TAIL PI_GIT_BASH PI_INSTALL PI_UPDATE PI_PKGS PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_CM_GROUP PI_MCP_MIGRATE PI_WRITE_CFG PI_MEM_RUNTIME PI_LEGACY_CLEAN PI_MODULES PI_MODULES_KNOWN \
+OC_AGENTS_TAIL OC_UPGRADE OC_PONYTAIL OC_MC_REFRESH OC_CLAUDE_MEM OC_WRITE_CFG OC_FORCE_MANUAL OC_COMPACTION OC_TUI_KEYS OC_MODULES OC_MODULES_KNOWN \
+CODEX_AGENTS_TAIL CODEX_WRITE_CFG CODEX_MEM_INSTALLER CODEX_PLUGINS CODEX_HOOKS CODEX_REVIEWER CODEX_MODULES CODEX_MODULES_KNOWN \
+DSH_AGENTS_TAIL DSH_NODE DSH_SKILLS DSH_MODULES DSH_MODULES_KNOWN"
+PREF_RISKY_KEYS="SHARED_PROXY PI_AGENTS_TAIL OC_AGENTS_TAIL CODEX_AGENTS_TAIL DSH_AGENTS_TAIL OC_UPGRADE PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_MEM_RUNTIME OC_MC_REFRESH OC_CLAUDE_MEM CODEX_MEM_INSTALLER"
 preference_get() {
   local key="$1" line
   line="$(printf '%s\n' "$PREF_SESSION" | grep "^${key}=" | tail -1)"
@@ -868,7 +868,7 @@ for line in sys.stdin:
 
 # ---- 前置计划:一次收集全部确认,执行阶段只看 PLAN_*,不再提问 ----
 # 先只读探测现状,再集中 ask 设置 PLAN_*,最后收集网关/凭据。默认值与原来逐项询问时一致;
-# 唯一变更是 AGENTS.tail 注入默认 Y。probe 与执行阶段用同一套判断,探测不到时执行阶段会再报。
+# 注入内容只写本宿主用户级规则文件，默认 Y。probe 与执行阶段用同一套判断,探测不到时执行阶段会再报。
 collect_setup_plan() {
   local proxy pi_probe uvp uvcfg uv_cur uv_latest
   # 0. 代理(大小写都查;未设则探测直连;都不通才问)
@@ -1062,7 +1062,7 @@ PY_MCP_VERSION
   ask "安装/更新 kb 组(公共算力知识;每次刷新)?" N SHARED_KB && PLAN_SKILL_KB=1
   ask "安装/更新 ppt 组(南大 HTML/PPTX、Dashi、ppt-master 与独立依赖;需 Node 20+、Python 3.10+)?" N SHARED_PPT && PLAN_SKILL_PPT=1
 
-  # 7. 外部设计依赖 + AGENTS.tail；环境变量是已给出的前置答案，不覆盖
+  # 7. 外部设计依赖 + 用户级 AGENTS 规则块；环境变量是已给出的前置答案，不覆盖
   PLAN_SKILLS_EXTERNAL=1
   case "${SKILLS_EXTERNAL:-}" in
     skip) PLAN_SKILLS_EXTERNAL=0 ;;
@@ -1073,7 +1073,11 @@ PY_MCP_VERSION
   case "${AGENTS_TAIL:-}" in
     0) PLAN_AGENTS_TAIL=0 ;;
     1) ;;
-    *) ask "把记忆系统规范块写进 $PWD/AGENTS.md 的最尾部(项目自身内容在前)?" Y SHARED_AGENTS_TAIL || PLAN_AGENTS_TAIL=0 ;;
+    *) # 旧键 SHARED_AGENTS_TAIL 只代表项目级同意：拒绝继续生效，同意不升级为全局同意。
+       if [ "${PREF_REUSE:-0}" = 1 ] && [ "$(preference_get SHARED_AGENTS_TAIL || true)" = 0 ] \
+          && ! preference_get PI_AGENTS_TAIL >/dev/null; then PLAN_AGENTS_TAIL=0
+       elif ask "把记忆系统规范块写进 Pi 用户级 $AGENT_DIR/AGENTS.md(所有项目共用)?" Y PI_AGENTS_TAIL; then PLAN_AGENTS_TAIL=1
+       else PLAN_AGENTS_TAIL=0; fi ;;
   esac
 
   # 凭据最后收集:只问这一处
@@ -2107,11 +2111,18 @@ if [ -f "$_ss" ]; then
   [ "${PLAN_SKILL_PPT:-0}" = 1 ] && SKILL_GROUPS+=(ppt)
   _ext="skip"; [ "${PLAN_SKILLS_EXTERNAL:-1}" = 1 ] && _ext="install"
   _tail=0; [ "${PLAN_AGENTS_TAIL:-1}" = 1 ] && _tail=1
-  AGENTS_TAIL="$_tail" SKILLS_EXTERNAL="$_ext" ASSUME_YES="${ASSUME_YES:-0}" \
+  # 旧缓存里的 skills-sync 仍写当前项目:委派前先确认它自己走用户级 helper,否则规则块不交给它。
+  if [ "$_tail" = 1 ] && ! grep -q 'migrate-agents-tail.py' "$_ss"; then
+    echo "ERROR: 源码树 skills-sync.sh 不是用户级规则版本(缺 scripts/migrate-agents-tail.py);本次不改项目/全局 AGENTS,请更新源码树后重跑" >&2
+    _tail=0; tail_sync_failed=1
+  fi
+  AGENTS_TAIL="$_tail" AGENTS_TAIL_HOST=pi PI_CODING_AGENT_DIR="$AGENT_DIR" \
+    SKILLS_EXTERNAL="$_ext" ASSUME_YES="${ASSUME_YES:-0}" \
     AGENT_SKILLS_SOURCE="$SOURCE_ROOT" \
     bash "$_ss" "${SKILL_GROUPS[@]}" || echo "WARN: skills 同步未完全成功" >&2
 else
   echo "WARN: 源码树缺 skills-sync.sh,跳过 skills 同步" >&2
+  [ "${PLAN_AGENTS_TAIL:-1}" = 1 ] && { echo "ERROR: 无法写入记忆系统规则块,项目与全局 AGENTS 均未改动" >&2; tail_sync_failed=1; }
 fi
 
 # ---- 可选模块:前置阶段已选好名单,这里只执行 ----
@@ -2205,12 +2216,11 @@ echo "   提示:claude-mem 走 openrouter(OpenAI 协议),它的 key 与 magic-co
 echo "$n. 重启 claude-mem worker 并验证:"; n=$((n+1))
 echo "      cd ~/.claude/plugins/marketplaces/thedotmack && npm run worker:restart"
 echo "      curl -s http://$(mem_worker_url "$MC_SETTINGS")/api/health   # 端口取自 $MC_SETTINGS(见下方提示)"
-echo "$n. 项目接入记忆系统(可选):skills 同步时会问一次;也可手动把本仓库 AGENTS.tail.md 的 memory-system 块粘到项目 AGENTS.md 的最尾部"; n=$((n+1))
+echo "$n. 记忆系统规则:已按计划写入 Pi 用户级 $AGENT_DIR/AGENTS.md(或跳过);项目自身的 AGENTS.md 保持原样,项目规则仍写在仓库里"; n=$((n+1))
 if [ -x "${CG_BIN:-}" ]; then
   echo "$n. 代码知识图谱(按项目):cd <项目> && codegraph init(建 .codegraph/ 索引;不 init 则 MCP 无内容可查)"; n=$((n+1))
 fi
 echo "$n. 重启 pi(新配置生效;pi 内 /model 可查看已配置模型)"; n=$((n+1))
 echo "   MCP: pi mcp list 检查连接;Pi 内 /mcp 管理服务器,tool_search 发现工具、codemode 批量调用"
-if [ "${mc_blocked:-0}" -eq 1 ]; then
-  echo "!! magic-context 版本不一致未处理:清掉 \"$OC_MC_CACHE\" 并重启 opencode 后,重跑本脚本启用 Pi 版记忆"
-fi
+[ "${mc_blocked:-0}" -eq 1 ] && echo "!! magic-context 版本不一致未处理:清掉 \"$OC_MC_CACHE\" 并重启 opencode 后,重跑本脚本启用 Pi 版记忆"
+[ "${tail_sync_failed:-0}" = 0 ] || { echo "ERROR: 记忆系统规则块未写入(源码树缺用户级同步实现),项目与全局 AGENTS 均未改动" >&2; exit 1; }

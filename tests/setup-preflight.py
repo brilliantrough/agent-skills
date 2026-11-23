@@ -940,37 +940,204 @@ def check_mem_search_setup():
     print('mem-search：Pi/OpenCode setup 正式接线、冷机、重跑、冲突与只读模式通过')
 
 
-def check_agents_tail():
+# 公共块写入宿主用户级文件:被测函数按 HOME 和宿主目录变量定位目标,
+# 回归必须把这些全部收进临时目录,否则会改写本机 live 指令文件。
+AGENT_ENV_KEYS = ("PI_CODING_AGENT_DIR", "OPENCODE_CONFIG_DIR", "CLAUDE_CONFIG_DIR", "CODEX_HOME",
+                  "DSH_HOME", "DSH_AGENTS_HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME",
+                  "AGENTS_TAIL", "AGENTS_TAIL_HOST")
+
+
+def agents_env(home, **extra):
+    env = os.environ.copy()
+    for key in AGENT_ENV_KEYS:
+        env.pop(key, None)
+    env.update({"HOME": str(home), "XDG_DATA_HOME": str(home / ".local/share")})
+    env.update(extra)
+    return env
+
+
+def agents_runner(tmp, project):
     body, _, _ = function(ROOT / "skills-sync.sh", "inject_agents_md")
+    runner = tmp / "run.sh"
+    runner.write_text(f"set -eu\nsource_root={ROOT}\nAGENTS_TAIL=${{AGENTS_TAIL:-1}}\n{body}\ninject_agents_md\n")
+    return lambda env: subprocess.run(["bash", str(runner)], env=env, cwd=project,
+                                      capture_output=True, text=True, stdin=subprocess.DEVNULL)
+
+
+def check_agents_tail():
     with tempfile.TemporaryDirectory(prefix="setup-agents-") as d:
         tmp = pathlib.Path(d)
+        home = tmp / "home"
+        hosts = {"pi": home / ".pi/agent", "opencode": home / ".config/opencode",
+                 "codex": home / ".codex", "claude": home / ".claude",
+                 "dsh": home / ".local/share/agent-skills/dsh/home"}
+        for root in hosts.values():
+            root.mkdir(parents=True)
         project = tmp / "project"
         project.mkdir()
-        runner = tmp / "run.sh"
-        runner.write_text(f"source_root={ROOT}\nAGENTS_TAIL=1\n{body}\ncd {project}\ninject_agents_md\n")
-        target = project / "AGENTS.md"
-        target.write_text("PROJECT-OWN-TEXT\n")
-        env = os.environ.copy()
-        subprocess.run(["bash", str(runner)], env=env, capture_output=True, text=True, check=True)
-        first = target.read_bytes()
-        subprocess.run(["bash", str(runner)], env=env, capture_output=True, text=True, check=True)
-        assert target.read_bytes() == first
-        assert target.read_text().startswith("PROJECT-OWN-TEXT\n")
-        assert target.read_text().count("<!-- memory-system:start -->") == 1
-        crlf_original = b"PROJECT-CRLF\r\n\r\n\r\n"
-        target.write_bytes(crlf_original)
-        subprocess.run(["bash", str(runner)], env=env, capture_output=True, text=True, check=True)
-        crlf_result = target.read_bytes()
-        assert crlf_result.startswith(crlf_original)
-        assert b"\n" not in crlf_result.replace(b"\r\n", b""), "CRLF 文件中混入了 LF 行尾"
-        subprocess.run(["bash", str(runner)], env=env, capture_output=True, text=True, check=True)
-        assert target.read_bytes() == crlf_result
+        (project / "AGENTS.md").write_text("PROJECT-OWN-TEXT\n")
+        run = agents_runner(tmp, project)
+        files = {host: root / ("CLAUDE.md" if host == "claude" else "AGENTS.md")
+                 for host, root in hosts.items()}
+
+        assert run(agents_env(home)).returncode == 0
+        first = {host: path.read_bytes() for host, path in files.items()}
+        for host, data in first.items():
+            assert data.count(b"<!-- memory-system:start -->") == 1, host
+        assert run(agents_env(home)).returncode == 0
+        assert {host: path.read_bytes() for host, path in files.items()} == first, "重跑改动了用户级文件"
+        assert (project / "AGENTS.md").read_text() == "PROJECT-OWN-TEXT\n", "项目 AGENTS.md 被改动"
+
+        # AGENTS_TAIL=0 不写任何用户级文件
+        off = agents_env(tmp / "off", AGENTS_TAIL="0")
+        assert run(off).returncode == 0
+        assert not any((tmp / "off").rglob("AGENTS.md")) and not (tmp / "off/.claude/CLAUDE.md").exists()
+
+        # 显式宿主:目录不存在也按安装目标创建,其他宿主不碰
+        explicit = agents_env(tmp / "explicit", AGENTS_TAIL_HOST="pi")
+        assert run(explicit).returncode == 0
+        assert (tmp / "explicit/.pi/agent/AGENTS.md").is_file()
+        assert not (tmp / "explicit/.codex").exists()
+
+        # Codex 非空 override 优先:告警失败,改写与新建都不得发生
+        override_home = tmp / "override"
+        (override_home / ".codex").mkdir(parents=True)
+        (override_home / ".codex/AGENTS.override.md").write_text("KEEP-OVERRIDE\n")
+        override = agents_env(override_home)
+        assert run(override).returncode != 0
+        assert (override_home / ".codex/AGENTS.override.md").read_text() == "KEEP-OVERRIDE\n"
+        assert not (override_home / ".codex/AGENTS.md").exists()
+
+        # Pi 已有全局规则文件时复用它,不另建 AGENTS.md
+        pi_home = tmp / "pi-override"
+        (pi_home / ".pi/agent").mkdir(parents=True)
+        (pi_home / ".pi/agent/AGENTS.override.md").write_text("PI-KEEP\n")
+        assert run(agents_env(pi_home)).returncode == 0
+        assert "PI-KEEP" in (pi_home / ".pi/agent/AGENTS.override.md").read_text()
+        assert not (pi_home / ".pi/agent/AGENTS.md").exists()
+
+        # 残缺标记:原样保留并失败
+        broken_home = tmp / "broken"
+        broken = broken_home / ".pi/agent/AGENTS.md"
+        broken.parent.mkdir(parents=True)
         malformed = "before\n<!-- memory-system:start -->\nPROJECT-MUST-SURVIVE\n"
-        target.write_text(malformed)
-        rejected = subprocess.run(["bash", str(runner)], env=env, capture_output=True, text=True)
-        assert rejected.returncode != 0
-        assert target.read_text() == malformed
-    print("AGENTS.tail：默认写入幂等，残缺标记不吞项目正文")
+        broken.write_text(malformed)
+        assert run(agents_env(broken_home, AGENTS_TAIL_HOST="pi")).returncode != 0
+        assert broken.read_text() == malformed
+    print("AGENTS.tail：写入已安装宿主用户级文件并幂等，项目与覆盖文件不被改写")
+
+
+def check_agents_tail_old_cache():
+    """新 setup 遇到旧缓存 skills-sync.sh 时不得把 AGENTS_TAIL=1 传下去写回当前项目。
+
+    四个 setup 的守卫是同构的；这里跑 pi 的真实代码块，其余三个由
+    tests/source-bench.py 的静态契约核对。"""
+    with tempfile.TemporaryDirectory(prefix="agents-old-sync-") as d:
+        tmp = pathlib.Path(d)
+        src = tmp / "source"
+        src.mkdir()
+        # 旧缓存版本:支持 AGENTS_TAIL,但仍把块写进 $PWD/AGENTS.md
+        (src / "skills-sync.sh").write_text(
+            "#!/usr/bin/env bash\n"
+            'printf "%s\\n" "${AGENTS_TAIL:-unset}" >> "$SYNC_LOG"\n'
+            '[ "${AGENTS_TAIL:-0}" = 1 ] && printf "OLD-WRITE\\n" >> "$PWD/AGENTS.md"\n'
+            "exit 0\n", encoding="utf-8")
+        text = (ROOT / "pi-setup.sh").read_text(encoding="utf-8")
+        start = text.index('_ss="$SOURCE_ROOT/skills-sync.sh"')
+        bash_call = text.index('bash "$_ss"', start)
+        end = text.index("\nfi\n", bash_call) + len("\nfi\n")
+        block = text[start:end]
+        project = tmp / "project"
+        project.mkdir()
+        log = tmp / "sync.log"
+        runner = tmp / "run.sh"
+        runner.write_text(
+            f"set -o pipefail\nexport SYNC_LOG={log}\nSOURCE_ROOT={src}\nPLAN_AGENTS_TAIL=1\nSKILL_GROUPS=(base)\n"
+            f"PLAN_SKILLS_EXTERNAL=0\nASSUME_YES=0\nAGENT_DIR={tmp}/pi-agent\n"
+            f"{block}\n[ \"${{tail_sync_failed:-0}}\" = 0 ] || exit 1\n", encoding="utf-8")
+        proc = subprocess.run(["bash", str(runner)], cwd=project, capture_output=True, text=True,
+                              env=agents_env(tmp / "home"), stdin=subprocess.DEVNULL)
+        assert proc.returncode != 0, ("旧缓存 skills-sync 未被拒绝", proc.stdout, proc.stderr)
+        assert not (project / "AGENTS.md").exists(), "旧缓存 skills-sync 仍被允许写回当前项目"
+        assert log.read_text().strip() == "0", "AGENTS_TAIL 仍以 1 传给旧写回逻辑"
+        assert "ERROR" in proc.stdout + proc.stderr, proc.stdout + proc.stderr
+    print("AGENTS.tail：旧缓存源码树被拒绝，AGENTS_TAIL 不传给旧的项目写回逻辑")
+
+
+def git_fixture(repo, env, *args):
+    subprocess.run(["git", "-C", str(repo), *args], env=env, check=True,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def check_agents_tail_migration():
+    with tempfile.TemporaryDirectory(prefix="agents-migrate-") as d:
+        tmp = pathlib.Path(d)
+        src = tmp / "repo"
+        (src / "scripts").mkdir(parents=True)
+        shutil.copy2(ROOT / "scripts/migrate-agents-tail.py", src / "scripts/migrate-agents-tail.py")
+        git_env = agents_env(tmp / "git-home", GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@example.invalid",
+                             GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@example.invalid")
+        git_fixture(src, git_env, "init", "-q")
+        old_block = "<!-- memory-system:start -->\nOLD-RELEASE\n<!-- memory-system:end -->"
+        (src / "AGENTS.tail.md").write_text(old_block + "\n", encoding="utf-8")
+        git_fixture(src, git_env, "add", "-A")
+        git_fixture(src, git_env, "commit", "-qm", "old")
+        (src / "AGENTS.tail.md").write_text((ROOT / "AGENTS.tail.md").read_text(encoding="utf-8"), encoding="utf-8")
+        git_fixture(src, git_env, "add", "-A")
+        git_fixture(src, git_env, "commit", "-qm", "current")
+
+        own = tmp / "own"
+        own.mkdir()
+        (own / "AGENTS.md").write_text("PROJECT-RULES\n\n" + old_block + "\n", encoding="utf-8")
+        shell = tmp / "only"
+        shell.mkdir()
+        (shell / "AGENTS.md").write_text(old_block + "\n", encoding="utf-8")
+        custom = tmp / "custom"
+        custom.mkdir()
+        (custom / "AGENTS.md").write_text("MINE\n\n" + old_block.replace("OLD-RELEASE", "EDITED") + "\n",
+                                          encoding="utf-8")
+        before = {p: (p / "AGENTS.md").read_bytes() for p in (own, shell, custom)}
+
+        def migrate(home, *args):
+            return subprocess.run(["python3", str(src / "scripts/migrate-agents-tail.py"), *map(str, args)],
+                                  env=agents_env(home), capture_output=True, text=True,
+                                  stdin=subprocess.DEVNULL)
+
+        # 默认只预览:文件不动、不产生备份
+        result = migrate(tmp / "preview", own, shell)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert {p: (p / "AGENTS.md").read_bytes() for p in (own, shell)} == {p: before[p] for p in (own, shell)}
+        assert not list(own.glob("*.bak-*")) and not list(shell.glob("*.bak-*"))
+
+        # 没有已识别宿主时 --apply 不得先删项目块
+        refused = migrate(tmp / "no-host", own, shell, "--apply")
+        assert refused.returncode != 0 and "未检测到宿主配置目录" in refused.stdout
+        assert {p: (p / "AGENTS.md").read_bytes() for p in (own, shell)} == {p: before[p] for p in (own, shell)}
+
+        # 有宿主时先保障用户级规则存在,再清掉与发行历史完全匹配的块并留备份;
+        # 用户级文件缺失时项目块必须原地保留。
+        deploy_home = tmp / "deploy"
+        (deploy_home / ".pi/agent").mkdir(parents=True)
+        applied = migrate(deploy_home, own, shell, custom, "--apply")
+        deployed = deploy_home / ".pi/agent/AGENTS.md"
+        assert applied.returncode != 0, "定制块应失败而不是静默跳过"
+        assert not deployed.exists(), "用户级规则未部署就删了项目块"
+        assert (own / "AGENTS.md").read_bytes() == before[own]
+        assert (shell / "AGENTS.md").read_bytes() == before[shell]
+        assert (custom / "AGENTS.md").read_bytes() == before[custom]
+
+        # 用户级规则已就位后,精确匹配的块被清掉并留备份,定制块原样保留
+        synced = migrate(deploy_home, "--sync-global")
+        assert synced.returncode == 0, synced.stdout + synced.stderr
+        assert deployed.read_text().count("<!-- memory-system:start -->") == 1
+        applied = migrate(deploy_home, own, shell, custom, "--apply")
+        assert applied.returncode != 0 and "定制" in applied.stderr
+        assert (own / "AGENTS.md").read_text() == "PROJECT-RULES\n\n\n"
+        assert not (shell / "AGENTS.md").exists(), "只剩受管块的项目文件应移除"
+        assert (custom / "AGENTS.md").read_bytes() == before[custom]
+        assert any("PROJECT-RULES" in p.read_text(encoding="utf-8") for p in own.glob("AGENTS.md.bak-*"))
+        assert any("OLD-RELEASE" in p.read_text(encoding="utf-8") for p in shell.glob("AGENTS.md.bak-*"))
+    print("AGENTS.tail 迁移：默认预览、无宿主拒绝清除、精确匹配才清理并备份，定制块保留")
 
 
 def check_opencode_source_assets():
@@ -1327,6 +1494,8 @@ def main():
     check_opencode_source_assets()
     check_modules_local_only()
     check_agents_tail()
+    check_agents_tail_old_cache()
+    check_agents_tail_migration()
     check_mem_search_setup()
     check_setup_preferences()
     print("PASS: setup 前置选择回归")

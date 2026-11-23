@@ -70,10 +70,12 @@ def make_source(tmp):
     (repo / "skills/base/demo/SKILL.md").write_text("demo skill\n", encoding="utf-8")
     (repo / "templates/pi").mkdir(parents=True)
     (repo / "templates/pi/settings.json").write_text('{"demo": true}\n', encoding="utf-8")
-    # skills-sync.sh 无条件调用同一棵树里的外部依赖脚本
+    # skills-sync.sh 无条件调用同一棵树里的外部依赖脚本；用户级规则同步也来自这棵树
     (repo / "skills-external.sh").write_text(
         '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "${EXTERNAL_LOG:-/dev/null}"\nexit 0\n',
         encoding="utf-8")
+    (repo / "scripts").mkdir(parents=True)
+    shutil.copy2(ROOT / "scripts/migrate-agents-tail.py", repo / "scripts/migrate-agents-tail.py")
     assert subprocess.run(["git", "init", "-q", "-b", "main", str(repo)], check=True).returncode == 0
     commit(repo, None, "seed\n")
     return repo
@@ -220,10 +222,34 @@ def source_channel_contract():
     print("PASS 本仓源码无 raw／archive／codeload 旁路；Release 与第三方来源保留")
 
 
+def agents_tail_contract():
+    """公共块只写宿主用户级文件；旧缓存源码树必须被拒绝，不能再写回当前项目。"""
+    sync = (ROOT / "skills-sync.sh").read_text(encoding="utf-8")
+    bad = []
+    if "scripts/migrate-agents-tail.py" not in sync:
+        bad.append("skills-sync.sh 未委派 scripts/migrate-agents-tail.py")
+    if re.search(r"\$PWD/AGENTS\.md", sync):
+        bad.append("skills-sync.sh 仍写当前项目 AGENTS.md")
+    for host, name in (("pi", "pi-setup.sh"), ("opencode", "opencode-setup.sh"),
+                       ("codex", "codex-setup.sh"), ("dsh", "dsh-setup.sh")):
+        text = (ROOT / name).read_text(encoding="utf-8")
+        if re.search(r"ask [^\n]*\$PWD/AGENTS\.md", text):
+            bad.append(f"{name} 仍询问写入当前项目 AGENTS.md")
+        if not re.search(rf"AGENTS_TAIL_HOST={host}\b", text):
+            bad.append(f"{name} 未用 AGENTS_TAIL_HOST={host} 指明安装宿主")
+        # 旧缓存源码树里的 skills-sync 会把块写回项目：必须先识别并拒绝
+        if "migrate-agents-tail.py" not in text:
+            bad.append(f"{name} 未拦截缺少用户级同步实现的旧源码树")
+    if bad:
+        raise RuntimeError("公共块分发契约失败：\n" + "\n".join(bad))
+    print("PASS 公共块只写宿主用户级文件；旧缓存源码树被四个 setup 拒绝")
+
+
 def static_contract():
     context_output_retirement()
     entry_asset_closure()
     source_channel_contract()
+    agents_tail_contract()
 
 
 def main():
@@ -317,16 +343,18 @@ def main():
                               text=True, env=env, stdin=subprocess.DEVNULL, timeout=180, check=False)
         assert proc.returncode == 0 and "unchanged: base/demo" in proc.stdout, proc.stdout
         print("PASS skills-sync.sh:真实入口从受管 clone 取源并幂等同步")
-        # 从候选目录运行时，AGENTS 尾块不得回写候选树。
+        # 公共块只写用户级文件:候选源码树里的 AGENTS.md 不被创建,隔离 HOME 的宿主文件才是目标。
         (repo / "AGENTS.tail.md").write_text(
             "<!-- memory-system:start -->\nTEST-BLOCK\n<!-- memory-system:end -->\n", encoding="utf-8")
+        (sync_home / ".pi/agent").mkdir(parents=True)
         candidate_env = dict(env, AGENT_SKILLS_SOURCE=str(repo), AGENTS_TAIL="1")
         proc = subprocess.run(["bash", str(ROOT / "skills-sync.sh"), "base"], capture_output=True,
                               text=True, env=candidate_env, cwd=repo, stdin=subprocess.DEVNULL,
                               timeout=60, check=False)
         assert proc.returncode == 0, proc.stdout + proc.stderr
-        assert "只读源码树" in proc.stdout and not (repo / "AGENTS.md").exists()
-        print("PASS 候选源码树:AGENTS 尾块不回写")
+        assert not (repo / "AGENTS.md").exists(), "候选源码树被写入 AGENTS.md"
+        assert (sync_home / ".pi/agent/AGENTS.md").read_text().count("TEST-BLOCK") == 1
+        print("PASS 候选源码树:公共块只进隔离 HOME 的用户级文件")
 
         # 7) Pi 本地路径包：真实 Pi 会把绝对安装路径写成相对 agent dir 的 source。
         agent = tmp / "relative-agent"
