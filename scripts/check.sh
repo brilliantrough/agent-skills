@@ -3,6 +3,8 @@
 # 完整自检(private)不随分发;这里是贡献者能自己跑的那一半。
 # 用法: bash scripts/check.sh [--with-tests]   # 0 = 通过
 set -uo pipefail
+# 调用者环境不得关闭 Python 回归中的 assert；静态契约自身也不用 assert 判定失败。
+export PYTHONOPTIMIZE=0
 cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 
 WITH_TESTS=0
@@ -116,20 +118,17 @@ for f in pi-setup.sh opencode-setup.sh codex-setup.sh dsh-setup.sh skills-sync.s
   grep -q '^acquire_source() {' "$f" || err "$f 缺 acquire_source(统一源码基准入口)"
 done
 grep -q 'AGENT_SKILLS_SOURCE' skills-sync.sh || err "skills-sync.sh 未支持显式 AGENT_SKILLS_SOURCE"
-if grep -nE 'codeload\.github\.com|archive/refs/heads' skills-sync.sh pi-setup.sh opencode-setup.sh codex-setup.sh dsh-setup.sh; then
-  err "取源又回到 GitHub tarball;模板与 skills 必须从本地源码树取"
-fi
 grep -q 'releases/latest/download\|releases/download' pi-setup.sh opencode-setup.sh dsh-setup.sh \
   || err "编译产物分发入口丢失(release)应保留"
 info "取源走本地源码树;编译产物仍走 Release"
 
-# 快速静态检查也拦截自研外置回退；与完整 source-bench 共用同一份断言，不维护第二套规则。
-retire_out="$(python3 tests/source-bench.py --context-output-static 2>&1)"; retire_rc=$?
+# 快速静态检查也拦截资产漏入库、取源旁路和自研外置回退；与完整 source-bench 共用同一份断言。
+retire_out="$(python3 tests/source-bench.py --static-contract 2>&1)"; retire_rc=$?
 printf '%s\n' "$retire_out"
 if [ "$retire_rc" != 0 ]; then
-  err "大输出退役静态契约失败: tests/source-bench.py --context-output-static"
+  err "交付静态契约失败: tests/source-bench.py --static-contract"
 elif ! printf '%s\n' "$retire_out" | grep -Eq '^PASS([: ]|$)'; then
-  err "大输出退役静态契约退出 0 但未输出 PASS"
+  err "交付静态契约退出 0 但未输出 PASS"
 fi
 
 # 配置模板随本仓分发(templates/);setup 不再依赖其它仓库

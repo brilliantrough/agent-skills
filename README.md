@@ -218,7 +218,7 @@ bash scripts/verify-subagents.sh --apply --yes    # 显式接受默认升级与�
 |---|---|---|
 | `goal-first` | 研究、开发和计划的主线约束 | 保持交付、当前未知、下一步和收口条件；不因意外发现静默扩展范围 |
 | [`trust-pyramid`](skills/base/trust-pyramid/SKILL.md) | 日常开发、重构与审查的工程质量约束 | 五层原则＋六类条件化规则配方＋工具映射；按项目选择并落实 |
-| [`verification`](skills/base/verification/SKILL.md) | 跨模块、高风险、发布或证据存疑的功能复核 | 验收条件与真实路径 → 主 Agent 验证 → 按风险委派 `verification-reviewer` → 报告证据和未验证范围 |
+| [`verification`](skills/base/verification/SKILL.md) | 跨模块、高风险、发布或证据存疑的功能复核 | 验收条件与真实路径 → 主 Agent 验证 → 按风险委派 `verification-reviewer`；套件更新另核对资产闭包、Release、部署和运行进程 |
 | `quick-do` | 行为明确的小修小补 | 读代码 → 当前会话修改、验证；不 grilling、不写计划 |
 | `steady-do` | 日常功能、插件、扩展 | 理解项目 → 分轮澄清 → 当前会话实现、验证；不写交接文档 |
 | `plan-brief` | 长程多阶段任务 | 澄清 → 计划 `docs/plans/<slug>.md` + 启动 prompt → 新会话执行 → 报告 → 原会话审查 |
@@ -239,7 +239,7 @@ bash scripts/verify-subagents.sh --apply --yes    # 显式接受默认升级与�
 
 `goal-first` 在代码任务中引导加载 `trust-pyramid`；`steady-do`、`consolidator`、`writing-skill` 在修重复问题或固化规则时指向它。原型包含[五层原则](skills/base/trust-pyramid/SKILL.md)、[六类质量规则配方](skills/base/trust-pyramid/references/quality-recipes.md)和[工具映射／检查示例](skills/base/trust-pyramid/references/static-checks.md)：注释与补丁、依赖边界、API 与状态、重复维护、副作用与错误、工作区与产物。每类给出适用条件、好坏示例、检查方式和例外；项目选择后将具体 API、目录和检查写回自身配置。Verification 可由 Agent 或项目自动执行，按任务授权、成本与副作用确定范围，不要求人逐次触发。
 
-试用时可以说：“用 trust-pyramid，为这个项目选出适用的质量规则，并落实当前最重要的一项。”仅想讨论则说明“先设计，不修改”。安装 skill 不自动启用所有规则或证明项目质量；首次试用重点反馈是否触发、误报／漏报以及维护负担，通用修正回流 skill。套件仓库自己的规则落在 `scripts/check.sh`：第 6–8 节检查 skill 的链接与锚点、frontmatter 与体量、README 索引与互引、shell 脚本头和共用函数一致性，报错自带改法。完整离线行为回归统一运行 `bash scripts/check.sh --with-tests`，准入与证据边界见 [`tests/README.md`](tests/README.md)。
+试用时可以说：“用 trust-pyramid，为这个项目选出适用的质量规则，并落实当前最重要的一项。”仅想讨论则说明“先设计，不修改”。安装 skill 不自动启用所有规则或证明项目质量；首次试用重点反馈是否触发、误报／漏报以及维护负担，通用修正回流 skill。套件仓库自己的规则落在 `scripts/check.sh`：第 5 节检查本地取源、入口资产闭包与大输出退役，第 6–8 节检查 skill 的链接与锚点、frontmatter 与体量、README 索引与互引、shell 脚本头和共用函数一致性，报错自带改法。完整离线行为回归统一运行 `bash scripts/check.sh --with-tests`，准入与证据边界见 [`tests/README.md`](tests/README.md)。
 
 ### 个人领域知识（自制）
 

@@ -3,7 +3,8 @@
 
 生产实现是四个 setup 与 skills-sync.sh 共用的 file_url/acquire_source（check.sh 校验逐字节一致）；
 本测试直接调用真实函数，fixture 是一个本地 git 仓库，经 AGENT_SKILLS_REPO 以 file:// 传入。
-`--context-output-static` 只运行大输出退役静态契约，供快速 check.sh 复用。
+`--static-contract` 只运行入口资产、取源与大输出退役静态契约，供快速 check.sh 复用；
+`--context-output-static` 仅保留输出退役单项，便于隔离变异回归。
 """
 import os
 import pathlib
@@ -13,6 +14,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from urllib.parse import urlsplit
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 FILES = ("pi-setup.sh", "opencode-setup.sh", "codex-setup.sh", "dsh-setup.sh", "skills-sync.sh")
@@ -112,21 +114,117 @@ def check_json_template_crossed(out, xdg, want):
 
 
 def context_output_retirement():
-    assert not (ROOT / "context-rewrite/output-store.mjs").exists(), "自研 output-store 不应恢复"
+    bad = []
+    if (ROOT / "context-rewrite/output-store.mjs").exists():
+        bad.append("自研 output-store 不应恢复")
     for name in ("pi/extensions/context-rewrite.ts", "opencode/v2/context-rewrite.js",
                  "opencode/plugins/context-rewrite.js", "dsh/index.mjs"):
         source = (ROOT / name).read_text(encoding="utf-8")
-        assert not re.search(r"createOutputStore|READ_TOOL|context_output_read", source), f"{name} 仍引用退役外置"
-        assert re.search(r"name: TOOL|\[TOOL\]", source), f"{name} 不应误删 context_rewrite"
+        if re.search(r"createOutputStore|READ_TOOL|context_output_read", source):
+            bad.append(f"{name} 仍引用退役外置")
+        if not re.search(r"name: TOOL|\[TOOL\]", source):
+            bad.append(f"{name} 不应误删 context_rewrite")
     for name in ("context-mode/fork-patches.mjs", "context-mode/release.mjs", "context-mode/guidance.md"):
         source = (ROOT / name).read_text(encoding="utf-8")
-        assert "Use context_output_read for exact snapshots" not in source
-        assert any(text in source for text in ("outputOwner", "native output gates", "原生输出门控"))
+        if "Use context_output_read for exact snapshots" in source:
+            bad.append(f"{name} 仍指向退役读取工具")
+        if not any(text in source for text in ("outputOwner", "native output gates", "原生输出门控")):
+            bad.append(f"{name} 缺原生输出门控说明")
+    if bad:
+        raise RuntimeError("大输出退役静态契约失败：\n" + "\n".join(bad))
     print("PASS 自研外置退役:context_rewrite 与原生门控说明保留")
 
 
-def main():
+def entry_asset_closure():
+    """入口直接引用的正式资产必须在干净检出中存在；Git 交付候选里不能只靠本机未跟踪文件。"""
+    text = (ROOT / "scripts/check.sh").read_text(encoding="utf-8")
+    refs = {
+        "tests/setup-preflight.py", "tests/nju-ppt-editability.py",
+        "scripts/verify-subagents.sh", "skills/base/verification/SKILL.md",
+        "skills/base/verification/references/reviewer.md", "dsh/verification-policy.mjs",
+    }
+    for line in text.splitlines():
+        stripped = line.lstrip()
+        if not stripped.startswith("t_case "):
+            continue
+        try:
+            words = shlex.split(stripped, comments=True)
+        except ValueError as exc:
+            raise RuntimeError(f"t_case 行无法按 shell 字面参数读取：{stripped}") from exc
+        if len(words) < 2 or "$" in words[1]:
+            raise RuntimeError(f"t_case 首参数必须是可静态核对的路径：{line.strip()}")
+        refs.add(words[1])
+    tracked = None
+    if os.path.lexists(ROOT / ".git"):
+        env = os.environ.copy()
+        for key in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY",
+                    "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_COMMON_DIR", "GIT_PREFIX", "GIT_CONFIG"):
+            env.pop(key, None)
+        try:
+            out = subprocess.check_output(["git", "ls-files", "--stage", "--debug", "--"], cwd=ROOT, env=env,
+                                          text=True, stderr=subprocess.DEVNULL)
+        except (OSError, subprocess.CalledProcessError) as exc:
+            raise RuntimeError("检测到 Git 元数据，但索引读取失败；修复索引后再交付") from exc
+        tracked = set()
+        current = None
+        for line in out.splitlines():
+            if not line.startswith(" "):
+                meta, sep, path = line.partition("\t")
+                fields = meta.split()
+                # stage 0 且有实际 blob 才可能是交付内容；空文件正常 staged 也合法。
+                current = path if sep and len(fields) == 3 and fields[2] == "0" and fields[1].strip("0") else None
+                if current:
+                    tracked.add(current)
+            elif current and "flags:" in line:
+                flags = int(line.rsplit("flags:", 1)[1].strip(), 16)
+                if flags & 0x20000000:  # CE_INTENT_TO_ADD：add -N 不会把文件写入 index tree。
+                    tracked.discard(current)
+    bad = []
+    for name in sorted(refs):
+        if not (ROOT / name).is_file():
+            bad.append(f"{name} 缺失")
+        elif tracked is not None and name not in tracked:
+            bad.append(f"{name} 未入库；完整 git add 后再作为交付候选（add -N 不算）")
+    if bad:
+        raise RuntimeError("入口资产闭包失败：\n" + "\n".join(bad))
+    suffix = "且已入库" if tracked is not None else "（非 Git 树，未核对入库）"
+    print(f"PASS 入口与 Verification 资产存在{suffix}")
+
+
+def source_channel_contract():
+    """本仓源码只走受管 Git／显式源码树；Release 与第三方仓库不受此禁令影响。"""
+    files = [ROOT / name for name in FILES] + [ROOT / "modules/run.sh"]
+    files += sorted((ROOT / "modules").glob("*/setup.sh"))
+    bad = []
+    for path in files:
+        text = path.read_text(encoding="utf-8")
+        for url in re.findall(r"https?://[^\s\"'<>]+", text):
+            parsed = urlsplit(url)
+            host = (parsed.hostname or "").lower()
+            parts = [part for part in parsed.path.split("/") if part]
+            own_repo = len(parts) >= 2 and parts[1].lower() == "agent-skills"
+            forbidden = False
+            if host == "raw.githubusercontent.com":
+                forbidden = own_repo
+            elif host == "codeload.github.com":
+                forbidden = own_repo
+            elif host == "github.com" and own_repo and len(parts) >= 3:
+                forbidden = parts[2].lower() in {"archive", "raw"}
+            if forbidden:
+                bad.append(f"{path.relative_to(ROOT)}: 本仓 raw／archive／codeload 旁路：{url}")
+    if bad:
+        raise RuntimeError("源码取源必须回到受管 Git／显式源码树：\n" + "\n".join(bad))
+    print("PASS 本仓源码无 raw／archive／codeload 旁路；Release 与第三方来源保留")
+
+
+def static_contract():
     context_output_retirement()
+    entry_asset_closure()
+    source_channel_contract()
+
+
+def main():
+    static_contract()
     funcs = shared_scope()
     with tempfile.TemporaryDirectory(prefix="source-bench-") as d:
         tmp = pathlib.Path(d)
@@ -383,7 +481,9 @@ def main():
 
 
 if __name__ == "__main__":
-    if sys.argv[1:] == ["--context-output-static"]:
+    if sys.argv[1:] == ["--static-contract"]:
+        static_contract()
+    elif sys.argv[1:] == ["--context-output-static"]:
         context_output_retirement()
     else:
         main()

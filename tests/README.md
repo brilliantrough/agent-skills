@@ -9,7 +9,7 @@ bash scripts/check.sh              # 快速公开检查
 bash scripts/check.sh --with-tests # 公开检查 + 全部可离线行为回归
 ```
 
-`--with-tests` 是提交前的统一门禁。快速检查也执行大输出退役静态契约：`output-store`／`context_output_read` 不得恢复，`context_rewrite` 与原生门控说明必须保留；该断言由 `tests/source-bench.py --context-output-static` 统一提供。测试必须实际执行并输出 `PASS`；外部前置条件不满足时明确输出 `SKIP` 和原因。应由本仓提供的测试文件缺失、测试失败或运行器自身异常均为 `FAIL`，不能当成跳过。退出码为 0 只表示已执行部分没有失败，不消除 SKIP 的未验证范围；最终报告必须列出它们，需要完整覆盖时不得接受相关 SKIP。
+`--with-tests` 是提交前的统一门禁。快速检查也执行交付静态契约：入口直接引用的测试与 Verification 资产必须存在且有普通 stage 0 索引条目（`git add -N` 不算，索引损坏必须失败）；本仓源码不得恢复 raw／archive／codeload 取源旁路，第三方来源与 Release 保留；`output-store`／`context_output_read` 不得恢复，`context_rewrite` 与原生门控说明必须保留。断言由 `tests/source-bench.py --static-contract` 统一提供，统一入口会清除调用者设置的 `PYTHONOPTIMIZE`。测试必须实际执行并输出 `PASS`；外部前置条件不满足时明确输出 `SKIP` 和原因。应由本仓提供的测试文件缺失、测试失败或运行器自身异常均为 `FAIL`，不能当成跳过。退出码为 0 只表示已执行部分没有失败，不消除 SKIP 的未验证范围；最终报告必须列出它们，需要完整覆盖时不得接受相关 SKIP。
 
 需要定位单项时可直接运行对应脚本，但最终仍须回到统一入口验收。私有 selfcheck 检查本机 live 配置漂移，不属于这套可移植行为测试，按 `AGENTS.md` 的本机命令单独运行。
 
