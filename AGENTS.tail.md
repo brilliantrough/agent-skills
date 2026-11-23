@@ -9,20 +9,11 @@
 
 ## Project Memory System
 
-StrictDoc (`docs/`), Magic Context and claude-mem work together. Default to no memory write. Use one store for a new durable fact; do not manually mirror it across stores.
+Use claude-mem for routine capture and cross-session recall, and Magic Context for context management and recovering conversation history. Use the equivalents actually installed on the host.
 
-Tool names in this block (`ctx_*`, `ctxm_*`, `later`, `bg_*`, `mem_*`) are the Pi and OpenCode ones. On a host without them, such as Claude Code, use its native equivalents: its own memory and context management, background tasks, web tools and the claude-mem plugin. StrictDoc in `docs/` is plain text and works on every host.
-
-- **Session start**: run `load-mem`. Read project instructions and any user-discipline block, then the project profile (default `docs/handbook/project-profile.sdoc`), then task-relevant memory and source. Without a profile, continue with targeted recall instead of surveying the whole repo.
-- **Milestones**: use `save-mem` for lasting outcomes. Leave StrictDoc untouched after routine work. Only an explicit request or a consequential phase outcome warrants a brief human-readable conclusion; use the existing node and skip process details. When the project's shape, major research routes or key understanding change, update the profile with `project-profile`. Initialize memory with `migrate-mem`.
-- **Recall before asking**: for prior decisions, attempted solutions, recurring failures or cross-session work, if injected context does not answer the question, actively search claude-mem before asking the user or repeating the investigation. Use StrictDoc for current norms and Magic Context for conversation history; stop once the evidence suffices. Tool names differ per host; `load-mem` lists them.
-- **Source of truth**: below live user instructions and the discipline block, current StrictDoc norms win when records disagree. `Active` decisions are current rules; proposals, retired decisions, journal entries and reports are history and stay distinguishable.
-- **Read narrowly**: grep the StrictDoc tree, e.g. `grep -B1 -A1 '^STATUS: Active' docs/project_memory/decisions.sdoc`, then read only the matched node.
-- **Norms change, history stays**: when the user changes a decision or a settled change is clear, add a successor, mark the old node `Superseded` and say so briefly. Guesses and one-off attempts do not change norms.
-- **Saving is maintenance, not accumulation**: each save rewrites, merges or deletes repeated and stale wording in place. Record conclusions, real constraints, open risks and necessary evidence; leave out tool logs, hash/diff/manifest ledgers and disclaimers.
-- **Reorganizing memory**: only when the user asks, with `consolidator`. Keep a recoverable baseline; facts, status, referenced IDs and evidence stay traceable.
-- **Risks**: keep a consequential blocker and its reopening condition in the existing handoff. Update a StrictDoc risk entry only when a milestone or explicit request warrants it.
-- **Validate**: if the existing conclusion already matches, leave the file alone. After editing StrictDoc memory, run the `save-mem` skill's `scripts/check_size.py docs` with Python 3 from the project root; condense overlong entries in place. After changing `.sdoc` or its config, also run `strictdoc export .` from the docs root.
+- Start with project instructions and user discipline. Use `load-mem` when context is missing; if an earlier decision matters, use the official `mem-search` skill or available claude-mem tools before repeating work or asking the user. Stop when the evidence suffices.
+- Routine completion needs no manual save. Use `save-mem` for explicit requests, changed norms or consequential milestones; do not mirror entries. StrictDoc is the human-readable project record: keep the project profile, active decisions, consequential open risks and phase conclusions current. Below user instructions and discipline, its current norms take precedence over historical observations.
+- Maintain the existing project profile when the project or its main research routes change. Use `migrate-mem` to establish project memory and `consolidator` only for requested reorganization. After changing StrictDoc memory run the size check in `save-mem`; export from the docs root after changing `.sdoc` or its config.
 
 ### Technical writing and replies (always applies)
 

@@ -140,13 +140,13 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 | `code-review` | 双轴审查：规范符合度 + spec 忠实度 |
 | `teach` | 工作区内交互式教学新技能/概念；任务书、术语表、学习记录，跨会话推进 |
 
-### 三层记忆（自制）
+### 项目记忆入口
 
 | Skill | 用途 |
 |---|---|
 | [`project-profile`](skills/base/project-profile/SKILL.md) | 单文件当前画像：工程结构与设计，科研问题、并行路线及证据现状；按 Ponytail 风格维护 |
-| `load-mem` | 启动/接续时先读已有画像，再按任务恢复相关记忆；区分现行规范与历史 |
-| `save-mem` | 保存知识；项目形态、主要研究路线或关键认识变化时局部更新画像，不每轮重建 |
+| `load-mem` | 接续时缺少背景才召回；历史问题交给 claude-mem 官方 `mem-search` |
+| `save-mem` | 明确要求记住或有长期结论时保存；日常工作由 claude-mem 自动记录 |
 | `migrate-mem` | 为已有项目建立/补全记忆，初始化可读的 StrictDoc 文档；不假定旧工作流、不搬原文件 |
 
 - 日常不写 StrictDoc；新增长期事实按需选一个记忆库，不手动三写。只有明确要求或重要阶段收口，才在已有文档留下几句目的、结论和必要边界。
@@ -155,7 +155,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 - 明确决策后更新规范并简短告知；不因猜测或每次任务频繁改动
 - 文档默认中文；调查、存取路径由 Agent 判断
 
-说“用 project-profile 为这个项目建立画像”，即可建立单文件整体说明；默认 `docs/handbook/project-profile.sdoc`，已有等价说明则原位完善。`migrate-mem` 初建接入，`load-mem` 先读，`save-mem` 随形态或关键研究认识变化局部更新，`consolidator` 阶段校准；不新增插件或后台扫描。科研主线可为同一个问题，多条路线并行，推进状态与证据强度分开；没有代码也能建立画像。画像帮助定位，行动前仍需核实相关实现或研究证据。规范块由 setup 写入宿主用户级文件；存量项目里的旧块按下面的迁移步骤显式清理，不要手工粘贴新副本。
+说“用 project-profile 为这个项目建立画像”，即可建立单文件整体说明；默认 `docs/handbook/project-profile.sdoc`，已有等价说明则原位完善。`migrate-mem` 初建接入，接手需了解全貌时由 `load-mem` 指向已有画像，`save-mem` 随形态或关键研究认识变化局部更新，`consolidator` 阶段校准；不新增插件或后台扫描。科研主线可为同一个问题，多条路线并行，推进状态与证据强度分开；没有代码也能建立画像。画像帮助定位，行动前仍需核实相关实现或研究证据。规范块由 setup 写入宿主用户级文件；存量项目里的旧块按下面的迁移步骤显式清理，不要手工粘贴新副本。
 
 ### 用户纪律（自制）
 
@@ -854,7 +854,7 @@ npx claude-mem install --ide opencode
 
 #### ① MCP 查询工具
 
-本机 claude-mem 16.0.4 的 OpenCode 插件已提供 `claude_mem_search`、`claude_mem_timeline`、`claude_mem_get_observations`，可以独立完成分层召回。官方安装器另登记 MCP，提供带项目等筛选参数的搜索及其它工具；不需要手动再注册。历史决定或失败原因会影响当前任务、注入摘要又不足时，按 `load-mem` 主动检索，用一条路径查够即停。
+本机 claude-mem 16.0.4 的 OpenCode 插件已提供 `claude_mem_search`、`claude_mem_timeline`、`claude_mem_get_observations`，可以独立完成分层召回。官方安装器另登记 MCP，提供带项目等筛选参数的搜索及其它工具；不需要手动再注册。历史决定或失败原因会影响当前任务、注入摘要又不足时，直接用官方 `mem-search` 或宿主提供的检索工具，查够即停。
 
 setup 先移除受管同名 MCP 项，交官方安装器刷新，再统一转换为 `mcp.servers.claude-mem`；旧 Bun 条目交安装器更新为 Node。自定义命令、环境变量或禁用项保留并提示。旧 wrapper／lib 文件移到备份，不再运行。
 

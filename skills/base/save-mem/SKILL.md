@@ -1,16 +1,19 @@
 ---
 name: save-mem
-description: Keep a consequential fact or milestone when future work needs it. Default to no write. Use for explicit save requests, durable corrections, or a phase conclusion; never mirror a note across memory stores.
+description: Honor explicit save requests and maintain the project's durable profile, decisions, risks and milestones. Leave routine capture to Claude-Mem; completing a task does not require another summary.
 ---
 
 # Save Memory
 
-Honor an explicit save request in the requested destination. Correct a current norm when a confirmed decision replaces it. Otherwise, if an existing durable source suffices for future work, stop; finishing a task is not a reason to write memory.
+When enabled, Claude-Mem captures routine work for later recall. If the user asks to remember something, honor the requested destination. Without a specified destination, use the host's Claude-Mem save tool when available; otherwise use one available durable store and say where. Do not save credentials or manually mirror a fact across stores.
 
-- For a fact that will change future work and is not already captured, choose **one** available destination: claude-mem for cross-session recall, or Magic Context for a stable project constraint. Update an existing entry when appropriate. Use `ctx_note` for an explicit reminder; use `discipline` only when the user explicitly invokes it. Never store credentials.
-- **Leave StrictDoc untouched by default.** Write there only on explicit request or at a meaningful milestone with a lasting conclusion a human needs: what was achieved or decided, why it matters, and any condition that would change the next decision. A few sentences in the existing node suffice. Link the original evidence only if needed.
-- When a settled norm changes, preserve its UID and history, mark the old decision `Superseded`, and link its successor using the project's grammar. Update the `project-profile` when the project's shape, major routes or key conclusions change.
-- Keep independent research routes and evidence limits distinct; a paused route is not a disproved hypothesis.
-- If a blocker still affects the next decision, keep its consequence and reopening condition in the existing handoff or risk entry. Do not also write a journal entry. Keep specs, requested plans, runbooks and experiment results in their own files; no second summary for memory.
-- Before a memory edit, read the existing node. If it already says the same thing, leave it untouched. Otherwise replace the outdated conclusion in place; do not append a dated copy.
-- After a StrictDoc memory edit, run `python3 <save-mem skill directory>/scripts/check_size.py docs` from the project root. If over budget, condense the affected topic before delivery. Do not split entries or move prose elsewhere to pass. Also run `strictdoc export .` from the docs root after `.sdoc` or config changes. Use `readable-docs` for prose.
+## What belongs in StrictDoc
+
+| Record | Update it when… |
+|---|---|
+| Project profile | The project's purpose, structure, main research routes or key understanding changes. Use `project-profile`; distinguish a paused route from a disproved one. |
+| Decisions | A settled choice changes how future work should proceed. Keep its scope and reason. When replacing an active decision, retain its UID and history, mark it `Superseded`, and link its successor. |
+| Risks | A material uncertainty changes the next decision. In the existing risk entry or handoff, state what is unknown, its consequence and what would resolve it. Don't create a risk register for routine caveats. |
+| Journal | A phase reaches a lasting outcome worth explaining to a future reader. Record the conclusion and its limits; leave the sequence of attempts in Claude-Mem. |
+
+Read the existing entry first. If it already says what future work needs, leave it alone; otherwise maintain it in place. After editing StrictDoc memory, run `python3 <save-mem skill directory>/scripts/check_size.py docs` from the project root. After changing `.sdoc` or its configuration, also run `strictdoc export .` from the docs root.
