@@ -49,6 +49,7 @@ description: 把信任金字塔用于项目工程质量：改善 Codebase/API，
 | 工作区与产物管理 | 临时产物混入源码、重复入口和旧报告堆积 | 区分可重建产物与必要证据，明确生成与清理边界 |
 
 - 改代码交给当前 `quick-do`／`steady-do`；本 skill 只提供质量约束。
+- 重度软件项目需要更完整的任务 playbook 和验证资产时，读取 [项目级 pstack 接入与特化](references/pstack.md)，由项目明确选择、安装和裁剪；套件不全局代装，pstack 不取代现有权限、Reviewer 和记忆边界。
 - 用户请求整理时调用 `consolidator` 并遵守其独立审查要求；`consolidation-reviewer` 检查 Codebase／API 语义、真实保护和整理价值，不代替 Static analysis 的确定性工具。普通开发只清理本次自建的临时物。
 - 用户请求功能审查或改动属于新功能、跨模块、高风险、发布、证据存疑等条件时，使用 [`verification`](../verification/SKILL.md) 的交接合同委派 `verification-reviewer`；它复核验收条件、真实行为和测试有效性，并默认快查相关旧条目，不作整理签收。局部低风险修补由主 Agent 完成最小真实验证，不每次委派。
 - 其它质量审查沿用项目审查入口，按适用配方提出有位置、有后果的发现，只列命中的配方；Agent 的判断标明是判断，不写成确定性工具的结果。

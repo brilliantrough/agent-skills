@@ -147,6 +147,8 @@ def entry_asset_closure():
         "skills/base/discipline/scripts/check_block.py",
         "scripts/link-mem-search.mjs",
         "skills/base/verification/references/reviewer.md", "dsh/verification-policy.mjs",
+        "skills/base/trust-pyramid/references/pstack.md",
+        "skills/base/steady-do/references/multi-agent.md",
     }
     for line in text.splitlines():
         stripped = line.lstrip()
