@@ -148,7 +148,8 @@ def entry_asset_closure():
         "scripts/link-mem-search.mjs",
         "skills/base/verification/references/reviewer.md", "dsh/verification-policy.mjs",
         "skills/base/trust-pyramid/references/pstack.md",
-        "skills/base/steady-do/references/multi-agent.md",
+        "skills/base/multi-agent/SKILL.md",
+        "skills/base/multi-agent/references/guide.md",
     }
     for line in text.splitlines():
         stripped = line.lstrip()

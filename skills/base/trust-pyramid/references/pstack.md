@@ -31,7 +31,7 @@ pstack 是重度软件项目的可选实现，不是套件的全局依赖。`tru
 - **Reviewer 不替换**：pstack 负责产生候选和证据；`verification-reviewer` 按原触发条件独立验收最终集成结果。`consolidation-reviewer` 只在显式整理后审查语义保持、真实保护和简洁性。PR 评论和合并由主 Agent 在当次授权后执行，Reviewer 不直接写外部系统。
 - **一份记忆与模型配置**：保留项目已有记忆、上下文和模型管理。`recall`、`automate-me`、`show-me-your-work` 不建立第二套长期记录；官方 `setup-pstack` 的全局 `alwaysApply` 模型规则须改成项目作用域或明确的 pstack 专用配置。
 - **名称与工具先适配**：扁平安装处理 `tdd`、`teach` 重名；映射 Cursor `Task`、模型 slug、cloud agent 和 `cursor-team-kit` 依赖。OpenCode 的 `pstack-` 前缀可避开 skill ID 冲突，但不解决行为冲突。
-- **并行与隔离分开决策**：默认仍由主 Agent 实现；准备并行写实现时读取 [多 Agent 任务拆解与可选 worktree](../../steady-do/references/multi-agent.md)。`swarm` 用于独立切片，`arena` 只在明确需要候选竞赛时使用，worktree 按写入与隔离需求选择，不作为启动仪式。
+- **并行与隔离分开决策**：默认仍由主 Agent 实现；准备并行调查或写实现时使用 [multi-agent](../../multi-agent/SKILL.md) 并遵循其完整指南。`swarm` 用于独立切片，`arena` 只在明确需要候选竞赛时使用，worktree 按写入与隔离需求选择，不作为启动仪式。
 
 ## `no-comments`：保留强默认，补丁实际加载文件
 
