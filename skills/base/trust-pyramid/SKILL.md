@@ -1,6 +1,6 @@
 ---
 name: trust-pyramid
-description: 把信任金字塔用于项目工程质量：改善 Codebase/API，将稳定规则变成静态约束，以行为证据和审查补足；提供注释、依赖、API、重复、副作用与工作区六类条件化配方。Use when developing or refactoring applications, plugins, suites or research code, reviewing code quality, or turning recurring mistakes into checks；触发词：金字塔、烂代码、质量规则、复杂import、重复犯错、自定义lint、工作区整洁。管质量约束，执行用 quick-do/steady-do，研究用 exp-*，整理用 consolidator。
+description: 把信任金字塔用于项目工程质量：改善 Codebase/API，将稳定规则变成静态约束，以行为证据和审查补足；提供注释、依赖、API、重复、副作用与工作区六类配方，以及项目级 pstack 接入。Use when developing or refactoring applications, plugins, suites or research code, reviewing code quality, turning mistakes into checks, or installing pstack；触发词：金字塔、烂代码、质量规则、复杂import、重复犯错、自定义lint、工作区整洁、安装 pstack。管质量约束，执行用 quick-do/steady-do，研究用 exp-*，整理用 consolidator。
 ---
 
 # 信任金字塔：让项目本身承担质量约束
@@ -49,7 +49,7 @@ description: 把信任金字塔用于项目工程质量：改善 Codebase/API，
 | 工作区与产物管理 | 临时产物混入源码、重复入口和旧报告堆积 | 区分可重建产物与必要证据，明确生成与清理边界 |
 
 - 改代码交给当前 `quick-do`／`steady-do`；本 skill 只提供质量约束。
-- 重度软件项目需要更完整的任务 playbook 和验证资产时，读取 [项目级 pstack 接入与特化](references/pstack.md)，由项目明确选择、安装和裁剪；套件不全局代装，pstack 不取代现有权限、Reviewer 和记忆边界。
+- 评估或安装 pstack 时，读取并执行[项目级接入与特化](references/pstack.md)。套件不全局代装；一旦项目明确采用，就在目标宿主交付能调用的 Swarm、Arena、worktree 和从 commit 到 PR／merge 的流程，把适用的静态检查接入项目。按约定终点验收，逐项说清阻塞或用户指定的裁剪。
 - 用户请求整理时调用 `consolidator` 并遵守其独立审查要求；`consolidation-reviewer` 检查 Codebase／API 语义、真实保护和整理价值，不代替 Static analysis 的确定性工具。普通开发只清理本次自建的临时物。
 - 用户请求功能审查或改动属于新功能、跨模块、高风险、发布、证据存疑等条件时，使用 [`verification`](../verification/SKILL.md) 的交接合同委派 `verification-reviewer`；它复核验收条件、真实行为和测试有效性，并默认快查相关旧条目，不作整理签收。局部低风险修补由主 Agent 完成最小真实验证，不每次委派。
 - 其它质量审查沿用项目审查入口，按适用配方提出有位置、有后果的发现，只列命中的配方；Agent 的判断标明是判断，不写成确定性工具的结果。
