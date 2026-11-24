@@ -1027,6 +1027,45 @@ def check_agents_tail():
     print("AGENTS.tail：写入已安装宿主用户级文件并幂等，项目与覆盖文件不被改写")
 
 
+def check_multi_agent_auto_trigger():
+    """用户未点名时也有主动发现入口，但无合格分支或缺 skill 时不委派。"""
+    def managed_block(text):
+        start = text.index("<!-- memory-system:start -->")
+        end = text.index("<!-- memory-system:end -->", start) + len("<!-- memory-system:end -->")
+        return text[start:end]
+
+    tail = managed_block((ROOT / "AGENTS.tail.md").read_text(encoding="utf-8"))
+    steady = (ROOT / "skills/base/steady-do/SKILL.md").read_text(encoding="utf-8")
+    skill = (ROOT / "skills/base/multi-agent/SKILL.md").read_text(encoding="utf-8")
+    frontmatter = skill.split("---", 2)[1]
+    description = next(line for line in frontmatter.splitlines() if line.startswith("description:"))
+    trigger = ("When substantial lines of inquiry can start independently, draw on distinct evidence, "
+               "and each inform a decision, load `multi-agent` before dispatching and follow its guide")
+    assert trigger in tail
+    assert "if it is unavailable, keep execution single-agent" in tail
+    assert "For two or more substantial independent branches or an explicit multi-agent request, use [multi-agent](../multi-agent/SKILL.md)" in steady
+    assert "or when independent branches each change the deliverable" in description
+    assert "Two substantial independent branches are a reason to use this skill" in skill
+    assert "Default to one Agent when no branch qualifies" in skill
+    assert "If `quick-do` is active, preserve its single-session contract" in skill
+    assert "Read the complete [task decomposition and optional worktree guide](references/guide.md) before launching workers" in skill
+
+    # 通过生产注入入口验证 OpenCode 实际收到主动发现规则，而非只有源码注释。
+    with tempfile.TemporaryDirectory(prefix="multi-agent-trigger-") as d:
+        tmp = pathlib.Path(d)
+        home = tmp / "home"
+        (home / ".config/opencode").mkdir(parents=True)
+        project = tmp / "project"
+        project.mkdir()
+        run = agents_runner(tmp, project)
+        result = run(agents_env(home, AGENTS_TAIL_HOST="opencode"))
+        assert result.returncode == 0, result.stdout + result.stderr
+        deployed = managed_block((home / ".config/opencode/AGENTS.md").read_text(encoding="utf-8"))
+        assert trigger in deployed
+        assert "if it is unavailable, keep execution single-agent" in deployed
+    print("Multi-agent：独立任务无需用户点名即可发现；无合格分支或缺 skill 时保持单会话")
+
+
 def check_agents_tail_old_cache():
     """新 setup 遇到旧缓存 skills-sync.sh 时不得把 AGENTS_TAIL=1 传下去写回当前项目。
 
@@ -1494,6 +1533,7 @@ def main():
     check_opencode_source_assets()
     check_modules_local_only()
     check_agents_tail()
+    check_multi_agent_auto_trigger()
     check_agents_tail_old_cache()
     check_agents_tail_migration()
     check_mem_search_setup()
