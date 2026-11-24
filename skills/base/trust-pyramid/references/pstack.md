@@ -14,6 +14,8 @@ pstack 是重度软件项目的可选实现，不是套件的全局依赖。`tru
 
 完整项目接入默认包含以下能力。优先沿用上游实现，把宿主调用和项目命令换成实际可用的入口。已有等价能力就直接接入；依赖缺失时指出具体缺口和已验证的终点，不把复制了文件或只安装原则称为完成。
 
+本套件按本地执行环境接入：需要 worker 时，就在项目所在的开发机或团队服务器上启动原生子会话。Cursor 云 worker、云 VM 和托管自动化不在移植或验收范围内。PR 和合并仍走项目已有的 Git 托管平台，不需要云 worker。
+
 | 能力 | 目标宿主上应当能做的事 |
 | --- | --- |
 | [Swarm](https://github.com/cursor/plugins/blob/005d8f6e8ec057b738adcd08a08b30db0478402d/pstack/skills/swarm/SKILL.md) | 主 Agent 给独立 worker 分片，或在竞速前约定取首个通过／全部排名／择优。并行派发，收回每项结果、证据和缺口，再汇总；必需分片缺席不能报通过。worker 分别向主 Agent 回报即可，无需另建聊天室或调度器。 |
@@ -51,7 +53,7 @@ pstack 是重度软件项目的可选实现，不是套件的全局依赖。`tru
 - **Reviewer 不替换**：pstack 负责产生候选和证据；`verification-reviewer` 按原触发条件独立验收最终集成结果。`consolidation-reviewer` 只在显式整理后审查语义保持、真实保护和简洁性。PR 评论和合并由主 Agent 在当次授权后执行，Reviewer 不直接写外部系统。
 - **一份记忆与模型配置**：保留项目已有记忆、上下文和模型管理。`recall`、`automate-me`、`show-me-your-work` 不建立第二套长期记录；官方 `setup-pstack` 的全局 `alwaysApply` 模型规则须改成项目作用域或明确的 pstack 专用配置。
 - **名称与工具先适配**：扁平安装处理 `tdd`、`teach` 重名；映射 Cursor `Task`、模型 slug、cloud agent 和 `cursor-team-kit` 依赖。OpenCode 的 `pstack-` 前缀可避开 skill ID 冲突，但不解决行为冲突。
-- **并行与隔离分开决策**：默认仍由主 Agent 实现；并行时使用 [multi-agent](../../multi-agent/SKILL.md) 选择分片或竞速。需要同题多稿、比较与综合时用 `arena`；worktree 按写入与隔离需要选择。
+- **按任务选择并行方式**：日常实现由主 Agent 完成；有独立分片时按 [multi-agent](../../multi-agent/SKILL.md) 使用 Swarm。Arena 保留为按需入口，例如方法探索中有两条值得实测的路线：让候选在同一基线、评价指标和预算下分别实现，再按结果取舍。单卡可并行写候选、串行测量；开 PR 或合并本身不触发 Arena。worktree 按写入与隔离需要选择。
 
 ## `no-comments`：保留强默认，补丁实际加载文件
 
