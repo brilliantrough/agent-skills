@@ -20,8 +20,8 @@ Choose the mode explicitly:
 
 | Mode | Use | Aggregation |
 | --- | --- | --- |
-| Sectioning | Different modules, evidence sources, or independently deliverable slices | The primary Agent combines every required slice and checks coverage |
-| Voting / race | The same uncertain design or implementation benefits from independent candidates | Compare against criteria fixed before launch; do not treat majority opinion as verification |
+| Sectioning | Different modules, evidence sources, or independently deliverable slices | Collect evidence for every required slice. A missing or blocked slice leaves a gap, not a pass. |
+| Race | Independent candidates for the same question | Choose first passing candidate, rank all, or best-of before launch. State the common baseline and acceptance criteria. Majority opinion is not verification. |
 | Pipeline | Later steps depend on earlier outputs | Run the dependent steps serially; parallelize only independent stages |
 
 ## 2. Decide isolation separately from delegation
@@ -70,7 +70,8 @@ Stop fan-out when the remaining branches no longer change a decision, coordinati
 - **Claude Code**: subagents can opt into `isolation: worktree`; agent teams instead rely on file ownership. Agent teams and scripted dynamic workflows serve long-lived peers and batch-scale stages, not the default two-worker case.
 - **Codex**: subagents inherit the parent turn's cwd, sandbox, and approval settings; a session-level worktree is not per-subagent isolation. Use explicit write ownership and a separately isolated session when a task needs it.
 - **OpenCode**: native subagents provide fresh foreground/background child sessions. Native worktree operations provide creation, inventory, and safe removal; Git is the built-in strategy and creation may run project setup. Creating a worktree does not create an Agent, and a subagent does not require a worktree.
-- **pstack**: use `swarm` for slices or races and `arena` for independent candidates and synthesis. Follow the [project adoption contract](../../trust-pyramid/references/pstack.md): a task grant through PR or merge covers the named steps without per-command prompts. Unrequested cloud execution and nested fan-out stay off. `interrogate` copies uncommitted changes into worktrees and writes repros there; it needs authorization for that copy and isolation.
+- **pstack**: use the project's adapted `swarm` for slices or races and `arena` for candidate comparison and synthesis. Follow the [project adoption contract](../../trust-pyramid/references/pstack.md). Unrequested cloud execution and nested fan-out stay off. `interrogate` copies uncommitted changes into worktrees and writes repros there; authorize the copy and isolation first.
+- **Antigravity**: use its [shared-board Swarm](https://antigravity.google/docs/swarm) only when explicitly requested and supported by the host. With ordinary native workers, route findings through the primary Agent.
 - **Specialized workers**: existing entries such as `kernel-worker` keep their own workload, resource, and evidence contracts. Do not route them through a new generic orchestrator.
 - **Long-running jobs**: background execution is process management, not automatically a multi-agent task. Add a model worker only when its independent judgment or artifact is needed.
 

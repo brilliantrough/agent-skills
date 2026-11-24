@@ -1,24 +1,19 @@
 ---
 name: plan-brief
-description: Turn a complex, thought-through requirement into an execution plan document plus a self-contained launcher prompt for a fresh agent session, then review that session's report. Use when the user wants a plan before execution or a separate-session handoff, mentions 执行计划 / 计划文档 / 新会话执行 / 交接 prompt / 审查 report, or brings back an execution report. Never executes the plan itself.
+description: Plan large frameworks, migrations and multi-stage work, then execute the agreed plan on request in the current session or hand it off. Use for 制定计划、按计划执行、长程移植、跨会话交接、审查 report. Prepare independent slices when useful; one Agent can execute the whole plan. Use steady-do for daily development.
 ---
 
-# Plan Brief: requirement → grilled plan → launcher prompt → review (审查闭环)
+# Plan Brief: design the plan, then execute on request
 
-**One job, three artifacts: (1) a detailed execution plan document, (2) a copy-paste launcher prompt that starts a FRESH session to execute it, (3) later, the review of that session's report.** You plan and review; you NEVER execute the plan and never spawn execution sub-agents.
+Use a durable plan for a large framework, a migration, or work with consequential stage dependencies. For everyday development use [steady-do](../steady-do/SKILL.md).
 
-Apply `goal-first`: each planned investigation or step must serve the agreed outcome or resolve a decision-critical unknown. Carry budgets, stopping conditions and how to handle incidental findings into the plan and launcher prompt themselves.
+## Choose the entry from the user's request
 
-Deliverables checklist — none of these may be skipped silently:
+- **Plan.** Resolve the material decisions and write the plan. A request to plan, or agreement with the design alone, does not authorize implementation or execution workers. End a planning-only request with the plan path and “计划已就绪，尚未执行”.
+- **Execute.** On “按这份计划执行” or “用 Multi Agent 执行这份计划”, enter [Execute an agreed plan](#execute-an-agreed-plan) in this session. A request to carry out an existing plan does not require authoring another one.
+- **Hand off or review.** If the user wants another session or machine to execute, provide the [launcher](#separate-session-handoff). Review a returned report against its plan. Preparing a handoff does not launch it.
 
-- [ ] plan doc `docs/plans/YYYY-MM-DD-<slug>.md` (the project's own working-doc dir if it differs)
-- [ ] launcher prompt: fenced inside the plan doc AND printed in chat
-- [ ] when the report comes back: `<slug>.review.md` beside the plan, plus a fix prompt if fixes are needed
-
-## When this skill applies
-
-- The user wants a durable execution plan, execution handed to a separate session, or a report reviewed / a fix round dispatched — the three artifacts above.
-- The user's explicit workflow choice wins. In-session implementation is `quick-do` / `steady-do`; if a handoff would help but was not requested, propose it before changing who executes.
+Apply `goal-first`: plan only work that delivers the outcome or resolves a decision-critical unknown. Put the budget, stopping conditions and treatment of incidental findings in the plan.
 
 ## Phase 0 — Absorb the requirement
 
@@ -47,11 +42,11 @@ ALWAYS settle the following, from investigation or an explicit user decision:
 - **Runtime environment** — exact interpreter and environment (venv/conda path + activation command), env var names, working directory, package manager, versions. NEVER assume system Python. Point at existing secret locations without copying credentials into the plan.
 - **Inputs/outputs** — formats, paths, expected artifacts, compatibility constraints.
 - **Execution order** — dependencies, milestones, genuinely independent or parallel work.
-- **Document location** — the project's working-doc directory; default `docs/plans/YYYY-MM-DD-<slug>.md`. Report and review live beside the plan with the same basename.
+- **Document location** — the project's working-doc directory; default `docs/plans/YYYY-MM-DD-<slug>.md`. For a separate-session handoff, report and review live beside the plan.
 - **Verification mode — mandatory decision; name it in one line in the plan and justify it:**
   - **TDD mode** — when explicitly requested or required by project policy; invoke the `tdd` skill and identify a meaningful verification seam.
   - **Smoke-and-read mode** (default for research, long-running, or heavy-compute work): the smallest real execution path + rereading your own code + checking the adjacent behavior it touches.
-    - No pytest, no test scaffolding, no wrapper harnesses — the run itself is the cost.
+    - Reuse the project's checks; do not introduce another test harness for a smoke run.
     - The user runs the real workload afterwards.
   - Rule of thumb: if writing and running the test costs more than the failures it would catch, don't write it.
 - **Acceptance and responsibility** — what is observed, the expected result, cost and environment limits, and who runs/verifies what at the end.
@@ -74,15 +69,21 @@ One structured Markdown document in the user's language (Chinese headings by def
 3. **Environment and prerequisites** — exact known commands, paths, versions; unresolved external blockers labeled as such.
 4. **Execution steps** — ordered; each step states what / the files or command / the expected result / its dependencies.
    - Before bulk generation or a broad matrix, settle source/version and semantic contracts, then validate a representative vertical slice and shared components.
-   - Group independent work; the final agreed coverage still applies.
+   - Design for possible parallel work: settle shared contracts first; for each independent slice name its prerequisites, write scope, output and acceptance evidence. Name the integration step. For example: agree on the API → port two adapters independently → test them together. Keep coupled steps serial; a slice does not require a worker.
    - Write only verified commands and API details.
 5. **Constraints and known pitfalls** — applicable user discipline, compatibility, risks, and the authorization gates from Phase 3.
 6. **Verification** — name the chosen mode (TDD / smoke-and-read) and why; concrete acceptance evidence and who runs what. Name the level of each check: static check, successful loading, local call, or real user interaction; a clean exit alone proves little.
-7. **Deliverables** — include `<plan-basename>.report.md` beside the plan. Required product docs and project memory still apply.
+7. **Deliverables** — name the product and the requested endpoint (local verification, PR, or merge, as applicable). A separate-session handoff also requires `<plan-basename>.report.md`; same-session execution records results against the plan without a duplicate report unless requested.
 
-## Phase 5 — Write the launcher prompt
+## Execute an agreed plan
 
-Append it to the plan doc inside a fenced block AND print it in chat for copying. It must be fully self-contained for a fresh session:
+1. Read the named plan and applicable project instructions. Recheck the working tree, environment, stage prerequisites and current authorization where they could have changed. Keep settled decisions; reopen only the affected step if new evidence invalidates a premise.
+2. Start [steady-do](../steady-do/SKILL.md) at implementation. The primary Agent owns the critical path and integration. Respect a request to work solo; otherwise use [multi-agent](../multi-agent/SKILL.md) when requested or independent branches warrant it. Proceed serially if none qualify or delegation is unavailable. Worktree and Git operations stay within the authorized endpoint.
+3. Run the agreed checks on the integrated result; apply [verification](../verification/SKILL.md) when its triggers hold. In this session, record outcomes, evidence and blockers in the plan. Mark it done only when scope and verification are complete. In a separate-session handoff, write the report instead; the planning session closes the plan after review.
+
+## Separate-session handoff
+
+Append a self-contained launcher prompt to the plan inside a fenced block and print it in chat for copying:
 
 - Point to the plan doc path; instruct the executor to read it plus AGENTS.md, including the active `user-discipline` block, and the relevant project docs before acting.
 - Carry the agreed scope, environment, step order and dependencies, ponytail taste, verification mode, authorization gates, and deliverables. Follow the plan instead of restarting workflow selection or re-grilling settled decisions.
@@ -104,15 +105,11 @@ When the user returns saying the executor finished (or drops the report path), a
    - Judge each deviation with its reason; fix the specific omission without recreating scaffolding.
 4. Verdict (符合 / 部分符合 / 不符合), then concrete prioritized minimal fixes in ponytail style.
 5. Write `<slug>.review.md` beside the plan in the user's language and print it in chat. NEVER edit the executor's report — it is their artifact.
-6. If fixes are needed, produce a new self-contained launcher prompt (Phase 5 rules) re-dispatching exactly the fix items; it must point at the review file, the plan, and the previous report.
+6. If fixes are needed, prepare a self-contained handoff for exactly the fix items, pointing at the review file, plan and previous report. The user decides when and where to execute the fix.
    - Re-review changes and affected dependents using prior evidence for unchanged scope; repeat the full matrix only when required by the agreed acceptance or blast radius.
    - Separate source-semantic defects from verification-environment defects before ordering regeneration.
 7. **Fix rounds keep their own artifacts:** the fix session writes `<slug>.report-2.md` (then `-3`, …), never overwriting an earlier report, and each round gets its own `<slug>.review-2.md` (…), so every round stays auditable.
 8. **Exit:** a 符合 verdict closes the loop only when every required step and the agreed verification are complete. Record `Status: done (rounds: N)` at the top of the plan doc and update project memory/docs per project rules. If required work remains incomplete or unverified, keep the loop open with the exact remaining work; never write `done`.
    - If a round makes no progress on the same blocking item, stop and hand the open questions back to the user instead of looping again.
 
-Courier note: the return leg is user-mediated — this session is not woken by the executor and resumes only when the user brings the report back. Say so when handing off, so nobody waits for an automatic ping.
-
-## Hard boundary
-
-Once plan + launcher prompt are delivered, the planning job is DONE for now. Do not execute the plan here, spawn execution sub-agents, or start a fix round yourself. The user launches the fresh session; this session's next role is reviewer (see Review loop).
+For a manually launched separate session, tell the user to bring back the report: handing them a launcher does not wire up a completion notification. Same-session native workers return to the primary Agent through the host instead.

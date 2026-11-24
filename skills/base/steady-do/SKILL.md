@@ -1,6 +1,6 @@
 ---
 name: steady-do
-description: Develop features in an existing project within the current session. Use when explicitly requested, or automatically for ordinary feature, plugin, extension and cross-module work that needs project understanding and clarification before implementation. Prefer quick-do for clear, bounded changes; plan-brief when long-horizon work needs planning and separate-session execution.
+description: Develop ordinary features, plugins and cross-module changes in the current session. Clarify open decisions, implement and verify; when asked to execute an agreed plan start at implementation. Use quick-do for bounded changes and plan-brief for large frameworks, long migrations or a durable multi-stage plan.
 ---
 
 # Steady Do: understand → clarify → implement here → verify
@@ -10,7 +10,8 @@ Apply `goal-first`: anchor work to the agreed outcome, current uncertainty, next
 ## When this skill applies
 
 - Ordinary feature, plugin, extension, and cross-module work in an existing project, implemented and verified in this session.
-- The user's explicit workflow choice wins; if the chosen one cannot fit the task, say why and ask before switching. Bounded and clear → `quick-do`; long-horizon work needing a durable plan and a separate-session handoff → `plan-brief` (propose it when a handoff would help but was not requested).
+- The user's explicit workflow choice wins. Bounded and clear → `quick-do`; a large framework or migration needing a durable staged plan → [plan-brief](../plan-brief/SKILL.md). Do not turn ordinary implementation into a planning-only handoff.
+- **An agreed plan plus an instruction to execute:** read the plan and project instructions, verify the baseline, prerequisites and task endpoint, then start at step 3. Use the plan's decisions, verification and deliverables; ask only if a changed premise affects them. Merely writing or approving a design is not an instruction to implement it.
 - These workflows govern requested development work; explanations and read-only questions need no workflow. Skill instructions are in English; replies and deliverables follow the user's language (Chinese by default).
 
 ## 1. Understand the request and project
@@ -42,7 +43,8 @@ Use the round-based method below; it is self-contained and needs no separate ski
 - Briefly recap the agreed scope, approach, and verification, then begin without an extra plan-approval gate. If the recap introduces an unresolved material choice, wait for its answer first.
 - Keep the critical path and integration in this session; default to single-agent implementation. For two or more substantial independent branches or an explicit multi-agent request, use [multi-agent](../multi-agent/SKILL.md) and follow its mandatory guide for investigation or implementation. Use direct tools for short lookups; do not redo a worker’s search while waiting.
 - For a source investigation, include the tool route in the handoff: native Glob for paths, Grep for text, Read for the relevant block (Pi: find/grep/read). If the path is known, start with Read; stop once the evidence answers the question.
-- No plan documents, launcher prompts, development reports, or review reports. Track multi-step work with a session todo; required product docs and project memory still apply.
+- For ordinary development, use the session todo without a plan, launcher or separate report. When executing someone’s plan, deliver the evidence and artifacts it calls for.
+- Run the project's agreed audits and checks, then continue to the task endpoint without asking about each covered action. A request to open a PR stops short of merge. Neither endpoint requires multiple workers.
 - Work in coherent units: keep current exact source plus callers/contracts available through the edit, group independent lookups, and reuse unchanged evidence. Reread the affected unit after a match failure instead of retrying from a summary. For generated or minified output, find the editable source and generation path first.
 - If new evidence invalidates the agreed approach or requires broader scope or changed external behavior, pause the affected work and realign. Resolve ordinary local implementation issues yourself.
 - Before destructive or irreversible actions, show the impact and obtain explicit authorization. Permission to start does not permit overwriting secrets or changing unrelated environments.

@@ -1050,6 +1050,12 @@ def check_multi_agent_auto_trigger():
     assert "If `quick-do` is active, preserve its single-session contract" in skill
     assert "Read the complete [task decomposition and optional worktree guide](references/guide.md) before launching workers" in skill
 
+    # 用户在原会话点名执行时，从可发现的 skill 进入执行段，而不是被送去新会话。
+    plan = (ROOT / "skills/base/plan-brief/SKILL.md").read_text(encoding="utf-8")
+    assert "按计划执行" in plan.split("---", 2)[1] and "Swarm" in description
+    execution = plan.partition("\n## Execute an agreed plan\n")[2].partition("\n## ")[0]
+    assert "../steady-do/SKILL.md" in execution and "../multi-agent/SKILL.md" in execution
+
     # 通过生产注入入口验证 OpenCode 实际收到主动发现规则，而非只有源码注释。
     with tempfile.TemporaryDirectory(prefix="multi-agent-trigger-") as d:
         tmp = pathlib.Path(d)

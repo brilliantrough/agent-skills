@@ -18,7 +18,7 @@ pstack 是重度软件项目的可选实现，不是套件的全局依赖。`tru
 
 | 能力 | 目标宿主上应当能做的事 |
 | --- | --- |
-| [Swarm](https://github.com/cursor/plugins/blob/005d8f6e8ec057b738adcd08a08b30db0478402d/pstack/skills/swarm/SKILL.md) | 主 Agent 给独立 worker 分片，或在竞速前约定取首个通过／全部排名／择优。并行派发，收回每项结果、证据和缺口，再汇总；必需分片缺席不能报通过。worker 分别向主 Agent 回报即可，无需另建聊天室或调度器。 |
+| [Swarm](https://github.com/cursor/plugins/blob/005d8f6e8ec057b738adcd08a08b30db0478402d/pstack/skills/swarm/SKILL.md) | 主 Agent 给独立 worker 分片，或在竞速前约定取首个通过／全部排名／择优。并行派发，收回每项结果、证据和缺口，再汇总；必需分片缺席不能报通过。worker 分别向主 Agent 回报即可，无需另建聊天室或调度器。没有引入 pstack 的项目由 [multi-agent](../../multi-agent/SKILL.md) 用原生子会话执行同样的分片与竞速，不为此安装 pstack。 |
 | [Arena](https://github.com/cursor/plugins/blob/005d8f6e8ec057b738adcd08a08b30db0478402d/pstack/skills/arena/SKILL.md) | 同题同基线，至少两个候选独立产出。先定评价标准，候选分别写到独立位置；按标准交叉评审、选底稿、吸收其他候选的可取之处，再验证合成结果。跨厂商评委不可用时明示，不把单一产出当竞赛。 |
 | Worktree | 只读分片可共享目录；竞争写入或基线不同时，在授权内建立隔离工作区，确认 worker 实际工作目录和起点，取回、集成改动，再安全回收。上游 `worktree-audit.sh` 的会话线索来自 Cursor transcripts；换宿主要查本宿主的活跃会话。无法确认、仍有未提交内容（含未跟踪文件）或未合并提交时留存，不自动删除。 |
 | 自动交付 | 接通任务分支的 commit、push、开 PR、跟进 CI／评审，以及可选的 merge。复用项目的 Git 托管工具、现有检查和分支保护；按下文的任务终点连续执行。 |
@@ -45,7 +45,7 @@ pstack 是重度软件项目的可选实现，不是套件的全局依赖。`tru
 
 ## 共存规则
 
-本说明不是上游模块会自动加载的配置。项目必须把适配写进实际加载的 pstack 副本、Agent 定义或注册提示；只安装原版再阅读本说明，不会改变上游行为。
+由 Agent 按用户需求和项目现有工具决定采用哪些上游模块。把移植后的硬规则、工作流、验收和交付终点写入**项目级 skill**（`SKILL.md`），让目标宿主从项目实际使用的技能目录加载同一份规则。宿主专属角色、工具映射和检查脚本由 skill 引用。**不要把 pstack 流程写进 OpenCode Commands**，也不在 skill 与 command 各维护一份。只安装原版或只读本说明，不会改变上游行为。
 
 - **先改写冲突指令，再选择默认路由器**：`feature` playbook 在单一实现路径下也强制委派的规则，须改为本文的多 Agent 触发条件；`opening-a-pr` 从其他 playbook 的默认结尾解耦；`swarm` 的 cloud 默认值改为明确选择的本地 shared／worktree；`worktree-cleanup` 在未提交改动、未合并 commit 和活跃会话检查接入前禁用。完成这些实际补丁后，项目才可让合格任务默认进入 `poteto-mode`；用户显式选择的 `quick-do`／`steady-do`／`plan-brief` 优先。
 - **权限来自任务终点**：按上文改写 `poteto-mode`、`opening-a-pr`、`shipping`、`autopilot-*` 的默认授权；用户纪律、项目 `AGENTS.md` 和宿主权限仍优先。
@@ -74,7 +74,7 @@ pstack 是重度软件项目的可选实现，不是套件的全局依赖。`tru
 
 按本次承诺的能力验收。完整接入覆盖上表四项；用户只点名某个模块时，只检查它的入口、依赖和行为。例如仅装 `no-comments`，就验证注释处理，不启动 Swarm、Arena，也不开 PR。
 
-1. **静态检查接到项目现有 `check`／CI。** 从实际加载的入口检查引用的 skill、角色、脚本与项目检查命令能解析；有生成副本时检查是否与源一致。参考上游的[文档检查](https://github.com/cursor/plugins/blob/005d8f6e8ec057b738adcd08a08b30db0478402d/scripts/check-pstack-docs.mjs)与[适配树检查](https://github.com/cursor/plugins/blob/005d8f6e8ec057b738adcd08a08b30db0478402d/scripts/generate-pstack-harness-trees.mjs)，别照搬 Cursor 的目录或命令名单。在隔离副本漏掉一个承诺入口（例如 Swarm），现有检查应非零并点名缺项；正常副本应通过。业务 lint 和类型检查沿用项目配置。
+1. **静态检查接到项目现有 `check`／CI。** 从实际加载的 skill 检查其引用的角色、脚本与项目检查命令能解析；有生成副本时检查是否与源一致。参考上游的[文档检查](https://github.com/cursor/plugins/blob/005d8f6e8ec057b738adcd08a08b30db0478402d/scripts/check-pstack-docs.mjs)与[适配树检查](https://github.com/cursor/plugins/blob/005d8f6e8ec057b738adcd08a08b30db0478402d/scripts/generate-pstack-harness-trees.mjs)。在隔离副本漏掉一个承诺入口（例如 Swarm），现有检查应非零并点名缺项；正常副本应通过。业务 lint 和类型检查沿用项目配置。
 2. **从用户会调用的入口跑通。** 用一个有独立分片的任务收回 Swarm 结果，再用同一道小题产出并比较两个 Arena 候选。通过 worker 的实际目录、diff 和集成结果核实隔离和回收。若启用 `no-comments`，用临时补丁、真实约束、有效 `shortcut:` 和模糊 `IMPORTANT` 核对删除与保留。
 3. **验证交付终点和停止条件。** 在获准的测试仓库／分支走到约定终点：PR 模式回读状态确认未合并，合并模式确认当前 head 的变更已进入指定目标。让一项必需检查失败，确认合并被挡住；修复后只在授权范围内继续。没有远端、审批或写权限就交付到实测位置，标明未验部分。
 4. 这些结果齐备后，项目才决定是否把 `poteto-mode` 设为默认。更新与退出沿用项目验证；未经目标宿主验证的特化不直接复制到其他项目。

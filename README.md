@@ -4,6 +4,8 @@
 
 ## 定位与维护边界
 
+**工作流随实践和宿主能力演进。** 判断一种做法值不值得留下，要看它今天还能解决什么问题。新方法在真实任务里更合适，就更新现有流程。比如 Plan Brief 以前靠新会话执行；现在原会话能按计划调度本地 worker，新会话就成了需要交接时的选择。
+
 | 内容 | 本套件负责 | 不代替 |
 |---|---|---|
 | 协作方法 | 任务范围、证据、交接、记忆使用与经验回流 | 各项目的科学选择与实际验收 |
@@ -13,7 +15,7 @@
 
 统一的是协作与证据底线，不是所有人的整套环境。`base/research/accel/kb/ppt`继续表达安装选择与更新策略；当前默认配置是推荐组合，不等于每项个人偏好都是团队规范。
 
-独立能力按使用者和发布责任划分，成熟领域由主体引用。上游补齐能力后，用原有验收场景验证；通过就退役对应的本地补丁、入口和过时指引，只保留仍解决实际问题的适配。
+独立能力按使用者和发布责任划分，成熟领域由主体引用。宿主补齐能力后，先用原有验收场景验证；通过就退役对应的本地补丁、入口和过时指引。例如大输出现在由宿主截断、保存并分页读取，套件已退役 `context_output_read`，既有输出文件仍可读。
 
 | 宿主 | 定位 |
 |---|---|
@@ -230,9 +232,9 @@ bash scripts/verify-subagents.sh --apply --yes    # 显式接受默认升级与�
 | [`trust-pyramid`](skills/base/trust-pyramid/SKILL.md) | 日常开发、重构与审查的工程质量约束 | 五层原则＋六类条件化规则配方＋工具映射；按项目选择并落实 |
 | [`verification`](skills/base/verification/SKILL.md) | 新功能与跨模块、高风险、发布或证据存疑的功能复核 | 主 Agent 验证并沉淀最小条目 → Reviewer 复核当前功能并快查相关旧条目；套件更新另核对资产闭包、Release、部署和运行进程 |
 | `quick-do` | 行为明确的小修小补 | 读代码 → 当前会话修改、验证；不 grilling、不写计划 |
-| `steady-do` | 日常功能、插件、扩展 | 理解项目 → 分轮澄清 → 当前会话实现、验证；不写交接文档 |
-| [`multi-agent`](skills/base/multi-agent/SKILL.md) | 用户显式要求，或两个以上独立有界分支 | 主会话拆题与集成；原生子 Agent 并行，worktree 按需，不承诺提速 |
-| `plan-brief` | 长程多阶段任务 | 澄清 → 计划 `docs/plans/<slug>.md` + 启动 prompt → 新会话执行 → 报告 → 原会话审查 |
+| `steady-do` | 日常功能、插件、扩展 | 当前会话澄清、实现、验证；已有计划且用户要求执行时，直接按计划做 |
+| [`multi-agent`](skills/base/multi-agent/SKILL.md) | 独立分支、多 Agent 或 Swarm | 按分片覆盖或同题竞速派发，主会话集成；没有值得拆的分支就串行 |
+| [`plan-brief`](skills/base/plan-brief/SKILL.md) | 大框架、长程移植、多阶段任务 | 写清依赖、可并行分片和验收，规划完成后停下；用户可让原会话执行，指定跨会话时才生成启动 prompt、报告和审查 |
 
 按不确定性、耦合、风险与交接需求选择，不按字数分档：
 
@@ -247,7 +249,7 @@ bash scripts/verify-subagents.sh --apply --yes    # 显式接受默认升级与�
 - 检查通过 ≠ 真实交互已验收；必须说明未验证项
 - skill 指令统一英文，回复跟随用户语言（默认中文）
 
-使用示例：“用 steady-do，先问清楚再做”；“用 multi-agent 并行处理这两个独立模块，由主会话统一集成”。
+例如先说“用 Plan Brief 规划这次移植，先不改代码”；计划确认后说“按这份计划执行，两个独立适配器用 Swarm，做到 PR”。没有独立分支的阶段仍串行。重度项目按需[接入 pstack](skills/base/trust-pyramid/references/pstack.md)，由项目 skill 承载适配规则。
 
 `goal-first` 在代码任务中引导加载 `trust-pyramid`；`steady-do`、`consolidator`、`writing-skill` 在修重复问题或固化规则时指向它。原型包含[五层原则](skills/base/trust-pyramid/SKILL.md)、[六类质量规则配方](skills/base/trust-pyramid/references/quality-recipes.md)和[工具映射／检查示例](skills/base/trust-pyramid/references/static-checks.md)：注释与补丁、依赖边界、API 与状态、重复维护、副作用与错误、工作区与产物。每类给出适用条件、好坏示例、检查方式和例外；项目选择后将具体 API、目录和检查写回自身配置。Verification 可由 Agent 或项目自动执行，按任务授权、成本与副作用确定范围，不要求人逐次触发。
 
