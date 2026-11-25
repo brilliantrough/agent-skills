@@ -69,3 +69,14 @@ Use the round-based method below; it is self-contained and needs no separate ski
 - Name the level of what ran: static check, successful load, local call, injected input, or complete user interaction. A loadable plugin is weaker evidence than a working feature, and injected input is weaker than a physical terminal interaction.
 - If execution needs the user's environment or is blocked, state what remains unverified and give concrete steps and expected observations. **Blocked is a legitimate outcome:** say so with the exact check the user must run. Never invent completion or silently omit blocked work.
 - Report what changed, what actually ran, and what needs user confirmation. Use one line only when it preserves all three.
+
+## 6. 长程与无人值守
+
+用户明确说“做到完成”“我离开一会儿”“跑到绿”时，把任务当成一次有出口条件的运行，而不是把提问权留给自己。
+
+- **先把出口写成一个可判定的谓词**：测试全绿、复现消失、N 个 PR 全部合入、pixel-diff 为零。谓词写在会话里，**不放松它以宣布胜利**。
+- **注册唤醒**：时长已知用 `later` 把下一步指令发回本会话；宿主支持后台 shell／子任务时用它，结束时报告 running 与日志位置。不 sleep、不轮询。
+- **每轮只做证据支持的最小改动**，按谓词验证：推进了就保留并提交，没推进就丢弃，不留“可能有用”的护栏。一个工作单元一个绿灯，不把检查堆到末尾。
+- **途中发现**：支撑当前目标的能力缺口、坏掉的检查、登记漂移自己修，必要时单独提交；只有不可逆动作、产品取舍和真正的死路才交回用户，可回退的事不用提问工具。
+- **每轮一行记录**：追加到本地 `decisions.tsv`（时间、阶段、决定、原因、证据指针、结果），只记决策点和检查点，不记每个动作；默认不入库，需要复核时才提交。交接前按记录回看真实发生的事，不按记忆补写。
+- **停的条件**：谓词满足；或同一阻塞连续多轮无进展，把问题交回用户。平台期不是停的理由，原地旋转也不是进展。

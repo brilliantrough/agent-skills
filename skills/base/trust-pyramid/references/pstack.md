@@ -70,6 +70,27 @@ pstack 是重度软件项目的可选实现，不是套件的全局依赖。`tru
 
 官方 skill 带 `disable-model-invocation: true`，单独安装不会自动运行；项目可显式调用，或在已完成上述补丁的 `poteto-mode` review 步骤中接入。跨模块或高风险重构仍按 `verification` 委派独立复核；只有用户显式要求整理时才进入 `consolidator` 与其 Reviewer。
 
+## 我们吸收了什么、没有吸收什么
+
+套件保持薄实现，只把 pstack 中"不依赖生产级环境也成立"的自动化抽取进来，落在现有入口，不新增第二套框架：
+
+| pstack 的部分 | 处理 | 落点 |
+| --- | --- | --- |
+| `create-verification-skill` 的"访谈仓库→生成→实跑一次才交付" | 吸收 | `verification` 的「生成」小节：Agent 自己读出该验什么，不让用户逐次口述 |
+| feature map 的"一功能一文件 + 四段契约" | 弱化吸收 | 多表面时用极简 map（一 surface 一行）；单表面直接在项目登记位置写条目，不造文件树 |
+| `maintain-verification-skill` 的 source wave → live pass → 三分法 | 吸收 | `verification` 的「维护」小节；product gap **不得改登记掩盖** |
+| `verified-unreachable` 与"缺前置条件本身是漂移" | 吸收 | 同上，比单纯 SKIP 更可追责 |
+| `correct` 的"同错两次才成规则、按最高层级修、证明在真实旧错上失败、规则↔执行者对照表" | 吸收 | `trust-pyramid` 的「规则从重复错误来」 |
+| `principle-encode-lessons-in-structure` | 已覆盖 | 同上第 5 层；原有表述保留 |
+| `autonomous-run` 的可判定谓词、每轮最小改动、平台期不是停止理由 | 吸收 | `steady-do` 第 6 节，接宿主原生 `later`／后台任务 |
+| `show-me-your-work` 的 TSV 决策台账 + 交接前按记录回看 | 弱化吸收 | 同上，本地 `decisions.tsv`，默认不入库，不建跨会话审计系统 |
+| `arena`（同题多候选、交叉评委、移植择优） | **不吸收** | `multi-agent` 的 Race 模式已覆盖比较与择优；多数研究取舍靠一次实测即可判定 |
+| `swarm` 的分片与竞速 | 已在 `multi-agent` 覆盖 | 本文上表只补项目级 playbook／worktree／交付终点，不另建调度器 |
+| `autopilot-*`／`shipping`／`babysit`／云 worker | **不吸收** | 缺生产级 CI／PR 流程；交付终点由任务授权决定，已在本文上表约定 |
+| `interrogate` 多模型对抗＋worktree 复制改动 | **不吸收为默认** | `verification-reviewer` 已承担独立复核；对抗审查只在显式要求时做 |
+
+薄实现与完整安装的关系：日常用薄实现；长期维护、跨模块、有真实 CI／PR 流程的工程化项目，才按上文完整接入 pstack，并把本表的薄实现当作缺省路由而非第二维护源。
+
 ## 在目标项目验收
 
 按本次承诺的能力验收。完整接入覆盖上表四项；用户只点名某个模块时，只检查它的入口、依赖和行为。例如仅装 `no-comments`，就验证注释处理，不启动 Swarm、Arena，也不开 PR。

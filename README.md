@@ -229,6 +229,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 主 Agent 负责运行真实路径并留下证据。新功能及跨模块、高风险、发布或证据存疑改动，委派 `verification-reviewer` 独立复核验收条件、功能行为和测试有效性；局部低风险修补不每次委派。新功能验证后，主 Agent 把最小可执行条目接入项目现有测试／检查入口，不另建平行清单。Reviewer 聚焦当前功能后，默认快查相关旧条目，不要求每次全量重跑，未运行项如实披露。套件只提供角色与简洁优先的证据纪律，具体验收条件、命令、fixture、平台和风险矩阵以项目本地资料为准，不预制通用测试。Reviewer 的仓库只读是行为合同，Bash／shell 仍可能写文件，不冒充文件系统沙箱；需要硬隔离的项目使用宿主沙箱或容器。显式使用 `consolidator` 整理时，才由 `consolidation-reviewer` 检查语义保持、真实保护、简洁性及误删／该删未删。两种 Reviewer 都不代替 lint、真实宿主或用户最终验收。
 
 - `skills/base/verification/` 提供风险触发与功能交接合同，`references/reviewer.md` 是唯一功能审查规范；`skills/base/consolidator/` 继续维护整理审查规范。
+- 条目由 Agent 自己从真实入口生成，不要求用户逐次口述：先认定用户可见表面、启动方式和可编程驱动手段，再把一个关键行为接入项目现有登记位置，未实跑过的不算条目。条目会腐化，系统复查时按「源码一遍 → 实跑一遍 → 文档漂移／harness 缺口／产品缺陷三分」处理；产品缺陷记录给用户，不得改登记掩盖；无法到达的条目标 `verified-unreachable` 并写明缺的前置条件。
 - Pi：由 setup 安装两份 Markdown 角色定义；继续使用原版 `pi-subagents-j0k3r`。
 - OpenCode：完整 setup 配置原生 `agents.verification-reviewer` 与 `agents.consolidation-reviewer`；仅 `--plugins-only` 不更新代理配置。
 - Codex ≥0.158.0：setup 安装两份原生 TOML 角色。官方明确自定义 agent 文件中的 `sandbox_mode`、`model_provider` 等字段不覆盖父会话，因此两份角色都不写 `sandbox_mode`；仓库禁写、临时目录和禁联网是行为合同，不冒充独立文件系统沙箱。
@@ -264,9 +265,9 @@ bash scripts/verify-subagents.sh --apply --yes    # 显式接受默认升级与�
 | `goal-first` | 研究、开发和计划的主线约束 | 保持交付、当前未知、下一步和收口条件；不因意外发现静默扩展范围 |
 | [`problem-framing`](skills/base/problem-framing/SKILL.md) | 同类补丁反复出现，或设计、实验该回答什么还没说清 | 辨认问题结构，借用成熟解法，用一个反例确定验收或区分解释的证据 |
 | [`trust-pyramid`](skills/base/trust-pyramid/SKILL.md) | 日常开发、重构与审查的工程质量约束 | 五层原则＋六类条件化规则配方＋工具映射；按项目选择并落实 |
-| [`verification`](skills/base/verification/SKILL.md) | 新功能与跨模块、高风险、发布或证据存疑的功能复核 | 主 Agent 验证并沉淀最小条目 → Reviewer 复核当前功能并快查相关旧条目；套件更新另核对资产闭包、Release、部署和运行进程 |
+| [`verification`](skills/base/verification/SKILL.md) | 新功能与跨模块、高风险、发布或证据存疑的功能复核 | 主 Agent 从真实入口生成最小条目并实跑 → Reviewer 复核当前功能并快查相关旧条目；条目腐化时按三分法维护；套件更新另核对资产闭包、Release、部署和运行进程 |
 | `quick-do` | 行为明确的小修小补 | 读代码 → 当前会话修改、验证；不 grilling、不写计划 |
-| `steady-do` | 日常功能、插件、扩展 | 当前会话澄清、实现、验证；已有计划且用户要求执行时，直接按计划做 |
+| `steady-do` | 日常功能、插件、扩展；长程或无人值守运行 | 当前会话澄清、实现、验证；已有计划且用户要求执行时直接按计划做；明确要求“做到完成”时用可判定谓词＋原生唤醒＋`decisions.tsv` 逐轮推进 |
 | [`multi-agent`](skills/base/multi-agent/SKILL.md) | 独立分支、多 Agent 或 Swarm | 按分片覆盖或同题竞速派发，主会话集成；没有值得拆的分支就串行 |
 | [`plan-brief`](skills/base/plan-brief/SKILL.md) | 大框架、长程移植、多阶段任务 | 写清依赖、可并行分片和验收，规划完成后停下；用户可让原会话执行，指定跨会话时才生成启动 prompt、报告和审查 |
 
