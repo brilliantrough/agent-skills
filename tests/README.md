@@ -56,6 +56,16 @@ Antigravity 的文件接入由 `tests/source-bench.py` 通过 `skills-sync.sh --
 
 同一条目也检查 `按计划执行` 和 `Swarm` 能从 skill 描述发现，且 Plan Brief 的执行段接到 Steady Do 和 Multi Agent。原会话续跑另用两条真实输入验收：在临时项目要求“先规划调用签名迁移”，确认只新增计划、旧调用仍能运行；向**同一会话**发送“按该计划执行到本地验证”，检查新签名生效、旧位置调用被拒、调用方输出不变、计划中有实测结果。单人即可完成，不以 worker 数量判定成功。
 
+### DeepSeek Flash 源码派单（阶段性实机条目）
+
+只在 OpenCode 子代理模型、派单指引变化或碎片化读取复现时运行。用隔离配置加载待验的 `multi-agent`，给父代理这道题，不在题里提示用哪些工具：
+
+> 用 multi-agent 派一个 explore，只读查 `templates/`：Pi、Codex、Claude Code、OpenCode 的两种 Reviewer 各指向哪个规范文件？这四个宿主里谁把两种角色定义在同一个文件里？给出路径和行号。
+
+核对答案：只有 OpenCode 把两种定义放在同一文件；Claude Code 引用 `~/.claude/skills/`，其余三者引用 `~/.agents/skills/`，分别指向 `verification/references/reviewer.md` 和 `consolidator/references/reviewer.md`。再看**实际发出的子任务和子会话工具轨迹**：父代理是否传入读法、实际模型是谁、独立查找或读取是否在同一助手回合发出。记录答复前的工具批次；逐轮用 shell 切片或在 `execute` 里尝试包装 shell 都算偏离。正常执行或读取工具故障后的只读回退不算。
+
+决定能否退役时，在同一宿主、模型和源码上开新会话，对照有、无专项读法的两份派单，核实子任务里确实有这项差别。若无提示也能在这道题和实际源码调查中稳定答对、成批取证，不再反复补读，就缩短或删除专项措辞和本条目；一次答对或零 shell 都不足以定论。此项不进离线门禁。
+
 ## 模拟与真实宿主的边界
 
 DSH 安装期校验复用 rc.2 的官方 schema、表达式和配置接口时，结论只能是“拒绝”或“未发现拒绝”。它不能证明宿主已经加载，也不应为复杂 Group／Include 行为另造一套语义推断；无法确定的结果应保守拒绝或交给真实宿主。
