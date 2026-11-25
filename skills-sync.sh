@@ -7,11 +7,15 @@
 #       (Claude Code 不读 ~/.agents/skills,但跟随逐个 skill 的链接;Git Bash 无真链接时退回复制),并部署审查代理。
 # 备份:~/.local/share/agent-skills/.backups/<组>/<名>.bak-<时间戳>(回流仓库后自行删除)。
 #
-# 用法:skills-sync.sh [all|base|research|accel|kb|ppt ...]
+# 用法:skills-sync.sh [--antigravity] [all|base|research|accel|kb|ppt ...]
+# --antigravity 将共享目录登记到宿主原生发现清单；公共规则仍由 AGENTS_TAIL 控制。
 #       无参数/all = 全部组;可传多个组(例如 base research);setup 默认至少传 base。
 # 源:与四个 setup 共用一棵本地源码树(默认受管 clone,见 acquire_source);
 #     AGENT_SKILLS_SOURCE 指向已有工作树时只读使用;分支/Fork 验收仍用 AGENT_SKILLS_REF / AGENT_SKILLS_REPO。
 set -euo pipefail
+
+antigravity=0
+if [ "${1:-}" = --antigravity ]; then antigravity=1; shift; fi
 
 SCOPE_ARGS=("$@")
 [ "${#SCOPE_ARGS[@]}" -gt 0 ] || SCOPE_ARGS=(all)
@@ -268,6 +272,10 @@ inject_agents_md() {
   [ "$AGENTS_TAIL" = 1 ] || return 0
   python3 "$source_root/scripts/migrate-agents-tail.py" --sync-global
 }
+if [ "$antigravity" = 1 ]; then
+  python3 "$source_root/scripts/migrate-agents-tail.py" --antigravity-skills || exit 1
+  export AGENTS_TAIL_HOST=antigravity
+fi
 inject_agents_md || status=1
 
 exit "$status"

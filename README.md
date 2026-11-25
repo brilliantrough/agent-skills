@@ -19,11 +19,11 @@
 
 | 宿主 | 定位 |
 |---|---|
-| OpenCode | 主目标 |
-| Pi | 与 OpenCode 共享记忆配置 |
-| DeepSeek Harness | 固定兼容组合；原生 DeepSeek 通道、TUI 与套件工具 |
-| Codex | best effort；复用 skills 原文，不改工作流 |
-| Claude Code | best effort；只装 skills 与审查代理，记忆和上下文用它自带的能力 |
+| OpenCode V2、Pi | 并列主宿主。工作流、项目规则、记忆分工和验收标准同步演进；各自选合适的工具和插件。 |
+| DeepSeek Harness（DSH） | 在固定兼容组合上尽量跟进共同工作流；可按需维护宿主适配。 |
+| Claude Code、Codex、Google Antigravity | best effort。共用 Skill 和项目规则，优先用原生能力、官方或社区工具，不移植套件的复杂插件。 |
+
+改公共工作流时，先改同一份 Skill 或 [公共规则](AGENTS.tail.md)，再用同一项代表任务核对 OpenCode 和 Pi：能否发现规则、读到所需 Skill、完成约定的操作并给出证据。两端的命令、界面和插件不必相同；只验过一端，就只报一端通过。
 
 **各宿主的 skills 与第三方依赖是同一份**：skill 实体、设计依赖、`ppt-master` 引擎、`nju-ppt` 的独立 venv、`agent-reach` CLI（`~/.local/bin`）都装在 `~/.agents/skills` 或 `~/.local` 下，四个宿主都能用。差异只在安装入口：
 
@@ -94,7 +94,19 @@ bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.co
 - 在 `~/.claude/skills/<名>` 建指向 `~/.agents/skills/<名>` 的符号链接。Claude Code 不读 `~/.agents/skills`，但会跟随逐个 skill 的链接；Git Bash 没有真链接，退回复制。
 - 随 base 组把 `verification-reviewer` 与 `consolidation-reviewer` 写到 `~/.claude/agents/`，分别供独立功能复核和整理后审查。
 - 不安装 Magic Context、context-mode 和 `later`。记忆用 `docs/` 下的 StrictDoc、claude-mem 官方插件（自行安装）和 Claude Code 自带的记忆；规范块里的 Pi／OpenCode 工具名在这里不存在，按块内说明改用自带能力。
-- Claude Code 读取用户级 `~/.claude/CLAUDE.md` 和项目的 `AGENTS.md`；套件的公共块写入前者，项目文件按原样保留。
+- 公共块写入用户级 `~/.claude/CLAUDE.md`。项目同时有 `CLAUDE.md`，或会话不直接加载 `AGENTS.md` 时，可在项目 `CLAUDE.md` 中写 `@AGENTS.md`，保留同一份项目规则。见 [Claude Code 项目指令](https://code.claude.com/docs/en/memory)。
+
+**Google Antigravity（best effort）**
+
+```bash
+bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.com/brilliantrough/agent-skills/main/skills-sync.sh)" -- --antigravity base
+```
+
+`--antigravity` 在原生 `~/.gemini/config/skills.json` 中登记 `~/.agents/skills` 的本机绝对路径。`base` 决定本次安装的组；Antigravity 可发现这个共享目录里**所有已安装的 Skill**。已有入口、过滤条件和继承设置保留；配置目录是链接且相对路径指向不明确时，脚本提示改用绝对路径。无需复制 Skill 或安装插件。
+
+选择同步公共规则时，脚本把同一受管块写入 `~/.gemini/AGENTS.md`，保留文件其余正文；`AGENTS_TAIL=0` 只接 Skill。项目根 `AGENTS.md` 由宿主直接读取，不用再抄一份 `GEMINI.md`。本机只有 `~/.gemini/` 不视为已安装 Antigravity。新开工作区，在 App／IDE 的 **Customizations** 查看规则和 Skill 来源；CLI 用 `/skills` 确认 `quick-do` 可见。规则与 Skill 使用原生文件入口，记忆和审查能力以宿主实际提供的为准。
+
+Antigravity 的[规则文件](https://antigravity.google/docs/rules)有 24,000 字节的单文件上限，过长会截断；关键项目要求放在文件开头。另见 [Skill](https://antigravity.google/docs/skills) 和[自定义目录与发现顺序](https://antigravity.google/docs/customization-discovery)。
 
 ### `-y`、一次前置选择与本机偏好
 

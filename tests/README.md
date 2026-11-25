@@ -46,7 +46,9 @@ bash scripts/verify-subagents.sh --apply   # 调用现有 setup，集中确认�
 
 **公共规范块条目**由 `tests/setup-preflight.py` 的 `check_agents_tail()`、`check_agents_tail_old_cache()` 与 `check_agents_tail_migration()` 提供并已接入统一门禁：`check_agents_tail()` 在隔离 HOME 里跑真实的 `inject_agents_md`，验证公共块只写各已安装宿主的用户级文件、重跑幂等、`AGENTS_TAIL=0` 零写入、`AGENTS_TAIL_HOST` 显式目标，以及 Codex 非空 override 与 Pi 现有规则文件被保留、残缺标记不被吞；`check_agents_tail_old_cache()` 把新 setup 的委派块接到一个仍写回 `$PWD/AGENTS.md` 的旧缓存 `skills-sync.sh`，验证它被发现、报错并以 `AGENTS_TAIL=0` 拒绝，不往当前项目写；`check_agents_tail_migration()` 在隔离 Git 夹具仓库跑真实 `scripts/migrate-agents-tail.py`，验证默认只预览、无宿主或用户级规则未部署时不清项目块、只有与发行历史完全匹配的块才被清理并留备份、定制块原样保留。三者都必须清除宿主目录环境变量并重定向 `HOME`，否则会改写本机 live 指令文件。
 
-**Multi-agent 主动发现条目**由 `tests/setup-preflight.py` 的 `check_multi_agent_auto_trigger()` 提供并已接入统一门禁：公共规则必须在实质独立线索出现时主动加载 `multi-agent`，`steady-do` 必须路由两个以上实质独立分支，skill description 必须包含非显式触发语义；同时锁定无合格分支、`quick-do` 和 skill 缺失时保持单会话。条目还在隔离 HOME 中运行真实 `inject_agents_md`，确认 OpenCode 用户级规则实际收到这些指令。后续更新若把它削弱成“只能由用户点名”，门禁必须失败。
+**Multi-agent 主动发现条目**由 `tests/setup-preflight.py` 的 `check_multi_agent_auto_trigger()` 提供并已接入统一门禁：公共规则必须在实质独立线索出现时主动加载 `multi-agent`，`steady-do` 必须路由两个以上实质独立分支，skill description 必须包含非显式触发语义；同时锁定无合格分支、`quick-do` 和 skill 缺失时保持单会话。条目在隔离 HOME 运行真实 `inject_agents_md`，确认 OpenCode 和 Pi 的用户级文件都收到完整公共块。这验证分发，不验证模型执行。
+
+Antigravity 的文件接入由 `tests/source-bench.py` 通过 `skills-sync.sh --antigravity base` 验证：清单路径能读到已安装的 Skill，重跑保留用户过滤条件，拒绝规则同步或遇到坏清单时保留原文。宿主实际发现另在 Customizations 或 `/skills` 核对。
 
 该确定性条目保护引导契约，不证明模型每次都会委派。真实模型补充验收使用隔离配置，输入不出现 multi-agent、subagent、并行等提示词，例如：“只读调查：分别梳理 skills-sync.sh 的分组同步与 scripts/migrate-agents-tail.py 的规则迁移，各自给出入口、关键函数、失败路径和证据，最后汇总。”预期 `skill(multi-agent)` 先于任何 `subagent` 调用，主会话最终集成；记录宿主、模型、版本和事件序列。单次未触发应如实报告并调整引导，不得把静态通过写成行为通过。
 

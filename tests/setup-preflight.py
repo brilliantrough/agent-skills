@@ -1056,19 +1056,19 @@ def check_multi_agent_auto_trigger():
     execution = plan.partition("\n## Execute an agreed plan\n")[2].partition("\n## ")[0]
     assert "../steady-do/SKILL.md" in execution and "../multi-agent/SKILL.md" in execution
 
-    # 通过生产注入入口验证 OpenCode 实际收到主动发现规则，而非只有源码注释。
+    # 两个主宿主必须部署同一份工作流规则。
     with tempfile.TemporaryDirectory(prefix="multi-agent-trigger-") as d:
         tmp = pathlib.Path(d)
         home = tmp / "home"
         (home / ".config/opencode").mkdir(parents=True)
+        (home / ".pi/agent").mkdir(parents=True)
         project = tmp / "project"
         project.mkdir()
         run = agents_runner(tmp, project)
-        result = run(agents_env(home, AGENTS_TAIL_HOST="opencode"))
+        result = run(agents_env(home))
         assert result.returncode == 0, result.stdout + result.stderr
-        deployed = managed_block((home / ".config/opencode/AGENTS.md").read_text(encoding="utf-8"))
-        assert trigger in deployed
-        assert "if it is unavailable, keep execution single-agent" in deployed
+        for rel in (".config/opencode/AGENTS.md", ".pi/agent/AGENTS.md"):
+            assert managed_block((home / rel).read_text(encoding="utf-8")) == tail, rel
     print("Multi-agent：独立任务无需用户点名即可发现；无合格分支或缺 skill 时保持单会话")
 
 

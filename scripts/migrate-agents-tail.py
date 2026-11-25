@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""同步用户级公共块，或按显式项目路径预览、迁移旧副本。"""
+"""同步宿主原生指令与发现入口，或按显式项目路径迁移旧规则。"""
 import argparse
+import json
 import os
 from pathlib import Path
 import stat
@@ -53,6 +54,10 @@ def targets():
         if host == 'pi':
             name = next((n for n in ['AGENTS.override.md', name, 'AGENTS.MD', 'CLAUDE.md', 'CLAUDE.MD'] if (root / n).is_file()), name)
         yield host, root / name
+    gemini = home / '.gemini'
+    if env.get('AGENTS_TAIL_HOST') == 'antigravity' or (gemini / 'config/skills.json').is_file() or any(
+            (gemini / name).is_dir() for name in ('antigravity', 'antigravity-cli')):
+        yield 'antigravity', gemini / 'AGENTS.md'
 
 
 def read_target(p):
@@ -93,6 +98,36 @@ def global_block(p, block, write):
     return '已更新'
 
 
+def antigravity_skills():
+    home = Path(os.environ.get('HOME') or Path.home())
+    p = home / '.gemini/config/skills.json'
+    shared = (home / '.agents/skills').resolve()
+    try:
+        raw = read_target(p)
+        config = json.loads(raw) if p.exists() else {}
+        if not isinstance(config, dict) or not isinstance(config.get('entries', []), list):
+            raise ValueError('需要含 entries 数组的 JSON 对象')
+        entries = config.setdefault('entries', [])
+        found = False
+        for entry in entries:
+            if not isinstance(entry, dict) or not isinstance(entry.get('path'), str):
+                raise ValueError('entries 中缺少有效的 path')
+            path = p.parent / entry['path']
+            matches = path.resolve() == shared
+            if matches != (Path(os.path.abspath(path)).resolve() == shared):
+                raise ValueError('链接目录中的相对路径有歧义，请将该清单条目的 path 改为绝对路径')
+            found |= matches
+        if found:
+            return 0  # 保留用户对共享目录已有的 include_only / exclude。
+        entries.append({'path': str(shared)})
+        replace(p, (json.dumps(config, ensure_ascii=False, indent=2) + '\n').encode())
+        print(f'Antigravity: 已登记共享 Skill 目录 → {p}')
+        return 0
+    except (OSError, ValueError) as e:
+        print(f'WARN: {p}: {e}', file=sys.stderr)
+        return 1
+
+
 def released_blocks(block):
     yield block
     proc = subprocess.run(['git', '-C', str(ROOT), 'log', '--format=%H', '--', 'AGENTS.tail.md'], stdout=subprocess.PIPE, check=True)
@@ -128,8 +163,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('projects', nargs='*', type=Path)
     parser.add_argument('--sync-global', action='store_true', help='同步本账号已配置宿主')
+    parser.add_argument('--antigravity-skills', action='store_true', help='登记共享 Skill 目录')
     parser.add_argument('--apply', action='store_true', help='确认项目不再需要随仓分发公共块，备份后移除')
     args = parser.parse_args()
+    if args.antigravity_skills:
+        if args.projects or args.apply or args.sync_global:
+            parser.error('--antigravity-skills 须单独使用')
+        return antigravity_skills()
     if args.sync_global == bool(args.projects) or (args.sync_global and args.apply):
         parser.error('指定项目目录（可加 --apply），或单独使用 --sync-global')
     block = canonical((ROOT / 'AGENTS.tail.md').read_bytes())

@@ -115,7 +115,7 @@ ask "安装/更新 X 组(说明;缺才装·本机特化不覆盖)?" N && GROUPS+
 
 另两条：
 
-- **新增可选能力要在四个入口都加询问**，默认 N。只在 Pi/OpenCode 里加、忘了 DSH 与 Codex，会出现"同样装一套，某台机器就是少一个能力"。确实无法共用的（需要特定宿主的插件机制）在 PR 里说明原因并同步 README 的宿主覆盖表。
+- 共享能力由公共入口分发；宿主专属能力只在适用宿主询问。改工作流、记忆或 Skill 时，按 [宿主定位](README.md#定位与维护边界) 分别核对 OpenCode 和 Pi，说明 DSH 的可用范围。Claude Code、Codex、Antigravity 优先复用原生或社区能力，不为补齐表格另写插件。
 - `AGENTS.tail.md` 是会被写进各安装宿主用户级指令文件的规范块（setup 一次写、所有项目共用），改它等于改所有人的提示词——单独成 PR 说明动机。
 - 新增行为在 `tests/` 留一个可离线重跑的脚本：本地 fixture、不联网、不碰真实 `HOME`，并接入 `bash scripts/check.sh --with-tests`；准入与证据边界见 [`tests/README.md`](tests/README.md)。
 

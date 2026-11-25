@@ -6,6 +6,7 @@
 `--static-contract` 只运行入口资产、取源与大输出退役静态契约，供快速 check.sh 复用；
 `--context-output-static` 仅保留输出退役单项，便于隔离变异回归。
 """
+import json
 import os
 import pathlib
 import re
@@ -350,6 +351,8 @@ def main():
         (repo / "AGENTS.tail.md").write_text(
             "<!-- memory-system:start -->\nTEST-BLOCK\n<!-- memory-system:end -->\n", encoding="utf-8")
         (sync_home / ".pi/agent").mkdir(parents=True)
+        gemini = sync_home / ".gemini"
+        gemini.mkdir()
         candidate_env = dict(env, AGENT_SKILLS_SOURCE=str(repo), AGENTS_TAIL="1")
         proc = subprocess.run(["bash", str(ROOT / "skills-sync.sh"), "base"], capture_output=True,
                               text=True, env=candidate_env, cwd=repo, stdin=subprocess.DEVNULL,
@@ -357,7 +360,45 @@ def main():
         assert proc.returncode == 0, proc.stdout + proc.stderr
         assert not (repo / "AGENTS.md").exists(), "候选源码树被写入 AGENTS.md"
         assert (sync_home / ".pi/agent/AGENTS.md").read_text().count("TEST-BLOCK") == 1
+        assert not list(gemini.iterdir()), "不能把 Gemini CLI 当成 Antigravity"
         print("PASS 候选源码树:公共块只进隔离 HOME 的用户级文件")
+
+        manifest = gemini / "config/skills.json"
+        manifest.parent.mkdir()
+        original = {"entries": [{"path": "local", "exclude": ["internal"]}], "inherits": []}
+        manifest.write_text(json.dumps(original))
+        (gemini / "AGENTS.md").write_text("LOCAL\n")
+        def antigravity(env):
+            return subprocess.run(["bash", str(ROOT / "skills-sync.sh"), "--antigravity", "base"],
+                                  env=env, cwd=repo, capture_output=True, text=True, timeout=60)
+        assert antigravity(dict(candidate_env, AGENTS_TAIL="0")).returncode == 0
+        config = json.loads(manifest.read_bytes())
+        shared = config["entries"].pop()
+        assert config == original and (manifest.parent / shared["path"] / "demo/SKILL.md").read_text() == "demo skill\n"
+        assert (gemini / "AGENTS.md").read_text() == "LOCAL\n"
+        shared["exclude"] = ["private"]
+        config["entries"].append(shared)
+        prior = json.dumps(config)
+        manifest.write_text(prior)
+        assert antigravity(candidate_env).returncode == 0 and manifest.read_text() == prior
+        assert (gemini / "AGENTS.md").read_text().startswith("LOCAL\n") and (gemini / "AGENTS.md").read_text().count("TEST-BLOCK") == 1
+        for bad in ("broken", json.dumps({"entries": [shared, {"path": 123}]})):
+            manifest.write_text(bad)
+            assert antigravity(candidate_env).returncode != 0 and manifest.read_text() == bad
+        if os.name != "nt":
+            moved = tmp / "elsewhere/deeper/config"
+            moved.parent.mkdir(parents=True)
+            manifest.parent.rename(moved)
+            manifest.parent.symlink_to(moved, target_is_directory=True)
+            filtered = json.dumps({"entries": [{"path": "../../.agents/skills", "exclude": ["private"]}]})
+            manifest.write_text(filtered)
+            assert antigravity(candidate_env).returncode != 0 and manifest.read_text() == filtered
+            manifest.unlink()
+            for _ in range(2):
+                assert antigravity(candidate_env).returncode == 0
+            entry, = json.loads(manifest.read_bytes())["entries"]
+            assert (moved / entry["path"]).samefile(sync_home / ".agents/skills")
+        print("PASS Antigravity:原生发现清单引用共享 Skill，保留规则正文、过滤条件与无效原件")
 
         # 7) Pi 本地路径包：真实 Pi 会把绝对安装路径写成相对 agent dir 的 source。
         agent = tmp / "relative-agent"
