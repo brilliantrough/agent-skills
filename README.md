@@ -47,7 +47,28 @@ winget install --id Git.Git -e --source winget
 
 安装完成后，从开始菜单打开 **Git Bash**，在其中运行下面的安装命令。配置完成后，若 `pi` 或 `opencode` 已在其他终端的 PATH 中，也可从 PowerShell、Windows Terminal 等终端直接启动；无需每次手动打开 Git Bash，但请保留 Git for Windows，供 Bash 命令与插件使用。
 
-### 默认安装（`-y`，幂等）
+### 推荐：一条命令更新这台机器
+
+```bash
+bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.com/brilliantrough/agent-skills/main/setup.sh)"
+```
+
+首次选这台机器要维护的宿主，例如 `opencode,antigravity`。以后运行同一条命令沿用名单和 Skill 组；不根据机器上多了哪个软件就自动接管。已有仓库也可直接用：
+
+```bash
+bash setup.sh --hosts opencode,antigravity   # 设置或替换名单
+bash setup.sh                               # 按本机选择更新
+bash setup.sh --choose                      # 重新选择宿主、Skill 组及安装选项
+bash setup.sh --hosts none                   # 只维护公共项
+```
+
+可选宿主：`opencode`、`pi`、`dsh`、`codex`、`claude`、`antigravity`。删掉某个名字只停止更新，不卸载。无人值守首次必须显式给名单；`-y` 沿用已有答案、缺项取各宿主默认值，可能包含客户端升级或停止共享记忆 worker 的操作。
+
+- **每台机器一次：**本次只取一次源码，只同步一次选中的 Skill 组、外部 Skill 和公共模块。Claude 的 Skill 链接和 Antigravity 的原生发现清单默认备好，不要求安装或勾选客户端。组内按现有策略更新，内容没变不重写，本机特化的 accel 仍缺才装。
+- **只对选中宿主：**OpenCode、Pi、DSH、Codex 运行各自原有安装器的专用部分，保留凭据合并和高风险操作选择。Claude Code 可加用户规则和两个 Reviewer；Antigravity 只加用户规则。每个完整宿主在自己的执行阶段前收集所缺参数。宿主升级、Release 检查仍遵循对应安装器，不承诺全程零下载。
+- **记在哪里：**仍用 `${XDG_CONFIG_HOME:-~/.config}/agent-skills/preferences.conf`，`SHARED_HOSTS` 存宿主名单，沿用旧入口的 Skill 组偏好。新机器要有 Git、Bash、Python 3；外部设计依赖需 Node/npx，选 PPT 还需 Python 3.10+ 和 Node 20+。
+
+### 单独运行某个宿主的安装器
 
 OpenCode、Pi、Codex 使用下述统一凭据流程；DSH 的 Node 版本、凭据和安装选项见 [DSH 接入](dsh/README.md)。
 
@@ -112,7 +133,7 @@ Antigravity 的[规则文件](https://antigravity.google/docs/rules)有 24,000 �
 
 四个入口都先完成只读探测，在开头集中列出全部安装选择；凭据和可选模块也在这一阶段处理。确认完成后才按顺序安装、更新和写配置，执行中不再穿插提问。
 
-首次完整计划会保存非敏感选择到 `${XDG_CONFIG_HOME:-~/.config}/agent-skills/preferences.conf`。文件不进入 Git，不保存凭据，只接受脚本声明的是／否选项和各宿主模块名单；原子写入，文件权限 `0600`，重复内容不重写。模块值在摘要中只显示“待当前源码校验”，保存前按当前 `modules/` 的真实 ID 过滤：失效 ID 删除，其余有效选择保留；未声明键、非法字符和无法验证的原始模块值不展示、不写回。最终比较与替换位于同一短临界区，检测到并发修改时告警并跳过，不覆盖另一份选择；正常退出自动释放锁，异常遗留锁不自动接管，确认无安装进程后可删除提示的锁目录再重试。符号链接和非普通文件目标不读取、不替换。
+首次完整计划会保存非敏感选择到 `${XDG_CONFIG_HOME:-~/.config}/agent-skills/preferences.conf`。只允许声明过的宿主名单、是／否选项和模块名单，不存凭据。文件以 `0600` 原子写入，内容相同不重写。模块名按当前 `modules/` 的有效 ID 过滤；校验前不显示原始模块值。检测到并发修改时告警并跳过，不覆盖另一份选择；遇到遗留锁，确认没有安装进程后再按提示清理。符号链接和非普通文件目标不读取、不替换。
 
 | 模式 | 行为 |
 |---|---|
@@ -218,7 +239,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 本仓额外提供项目特化的漏装检查。默认只读并对漏装返回非零；`--apply` 才调用对应现有 setup，Reviewer 本身不修改 live：
 
 ```bash
-bash scripts/verify-subagents.sh
+bash scripts/verify-subagents.sh                  # 已用统一入口时，只查本机选中的 Reviewer 宿主
 bash scripts/verify-subagents.sh --apply          # 各 setup 仍在开头集中确认
 bash scripts/verify-subagents.sh --apply --yes    # 显式接受默认升级与共享 worker 副作用
 ```
@@ -1098,7 +1119,7 @@ npm 缺失包在 OpenCode 启动时自动安装；已有包不会因重启自动
 
 ### Skills
 
-本仓库 skill 由四个 setup 脚本调用的 `skills-sync.sh`（仓库根）分组同步，**重跑完整 setup 刷新所选组**；OpenCode 的 `--plugins-only` 不更新通用 skills。源码默认取自受管本地 Git clone，首次 clone、后续 fetch；`AGENT_SKILLS_SOURCE` 可只读指定候选工作树。编译插件不走源码安装，仍由各自 Release 分发。分组即仓库 `skills/{base,research,accel,kb,ppt}/` 目录，新增 skill 放入对应组目录即可，无名单维护：
+日常重跑[统一入口](#推荐一条命令更新这台机器)，`skills-sync.sh` 按组同步一次。原来的单宿主入口仍能单跑；OpenCode 的 `--plugins-only` 不更新通用 skills。源码默认取自受管本地 Git clone，首次 clone、后续 fetch；`AGENT_SKILLS_SOURCE` 可只读指定候选工作树。编译插件仍由各自 Release 分发。分组即仓库 `skills/{base,research,accel,kb,ppt}/` 目录，新增 skill 放入对应组目录即可：
 
 | 组 | 策略 |
 |---|---|

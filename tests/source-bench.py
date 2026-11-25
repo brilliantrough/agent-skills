@@ -69,8 +69,15 @@ def make_source(tmp):
     repo = tmp / "fixture-repo"
     (repo / "skills/base/demo").mkdir(parents=True)
     (repo / "skills/base/demo/SKILL.md").write_text("demo skill\n", encoding="utf-8")
+    # 审查代理只在对应 skill 已装时写入，夹具需要这两个名字
+    for skill in ("verification", "consolidator"):
+        (repo / "skills/base" / skill).mkdir()
+        (repo / "skills/base" / skill / "SKILL.md").write_text(f"{skill}\n", encoding="utf-8")
     (repo / "templates/pi").mkdir(parents=True)
     (repo / "templates/pi/settings.json").write_text('{"demo": true}\n', encoding="utf-8")
+    (repo / "templates/claude/agents").mkdir(parents=True)
+    for role in ("consolidation-reviewer", "verification-reviewer"):
+        (repo / "templates/claude/agents" / f"{role}.md").write_text(f"role {role}\n", encoding="utf-8")
     # skills-sync.sh 无条件调用同一棵树里的外部依赖脚本；用户级规则同步也来自这棵树
     (repo / "skills-external.sh").write_text(
         '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "${EXTERNAL_LOG:-/dev/null}"\nexit 0\n',
@@ -151,6 +158,7 @@ def entry_asset_closure():
         "skills/base/trust-pyramid/references/pstack.md",
         "skills/base/multi-agent/SKILL.md",
         "skills/base/multi-agent/references/guide.md",
+        "setup.sh", "scripts/update-hosts.sh",
     }
     for line in text.splitlines():
         stripped = line.lstrip()
@@ -202,7 +210,8 @@ def entry_asset_closure():
 
 def source_channel_contract():
     """本仓源码只走受管 Git／显式源码树；Release 与第三方仓库不受此禁令影响。"""
-    files = [ROOT / name for name in FILES] + [ROOT / "modules/run.sh"]
+    files = [ROOT / name for name in FILES] + [ROOT / "modules/run.sh", ROOT / "setup.sh",
+                                                ROOT / "scripts/update-hosts.sh"]
     files += sorted((ROOT / "modules").glob("*/setup.sh"))
     bad = []
     for path in files:
@@ -399,6 +408,145 @@ def main():
             entry, = json.loads(manifest.read_bytes())["entries"]
             assert (moved / entry["path"]).samefile(sync_home / ".agents/skills")
         print("PASS Antigravity:原生发现清单引用共享 Skill，保留规则正文、过滤条件与无效原件")
+
+        # 6b) 统一入口公共模式:没有装/选 Claude、Antigravity 也提供轻量发现，不动其他宿主配置。
+        common_home = tmp / "common-home"
+        foreign = common_home / ".claude/skills/demo"          # 用户自己的真实目录
+        foreign.mkdir(parents=True)
+        (foreign / "SKILL.md").write_text("mine\n", encoding="utf-8")
+        outside = tmp / "user-own-skill"                      # 用户手工链接
+        outside.mkdir()
+        (outside / "SKILL.md").write_text("manual link\n", encoding="utf-8")
+        posix_links = os.name != 'nt' and not sys.platform.startswith(('msys', 'cygwin'))
+        if posix_links:
+            (common_home / ".claude/skills/verification").symlink_to(outside, target_is_directory=True)
+        common_env = dict(env, HOME=str(common_home), AGENT_SKILLS_SOURCE=str(repo),
+                          AGENT_SKILLS_COMMON="1", AGENTS_TAIL="0")
+        common_env.pop("CLAUDE_CONFIG_DIR", None)
+
+        def common(extra=None):
+            return subprocess.run(["bash", str(ROOT / "skills-sync.sh"), "base"], capture_output=True,
+                                  text=True, env=dict(common_env, **(extra or {})), stdin=subprocess.DEVNULL,
+                                  timeout=120, check=False)
+        proc = common()
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+        assert (foreign / "SKILL.md").read_text() == "mine\n", "覆盖了用户真实目录"
+        if posix_links:
+            assert (common_home / ".claude/skills/verification").samefile(outside), "覆盖了用户手工链接"
+        link = common_home / ".claude/skills/consolidator"
+        assert link.is_symlink() == posix_links and (link / "SKILL.md").read_text() == "consolidator\n"
+        assert not list(common_home.glob(".claude/agents")), "未选 Claude 也装了审查代理"
+        touched = [p for p in (".pi", ".codex", ".config/opencode", ".dsh") if (common_home / p).exists()]
+        assert not touched and not (common_home / ".local/share/agent-skills/dsh/home").exists(), touched
+        manifest = common_home / ".gemini/config/skills.json"
+        entries = json.loads(manifest.read_bytes())["entries"]
+        assert (manifest.parent / entries[-1]["path"]).samefile(common_home / ".agents/skills")
+        first = manifest.stat().st_mtime_ns, link.lstat().st_mtime_ns
+        proc = common()
+        assert proc.returncode == 0 and "linked:" not in proc.stdout, proc.stdout
+        assert (manifest.stat().st_mtime_ns, link.lstat().st_mtime_ns) == first, "公共模式重跑不幂等"
+
+        # 改跑单一 Pi 入口不能把预置的两个发现目录当成选择 Claude/Antigravity。
+        proc = common({"AGENT_SKILLS_COMMON": "0", "AGENTS_TAIL_HOST": "pi", "AGENTS_TAIL": "1"})
+        assert proc.returncode == 0 and (common_home / '.pi/agent/AGENTS.md').exists()
+        assert not any((common_home / rel).exists() for rel in ('.claude/agents', '.claude/CLAUDE.md', '.gemini/AGENTS.md'))
+
+        proc = common({"AGENT_SKILLS_CLAUDE_ROLES": "1"})
+        assert proc.returncode == 0 and (common_home / ".claude/agents/verification-reviewer.md").is_file()
+        assert (common_home / ".claude/agents/consolidation-reviewer.md").is_file()
+        print("PASS 公共模式:轻量发现、不覆盖他源同名 Skill、未选不装代理、前后幂等")
+
+        # 复制回退(Windows Git Bash):上轮拷进 Claude 目录的受管副本随仓库升级，独立内容保留。
+        copy_home = tmp / "copy-home"
+        fake_bin = tmp / "fake-win-bin"
+        fake_bin.mkdir()
+        (fake_bin / "uname").write_text("#!/usr/bin/env bash\nprintf 'MINGW64_NT-10.0\\n'\n", encoding="utf-8")
+        (fake_bin / "uname").chmod(0o755)
+        (copy_home / ".claude/skills/verification").mkdir(parents=True)
+        (copy_home / ".claude/skills/verification/SKILL.md").write_text("mine\n", encoding="utf-8")
+        copy_env = {"HOME": str(copy_home), "PATH": f"{fake_bin}:{os.environ['PATH']}"}
+        proc = common(copy_env)
+        assert proc.returncode == 0 and "copied:" in proc.stdout, proc.stdout + proc.stderr
+        mirrored = copy_home / ".claude/skills/consolidator"
+        assert mirrored.is_dir() and not mirrored.is_symlink()
+        commit(repo, "skills/base/consolidator/SKILL.md", "consolidator v2\n")
+        proc = common(copy_env)
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+        assert (mirrored / "SKILL.md").read_text() == "consolidator v2\n", "受管副本没有随仓库升级"
+        assert (copy_home / ".claude/skills/verification/SKILL.md").read_text() == "mine\n"
+        assert "kept:" in proc.stderr and "verification" in proc.stderr, proc.stderr
+        commit(repo, "skills/base/consolidator/SKILL.md", "consolidator\n")
+        print("PASS 复制回退:受管副本随仓库升级，独立真实目录保留并说明")
+
+        if posix_links:
+            moved = tmp / "moved"; real_claude = moved / ".claude"
+            (real_claude / 'skills').mkdir(parents=True)
+            link_home = tmp / "link-home"; link_home.mkdir()
+            (link_home / ".claude").symlink_to(real_claude, target_is_directory=True)
+            for name in ('demo', 'verification'):
+                (real_claude / 'skills' / name).symlink_to('../../.agents/skills/' + name)
+            other = moved / '.agents/skills/verification'; other.mkdir(parents=True)
+            proc = common({"HOME": str(link_home)})
+            assert proc.returncode == 0, proc.stdout + proc.stderr
+            assert (real_claude / 'skills/demo').samefile(link_home / '.agents/skills/demo')
+            assert (real_claude / 'skills/verification').samefile(other), '有效的同拼写相对链接不得替换'
+
+        # 只选 base 也让原有其他组在自定义的 Claude 配置目录可见。
+        cold_home = tmp / "cold-home"
+        (cold_home / ".agents/skills/light-chart").mkdir(parents=True)
+        (cold_home / ".agents/skills/light-chart/SKILL.md").write_text("chart\n", encoding="utf-8")
+        proc = common({"HOME": str(cold_home), "CLAUDE_CONFIG_DIR": str(cold_home / "cfg dir")})
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+        assert (cold_home / "cfg dir/skills/light-chart/SKILL.md").read_text() == "chart\n"
+        assert not (cold_home / ".claude").exists()
+        print("PASS 公共模式:自定义 Claude 目录可发现原来已装的其他组 Skill")
+
+        # 6c) --sync-host:只同步一个宿主的公共块，目录不存在也创建；原 --sync-global 不变。
+        tail_home = tmp / "host-home"
+        tail_home.mkdir()
+        tail_env = {k: v for k, v in os.environ.items() if not k.startswith(("PI_", "CLAUDE_", "CODEX_", "DSH_", "OPENCODE_", "XDG_", "AGENTS_"))}
+        tail_env.update(HOME=str(tail_home), USERPROFILE=str(tmp / 'isolated-windows-profile'), XDG_DATA_HOME=str(tail_home / ".local/share"))
+        tail = str(repo / "scripts/migrate-agents-tail.py")
+
+        def sync(*args, **env_extra):
+            return subprocess.run([sys.executable, tail, *args], capture_output=True, text=True,
+                                  env=dict(tail_env, **env_extra), stdin=subprocess.DEVNULL,
+                                  timeout=60, check=False)
+        assert sync("--sync-host", "codex").returncode == 0
+        assert (tail_home / ".codex/AGENTS.md").read_text().count("TEST-BLOCK") == 1
+        (tail_home / ".codex/AGENTS.md").unlink()
+        (tail_home / ".codex/AGENTS.override.md").write_text("KEEP\n", encoding="utf-8")
+        assert sync("--sync-host", "codex").returncode != 0
+        assert not (tail_home / ".codex/AGENTS.md").exists(), "Codex 非空 override 被绕过"
+        assert (tail_home / ".codex/AGENTS.override.md").read_text() == "KEEP\n"
+        (tail_home / ".codex/AGENTS.override.md").unlink()
+        proc = sync("--sync-host", "pi")
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+        pi_rules = tail_home / ".pi/agent/AGENTS.md"
+        assert pi_rules.read_text().count("TEST-BLOCK") == 1
+        assert not (tail_home / ".claude").exists() and not (tail_home / ".codex/AGENTS.md").exists()
+        before = pi_rules.read_bytes()
+        assert sync("--sync-host", "pi").returncode == 0 and pi_rules.read_bytes() == before
+        assert sync("--sync-host", "antigravity").returncode == 0
+        assert (tail_home / ".gemini/AGENTS.md").read_text().count("TEST-BLOCK") == 1
+        assert sync("--sync-global").returncode == 0
+        assert (tail_home / ".pi/agent/AGENTS.md").read_bytes() == before, "--sync-global 改动了已同步文件"
+        assert not (tail_home / ".dsh").exists(), "--sync-global 不该创建未配置宿主"
+        assert sync("--sync-host", "pi", "--apply").returncode != 0
+        # 自定义 Claude 目录、已有软链都保留，不写穿
+        claude_root = tail_home / "cfg dir"
+        assert sync('--sync-host', 'claude', CLAUDE_CONFIG_DIR='~/cfg dir').returncode == 0
+        assert (claude_root / 'CLAUDE.md').is_file()
+        if posix_links:
+            (claude_root / 'CLAUDE.md').unlink()
+            (claude_root / "CLAUDE.md").symlink_to(tail_home / "real-claude.md")
+            assert sync("--sync-host", "claude", CLAUDE_CONFIG_DIR=str(claude_root)).returncode != 0
+            assert (claude_root / "CLAUDE.md").is_symlink() and not (tail_home / "real-claude.md").exists()
+        assert sync("--sync-host", "dsh").returncode == 0
+        # 无受管 DSH home 时落到 ~/.dsh，不凭空创建受管目录
+        assert (tail_home / ".dsh/AGENTS.md").read_text().count("TEST-BLOCK") == 1
+        assert not (tail_home / ".local/share/agent-skills/dsh").exists()
+        print("PASS --sync-host:单宿主写入、缺目录也创建、幂等；--sync-global 保持原探测语义")
 
         # 7) Pi 本地路径包：真实 Pi 会把绝对安装路径写成相对 agent dir 的 source。
         agent = tmp / "relative-agent"

@@ -173,7 +173,7 @@ PREF_KNOWN_KEYS="SHARED_PROXY SHARED_PYTHON_UV SHARED_NODE SHARED_BUN SHARED_UV_
 PI_AGENTS_TAIL PI_GIT_BASH PI_INSTALL PI_UPDATE PI_PKGS PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_CM_GROUP PI_MCP_MIGRATE PI_WRITE_CFG PI_MEM_RUNTIME PI_LEGACY_CLEAN PI_MODULES PI_MODULES_KNOWN \
 OC_AGENTS_TAIL OC_UPGRADE OC_PONYTAIL OC_MC_REFRESH OC_CLAUDE_MEM OC_WRITE_CFG OC_FORCE_MANUAL OC_COMPACTION OC_TUI_KEYS OC_MODULES OC_MODULES_KNOWN \
 CODEX_AGENTS_TAIL CODEX_WRITE_CFG CODEX_MEM_INSTALLER CODEX_PLUGINS CODEX_HOOKS CODEX_REVIEWER CODEX_MODULES CODEX_MODULES_KNOWN \
-DSH_AGENTS_TAIL DSH_NODE DSH_SKILLS DSH_MODULES DSH_MODULES_KNOWN"
+DSH_AGENTS_TAIL DSH_NODE DSH_SKILLS DSH_MODULES DSH_MODULES_KNOWN SHARED_HOSTS SHARED_MODULES SHARED_MODULES_KNOWN"
 PREF_RISKY_KEYS="SHARED_PROXY PI_AGENTS_TAIL OC_AGENTS_TAIL CODEX_AGENTS_TAIL DSH_AGENTS_TAIL OC_UPGRADE PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_MEM_RUNTIME OC_MC_REFRESH OC_CLAUDE_MEM CODEX_MEM_INSTALLER"
 preference_get() {
   local key="$1" line
@@ -185,7 +185,8 @@ preference_put() {
   local key="$1" value="$2" current
   [[ "$key" =~ ^(SHARED|PI|OC|CODEX|DSH)_[A-Z0-9_]+$ ]] || return 1
   case " $PREF_KNOWN_KEYS " in *" $key "*) ;; *) return 1 ;; esac
-  case "$key" in *_MODULES|*_MODULES_KNOWN) [[ "$value" =~ ^[a-z0-9_,-]*$ ]] || return 1 ;;
+  case "$key" in SHARED_HOSTS) [[ "$value" = none || "$value" =~ ^(opencode|pi|dsh|codex|claude|antigravity)(,(opencode|pi|dsh|codex|claude|antigravity))*$ ]] || return 1 ;;
+    *_MODULES|*_MODULES_KNOWN) [[ "$value" =~ ^[a-z0-9_,-]*$ ]] || return 1 ;;
     *) [[ "$value" =~ ^[01]$ ]] || return 1 ;;
   esac
   if current="$(preference_get "$key")" && [ "$current" = "$value" ]; then return 0; fi
@@ -219,6 +220,11 @@ preferences_init() {
     done < "$PREF_FILE"
   fi
   PREF_COUNT="$(printf '%s\n' "$PREF_SESSION" | grep -c '=' || true)"
+  if [ "${AGENT_SKILLS_HOST_ONLY:-0}" = 1 ] && [ "${CHOOSE:-0}" != 1 ]; then
+    case "${AGENT_SKILLS_HOST_PREFIX:-}" in PI|OC|CODEX|DSH)
+      if grep -q "^${AGENT_SKILLS_HOST_PREFIX:-}_" <<< "$PREF_SESSION"; then PREF_REUSE=1; fi ;; esac
+    return 0
+  fi
   if [ "$PREF_COUNT" -gt 0 ] && [ "${CHOOSE:-0}" != 1 ] && [ "${CHECK_ONLY:-0}" = 0 ]; then
     if [ -n "${ASSUME_YES:-}" ] || [ "${YES:-0}" = 1 ]; then
       PREF_REUSE=1
@@ -507,6 +513,10 @@ collect_setup_plan() {
     ask '添加 features.hooks=true(仍需在 /hooks 信任具体 hooks)?' Y CODEX_HOOKS && PLAN_HOOKS=1
   fi
   ask '安装/更新 verification-reviewer 与 consolidation-reviewer（Codex 原生审查代理）?' Y CODEX_REVIEWER && PLAN_REVIEWER=1
+  # 统一入口已在公共模式分发 Skill 组与外部设计依赖;这里只保留 Codex 自己的规则块。
+  if [ "${AGENT_SKILLS_HOST_ONLY:-0}" = 1 ]; then
+    PLAN_EXTERNAL_DESIGN=0
+  else
   ask "安装/更新 research 组(算法研究、实验、PyTorch 性能与 kernel;每次刷新·漂移自动备份)?" N SHARED_RESEARCH && PLAN_SKILL_RESEARCH=1
   ask "安装/更新 accel 组(算力平台模板;缺才装·本机特化不覆盖)?" N SHARED_ACCEL && PLAN_SKILL_ACCEL=1
   ask "安装/更新 kb 组(公共算力知识;每次刷新)?" N SHARED_KB && PLAN_SKILL_KB=1
@@ -516,6 +526,7 @@ collect_setup_plan() {
     install) ;;
     *) ask '安装/更新外部设计依赖(ui-ux-pro-max、huashu-design、design-taste-frontend)?' Y SHARED_EXTERNAL || PLAN_EXTERNAL_DESIGN=0 ;;
   esac
+  fi
   case "${AGENTS_TAIL:-}" in
     0) PLAN_AGENTS_TAIL=0 ;;
     1) ;;
@@ -1025,26 +1036,39 @@ PY_REVIEWER_VERSION
     done
   else warn '审查代理接入要求已验证的 Codex >=0.158.0；未自动升级宿主'; fi
 fi
-_ss="$SOURCE_ROOT/skills-sync.sh"
-if [ -f "$_ss" ]; then
-  if [ "$PLAN_AGENTS_TAIL" = 1 ] && ! grep -q 'migrate-agents-tail.py' "$_ss"; then
-    echo "ERROR: 源码树 skills-sync.sh 不是用户级规则版本(缺 scripts/migrate-agents-tail.py);本次不改项目/全局 AGENTS,请更新源码树后重跑" >&2
-    PLAN_AGENTS_TAIL=0; errors=$((errors + 1))
+if [ "${AGENT_SKILLS_HOST_ONLY:-0}" = 1 ]; then
+  # 公共 Skill 已由统一入口分发;Codex 专用模式只写自己的用户级规则块。
+  if [ "$PLAN_AGENTS_TAIL" = 1 ]; then
+    _mt="$SOURCE_ROOT/scripts/migrate-agents-tail.py"
+    if [ -f "$_mt" ]; then
+      CODEX_HOME="$CFG" python3 "$_mt" --sync-host codex \
+        || warn 'Codex 用户级规则块写入失败，项目与全局 AGENTS 均未改动'
+    else
+      warn '源码树缺 scripts/migrate-agents-tail.py，无法写入用户级规则块；项目与全局 AGENTS 均未改动'
+    fi
   fi
-  SKILL_GROUPS=(base)
-  [ "$PLAN_SKILL_RESEARCH" = 1 ] && SKILL_GROUPS+=(research)
-  [ "$PLAN_SKILL_ACCEL" = 1 ] && SKILL_GROUPS+=(accel)
-  [ "$PLAN_SKILL_KB" = 1 ] && SKILL_GROUPS+=(kb)
-  [ "$PLAN_SKILL_PPT" = 1 ] && SKILL_GROUPS+=(ppt)
-  AGENTS_TAIL="$PLAN_AGENTS_TAIL" \
-  AGENTS_TAIL_HOST=codex CODEX_HOME="$CFG" \
-  SKILLS_EXTERNAL="$([ "$PLAN_EXTERNAL_DESIGN" = 1 ] && echo install || echo skip)" \
-    ASSUME_YES="${ASSUME_YES:-0}" AGENT_SKILLS_SOURCE="$SOURCE_ROOT" \
-    bash "$_ss" "${SKILL_GROUPS[@]}" || warn 'skills 同步未完全成功'
 else
-  [ "$PLAN_AGENTS_TAIL" = 1 ] \
-    && warn '源码树缺 skills-sync.sh,记忆系统规则块未写入;项目与全局 AGENTS 均未改动' \
-    || warn '源码树缺 skills-sync.sh,跳过 skills 同步'
+  _ss="$SOURCE_ROOT/skills-sync.sh"
+  if [ -f "$_ss" ]; then
+    if [ "$PLAN_AGENTS_TAIL" = 1 ] && ! grep -q 'migrate-agents-tail.py' "$_ss"; then
+      echo "ERROR: 源码树 skills-sync.sh 不是用户级规则版本(缺 scripts/migrate-agents-tail.py);本次不改项目/全局 AGENTS,请更新源码树后重跑" >&2
+      PLAN_AGENTS_TAIL=0; errors=$((errors + 1))
+    fi
+    SKILL_GROUPS=(base)
+    [ "$PLAN_SKILL_RESEARCH" = 1 ] && SKILL_GROUPS+=(research)
+    [ "$PLAN_SKILL_ACCEL" = 1 ] && SKILL_GROUPS+=(accel)
+    [ "$PLAN_SKILL_KB" = 1 ] && SKILL_GROUPS+=(kb)
+    [ "$PLAN_SKILL_PPT" = 1 ] && SKILL_GROUPS+=(ppt)
+    AGENTS_TAIL="$PLAN_AGENTS_TAIL" \
+    AGENTS_TAIL_HOST=codex CODEX_HOME="$CFG" \
+    SKILLS_EXTERNAL="$([ "$PLAN_EXTERNAL_DESIGN" = 1 ] && echo install || echo skip)" \
+      ASSUME_YES="${ASSUME_YES:-0}" AGENT_SKILLS_SOURCE="$SOURCE_ROOT" \
+      bash "$_ss" "${SKILL_GROUPS[@]}" || warn 'skills 同步未完全成功'
+  else
+    [ "$PLAN_AGENTS_TAIL" = 1 ] \
+      && warn '源码树缺 skills-sync.sh,记忆系统规则块未写入;项目与全局 AGENTS 均未改动' \
+      || warn '源码树缺 skills-sync.sh,跳过 skills 同步'
+  fi
 fi
 
 # ---- 可选模块:统一分发(新增模块只加 modules/<名>/,本脚本不用改)----

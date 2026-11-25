@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# setup.sh 已固定本次源码版本；借用现有前置选择，不启动 DSH。
+set -euo pipefail
+root="${SOURCE_ROOT:?请通过 setup.sh 启动}"
+source "$root/dsh-setup.sh"
+YES=0; CHOOSE=0; hosts_arg=''; explicit=0; flags=()
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --hosts) [ "$#" -ge 2 ] || { echo '缺少 --hosts 名单' >&2; exit 2; }; explicit=1; hosts_arg="$2"; shift ;;
+    -y|--yes) YES=1; flags+=(-y) ;;
+    --choose) CHOOSE=1; flags+=(--choose) ;;
+    *) echo "未知参数: $1；见 setup.sh --help" >&2; exit 2 ;;
+  esac
+  shift
+done
+if [ "$CHOOSE" = 1 ] && [ "$YES" = 1 ]; then echo '请分别使用 --choose（重选）或 -y（沿用）。' >&2; exit 2; fi
+if [ "$CHOOSE" = 1 ] && ! have_tty; then echo '--choose 需要交互终端' >&2; exit 2; fi
+# 统一入口显示自己的摘要，旧偏好文件仍按同一白名单和锁读写。
+YES=1 preferences_init
+saved="$(preference_get SHARED_HOSTS || true)"
+if [ "$explicit" = 0 ]; then
+  hosts_arg="$saved"
+  if [ -z "$saved" ] || [ "$CHOOSE" = 1 ]; then
+    if ! have_tty || [ "$YES" = 1 ]; then
+      echo '首次无人值守更新请指定 --hosts opencode,pi 等，或 --hosts none 只同步公共项。' >&2; exit 2
+    fi
+    read -r -p "本机要配置哪些宿主？opencode,pi,dsh,codex,claude,antigravity；none 仅公共项 [${saved:-opencode}]: " hosts_arg </dev/tty || exit 1
+    hosts_arg="${hosts_arg:-${saved:-opencode}}"
+  fi
+fi
+preference_put SHARED_HOSTS "$hosts_arg" || { echo '宿主名单无效，请用逗号分隔，或单填 none。' >&2; exit 2; }
+hosts=()
+for host in opencode pi dsh codex claude antigravity; do
+  case ",$hosts_arg," in *,"$host",*) hosts+=("$host") ;; esac
+done
+if [ "$hosts_arg" != none ] && [ "$YES" != 1 ] && ! have_tty; then
+  echo '无交互终端：请显式加 -y 以使用宿主安装偏好（可能升级客户端、更新共享 worker）。' >&2; exit 2
+fi
+groups=(base)
+for group in research accel kb ppt; do
+  key="SHARED_$(printf '%s' "$group" | tr 'a-z' 'A-Z')"
+  if ask "同步可选 Skill 组 $group？" N "$key"; then groups+=("$group"); fi
+done
+case "${SKILLS_EXTERNAL:-}" in
+  install|skip) ;;
+  *) if ask '更新外部设计 Skill？' Y SHARED_EXTERNAL; then SKILLS_EXTERNAL=install; else SKILLS_EXTERNAL=skip; fi ;;
+esac
+mod="$root/modules/run.sh"
+known="$(bash "$mod" --host common --list | awk '{print $1}' | paste -sd, -)"
+mod_env=(); mod_flags=()
+[ "$YES" != 1 ] || mod_flags+=(--yes)
+if [ "${PREF_REUSE:-0}" = 1 ]; then
+  old_known="$(preference_get SHARED_MODULES_KNOWN || true)"; old_sel="$(preference_get SHARED_MODULES || true)"
+  if [ -z "$old_known" ]; then
+    # 共用模块属于本机，即使本轮只更新 Skill，也保留原宿主选择过的项。
+    for k in OC PI DSH CODEX; do
+      old_known+=",$(preference_get "${k}_MODULES_KNOWN" || true)"
+      old_sel+=",$(preference_get "${k}_MODULES" || true)"
+    done
+  fi
+  mod_env=("AGENT_SKILLS_MODULE_SELECTION=$old_sel" "AGENT_SKILLS_MODULE_KNOWN=$old_known")
+fi
+selected="$(env ${mod_env[@]+"${mod_env[@]}"} bash "$mod" --host common ${mod_flags[@]+"${mod_flags[@]}"} --select)"
+shared_modules="${selected//$'\n'/,}"
+preference_put SHARED_MODULES "$shared_modules"
+preference_put SHARED_MODULES_KNOWN "$known"
+echo "本机宿主: $hosts_arg；共享 Skill: ${groups[*]}；外部设计: $SKILLS_EXTERNAL；公共模块: ${shared_modules:-无}"
+if [ "$YES" != 1 ] && have_tty; then ask_builtin '按以上选择更新？' Y || exit 0; fi
+minor=6; case " ${groups[*]} " in *' ppt '*) minor=10 ;; esac
+resolve_python3 "$minor" || { echo "共享发现入口需要 Python 3.$minor+（python3 / python / py -3），请安装后重跑。" >&2; exit 1; }
+preferences_commit
+roles=0; case ",$hosts_arg," in *,claude,*) roles=1 ;; esac
+AGENT_SKILLS_COMMON=1 AGENT_SKILLS_CLAUDE_ROLES="$roles" AGENTS_TAIL=0 SKILLS_EXTERNAL="$SKILLS_EXTERNAL" \
+  bash "$root/skills-sync.sh" "${groups[@]}"
+for host in ${hosts[@]+"${hosts[@]}"}; do
+  echo "== $host 专用配置 =="
+  case "$host" in
+    claude|antigravity)
+      if [ "${AGENTS_TAIL:-1}" = 1 ]; then python3 "$root/scripts/migrate-agents-tail.py" --sync-host "$host"; fi ;;
+    *) case "$host" in opencode) prefix=OC ;; pi) prefix=PI ;; dsh) prefix=DSH ;; codex) prefix=CODEX ;; esac
+       AGENT_SKILLS_HOST_ONLY=1 AGENT_SKILLS_HOST_PREFIX="$prefix" AGENT_SKILLS_SHARED_MODULES="$shared_modules" \
+         bash "$root/$host-setup.sh" ${flags[@]+"${flags[@]}"} ;;
+  esac
+done
+bash "$mod" --host common --selected "$selected"
+echo '本次更新完成。'

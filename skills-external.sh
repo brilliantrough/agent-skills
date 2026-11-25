@@ -6,14 +6,7 @@ set -euo pipefail
 with_ppt=0
 with_light_science=0
 LIGHT_SCIENCE_REF=6597430ad09d8f7c3518ec4cb08829be2b417e18
-command -v npx >/dev/null 2>&1 && command -v node >/dev/null 2>&1 || {
-  echo "WARN: 缺少 Node/npx，外部 skill 未安装/更新" >&2; exit 1;
-}
-
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# 与 skills CLI 使用同一来源登记文件（新版也支持 XDG_STATE_HOME）。
-SKILLS_LOCK_FILE="$(node -e 'const p=require("node:path"),o=require("node:os"); console.log(process.env.XDG_STATE_HOME ? p.join(process.env.XDG_STATE_HOME,"skills/.skill-lock.json") : p.join(o.homedir(),".agents/.skill-lock.json"))')"
-export SKILLS_LOCK_FILE
 agents=(pi)
 [ ! -d "$HOME/.claude" ] || agents+=(claude-code)
 status=0
@@ -34,6 +27,15 @@ done
 if [ "$with_light_science" = 1 ] && { [ "$with_ppt" = 1 ] || [ "$UNINSTALL" = 1 ]; }; then
   echo "ERROR: --light-science 不与 --ppt/--uninstall 混用" >&2; exit 2
 fi
+if [ "${SKILLS_EXTERNAL:-}" = skip ] && [ "$with_ppt$with_light_science$UNINSTALL" = 000 ]; then
+  echo 'SKILLS_EXTERNAL=skip：跳过外部设计依赖安装与迁移'; exit 0
+fi
+command -v npx >/dev/null 2>&1 && command -v node >/dev/null 2>&1 || {
+  echo "WARN: 缺少 Node/npx，外部 skill 未安装/更新" >&2; exit 1;
+}
+# 与 skills CLI 使用同一来源登记文件（新版也支持 XDG_STATE_HOME）。
+SKILLS_LOCK_FILE="$(node -e 'const p=require("node:path"),o=require("node:os"); console.log(process.env.XDG_STATE_HOME ? p.join(process.env.XDG_STATE_HOME,"skills/.skill-lock.json") : p.join(o.homedir(),".agents/.skill-lock.json"))')"
+export SKILLS_LOCK_FILE
 
 uninstall_design_skills() {
   node - "$HOME" <<'JS'

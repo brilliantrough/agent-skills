@@ -229,6 +229,15 @@ def check_module_selection():
         subprocess.run(["bash", str(runner), "--host", "pi", "--selected", "\n".join(selected)],
                        env=env, capture_output=True, text=True, check=True)
         assert log.read_text().splitlines() == ["alpha", "beta"]
+        (modules / 'alpha/setup.sh').write_text('# hosts: pi,opencode,dsh\nexit 23\n')
+        env.update(AGENT_SKILLS_HOST_ONLY='1', _AMOD=str(runner), MODULE_RUN=str(runner),
+                   PLAN_MOD_PATH=str(runner), PLAN_WRITE_CFG='0', MODULE_SELECTION='alpha', PLAN_MODULES='alpha')
+        for host, start in [('pi', 'if [ -n "${_AMOD:-}" ]; then'), ('opencode', 'if [ -n "$MODULE_RUN" ] &&'),
+                            ('dsh', 'if [[ -f "$PLAN_MOD_PATH" ]]; then')]:
+            text = (ROOT / f'{host}-setup.sh').read_text()
+            block = text[text.rindex(start):].split('\nfi\n', 1)[0] + '\nfi\necho completed\n'
+            p = subprocess.run(['bash', '-c', block], env=env, capture_output=True, text=True)
+            assert p.returncode == 1 and 'completed' not in p.stdout and 'alpha' in p.stderr, (host, p.stderr)
     print("模块选择：--select 零安装，--selected 按名单顺序执行")
 
 
@@ -637,6 +646,9 @@ def check_pi_magic_guard():
     pi_text = (ROOT / "pi-setup.sh").read_text(encoding="utf-8")
     plan = pi_text[pi_text.index("local oc_pinned_plan"):pi_text.index("if _pkg_registered npm:@cortexkit/pi-magic-context")]
     assert "npm view @cortexkit/pi-magic-context version 2>/dev/null || true" not in plan and 'if [ "$pi_plan_query_ok" != 1 ]' in plan
+    assert "mc_cache_version" in plan, "计划阶段未用与执行共享的缓存版本探测"
+    # 计划与执行共用同一探测:V2 的 npm/<代次>/ 布局必须被读到,否则会误判为"没有缓存"而放行
+    helper = "\n".join(function(ROOT / "pi-setup.sh", name)[0] for name in ("mc_cache_state", "mc_cache_version"))
     guard = function(ROOT / "pi-setup.sh", "mc_guard")[0]
     with tempfile.TemporaryDirectory(prefix="setup-pi-mc-guard-") as d:
         tmp = pathlib.Path(d)
@@ -650,43 +662,55 @@ def check_pi_magic_guard():
         npm = bindir / "npm"
         npm.write_text('#!/bin/sh\nprintf "%s\\n" "${NPM_VERSION:-}"\n[ "${NPM_FAIL:-0}" != 1 ] || exit 1\n')
         npm.chmod(0o755)
+        def run_guard(oc_cache, npm_cache="", **extra):
+            env = dict(os.environ, **{"PATH": str(bindir), "NPM_FAIL": "0"})
+            env.update({k: str(v) for k, v in extra.items()})
+            script = (f'OC_MC_CACHE={oc_cache}; OC_NPM_CACHE={npm_cache}; PLAN_MC_BLOCKED=1; PLAN_OC_CACHE_CLEAN=0\n'
+                      f'{helper}\n{guard}\nmc_guard >/dev/null 2>&1\nprintf "%s" "$mc_blocked"\n')
+            return subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True, check=True)
         for version, fail, expected in (("", True, "1"), ("1.0.0", True, "1"), ("1.0.0", False, "0"), ("2.0.0", False, "1")):
-            env = os.environ.copy() | {"PATH": str(bindir), "NPM_VERSION": version, "NPM_FAIL": "1" if fail else "0"}
-            script = f'OC_MC_CACHE={cache}; PLAN_MC_BLOCKED=1; PLAN_OC_CACHE_CLEAN=0\n{guard}\nmc_guard >/dev/null 2>&1\nprintf "%s" "$mc_blocked"\n'
-            proc = subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True, check=True)
+            proc = run_guard(cache, NPM_VERSION=version, NPM_FAIL="1" if fail else "0")
             assert proc.stdout == expected, (version, fail, proc.stdout, proc.stderr)
         (cache / "package.json").write_text("{invalid")
-        proc = subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True, check=True)
-        assert proc.stdout == "1", "清单损坏时解除了已确认阻断"
+        assert run_guard(cache).stdout == "1", "清单损坏时解除了已确认阻断"
         (cache / "package.json").unlink()
-        proc = subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True, check=True)
-        assert proc.stdout == "1", "清单缺失但缓存仍在时解除了已确认阻断"
+        assert run_guard(cache).stdout == "1", "清单缺失但缓存仍在时解除了已确认阻断"
         cache.rmdir()
-        proc = subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True, check=True)
-        assert proc.stdout == "0", "缓存确实移除后仍保持阻断"
+        assert run_guard(cache).stdout == "0", "缓存确实移除后仍保持阻断"
+
+        # 原样复现 opencode V2 布局:npm/<数字代次>/node_modules/…/package.json,没有 packages/ 清单。
+        # 只按旧 packages/ 探测会把它当成"没有缓存"而放行;共享探测必须取最新代次的版本。
+        v2 = tmp / "npm/@cortexkit/opencode-magic-context@latest"
+        for gen, ver in (("1700000000000", "0.49.75"), ("1700000000001", "0.49.76")):
+            pkg = v2 / gen / "node_modules/@cortexkit/opencode-magic-context"
+            pkg.mkdir(parents=True)
+            (pkg / "package.json").write_text(json.dumps({"name": "@cortexkit/opencode-magic-context", "version": ver}))
+        (v2 / "1700000000000/package.json").write_text('{"dependencies":{"@cortexkit/opencode-magic-context":"0.49.75"}}')
+        assert run_guard(tmp / "no-old-layout", v2, NPM_VERSION="0.49.76").stdout == "0", "V2 与 Pi 版本一致却仍阻断"
+        assert run_guard(tmp / "no-old-layout", v2, NPM_VERSION="0.49.77").stdout == "1", "V2 版本不一致被当成没有缓存而放行"
+        assert run_guard(tmp / "no-old-layout", v2, NPM_VERSION="").stdout == "1", "无法核实 Pi 版本时放行了 V2 缓存"
+        assert run_guard(tmp / "no-old-layout", tmp / "empty-npm").stdout == "0", "两处都没有缓存时仍阻断（应沿用旧行为放行）"
+        (v2 / "1700000000001/node_modules/@cortexkit/opencode-magic-context/package.json").write_text("{invalid")
+        cache.mkdir(); (cache / 'package.json').write_text('{"dependencies":{"@cortexkit/opencode-magic-context":"0.49.75"}}')
+        assert run_guard(cache, v2, NPM_VERSION='0.49.75').stdout == '1', '最新代次损坏不可回退到碰巧匹配的旧版本'
+        assert run_guard(tmp / "no-old-layout", v2, NPM_VERSION="0.49.76").stdout == "1", "V2 最新代次清单损坏仍放行"
         if hasattr(os, "geteuid") and os.geteuid() != 0:
             locked = tmp / "locked"
             locked_cache = locked / "cache"
             locked_cache.mkdir(parents=True)
             (locked_cache / "package.json").write_text("{invalid")
-            locked_script = f'OC_MC_CACHE={locked_cache}; PLAN_MC_BLOCKED=1\n{guard}\nmc_guard >/dev/null 2>&1\nprintf "%s" "$mc_blocked"\n'
             locked.chmod(0)
             try:
-                proc = subprocess.run(["bash", "-c", locked_script], env=env, capture_output=True, text=True, check=True)
-                assert proc.stdout == "1", "父目录不可遍历被当成缓存已移除"
+                assert run_guard(locked_cache).stdout == "1", "父目录不可遍历被当成缓存已移除"
             finally:
                 locked.chmod(0o755)
         broken = tmp / "broken-cache"
         broken.symlink_to(tmp / "missing-target", target_is_directory=True)
-        broken_script = f'OC_MC_CACHE={broken}; PLAN_MC_BLOCKED=1\n{guard}\nmc_guard >/dev/null 2>&1\nprintf "%s" "$mc_blocked"\n'
-        proc = subprocess.run(["bash", "-c", broken_script], env=env, capture_output=True, text=True, check=True)
-        assert proc.stdout == "1", "不可解析的缓存链接被当成已移除"
+        assert run_guard(broken).stdout == "1", "不可解析的缓存链接被当成已移除"
         broken_parent = tmp / "broken-parent"
         broken_parent.symlink_to(tmp / "missing-parent", target_is_directory=True)
         parent_cache = broken_parent / "cache"
-        parent_script = f'OC_MC_CACHE={parent_cache}; PLAN_MC_BLOCKED=1\n{guard}\nmc_guard >/dev/null 2>&1\nprintf "%s" "$mc_blocked"\n'
-        proc = subprocess.run(["bash", "-c", parent_script], env=env, capture_output=True, text=True, check=True)
-        assert proc.stdout == "1", "父级链接断开被当成缓存不存在"
+        assert run_guard(parent_cache).stdout == "1", "父级链接断开被当成缓存不存在"
     print("Pi magic-context：复查失败保持阻断；仅版本一致或缓存移除才解除")
 
 
@@ -1088,10 +1112,7 @@ def check_agents_tail_old_cache():
             '[ "${AGENTS_TAIL:-0}" = 1 ] && printf "OLD-WRITE\\n" >> "$PWD/AGENTS.md"\n'
             "exit 0\n", encoding="utf-8")
         text = (ROOT / "pi-setup.sh").read_text(encoding="utf-8")
-        start = text.index('_ss="$SOURCE_ROOT/skills-sync.sh"')
-        bash_call = text.index('bash "$_ss"', start)
-        end = text.index("\nfi\n", bash_call) + len("\nfi\n")
-        block = text[start:end]
+        block = text.split('# ---- 7. skills 本体 ----', 1)[1].split('# ---- 可选模块:', 1)[0]
         project = tmp / "project"
         project.mkdir()
         log = tmp / "sync.log"
@@ -1100,9 +1121,10 @@ def check_agents_tail_old_cache():
             f"set -o pipefail\nexport SYNC_LOG={log}\nSOURCE_ROOT={src}\nPLAN_AGENTS_TAIL=1\nSKILL_GROUPS=(base)\n"
             f"PLAN_SKILLS_EXTERNAL=0\nASSUME_YES=0\nAGENT_DIR={tmp}/pi-agent\n"
             f"{block}\n[ \"${{tail_sync_failed:-0}}\" = 0 ] || exit 1\n", encoding="utf-8")
+        subprocess.run(["bash", "-n", str(runner)], check=True)
         proc = subprocess.run(["bash", str(runner)], cwd=project, capture_output=True, text=True,
                               env=agents_env(tmp / "home"), stdin=subprocess.DEVNULL)
-        assert proc.returncode != 0, ("旧缓存 skills-sync 未被拒绝", proc.stdout, proc.stderr)
+        assert proc.returncode == 1, ("旧缓存 skills-sync 未被拒绝", proc.stdout, proc.stderr)
         assert not (project / "AGENTS.md").exists(), "旧缓存 skills-sync 仍被允许写回当前项目"
         assert log.read_text().strip() == "0", "AGENTS_TAIL 仍以 1 传给旧写回逻辑"
         assert "ERROR" in proc.stdout + proc.stderr, proc.stdout + proc.stderr
@@ -1516,6 +1538,60 @@ fi
     print("安装偏好：保存/复用/choose/-y、模块新增与旧选择、CRLF、只读及非法输入均通过")
 
 
+def check_unified_update():
+    # 真入口、共同分发与偏好文件；只有会升级客户端／访问网络的执行器替换为记录器。
+    with tempfile.TemporaryDirectory(prefix="unified-setup-") as td:
+        tmp = pathlib.Path(td)
+        src, home = tmp / "source tree", tmp / "home"
+        src.mkdir(); home.mkdir()
+        for name in ("dsh-setup.sh", "skills-sync.sh", "scripts/update-hosts.sh", "scripts/migrate-agents-tail.py",
+                     "AGENTS.tail.md", "templates"):
+            dest = src / name
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.symlink_to(ROOT / name)
+        for group in ("base", "research"):
+            skill = src / "skills" / group / f"demo-{group}"
+            skill.mkdir(parents=True); (skill / "SKILL.md").write_text(group)
+        for host in ("opencode", "pi"):
+            (src / f"{host}-setup.sh").write_text(
+                f'echo {host}:"$AGENT_SKILLS_HOST_ONLY:$*" >> "$LOG"\n'
+                f'test "${{FAIL_HOST:-}}" != "{host}" || exit 23\n'
+                f'mod="$SOURCE_ROOT/modules/run.sh"; selected=$(bash "$mod" --host {host} --select --yes)\n'
+                f'bash "$mod" --host {host} --selected "$selected"\n')
+        (src / "skills-external.sh").write_text('echo shared >> "$LOG"\n')
+        (src / "modules").mkdir(); shutil.copy(ROOT / "modules/run.sh", src / "modules/run.sh")
+        mod = src / "modules/example"; mod.mkdir()
+        (mod / "setup.sh").write_text('# module: example\n# hosts: any\n# default: N\necho module >> "$LOG"\n')
+        unused = src / 'modules/unused'; unused.mkdir()
+        (unused / 'setup.sh').write_text('# module: unused\n# hosts: any\n# default: Y\nexit 19\n')
+        log = tmp / "calls"; pref = home / "preferences.conf"
+        pref.write_text('SHARED_RESEARCH=1\nDSH_MODULES=example\nDSH_MODULES_KNOWN=example,unused\n')
+        env = dict(PATH=os.environ['PATH'], HOME=str(home), AGENT_SKILLS_SOURCE=str(src),
+                   AGENT_SKILLS_PREFERENCES=str(pref), SKILLS_EXTERNAL='skip', LOG=str(log))
+        def run(*args, **extra):
+            return subprocess.run(['bash', ROOT / 'setup.sh', *args], cwd=tmp, env=dict(env, **extra),
+                                  stdin=subprocess.DEVNULL, start_new_session=True, capture_output=True, text=True, timeout=40)
+        assert run('-y').returncode == 2 and not log.exists(), '首次无明确宿主时不得猜测'
+        result = run('--hosts', 'opencode,pi,antigravity', '-y')
+        assert result.returncode == 0, result.stdout + result.stderr
+        expected = ['shared', 'opencode:1:-y', 'pi:1:-y', 'module']
+        assert log.read_text().splitlines() == expected
+        assert (home / '.gemini/AGENTS.md').is_file() and not (home / '.claude/CLAUDE.md').exists()
+        installed = home / '.agents/skills/demo-research/SKILL.md'
+        assert installed.read_text() == 'research'
+        stamp = installed.stat().st_mtime_ns; saved = pref.stat().st_mtime_ns
+        assert run('-y').returncode == 0 and log.read_text().splitlines() == expected * 2
+        assert installed.stat().st_mtime_ns == stamp and pref.stat().st_mtime_ns == saved
+        assert run('--hosts', 'bogus', '-y').returncode != 0 and pref.stat().st_mtime_ns == saved
+        before = (home / '.gemini/AGENTS.md').stat().st_mtime_ns
+        assert run('--hosts', 'opencode', '-y').returncode == 0
+        assert log.read_text().splitlines()[8:] == ['shared', 'opencode:1:-y', 'module']
+        assert (home / '.gemini/AGENTS.md').stat().st_mtime_ns == before
+        assert 'SHARED_HOSTS=opencode\n' in pref.read_text()
+        assert run('-y', FAIL_HOST='opencode').returncode == 23 and log.read_text().splitlines()[-1] == 'opencode:1:-y'
+    print('统一更新：选中宿主、旧偏好继承、公共项只执行一次、重跑与失败传播')
+
+
 def main():
     check_no_late_questions()
     if os.name == "nt":
@@ -1544,6 +1620,7 @@ def main():
     check_agents_tail_migration()
     check_mem_search_setup()
     check_setup_preferences()
+    check_unified_update()
     print("PASS: setup 前置选择回归")
 
 

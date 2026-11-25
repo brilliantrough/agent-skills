@@ -119,7 +119,55 @@ REPO_PI_SPEC="$AGENT_DIR/vendor/agent-skills"
 REPO_PI_PKG="$REPO_PI_SPEC"
 MC_CFG="$HOME/.config/cortexkit/magic-context.jsonc"
 AUTH="$AGENT_DIR/auth.json"
-OC_MC_CACHE="$HOME/.cache/opencode/packages/@cortexkit/opencode-magic-context@latest"
+OC_MC_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/opencode/packages/@cortexkit/opencode-magic-context@latest"
+# opencode V2 把包放在同一缓存根的 npm/<数字代次>/ 下;旧 packages/ 布局只作兼容读取。
+OC_NPM_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/opencode/npm/@cortexkit/opencode-magic-context@latest"
+
+mc_cache_state() { # 任一缓存位置不可判定 → unknown;都不存在 → absent;其余 present
+  local paths=("$OC_MC_CACHE")
+  [ -z "${OC_NPM_CACHE:-}" ] || paths+=("$OC_NPM_CACHE")
+  python3 - "${paths[@]}" 2>/dev/null <<'PY'
+import os, pathlib, stat, sys
+def state(raw):
+    parts = pathlib.Path(os.path.abspath(raw)).parts
+    current = parts[0]
+    for part in parts[1:]:
+        current = os.path.join(current, part)
+        try:
+            info = os.lstat(current)
+        except FileNotFoundError:
+            return "absent"
+        except OSError:
+            return "unknown"
+        if stat.S_ISLNK(info.st_mode):
+            try:
+                os.stat(current)
+            except OSError:
+                return "unknown"
+    return "present"
+states = [state(p) for p in sys.argv[1:]]
+print("unknown" if "unknown" in states else "present" if "present" in states else "absent")
+PY
+}
+
+mc_cache_version() { # V2 存在时只认当前代次；损坏不能用旧代次或旧布局代答。
+  python3 - "$OC_MC_CACHE" "${OC_NPM_CACHE:-}" 2>/dev/null <<'PY'
+import json, os, sys
+from pathlib import Path
+old, npm = sys.argv[1:]
+name = '@cortexkit/opencode-magic-context'
+try:
+    if npm and os.path.lexists(npm):
+        root = Path(npm)
+        current = max((p for p in root.iterdir() if p.name.isdecimal()), key=lambda p: int(p.name), default=root)
+        version = json.loads((current / 'node_modules' / name / 'package.json').read_text(encoding='utf-8'))['version']
+    else:
+        version = json.loads((Path(old) / 'package.json').read_text(encoding='utf-8'))['dependencies'][name]
+    if isinstance(version, str): print(version.strip())
+except (OSError, ValueError, KeyError, TypeError):
+    pass
+PY
+}
 
 ask_builtin() { # $1=提示 $2=默认(Y/N,缺省 N)
   local a="" def="${2:-N}" hint="y/N"
@@ -146,7 +194,7 @@ PREF_KNOWN_KEYS="SHARED_PROXY SHARED_PYTHON_UV SHARED_NODE SHARED_BUN SHARED_UV_
 PI_AGENTS_TAIL PI_GIT_BASH PI_INSTALL PI_UPDATE PI_PKGS PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_CM_GROUP PI_MCP_MIGRATE PI_WRITE_CFG PI_MEM_RUNTIME PI_LEGACY_CLEAN PI_MODULES PI_MODULES_KNOWN \
 OC_AGENTS_TAIL OC_UPGRADE OC_PONYTAIL OC_MC_REFRESH OC_CLAUDE_MEM OC_WRITE_CFG OC_FORCE_MANUAL OC_COMPACTION OC_TUI_KEYS OC_MODULES OC_MODULES_KNOWN \
 CODEX_AGENTS_TAIL CODEX_WRITE_CFG CODEX_MEM_INSTALLER CODEX_PLUGINS CODEX_HOOKS CODEX_REVIEWER CODEX_MODULES CODEX_MODULES_KNOWN \
-DSH_AGENTS_TAIL DSH_NODE DSH_SKILLS DSH_MODULES DSH_MODULES_KNOWN"
+DSH_AGENTS_TAIL DSH_NODE DSH_SKILLS DSH_MODULES DSH_MODULES_KNOWN SHARED_HOSTS SHARED_MODULES SHARED_MODULES_KNOWN"
 PREF_RISKY_KEYS="SHARED_PROXY PI_AGENTS_TAIL OC_AGENTS_TAIL CODEX_AGENTS_TAIL DSH_AGENTS_TAIL OC_UPGRADE PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_MEM_RUNTIME OC_MC_REFRESH OC_CLAUDE_MEM CODEX_MEM_INSTALLER"
 preference_get() {
   local key="$1" line
@@ -158,7 +206,8 @@ preference_put() {
   local key="$1" value="$2" current
   [[ "$key" =~ ^(SHARED|PI|OC|CODEX|DSH)_[A-Z0-9_]+$ ]] || return 1
   case " $PREF_KNOWN_KEYS " in *" $key "*) ;; *) return 1 ;; esac
-  case "$key" in *_MODULES|*_MODULES_KNOWN) [[ "$value" =~ ^[a-z0-9_,-]*$ ]] || return 1 ;;
+  case "$key" in SHARED_HOSTS) [[ "$value" = none || "$value" =~ ^(opencode|pi|dsh|codex|claude|antigravity)(,(opencode|pi|dsh|codex|claude|antigravity))*$ ]] || return 1 ;;
+    *_MODULES|*_MODULES_KNOWN) [[ "$value" =~ ^[a-z0-9_,-]*$ ]] || return 1 ;;
     *) [[ "$value" =~ ^[01]$ ]] || return 1 ;;
   esac
   if current="$(preference_get "$key")" && [ "$current" = "$value" ]; then return 0; fi
@@ -192,6 +241,11 @@ preferences_init() {
     done < "$PREF_FILE"
   fi
   PREF_COUNT="$(printf '%s\n' "$PREF_SESSION" | grep -c '=' || true)"
+  if [ "${AGENT_SKILLS_HOST_ONLY:-0}" = 1 ] && [ "${CHOOSE:-0}" != 1 ]; then
+    case "${AGENT_SKILLS_HOST_PREFIX:-}" in PI|OC|CODEX|DSH)
+      if grep -q "^${AGENT_SKILLS_HOST_PREFIX:-}_" <<< "$PREF_SESSION"; then PREF_REUSE=1; fi ;; esac
+    return 0
+  fi
   if [ "$PREF_COUNT" -gt 0 ] && [ "${CHOOSE:-0}" != 1 ] && [ "${CHECK_ONLY:-0}" = 0 ]; then
     if [ -n "${ASSUME_YES:-}" ] || [ "${YES:-0}" = 1 ]; then
       PREF_REUSE=1
@@ -974,10 +1028,13 @@ collect_setup_plan() {
   fi
 
   # 3.1 magic-context:共享 context.db 的版本守卫(探测到不一致才问)
+  # 执行段 mc_guard 与我们共用同一探测函数:opencode V2 把包放在 npm/<代次>/ 下,只查旧
+  # packages/ 布局会把"已有缓存"误判成"没有缓存"而静默放行。
   PLAN_OC_CACHE_CLEAN=0; PLAN_MC_UPGRADE=0; PLAN_MC_FORCE=0; PLAN_MC_BLOCKED=0
-  local oc_pinned_plan pi_latest_plan pi_plan_query_ok
-  if [ -n "$pi_probe" ] && command -v python3 >/dev/null 2>&1 && [ -f "$OC_MC_CACHE/package.json" ]; then
-    oc_pinned_plan="$(python3 -c "import json;print(json.load(open('$OC_MC_CACHE/package.json')).get('dependencies',{}).get('@cortexkit/opencode-magic-context',''))" 2>/dev/null || true)"
+  local oc_pinned_plan pi_latest_plan pi_plan_query_ok cache_plan_state
+  if [ -n "$pi_probe" ] && command -v python3 >/dev/null 2>&1; then
+    cache_plan_state="$(mc_cache_state)"; oc_pinned_plan=""
+    if [ "$cache_plan_state" = present ]; then oc_pinned_plan="$(mc_cache_version)"; fi
     if [ -n "$oc_pinned_plan" ]; then
       pi_latest_plan=""; pi_plan_query_ok=0
       if command -v timeout >/dev/null 2>&1; then
@@ -992,8 +1049,13 @@ collect_setup_plan() {
         PLAN_MC_BLOCKED=1
         echo "注意: magic-context 版本不一致 —— opencode 插件缓存 $oc_pinned_plan,Pi 扩展最新 $pi_latest_plan"
         echo "      两者共享 context.db,版本不一致时 Pi 主回合会被 fail-closed 拒绝。"
-        ask "现在清理 opencode 插件缓存目录?" N PI_OC_CACHE_CLEAN && PLAN_OC_CACHE_CLEAN=1
+        if [ -d "$OC_MC_CACHE" ] && [ ! -e "${OC_NPM_CACHE:-}" ]; then
+          ask "现在清理旧版 opencode 插件缓存目录?" N PI_OC_CACHE_CLEAN && PLAN_OC_CACHE_CLEAN=1
+        fi
       fi
+    elif [ "$cache_plan_state" != absent ]; then
+      PLAN_MC_BLOCKED=1
+      echo "注意: 发现 opencode 的 magic-context 缓存但读不出版本；默认不自动启用，不据此清理缓存。"
     fi
   fi
   if _pkg_registered npm:@cortexkit/pi-magic-context; then
@@ -1055,20 +1117,26 @@ PY_MCP_VERSION
     ask "把旧版部署文件/手工扩展移入 backups(官方 claude-mem/Pi 包已接管,统一处理)?" Y PI_LEGACY_CLEAN && PLAN_LEGACY_CLEAN=1
   fi
 
-  # 7. skills 四组
+  # 7. skills 组与外部设计依赖:统一入口已在公共模式分发一次(AGENT_SKILLS_HOST_ONLY=1),
+  #    宿主专用模式只写本宿主自己的用户级规则,这里不再询问或执行。
   PLAN_SKILL_RESEARCH=0; PLAN_SKILL_ACCEL=0; PLAN_SKILL_KB=0; PLAN_SKILL_PPT=0
-  ask "安装/更新 research 组(算法研究、实验、PyTorch 性能与 kernel;每次刷新·漂移自动备份)?" N SHARED_RESEARCH && PLAN_SKILL_RESEARCH=1
-  ask "安装/更新 accel 组(算力平台模板;缺才装·本机特化不覆盖)?" N SHARED_ACCEL && PLAN_SKILL_ACCEL=1
-  ask "安装/更新 kb 组(公共算力知识;每次刷新)?" N SHARED_KB && PLAN_SKILL_KB=1
-  ask "安装/更新 ppt 组(南大 HTML/PPTX、Dashi、ppt-master 与独立依赖;需 Node 20+、Python 3.10+)?" N SHARED_PPT && PLAN_SKILL_PPT=1
-
-  # 7. 外部设计依赖 + 用户级 AGENTS 规则块；环境变量是已给出的前置答案，不覆盖
   PLAN_SKILLS_EXTERNAL=1
-  case "${SKILLS_EXTERNAL:-}" in
-    skip) PLAN_SKILLS_EXTERNAL=0 ;;
-    install) ;;
-    *) ask "安装/更新 3 个外部设计依赖(ui-ux-pro-max/huashu-design/design-taste-frontend;不装则降级为内置方法)?" Y SHARED_EXTERNAL || PLAN_SKILLS_EXTERNAL=0 ;;
-  esac
+  if [ "${AGENT_SKILLS_HOST_ONLY:-0}" = 1 ]; then
+    PLAN_SKILLS_EXTERNAL=0
+  else
+    ask "安装/更新 research 组(算法研究、实验、PyTorch 性能与 kernel;每次刷新·漂移自动备份)?" N SHARED_RESEARCH && PLAN_SKILL_RESEARCH=1
+    ask "安装/更新 accel 组(算力平台模板;缺才装·本机特化不覆盖)?" N SHARED_ACCEL && PLAN_SKILL_ACCEL=1
+    ask "安装/更新 kb 组(公共算力知识;每次刷新)?" N SHARED_KB && PLAN_SKILL_KB=1
+    ask "安装/更新 ppt 组(南大 HTML/PPTX、Dashi、ppt-master 与独立依赖;需 Node 20+、Python 3.10+)?" N SHARED_PPT && PLAN_SKILL_PPT=1
+
+    # 外部设计依赖；环境变量是已给出的前置答案，不覆盖
+    case "${SKILLS_EXTERNAL:-}" in
+      skip) PLAN_SKILLS_EXTERNAL=0 ;;
+      install) ;;
+      *) ask "安装/更新 3 个外部设计依赖(ui-ux-pro-max/huashu-design/design-taste-frontend;不装则降级为内置方法)?" Y SHARED_EXTERNAL || PLAN_SKILLS_EXTERNAL=0 ;;
+    esac
+  fi
+  # 用户级 AGENTS 规则块:统一模式仍按 Pi 自己的偏好与路径单独写
   PLAN_AGENTS_TAIL=1
   case "${AGENTS_TAIL:-}" in
     0) PLAN_AGENTS_TAIL=0 ;;
@@ -1681,29 +1749,9 @@ if [ "$PI_OK" -eq 1 ]; then
   # 升级后可再跑一次:重算两边版本差并重新提示
   mc_guard() {
   mc_blocked="${PLAN_MC_BLOCKED:-0}"
-  cache_state="$(python3 - "$OC_MC_CACHE" 2>/dev/null <<'PY'
-import os, pathlib, stat, sys
-parts = pathlib.Path(os.path.abspath(sys.argv[1])).parts
-current, result = parts[0], "present"
-for part in parts[1:]:
-    current = os.path.join(current, part)
-    try:
-        info = os.lstat(current)
-    except FileNotFoundError:
-        result = "absent"
-        break
-    except OSError:
-        result = "unknown"
-        break
-    if stat.S_ISLNK(info.st_mode):
-        try: os.stat(current)
-        except OSError:
-            result = "unknown"
-            break
-print(result)
-PY
-)"
+  cache_state="$(mc_cache_state)"
   if [ "$cache_state" = absent ]; then
+    # 两处缓存都不存在:版本无从比较,按"未装缓存"放行(旧行为)。缓存被删后重启 opencode 会自建。
     mc_blocked=0
     return
   elif [ "$cache_state" != present ]; then
@@ -1711,10 +1759,7 @@ PY
     echo "WARN: magic-context 缓存路径不可访问或链接不可解析；不自动启用" >&2
     return
   fi
-  oc_pinned=""
-  if [ -f "$OC_MC_CACHE/package.json" ]; then
-    oc_pinned="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("dependencies",{}).get("@cortexkit/opencode-magic-context",""))' "$OC_MC_CACHE/package.json" 2>/dev/null || true)"
-  fi
+  oc_pinned="$(mc_cache_version)"
   if [ -z "$oc_pinned" ]; then
     mc_blocked=1
     echo "WARN: magic-context 缓存清单不可读；不自动启用" >&2
@@ -1735,9 +1780,8 @@ PY
     echo ""
     echo "注意: magic-context 版本不一致 —— opencode 插件缓存 $oc_pinned,Pi 扩展最新 $pi_latest"
     echo "      两者共享 context.db,版本不一致时 Pi 主回合会被 fail-closed 拒绝。"
-    echo "      处理: 清掉 opencode 插件缓存目录后重启 opencode(启动时会拉新版并迁移 DB):"
-    echo "        rm -rf \"$OC_MC_CACHE\" && 重启 opencode"
-    if [ "${PLAN_OC_CACHE_CLEAN:-0}" = 1 ] && [ -d "$OC_MC_CACHE" ]; then
+    echo "      请在两端都停用并备份后，通过 OpenCode 安装器同步插件版本。"
+    if [ "${PLAN_OC_CACHE_CLEAN:-0}" = 1 ] && [ -d "$OC_MC_CACHE" ] && [ ! -e "${OC_NPM_CACHE:-}" ]; then
       rm -rf "$OC_MC_CACHE"
       echo "removed: $OC_MC_CACHE(重启 opencode 后自动重新下载)"
     fi
@@ -1754,7 +1798,7 @@ PY
     # 没有会话在跑的时候做(夜里没人用的窗口),否则会打断正在使用的进程。
     if [ "${PLAN_MC_UPGRADE:-0}" = 1 ]; then
       if "$PI_BIN" update npm:@cortexkit/pi-magic-context --no-approve < /dev/null; then
-        echo "  已升 Pi 侧;opencode 侧需同步: 停掉 opencode 会话 → rm -rf \"$OC_MC_CACHE\" → 重启(会拉新版并迁移 DB)"
+        echo "  已升 Pi 侧；请核对 OpenCode 对应的插件版本后再启动两端。"
         mc_guard
       else
         echo "WARN: magic-context 升级失败(可稍后手动重试)" >&2
@@ -2102,33 +2146,48 @@ fi
 # base/research 每次刷新且漂移先备份;accel 缺才装(本机特化不覆盖);kb 每次刷新。
 # 客户端实体直落 ~/.agents/skills/<名>(装了 Claude Code 时同步 ~/.claude/skills/<名>)。
 # 同步器随后用 npx skills 补装外部设计依赖、更新已登记第三方。
-_ss="$SOURCE_ROOT/skills-sync.sh"
-if [ -f "$_ss" ]; then
-  SKILL_GROUPS=(base)
-  [ "${PLAN_SKILL_RESEARCH:-0}" = 1 ] && SKILL_GROUPS+=(research)
-  [ "${PLAN_SKILL_ACCEL:-0}" = 1 ] && SKILL_GROUPS+=(accel)
-  [ "${PLAN_SKILL_KB:-0}" = 1 ] && SKILL_GROUPS+=(kb)
-  [ "${PLAN_SKILL_PPT:-0}" = 1 ] && SKILL_GROUPS+=(ppt)
-  _ext="skip"; [ "${PLAN_SKILLS_EXTERNAL:-1}" = 1 ] && _ext="install"
-  _tail=0; [ "${PLAN_AGENTS_TAIL:-1}" = 1 ] && _tail=1
-  # 旧缓存里的 skills-sync 仍写当前项目:委派前先确认它自己走用户级 helper,否则规则块不交给它。
-  if [ "$_tail" = 1 ] && ! grep -q 'migrate-agents-tail.py' "$_ss"; then
-    echo "ERROR: 源码树 skills-sync.sh 不是用户级规则版本(缺 scripts/migrate-agents-tail.py);本次不改项目/全局 AGENTS,请更新源码树后重跑" >&2
-    _tail=0; tail_sync_failed=1
+if [ "${AGENT_SKILLS_HOST_ONLY:-0}" = 1 ]; then
+  # 统一入口已一次性分发公共 Skill 与外部设计依赖;这里只写 Pi 自己的用户级规则块,
+  # 仍按 PI_AGENTS_TAIL 的同意结果与 PI_CODING_AGENT_DIR 路径。
+  if [ "${PLAN_AGENTS_TAIL:-1}" = 1 ]; then
+    _mt="$SOURCE_ROOT/scripts/migrate-agents-tail.py"
+    if [ -f "$_mt" ]; then
+      PI_CODING_AGENT_DIR="$AGENT_DIR" python3 "$_mt" --sync-host pi \
+        || { echo "ERROR: Pi 用户级规则块写入失败，项目与全局 AGENTS 均未改动" >&2; tail_sync_failed=1; }
+    else
+      echo "ERROR: 源码树缺 scripts/migrate-agents-tail.py，无法写入用户级规则块；项目与全局 AGENTS 均未改动" >&2
+      tail_sync_failed=1
+    fi
   fi
-  AGENTS_TAIL="$_tail" AGENTS_TAIL_HOST=pi PI_CODING_AGENT_DIR="$AGENT_DIR" \
-    SKILLS_EXTERNAL="$_ext" ASSUME_YES="${ASSUME_YES:-0}" \
-    AGENT_SKILLS_SOURCE="$SOURCE_ROOT" \
-    bash "$_ss" "${SKILL_GROUPS[@]}" || echo "WARN: skills 同步未完全成功" >&2
 else
-  echo "WARN: 源码树缺 skills-sync.sh,跳过 skills 同步" >&2
-  [ "${PLAN_AGENTS_TAIL:-1}" = 1 ] && { echo "ERROR: 无法写入记忆系统规则块,项目与全局 AGENTS 均未改动" >&2; tail_sync_failed=1; }
+  _ss="$SOURCE_ROOT/skills-sync.sh"
+  if [ -f "$_ss" ]; then
+    SKILL_GROUPS=(base)
+    [ "${PLAN_SKILL_RESEARCH:-0}" = 1 ] && SKILL_GROUPS+=(research)
+    [ "${PLAN_SKILL_ACCEL:-0}" = 1 ] && SKILL_GROUPS+=(accel)
+    [ "${PLAN_SKILL_KB:-0}" = 1 ] && SKILL_GROUPS+=(kb)
+    [ "${PLAN_SKILL_PPT:-0}" = 1 ] && SKILL_GROUPS+=(ppt)
+    _ext="skip"; [ "${PLAN_SKILLS_EXTERNAL:-1}" = 1 ] && _ext="install"
+    _tail=0; [ "${PLAN_AGENTS_TAIL:-1}" = 1 ] && _tail=1
+    # 旧缓存里的 skills-sync 仍写当前项目:委派前先确认它自己走用户级 helper,否则规则块不交给它。
+    if [ "$_tail" = 1 ] && ! grep -q 'migrate-agents-tail.py' "$_ss"; then
+      echo "ERROR: 源码树 skills-sync.sh 不是用户级规则版本(缺 scripts/migrate-agents-tail.py);本次不改项目/全局 AGENTS,请更新源码树后重跑" >&2
+      _tail=0; tail_sync_failed=1
+    fi
+    AGENTS_TAIL="$_tail" AGENTS_TAIL_HOST=pi PI_CODING_AGENT_DIR="$AGENT_DIR" \
+      SKILLS_EXTERNAL="$_ext" ASSUME_YES="${ASSUME_YES:-0}" \
+      AGENT_SKILLS_SOURCE="$SOURCE_ROOT" \
+      bash "$_ss" "${SKILL_GROUPS[@]}" || echo "WARN: skills 同步未完全成功" >&2
+  else
+    echo "WARN: 源码树缺 skills-sync.sh,跳过 skills 同步" >&2
+    [ "${PLAN_AGENTS_TAIL:-1}" = 1 ] && { echo "ERROR: 无法写入记忆系统规则块,项目与全局 AGENTS 均未改动" >&2; tail_sync_failed=1; }
+  fi
 fi
 
 # ---- 可选模块:前置阶段已选好名单,这里只执行 ----
 if [ -n "${_AMOD:-}" ]; then
   bash "$_AMOD" --host pi --repo "${AGENT_SKILLS_REPO:-brilliantrough/agent-skills}" \
-    --ref "${AGENT_SKILLS_REF:-main}" --selected "$MODULE_SELECTION" || echo "WARN: 模块安装未完全成功" >&2
+    --ref "${AGENT_SKILLS_REF:-main}" --selected "$MODULE_SELECTION" || { echo 'ERROR: Pi 所选模块未完成' >&2; exit 1; }
 else
   echo "WARN: 未取得 modules/run.sh,跳过可选模块" >&2
 fi
@@ -2222,5 +2281,5 @@ if [ -x "${CG_BIN:-}" ]; then
 fi
 echo "$n. 重启 pi(新配置生效;pi 内 /model 可查看已配置模型)"; n=$((n+1))
 echo "   MCP: pi mcp list 检查连接;Pi 内 /mcp 管理服务器,tool_search 发现工具、codemode 批量调用"
-[ "${mc_blocked:-0}" -eq 1 ] && echo "!! magic-context 版本不一致未处理:清掉 \"$OC_MC_CACHE\" 并重启 opencode 后,重跑本脚本启用 Pi 版记忆"
+[ "${mc_blocked:-0}" -eq 1 ] && echo "!! magic-context 版本尚未对齐：停用两端并备份后同步插件，再重跑本脚本"
 [ "${tail_sync_failed:-0}" = 0 ] || { echo "ERROR: 记忆系统规则块未写入(源码树缺用户级同步实现),项目与全局 AGENTS 均未改动" >&2; exit 1; }

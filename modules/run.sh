@@ -90,6 +90,11 @@ if [ "$SELECTED_SET" = 0 ]; then
     if [ "$hosts" != any ] && ! echo ",$hosts," | grep -q ",$HOST,"; then continue; fi
     desc="$(meta "$d/setup.sh" desc)"; desc="${desc:-模块 $name}"
     def="$(meta "$d/setup.sh" default)"; def="${def:-N}"
+    if [ "${AGENT_SKILLS_HOST_ONLY:-0}" = 1 ] && [ "$hosts" = any ]; then
+      # 父入口已问过本机共用模块；把选择保留在宿主偏好里，单独重跑时仍生效。
+      case ",${AGENT_SKILLS_SHARED_MODULES:-}," in *,"$name",*) selection="${selection:+$selection$'\n'}$name" ;; esac
+      continue
+    fi
     if [ "$MODULE_PREF_SET" = 1 ]; then
       # 已选名单保持原样；上次未见过的模块才按当前默认值决定，交互模式只问这些新项。
       if echo ",${AGENT_SKILLS_MODULE_SELECTION:-}," | grep -q ",$name,"; then
@@ -113,6 +118,7 @@ for d in "$MDIR"/*/; do
   hosts="$(meta "$d/setup.sh" hosts)"; hosts="${hosts:-any}"
   if [ "$hosts" != any ] && ! echo ",$hosts," | grep -q ",$HOST,"; then continue; fi
   [[ $'\n'$selection$'\n' == *$'\n'"$name"$'\n'* ]] || continue
+  if [ "${AGENT_SKILLS_HOST_ONLY:-0}" = 1 ] && [ "$hosts" = any ]; then continue; fi
   desc="$(meta "$d/setup.sh" desc)"; desc="${desc:-模块 $name}"
   echo "== 模块 $name =="
   bash "$d/setup.sh" --host "$HOST" || { echo "WARN: 模块 $name 未完成" >&2; failed=$((failed+1)); }

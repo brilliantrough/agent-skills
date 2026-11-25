@@ -109,7 +109,7 @@ try {
     "# Claude Code 的两类独立审查代理;", 'echo "== 外部 skills:');
   const claudeHarness = join(tmp, "claude-deploy.sh");
   await writeFile(claudeHarness,
-    "set -euo pipefail\nsource_root=\"$ROOT\"\nLIVE=\"$WORK/live\"\nHOME=\"$WORK/claude-home\"\n" + claudeBlock);
+    "set -euo pipefail\nsource_root=\"$ROOT\"\nLIVE=\"$WORK/live\"\nHOME=\"$WORK/claude-home\"\nCOMMON=1; CLAUDE_ROLES=1; claude_home=\"$HOME/.claude\"\n" + claudeBlock);
   run(claudeHarness, { TS: "first" });
   const claudeAgent = join(claudeHome, ".claude/agents/verification-reviewer.md");
   assert.equal(readFileSync(claudeAgent, "utf8"), await read("templates/claude/agents/verification-reviewer.md"));
@@ -122,8 +122,7 @@ try {
   run(claudeHarness, { TS: "third" });
   assert.equal(existsSync(claudeAgent), false, "verification skill 缺失时不得经 consolidator 目录安装角色");
 
-  const codexBlock = extract(await read("codex-setup.sh"),
-    'if [ "$PLAN_REVIEWER" = 1 ]; then', '_ss=');
+  const codexBlock = (await read("codex-setup.sh")).match(/^if \[ "\$PLAN_REVIEWER" = 1 \]; then\n[\s\S]*?^fi$/m)[0];
   const codexHarness = join(tmp, "codex-deploy.sh");
   await writeFile(codexHarness,
     "set -euo pipefail\nPLAN_REVIEWER=1\nversion=\"${CODEX_VERSION:-0.158.0}\"\nCFG=\"$WORK/codex\"\nRAW=\"$ROOT/templates\"\n" +
@@ -185,6 +184,11 @@ try {
   const installed = verify();
   assert.equal(installed.status, 0, installed.stdout + installed.stderr);
   assert.match(installed.stdout, /PASS：所选宿主/);
+  const savedHosts = join(verifyHome, "preferences.conf");
+  await writeFile(savedHosts, "SHARED_HOSTS=antigravity\n");
+  const discoveryOnly = spawnSync("bash", [verifier], { env: { ...verifyEnv, AGENT_SKILLS_PREFERENCES: savedHosts }, encoding: "utf8" });
+  assert.equal(discoveryOnly.status, 0, discoveryOnly.stderr);
+  assert.match(discoveryOnly.stdout, /未选择需要 Reviewer/);
   assert.equal(spawnSync("bash", [verifier, "--yes"], { env: verifyEnv }).status, 2);
 
   // 默认只读检查必须与 live/项目隔离：不读项目级角色，也不把宿主状态写进真实 HOME

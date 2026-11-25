@@ -22,7 +22,7 @@ info() { printf '  %s\n' "$*"; }
 
 # ---- 1. 脚本语法与安装流程 ----
 echo "== 1. 语法与安装流程 =="
-for f in pi-setup.sh opencode-setup.sh codex-setup.sh dsh-setup.sh skills-sync.sh skills-external.sh modules/run.sh scripts/check.sh; do
+for f in setup.sh scripts/update-hosts.sh pi-setup.sh opencode-setup.sh codex-setup.sh dsh-setup.sh skills-sync.sh skills-external.sh modules/run.sh scripts/check.sh; do
   [ -f "$f" ] || { err "缺文件 $f"; continue; }
   bash -n "$f" 2>/dev/null || err "bash -n 失败: $f"
 done
@@ -327,7 +327,7 @@ done
 share_out=$(python3 - <<'PY'
 import re
 SETUPS = ["pi-setup.sh", "opencode-setup.sh", "codex-setup.sh", "dsh-setup.sh"]
-SHARED = ["skills-sync.sh", "skills-external.sh", "modules/run.sh"]
+SHARED = ["setup.sh", "skills-sync.sh", "skills-external.sh", "modules/run.sh"]
 ALL3 = ["pi-setup.sh", "opencode-setup.sh", "codex-setup.sh"]
 PI_OC = ["pi-setup.sh", "opencode-setup.sh"]
 # setup 可单文件 curl 运行，这些函数允许各带一份，但列出的各份必须逐字一致。
@@ -335,7 +335,7 @@ PI_OC = ["pi-setup.sh", "opencode-setup.sh"]
 LOCKED = {
     "npath": ALL3, "rpath": ALL3, "nbin": ALL3, "resolve_python3": ALL3,
     "ask": ALL3, "ask_value": ALL3, "fill_template_placeholders": ALL3, "mem_worker_url": ALL3,
-    "file_url": SETUPS + ["skills-sync.sh"], "acquire_source": SETUPS + ["skills-sync.sh"],
+    "file_url": SETUPS + ["skills-sync.sh", "setup.sh"], "acquire_source": SETUPS + ["skills-sync.sh", "setup.sh"],
     "preference_get": SETUPS, "preference_put": SETUPS, "preferences_init": SETUPS,
     "preferences_filter_modules": SETUPS, "preferences_lock": SETUPS,
     "preferences_commit_locked": SETUPS, "preferences_commit": SETUPS,

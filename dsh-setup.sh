@@ -74,15 +74,6 @@ acquire_source() {
   # 子脚本(modules/run.sh、skills-sync.sh)复用同一棵树,不二次克隆
   export SOURCE_ROOT SELF_RAW RAW AGENT_SKILLS_SOURCE="$root"
 }
-YES=0
-CHOOSE=0
-for arg in "$@"; do
-  case "$arg" in
-    -y|--yes) YES=1 ;;
-    --choose) CHOOSE=1 ;;
-    *) printf '用法：bash dsh-setup.sh [-y|--yes] [--choose]\n' >&2; exit 2 ;;
-  esac
-done
 have_tty() { { : </dev/tty; } 2>/dev/null; }  # 实际打开设备；-c 测试会误判并让 read 报错
 ask_builtin() {
   local answer
@@ -98,7 +89,7 @@ PREF_KNOWN_KEYS="SHARED_PROXY SHARED_PYTHON_UV SHARED_NODE SHARED_BUN SHARED_UV_
 PI_AGENTS_TAIL PI_GIT_BASH PI_INSTALL PI_UPDATE PI_PKGS PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_CM_GROUP PI_MCP_MIGRATE PI_WRITE_CFG PI_MEM_RUNTIME PI_LEGACY_CLEAN PI_MODULES PI_MODULES_KNOWN \
 OC_AGENTS_TAIL OC_UPGRADE OC_PONYTAIL OC_MC_REFRESH OC_CLAUDE_MEM OC_WRITE_CFG OC_FORCE_MANUAL OC_COMPACTION OC_TUI_KEYS OC_MODULES OC_MODULES_KNOWN \
 CODEX_AGENTS_TAIL CODEX_WRITE_CFG CODEX_MEM_INSTALLER CODEX_PLUGINS CODEX_HOOKS CODEX_REVIEWER CODEX_MODULES CODEX_MODULES_KNOWN \
-DSH_AGENTS_TAIL DSH_NODE DSH_SKILLS DSH_MODULES DSH_MODULES_KNOWN"
+DSH_AGENTS_TAIL DSH_NODE DSH_SKILLS DSH_MODULES DSH_MODULES_KNOWN SHARED_HOSTS SHARED_MODULES SHARED_MODULES_KNOWN"
 PREF_RISKY_KEYS="SHARED_PROXY PI_AGENTS_TAIL OC_AGENTS_TAIL CODEX_AGENTS_TAIL DSH_AGENTS_TAIL OC_UPGRADE PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_MEM_RUNTIME OC_MC_REFRESH OC_CLAUDE_MEM CODEX_MEM_INSTALLER"
 preference_get() {
   local key="$1" line
@@ -110,7 +101,8 @@ preference_put() {
   local key="$1" value="$2" current
   [[ "$key" =~ ^(SHARED|PI|OC|CODEX|DSH)_[A-Z0-9_]+$ ]] || return 1
   case " $PREF_KNOWN_KEYS " in *" $key "*) ;; *) return 1 ;; esac
-  case "$key" in *_MODULES|*_MODULES_KNOWN) [[ "$value" =~ ^[a-z0-9_,-]*$ ]] || return 1 ;;
+  case "$key" in SHARED_HOSTS) [[ "$value" = none || "$value" =~ ^(opencode|pi|dsh|codex|claude|antigravity)(,(opencode|pi|dsh|codex|claude|antigravity))*$ ]] || return 1 ;;
+    *_MODULES|*_MODULES_KNOWN) [[ "$value" =~ ^[a-z0-9_,-]*$ ]] || return 1 ;;
     *) [[ "$value" =~ ^[01]$ ]] || return 1 ;;
   esac
   if current="$(preference_get "$key")" && [ "$current" = "$value" ]; then return 0; fi
@@ -144,6 +136,11 @@ preferences_init() {
     done < "$PREF_FILE"
   fi
   PREF_COUNT="$(printf '%s\n' "$PREF_SESSION" | grep -c '=' || true)"
+  if [ "${AGENT_SKILLS_HOST_ONLY:-0}" = 1 ] && [ "${CHOOSE:-0}" != 1 ]; then
+    case "${AGENT_SKILLS_HOST_PREFIX:-}" in PI|OC|CODEX|DSH)
+      if grep -q "^${AGENT_SKILLS_HOST_PREFIX:-}_" <<< "$PREF_SESSION"; then PREF_REUSE=1; fi ;; esac
+    return 0
+  fi
   if [ "$PREF_COUNT" -gt 0 ] && [ "${CHOOSE:-0}" != 1 ] && [ "${CHECK_ONLY:-0}" = 0 ]; then
     if [ -n "${ASSUME_YES:-}" ] || [ "${YES:-0}" = 1 ]; then
       PREF_REUSE=1
@@ -270,6 +267,17 @@ resolve_python3() { # $1=最低 Python 3 小版本，默认 3.6；只接受能�
   done
   return 1
 }
+# 统一入口只借用上述单文件安装器的偏好、提问和 Python 探测函数。
+if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then return 0; fi
+YES=0
+CHOOSE=0
+for arg in "$@"; do
+  case "$arg" in
+    -y|--yes) YES=1 ;;
+    --choose) CHOOSE=1 ;;
+    *) printf '用法：bash dsh-setup.sh [-y|--yes] [--choose]\n' >&2; exit 2 ;;
+  esac
+done
 for cmd in curl tar; do command -v "$cmd" >/dev/null || { printf '缺少依赖：%s\n' "$cmd" >&2; exit 1; }; done
 ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/agent-skills/dsh"
 DSH_HOME_DIR="${DSH_HOME:-$ROOT/home}"
@@ -343,6 +351,7 @@ PLAN_SKILLS=""
 PLAN_AGENTS_TAIL=1
 PLAN_EXTERNAL_DESIGN=1
 PLAN_MODULES=""; PLAN_MOD_PATH=""
+PLAN_HOST_ONLY="${AGENT_SKILLS_HOST_ONLY:-0}"
 
 config_value_usable() {
   local value="${1-}" placeholder_re='^<[^>]+>$'
@@ -602,7 +611,14 @@ collect_setup_plan() {
   validate_collected_gateway_urls
   acquire_source || exit 1
   # 每次都问，不因已有 profile 而跳过：重跑仍默认 base、可选组、外部依赖、AGENTS 尾块与模块
-  if ask '同步基础 skills（base；复用 ~/.agents/skills）？' Y DSH_SKILLS; then
+  # 统一入口已一次性分发公共 Skill 组与外部设计依赖(AGENT_SKILLS_HOST_ONLY=1)：
+  # 本脚本只保留 DSH 自己的规则块询问、Python 需求与宿主模块选择。
+  local host_only="$PLAN_HOST_ONLY"
+  if [[ "$host_only" = 1 ]] || ask '同步基础 skills（base；复用 ~/.agents/skills）？' Y DSH_SKILLS; then
+    if [[ "$host_only" = 1 ]]; then
+      PLAN_SKILLS=""
+      PLAN_EXTERNAL_DESIGN=0
+    else
     PLAN_SKILLS=" base"
     ask '安装/更新 research 组（算法研究、实验、PyTorch 性能与 kernel；每次刷新·漂移自动备份）？' N SHARED_RESEARCH && PLAN_SKILLS+=" research"
     ask '安装/更新 accel 组（算力平台模板；缺才装·本机特化不覆盖）？' N SHARED_ACCEL && PLAN_SKILLS+=" accel"
@@ -613,6 +629,7 @@ collect_setup_plan() {
       install) ;;
       *) ask '安装/更新外部设计依赖（ui-ux-pro-max、huashu-design、design-taste-frontend）？' Y SHARED_EXTERNAL || PLAN_EXTERNAL_DESIGN=0 ;;
     esac
+    fi
     case "${AGENTS_TAIL:-}" in
       0) PLAN_AGENTS_TAIL=0 ;;
       1) ;;
@@ -734,14 +751,24 @@ if [[ -n "$PLAN_SKILLS" ]]; then
     SKILLS_EXTERNAL="$([[ "$PLAN_EXTERNAL_DESIGN" = 1 ]] && echo install || echo skip)" \
     ASSUME_YES="$YES" AGENT_SKILLS_SOURCE="$SOURCE_ROOT" \
     bash "$_dsh_ss" $PLAN_SKILLS || printf 'WARN: skills 同步未完全成功\n' >&2
+elif [[ "${PLAN_HOST_ONLY:-0}" = 1 && "$PLAN_AGENTS_TAIL" = 1 ]]; then
+  # 统一入口已分发公共 Skill;DSH 专用模式只写自己的用户级规则块。
+  _dsh_mt="$SOURCE_ROOT/scripts/migrate-agents-tail.py"
+  if [[ -f "$_dsh_mt" ]]; then
+    DSH_HOME="$DSH_HOME_DIR" python3 "$_dsh_mt" --sync-host dsh \
+      || { printf 'ERROR: DSH 用户级规则块写入失败;项目与全局 AGENTS 均未改动\n' >&2; tail_sync_failed=1; }
+  else
+    printf 'ERROR: 源码树缺 scripts/migrate-agents-tail.py,无法写入用户级规则块;项目与全局 AGENTS 均未改动\n' >&2
+    tail_sync_failed=1
+  fi
 fi
 
 # ---- 可选模块:统一分发(新增模块只加 modules/<名>/,本脚本不用改)----
-# 名单在计划阶段用 --select 一次问完，这里只执行已选项。
-if [[ -n "$PLAN_SKILLS" && -f "$PLAN_MOD_PATH" ]]; then
+# 名单在计划阶段用 --select 一次问完，这里只执行已选项。宿主专用模式同样执行。
+if [[ -f "$PLAN_MOD_PATH" ]]; then
   bash "$PLAN_MOD_PATH" --host dsh --repo "${AGENT_SKILLS_REPO:-brilliantrough/agent-skills}" \
-    --ref "${AGENT_SKILLS_REF:-main}" --selected "$PLAN_MODULES" || printf 'WARN: 模块安装未完全成功\n' >&2
-elif [[ -n "$PLAN_SKILLS" ]]; then
+    --ref "${AGENT_SKILLS_REF:-main}" --selected "$PLAN_MODULES" || { printf 'ERROR: DSH 所选模块未完成\n' >&2; exit 1; }
+elif [[ -n "$PLAN_SKILLS" || "${PLAN_HOST_ONLY:-0}" = 1 ]]; then
   printf 'WARN: 取不到 modules/run.sh,跳过可选模块\n' >&2
 fi
 printf '\n安装完成。新终端运行 dsh tui；批处理运行 dsh --profile headless "任务"。\n'

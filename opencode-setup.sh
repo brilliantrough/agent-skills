@@ -137,7 +137,7 @@ PREF_KNOWN_KEYS="SHARED_PROXY SHARED_PYTHON_UV SHARED_NODE SHARED_BUN SHARED_UV_
 PI_AGENTS_TAIL PI_GIT_BASH PI_INSTALL PI_UPDATE PI_PKGS PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_CM_GROUP PI_MCP_MIGRATE PI_WRITE_CFG PI_MEM_RUNTIME PI_LEGACY_CLEAN PI_MODULES PI_MODULES_KNOWN \
 OC_AGENTS_TAIL OC_UPGRADE OC_PONYTAIL OC_MC_REFRESH OC_CLAUDE_MEM OC_WRITE_CFG OC_FORCE_MANUAL OC_COMPACTION OC_TUI_KEYS OC_MODULES OC_MODULES_KNOWN \
 CODEX_AGENTS_TAIL CODEX_WRITE_CFG CODEX_MEM_INSTALLER CODEX_PLUGINS CODEX_HOOKS CODEX_REVIEWER CODEX_MODULES CODEX_MODULES_KNOWN \
-DSH_AGENTS_TAIL DSH_NODE DSH_SKILLS DSH_MODULES DSH_MODULES_KNOWN"
+DSH_AGENTS_TAIL DSH_NODE DSH_SKILLS DSH_MODULES DSH_MODULES_KNOWN SHARED_HOSTS SHARED_MODULES SHARED_MODULES_KNOWN"
 PREF_RISKY_KEYS="SHARED_PROXY PI_AGENTS_TAIL OC_AGENTS_TAIL CODEX_AGENTS_TAIL DSH_AGENTS_TAIL OC_UPGRADE PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_MEM_RUNTIME OC_MC_REFRESH OC_CLAUDE_MEM CODEX_MEM_INSTALLER"
 preference_get() {
   local key="$1" line
@@ -149,7 +149,8 @@ preference_put() {
   local key="$1" value="$2" current
   [[ "$key" =~ ^(SHARED|PI|OC|CODEX|DSH)_[A-Z0-9_]+$ ]] || return 1
   case " $PREF_KNOWN_KEYS " in *" $key "*) ;; *) return 1 ;; esac
-  case "$key" in *_MODULES|*_MODULES_KNOWN) [[ "$value" =~ ^[a-z0-9_,-]*$ ]] || return 1 ;;
+  case "$key" in SHARED_HOSTS) [[ "$value" = none || "$value" =~ ^(opencode|pi|dsh|codex|claude|antigravity)(,(opencode|pi|dsh|codex|claude|antigravity))*$ ]] || return 1 ;;
+    *_MODULES|*_MODULES_KNOWN) [[ "$value" =~ ^[a-z0-9_,-]*$ ]] || return 1 ;;
     *) [[ "$value" =~ ^[01]$ ]] || return 1 ;;
   esac
   if current="$(preference_get "$key")" && [ "$current" = "$value" ]; then return 0; fi
@@ -183,6 +184,11 @@ preferences_init() {
     done < "$PREF_FILE"
   fi
   PREF_COUNT="$(printf '%s\n' "$PREF_SESSION" | grep -c '=' || true)"
+  if [ "${AGENT_SKILLS_HOST_ONLY:-0}" = 1 ] && [ "${CHOOSE:-0}" != 1 ]; then
+    case "${AGENT_SKILLS_HOST_PREFIX:-}" in PI|OC|CODEX|DSH)
+      if grep -q "^${AGENT_SKILLS_HOST_PREFIX:-}_" <<< "$PREF_SESSION"; then PREF_REUSE=1; fi ;; esac
+    return 0
+  fi
   if [ "$PREF_COUNT" -gt 0 ] && [ "${CHOOSE:-0}" != 1 ] && [ "${CHECK_ONLY:-0}" = 0 ]; then
     if [ -n "${ASSUME_YES:-}" ] || [ "${YES:-0}" = 1 ]; then
       PREF_REUSE=1
@@ -795,6 +801,11 @@ collect_setup_plan() {
   else PLAN_UV_MIRROR=0; fi
 
   # 5) skills 分组、外部设计依赖、用户级 AGENTS 规则块
+  # 统一入口已在公共模式分发一次(AGENT_SKILLS_HOST_ONLY=1);这里只保留 OpenCode 自己的规则块。
+  SKILL_GROUPS=()
+  if [ "${AGENT_SKILLS_HOST_ONLY:-0}" = 1 ]; then
+    PLAN_SKILLS_EXTERNAL=skip
+  else
   SKILL_GROUPS=(base)
   ask "安装/更新 research 组(算法研究、实验、PyTorch 性能与 kernel;每次刷新·漂移自动备份)?" N SHARED_RESEARCH && SKILL_GROUPS+=(research)
   ask "安装/更新 accel 组(算力平台模板;缺才装·本机特化不覆盖)?" N SHARED_ACCEL && SKILL_GROUPS+=(accel)
@@ -807,9 +818,10 @@ collect_setup_plan() {
          PLAN_SKILLS_EXTERNAL=install
        else PLAN_SKILLS_EXTERNAL=skip; fi ;;
   esac
+  fi
   case "${AGENTS_TAIL:-}" in
     0) PLAN_AGENTS_TAIL=0 ;;
-    1) ;;
+    1) PLAN_AGENTS_TAIL=1 ;;
     *) # 旧键 SHARED_AGENTS_TAIL 只代表项目级同意：拒绝继续生效，同意不升级为全局同意。
        if [ "${PREF_REUSE:-0}" = 1 ] && [ "$(preference_get SHARED_AGENTS_TAIL || true)" = 0 ] \
           && ! preference_get OC_AGENTS_TAIL >/dev/null; then PLAN_AGENTS_TAIL=0
@@ -1805,20 +1817,34 @@ fi
 # base/research 每次刷新且漂移先备份;accel 缺才装(本机特化不覆盖);kb 每次刷新。
 # 客户端实体直落 ~/.agents/skills/<名>(装了 Claude Code 时同步 ~/.claude/skills/<名>)。
 # 同步器随后用 npx skills 补装外部设计依赖、更新已登记第三方。
-_ss="$SOURCE_ROOT/skills-sync.sh"
-if [ -f "$_ss" ]; then
-  # 旧缓存里的 skills-sync 仍写当前项目;源码树缺用户级同步实现时不委派规则块,项目与全局都不动。
-  if [ "$PLAN_AGENTS_TAIL" = 1 ] && ! grep -q 'migrate-agents-tail.py' "$_ss"; then
-    echo "ERROR: 源码树 skills-sync.sh 不是用户级规则版本(缺 scripts/migrate-agents-tail.py);本次不改项目/全局 AGENTS,请更新源码树后重跑" >&2
-    PLAN_AGENTS_TAIL=0; tail_sync_failed=1
+if [ "${AGENT_SKILLS_HOST_ONLY:-0}" = 1 ]; then
+  # 公共 Skill 已由统一入口分发;OpenCode 专用模式只写自己的用户级规则块。
+  if [ "$PLAN_AGENTS_TAIL" = 1 ]; then
+    _mt="$SOURCE_ROOT/scripts/migrate-agents-tail.py"
+    if [ -f "$_mt" ]; then
+      OPENCODE_CONFIG_DIR="$CFG" python3 "$_mt" --sync-host opencode \
+        || { echo "ERROR: OpenCode 用户级规则块写入失败，项目与全局 AGENTS 均未改动" >&2; tail_sync_failed=1; }
+    else
+      echo "ERROR: 源码树缺 scripts/migrate-agents-tail.py，无法写入用户级规则块；项目与全局 AGENTS 均未改动" >&2
+      tail_sync_failed=1
+    fi
   fi
-  SKILLS_EXTERNAL="$PLAN_SKILLS_EXTERNAL" AGENTS_TAIL="$PLAN_AGENTS_TAIL" \
-    AGENTS_TAIL_HOST=opencode OPENCODE_CONFIG_DIR="$CFG" ASSUME_YES=1 \
-    AGENT_SKILLS_SOURCE="$SOURCE_ROOT" \
-    bash "$_ss" "${SKILL_GROUPS[@]}" || echo "WARN: skills 同步未完全成功" >&2
 else
-  echo "WARN: 源码树缺 skills-sync.sh,跳过 skills 同步" >&2
-  [ "$PLAN_AGENTS_TAIL" = 1 ] && { echo "ERROR: 无法写入记忆系统规则块,项目与全局 AGENTS 均未改动" >&2; tail_sync_failed=1; }
+  _ss="$SOURCE_ROOT/skills-sync.sh"
+  if [ -f "$_ss" ]; then
+    # 旧缓存里的 skills-sync 仍写当前项目;源码树缺用户级同步实现时不委派规则块,项目与全局都不动。
+    if [ "$PLAN_AGENTS_TAIL" = 1 ] && ! grep -q 'migrate-agents-tail.py' "$_ss"; then
+      echo "ERROR: 源码树 skills-sync.sh 不是用户级规则版本(缺 scripts/migrate-agents-tail.py);本次不改项目/全局 AGENTS,请更新源码树后重跑" >&2
+      PLAN_AGENTS_TAIL=0; tail_sync_failed=1
+    fi
+    SKILLS_EXTERNAL="$PLAN_SKILLS_EXTERNAL" AGENTS_TAIL="$PLAN_AGENTS_TAIL" \
+      AGENTS_TAIL_HOST=opencode OPENCODE_CONFIG_DIR="$CFG" ASSUME_YES=1 \
+      AGENT_SKILLS_SOURCE="$SOURCE_ROOT" \
+      bash "$_ss" "${SKILL_GROUPS[@]}" || echo "WARN: skills 同步未完全成功" >&2
+  else
+    echo "WARN: 源码树缺 skills-sync.sh,跳过 skills 同步" >&2
+    [ "$PLAN_AGENTS_TAIL" = 1 ] && { echo "ERROR: 无法写入记忆系统规则块,项目与全局 AGENTS 均未改动" >&2; tail_sync_failed=1; }
+  fi
 fi
 
 # ---- 8. uv(可选;strictdoc 由 modules/strictdoc 安装)----
@@ -1871,7 +1897,7 @@ if [ -n "$MODULE_RUN" ] && [ -n "$MODULE_SELECTION" ]; then
   # 不写配置时模块仍可装 CLI 等资产，但让需登记 MCP 的模块跳过写 opencode.json。
   AGENT_SKILLS_NO_CONFIG_WRITE="$([ "$PLAN_WRITE_CFG" = 1 ] && echo 0 || echo 1)" \
   bash "$MODULE_RUN" --host opencode --repo "${AGENT_SKILLS_REPO:-brilliantrough/agent-skills}" \
-    --ref "${AGENT_SKILLS_REF:-main}" --selected "$MODULE_SELECTION" || echo "WARN: 模块安装未完全成功" >&2
+    --ref "${AGENT_SKILLS_REF:-main}" --selected "$MODULE_SELECTION" || { echo 'ERROR: OpenCode 所选模块未完成' >&2; exit 1; }
 elif [ -z "$MODULE_RUN" ]; then
   echo "提示: 本次取不到 modules/run.sh,可选模块未执行"
 else

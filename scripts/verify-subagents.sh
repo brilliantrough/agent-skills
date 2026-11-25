@@ -13,8 +13,19 @@ for arg in "$@"; do
     *) printf '用法：bash scripts/verify-subagents.sh [--apply [--yes]] [opencode|dsh|pi|codex|claude ...]\n' >&2; exit 2 ;;
   esac
 done
-[ "${#HOSTS[@]}" -gt 0 ] || HOSTS=(opencode dsh pi codex claude)
 [ "$YES" = 0 ] || [ "$APPLY" = 1 ] || { echo '--yes 只能与 --apply 同用' >&2; exit 2; }
+if [ "${#HOSTS[@]}" = 0 ]; then
+  source "$ROOT/dsh-setup.sh"
+  CHECK_ONLY=1 preferences_init
+  if saved="$(preference_get SHARED_HOSTS)"; then
+    for host in opencode dsh pi codex claude; do
+      case ",$saved," in *,"$host",*) HOSTS+=("$host") ;; esac
+    done
+    if [ "${#HOSTS[@]}" = 0 ]; then echo '本机未选择需要 Reviewer 的宿主。'; exit 0; fi
+  else
+    HOSTS=(opencode dsh pi codex claude)
+  fi
+fi
 
 MISSING=()
 note_missing() { MISSING+=("$1"); printf 'MISS %s\n' "$1"; }
@@ -125,9 +136,10 @@ check_codex() {
 }
 
 check_claude() {
-  local role
+  local role dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+  case "$dir" in "~/"*) dir="$HOME/${dir#\~/}" ;; esac
   for role in verification-reviewer consolidation-reviewer; do
-    [ -f "$HOME/.claude/agents/$role.md" ] || note_missing "claude：缺 agents/$role.md"
+    [ -f "$dir/agents/$role.md" ] || note_missing "claude：缺 agents/$role.md"
   done
   [ -f "$HOME/.agents/skills/verification/references/reviewer.md" ] || note_missing 'claude：缺 verification skill 审查规范'
 }
@@ -151,7 +163,7 @@ apply_host() {
   local host="$1" script yes_args=()
   [ "$YES" = 0 ] || yes_args=(-y)
   if [ "$host" = claude ]; then
-    if [ "$YES" = 1 ]; then ASSUME_YES=1 bash "$ROOT/skills-sync.sh" base; else bash "$ROOT/skills-sync.sh" base; fi
+    AGENT_SKILLS_COMMON=1 AGENT_SKILLS_CLAUDE_ROLES=1 AGENTS_TAIL=0 ASSUME_YES="$YES" bash "$ROOT/skills-sync.sh" base
     return
   fi
   script="$ROOT/$host-setup.sh"

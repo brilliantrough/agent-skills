@@ -91,7 +91,7 @@ modules/<名>/
 
 ## 三、改动 setup 脚本
 
-四个入口 `pi-setup.sh` / `opencode-setup.sh` / `codex-setup.sh` / `dsh-setup.sh` 共享 `skills-sync.sh` 与 `skills-external.sh`。
+日常更新走 `setup.sh`。宿主名单和非敏感选择存同一份本机偏好；公共 Skill 与发现入口由 `skills-sync.sh` 分发一次。`pi-setup.sh` / `opencode-setup.sh` / `codex-setup.sh` / `dsh-setup.sh` 保留单独运行和只做宿主专用步骤两条路径。新增功能先判断它应当每台机器做一次，还是每个已选宿主各做一次。
 
 **新增可选安装一律默认 N**：
 
@@ -137,7 +137,7 @@ ask "安装/更新 X 组(说明;缺才装·本机特化不覆盖)?" N && GROUPS+
 **顺序也是幂等的一部分。** 同一件事不能出现两个写入者，先后不能颠倒：
 
 - 官方安装器会重写自己的配置：`claude-mem install` 会重建 `~/.claude-mem/settings.json`，所以**必须"先安装、后合并配置"**，反过来会被安装器覆盖。
-- 通用步骤并进已有的共用脚本（`skills-sync.sh` / `skills-external.sh`），不要四个 setup 各写一份。这不是抽象洁癖：抽出 `agents-md.sh` 单独脚本是多加一层，而把同一段写进四个 setup 会逐渐走偏——并进已调用的共用脚本，宿主脚本只留它特有的那一行。这些步骤放在宿主安装与配置合并之后。
+- 通用步骤并进已有同步器或 `modules/`。`hosts: any` 表示整机共用，统一更新只执行一次；需要给每个客户端注册的模块列出适用宿主。保留单宿主入口时，不在其中再写一套公共安装逻辑。
 - 新加步骤先问：它和机器上已有的哪一步写同一个文件？谁后写？
 
 拿不准就在临时目录实测两遍：

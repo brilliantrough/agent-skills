@@ -25,7 +25,7 @@ modules/<名>/
 # module: <名>          与目录名一致
 # desc: <一句话说明>      提问时显示
 # default: N            默认 N；写 Y 必须说明理由
-# hosts: any            或 pi,opencode,codex,dsh
+# hosts: any            本机共用，一轮只执行一次；要分别配置客户端则列 pi,opencode,codex,dsh 等适用名
 ```
 
 ## 契约
