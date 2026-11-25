@@ -128,6 +128,7 @@ def main():
             "skills/base/trust-pyramid/references/pstack.md",
             "skills/base/multi-agent/SKILL.md",
             "skills/base/multi-agent/references/guide.md",
+            "skills/base/deepseek-efficiency/SKILL.md",
         ]
         for name in required:
             if name != "scripts/check.sh":

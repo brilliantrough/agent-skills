@@ -35,7 +35,7 @@
 
 表格里的共用能力都由脚本在开头统一选择并透传，宿主特有部分留在各自的 `*-setup.sh`。规范块写进各宿主的用户级文件（OpenCode `~/.config/opencode/AGENTS.md`、Pi `~/.pi/agent/AGENTS.md`、DSH `$DSH_HOME/AGENTS.md`、Codex `~/.codex/AGENTS.md`，Claude Code 为 `CLAUDE.md`），每个账号装一次、所有项目共用；项目自己的 `AGENTS.md` 不再被改写，项目规则仍写在仓库里。
 
-[快速安装](#快速安装) · [Skills](#skills本仓-46-个) · [首次部署](#首次部署只需要网关--6-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [DSH](dsh/README.md) · [OpenCode](#opencode-安装与迁移) · [更新](#更新) · [贡献](CONTRIBUTING.md)
+[快速安装](#快速安装) · [Skills](#skills本仓-47-个) · [首次部署](#首次部署只需要网关--6-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [DSH](dsh/README.md) · [OpenCode](#opencode-安装与迁移) · [更新](#更新) · [贡献](CONTRIBUTING.md)
 
 ## 快速安装
 
@@ -158,9 +158,9 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/pi-setup.sh)"
 ```
 
-## Skills（本仓 46 个）
+## Skills（本仓 47 个）
 
-五组共 46 个，默认 base 27 个；科研／算法研究 9 个、算力模板 7 个、公共知识 2 个与 PPT 1 个按需选装。`research`、`kb` 与 `ppt` 随仓库刷新，`accel` 缺才装；外部设计依赖在开头统一选择、默认安装，Light-Science 精选集成另行选择，不复制到本仓、不计入上述数量。
+五组共 47 个，默认 base 28 个；科研／算法研究 9 个、算力模板 7 个、公共知识 2 个与 PPT 1 个按需选装。`research`、`kb` 与 `ppt` 随仓库刷新，`accel` 缺才装；外部设计依赖在开头统一选择、默认安装，Light-Science 精选集成另行选择，不复制到本仓、不计入上述数量。
 
 ### 工程技能
 
@@ -266,6 +266,7 @@ bash scripts/verify-subagents.sh --apply --yes    # 显式接受默认升级与�
 | [`problem-framing`](skills/base/problem-framing/SKILL.md) | 同类补丁反复出现，或设计、实验该回答什么还没说清 | 辨认问题结构，借用成熟解法，用一个反例确定验收或区分解释的证据 |
 | [`trust-pyramid`](skills/base/trust-pyramid/SKILL.md) | 日常开发、重构与审查的工程质量约束 | 五层原则＋六类条件化规则配方＋工具映射；按项目选择并落实 |
 | [`verification`](skills/base/verification/SKILL.md) | 新功能与跨模块、高风险、发布或证据存疑的功能复核 | 主 Agent 从真实入口生成最小条目并实跑 → Reviewer 复核当前功能并快查相关旧条目；条目腐化时按三分法维护；套件更新另核对资产闭包、Release、部署和运行进程 |
+| [`deepseek-efficiency`](skills/base/deepseek-efficiency/SKILL.md) | 显式调用时优化 DeepSeek 的文件读取 | 原生搜索与读取、独立调用同轮发出；配合当前任务工作流，不限制正常 Shell 命令 |
 | `quick-do` | 行为明确的小修小补 | 读代码 → 当前会话修改、验证；不 grilling、不写计划 |
 | `steady-do` | 日常功能、插件、扩展；长程或无人值守运行 | 当前会话澄清、实现、验证；已有计划且用户要求执行时直接按计划做；明确要求“做到完成”时用可判定谓词＋原生唤醒＋`decisions.tsv` 逐轮推进 |
 | [`multi-agent`](skills/base/multi-agent/SKILL.md) | 独立分支、多 Agent 或 Swarm | 按分片覆盖或同题竞速派发，主会话集成；没有值得拆的分支就串行 |
@@ -285,6 +286,8 @@ bash scripts/verify-subagents.sh --apply --yes    # 显式接受默认升级与�
 - 回复跟随用户语言（默认中文），不随 skill 正文语言切换
 
 例如先说“用 Plan Brief 规划这次移植，先不改代码”；计划确认后说“按这份计划执行，两个独立适配器用 Swarm，做到 PR”。没有独立分支的阶段仍串行。重度项目按需[接入 pstack](skills/base/trust-pyramid/references/pstack.md)，由项目 skill 承载适配规则。
+
+使用 DeepSeek 时可说“用 deepseek-efficiency，帮我检查这个项目的配置加载流程”。它适用于主 Agent，也可用于子 Agent；只有显式要求才加载，不因模型名自动启用。
 
 `goal-first` 在代码任务中引导加载 `trust-pyramid`；`steady-do`、`consolidator`、`writing-skill` 在修重复问题或固化规则时指向它。原型包含[五层原则](skills/base/trust-pyramid/SKILL.md)、[六类质量规则配方](skills/base/trust-pyramid/references/quality-recipes.md)和[工具映射／检查示例](skills/base/trust-pyramid/references/static-checks.md)：注释与补丁、依赖边界、API 与状态、重复维护、副作用与错误、工作区与产物。每类给出适用条件、好坏示例、检查方式和例外；项目选择后将具体 API、目录和检查写回自身配置。Verification 可由 Agent 或项目自动执行，按任务授权、成本与副作用确定范围，不要求人逐次触发。
 
