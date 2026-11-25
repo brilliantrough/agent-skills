@@ -18,6 +18,7 @@ Apply `goal-first`: anchor work to the agreed outcome, current uncertainty, next
 
 - **User discipline first:** check any root AGENTS `user-discipline` block, apply relevant rules to scope and design, and immediately activate a newly invoked rule in the current plan and related work.
 - Read the complete requirement and the decisions already settled in this conversation. Separate explicit requirements from open questions; investigate before modifying files.
+- If a proposed fix keeps recurring or two interpretations would pass the same check, use `problem-framing` to find a case that separates them. Carry the resulting behavior into acceptance; skip framing when the contract is clear.
 - Read project rules, README, relevant entry points and modules. Trace the real flow, reuse opportunities, affected callers, and compatibility boundaries. Expand by relevance: wider than a single function, narrower than a whole-repo tour.
 - **Look at the live site first (seconds, no approval):** activation command and interpreter, dependency versions that actually import now, launch commands, input/output formats, config paths, and whether anything relevant is already running. Inspect the interpreter instead of assuming system Python. Skipping ceremony is the point; skipping this look is not.
 - Briefly state the goal, scope, non-goals, and observable completion criteria in chat. Do not create a plan document.

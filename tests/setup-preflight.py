@@ -1580,7 +1580,10 @@ def check_unified_update():
         installed = home / '.agents/skills/demo-research/SKILL.md'
         assert installed.read_text() == 'research'
         stamp = installed.stat().st_mtime_ns; saved = pref.stat().st_mtime_ns
+        new_skill = pathlib.Path('skills/base/problem-framing')
+        shutil.copytree(ROOT / new_skill, src / new_skill)
         assert run('-y').returncode == 0 and log.read_text().splitlines() == expected * 2
+        assert (home / '.agents/skills/problem-framing/SKILL.md').read_bytes() == (ROOT / new_skill / 'SKILL.md').read_bytes()
         assert installed.stat().st_mtime_ns == stamp and pref.stat().st_mtime_ns == saved
         assert run('--hosts', 'bogus', '-y').returncode != 0 and pref.stat().st_mtime_ns == saved
         before = (home / '.gemini/AGENTS.md').stat().st_mtime_ns

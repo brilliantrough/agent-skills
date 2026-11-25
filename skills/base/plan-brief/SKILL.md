@@ -20,6 +20,7 @@ Apply `goal-first`: plan only work that delivers the outcome or resolves a decis
 - Read the raw requirement completely (chat text, or the file the user points at).
 - Restate in 2-3 sentences: goal, scope, observable completion criteria, what "done" looks like.
 - Split it into explicit requirements vs open details. Do NOT plan yet.
+- If competing interpretations would lead to different plans, use `problem-framing` to settle the distinguishing case before choosing stages. Keep that case in the plan's acceptance criteria.
 
 ## Phase 1 — Survey the project
 

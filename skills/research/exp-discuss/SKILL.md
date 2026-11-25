@@ -32,6 +32,8 @@ Work these threads as the conversation allows, in whatever order the idea sugges
 4. **Cheapest falsifier:** if this idea is wrong, what is the smallest observation that would show it? Name a plausible competing explanation and what would distinguish it; an improved metric alone does not prove the proposed mechanism. This question often decides the route.
 5. **Scope edge:** what is explicitly outside this idea? Vague scope now becomes a bloated campaign later.
 
+If one proposed experiment is being used to answer different questions, use `problem-framing` to separate the claims. If the researcher already brings a framed question, start from its remaining uncertainty rather than repeating the exercise.
+
 ## Routing
 
 Choose the next step for the selected research route, leaving other routes as they are. Say which, and why:
