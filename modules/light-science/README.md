@@ -4,7 +4,7 @@
 
 ## 安装
 
-在完整宿主 setup 中先选 `research` 组，再选默认 **N** 的 `light-science` 模块。已有克隆也可分别运行：
+在统一 `setup.sh` 或完整宿主 setup 中先选 `research` 组，再选默认 **N** 的 `light-science` 模块。已有克隆也可分别运行：
 
 ```bash
 bash skills-sync.sh base research
@@ -17,7 +17,7 @@ bash modules/run.sh --host pi --only light-science
 bash modules/light-science/setup.sh --host pi
 ```
 
-- `skills-sync.sh` 始终从 GitHub 拉取套件，不以本地克隆作为技能源。
+- `skills-sync.sh` 默认从受管 Git clone 取源；`AGENT_SKILLS_SOURCE` 可只读指定已有工作树，不 pull、不修改。
 - 模块要求 `research-evidence` 已安装，缺失就提示并停止；不连带安装整个 research 组。
 - 需要 Git、Node/npx（上游 CLI 当前要求 Node ≥22.20）。复用 `skills-external.sh --light-science`，只处理下表两项，不安装／更新设计或其它依赖。
 

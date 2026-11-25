@@ -841,7 +841,7 @@ PS：开发时，脚本最后将本机 Pi 包软链到仓库 `node_modules/`（`
 
 ## OpenCode 安装与迁移
 
-先安装 OpenCode V2，已有服务先退出。setup **只维护 V2**，检测到 V1 时停止并提示升级；配置先转换为原生 V2，再按原逻辑在线拉取模板与更新模型。
+先安装 OpenCode V2，已有服务先退出。setup **只维护 V2**，检测到 V1 时停止并提示升级；配置先转换为原生 V2，再从本地源码树合并模板并更新模型。
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/opencode-setup.sh -o /tmp/opencode-setup.sh
@@ -877,7 +877,7 @@ bash /tmp/opencode-setup.sh --plugins-only
 
 Magic Context 的共享 `context.db` 是另一套库，升级另选所有宿主停用的窗口。v1/v2 并行须隔离配置、数据、state、cache；回退不能只换旧二进制，也不能把插件备份当作数据库备份。
 
-管理路径、停止条件与构建发布见 [OpenCode 分发说明](opencode/README.md)；工具用法见 [近期纠错与大输出外置](context-rewrite/README.md)。
+管理路径、停止条件与构建发布见 [OpenCode 分发说明](opencode/README.md)；工具用法见 [近期纠错与原生输出门控](context-rewrite/README.md)。
 
 ### 手工配置参考
 
@@ -1136,9 +1136,9 @@ npm 缺失包在 OpenCode 启动时自动安装；已有包不会因重启自动
 | kb（公共知识，2） | 每次随仓库刷新，不备份 |
 | ppt（南京大学PPT，1） | 默认不选；选中后刷新并先备份漂移，再补齐引擎和独立Python环境 |
 
-客户端不分组：实体直落 `~/.agents/skills/<名>`，装了 Claude Code 的机器同步 `~/.claude/skills/<名>`（有差异才写）。选组只决定本次安装／更新；不选不会卸载已安装的 skill。
+客户端不分组：实体直落 `~/.agents/skills/<名>`；统一入口公共模式为 Claude Code 和 Antigravity 准备轻量发现入口，单宿主同步按已有 Claude 目录维护其入口。选组只决定本次安装／更新；不选不会卸载已安装的 skill。
 
-第三方由共用同步器末尾的 `skills-external.sh` 处理：先询问是否安装三个设计依赖（默认Y；`--uninstall` 清理，`SKILLS_EXTERNAL=skip` 跳过设计依赖），选中ppt仍补装 `hugohe3/ppt-master`，再按锁表更新已登记第三方。同时排除本仓来源、已合并的 `redesign-existing-projects` 与 `skills/{base,research,accel,kb,ppt}` 下的名字，避免本仓skill误交给npx更新。Dashi 与 Light-Science 两个精选入口沿用固定基线，不参加套件通用更新；Light-Science 仅由可选模块补装。
+第三方由共用同步器末尾的 `skills-external.sh` 处理：先询问是否安装三个设计依赖（默认Y；`--uninstall` 清理，`SKILLS_EXTERNAL=skip` 跳过设计依赖），选中ppt仍补装 `hugohe3/ppt-master`，再按锁表更新已登记第三方。同时排除本仓来源、已合并的 `redesign-existing-projects` 与 `skills/{base,research,accel,kb,ppt}` 下的名字，避免本仓skill误交给npx更新。Dashi 与 Light-Science 两个精选入口沿用固定基线，不参加套件通用更新；Light-Science 由可选模块或其底层脚本单独补装。
 
 ```bash
 bash skills-external.sh   # 在克隆的套件根单独补装/更新第三方，不动本仓 skill 或插件配置
@@ -1163,7 +1163,7 @@ bash skills-external.sh --ppt  # 另补缺ppt-master；不代替ppt组和独立P
 | magic-context（Pi） | 步骤 3.1 独立询问，默认 Y |
 | Magic Context（OpenCode） | 独立询问、默认 Y；确认后备份移走其 latest 缓存并登记 `@latest`，下次宿主启动下载；Pi 包另行同步 |
 | OpenCode 自维护包（later、context_rewrite） | setup 的固定版本 V2 release；插件备份放 `$CFG/.agent-skills-backups/`；claude-mem runtime 与宿主入口由官方安装器维护 |
-| context-mode fork | 两侧从独立 latest release 同步；OpenCode 目录备份放 `.agent-skills-backups/`，Pi 保持自身备份策略 |
+| context-mode fork | Pi、OpenCode、DSH 的 setup 从独立 latest release 同步；OpenCode 目录备份放 `.agent-skills-backups/`，Pi 和 DSH 保持各自备份策略 |
 | notify | 旧入口备份停用 |
 | OpenCode 官方 Ponytail | 宿主负责缺包安装；setup 维护时查询版本，有新版默认询问刷新；确认后备份对应缓存并登记 `@latest`，不调用宿主 plugin CLI |
 
@@ -1197,7 +1197,7 @@ python3 scripts/migrate-agents-tail.py PATH/TO/PROJECT --apply          # 确认
 
 | 文件 | 更新策略 / 特例 |
 |---|---|
-| `~/.config/opencode/opencode.json` | 先备份并转换旧字段，再在线获取 V2 模板；四个 `*-newapi` 的结构、models 与非敏感设置由模板接管，敏感值保留。其它 provider 只刷新 models，保留本地 settings／headers；自定义 provider、角色与未知第三方配置保留。插件模式仅转换格式与规范登记；路径遵循 `OPENCODE_CONFIG_DIR`／XDG |
+| `~/.config/opencode/opencode.json` | 先备份并转换旧字段，再读取本地源码树的 V2 模板；四个 `*-newapi` 的结构、models 与非敏感设置由模板接管，敏感值保留。其它 provider 只刷新 models，保留本地 settings／headers；自定义 provider、角色与未知第三方配置保留。插件模式仅转换格式与规范登记；路径遵循 `OPENCODE_CONFIG_DIR`／XDG |
 | `~/.claude-mem/settings.json` | `CLAUDE_MEM_*_MODEL` 随模板统一为 `mem-1`；API key、Base URL、port／host 保留，缺失键按模板补齐；`CLAUDE_MEM_PROVIDER` 仍强制 `openrouter` |
 | `~/.config/cortexkit/magic-context.jsonc` | 模型及其他非敏感字段仍随模板；historian／dreamer 的 OpenCode、Pi 默认模型为 `codex-newapi/gpt-6-luna`，embedding 不变 |
 | `~/.pi/agent/{settings,models,mcp}.json` | 非敏感字段随模板，由 `pi-setup.sh` 处理；四个 `*-newapi` 与 `web`／`codegraph` 条目按受管规则合并，敏感值保留。已有 `tuiMode` 保留本地选择；mcp.json 本地命令路径在合并前替换；旧共享 MCP 只读迁移，不再部署 |
