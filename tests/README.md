@@ -58,13 +58,13 @@ Antigravity 的文件接入由 `tests/source-bench.py` 通过 `skills-sync.sh --
 
 ### DeepSeek Flash 源码派单（阶段性实机条目）
 
-只在 OpenCode 子代理模型、派单指引变化或碎片化读取复现时运行。用隔离配置加载待验的 `multi-agent`，给父代理这道题，不在题里提示用哪些工具：
+只在 OpenCode 子代理模型、派单指引变化或碎片化读取复现时运行。用隔离配置加载待验的 `multi-agent`，将题中的 `<角色>` 换成本次受影响的 `explore` 或 `general`；两者都受影响就分别跑。不在题里提示用哪些工具：
 
-> 用 multi-agent 派一个 explore，只读查 `templates/`：Pi、Codex、Claude Code、OpenCode 的两种 Reviewer 各指向哪个规范文件？这四个宿主里谁把两种角色定义在同一个文件里？给出路径和行号。
+> 用 multi-agent 派一个 `<角色>`，只读查 `templates/`：Pi、Codex、Claude Code、OpenCode 的两种 Reviewer 各指向哪个规范文件？这四个宿主里谁把两种角色定义在同一个文件里？给出路径和行号。
 
 核对答案：只有 OpenCode 把两种定义放在同一文件；Claude Code 引用 `~/.claude/skills/`，其余三者引用 `~/.agents/skills/`，分别指向 `verification/references/reviewer.md` 和 `consolidator/references/reviewer.md`。再看**实际发出的子任务和子会话工具轨迹**：父代理是否传入读法、实际模型是谁、独立查找或读取是否在同一助手回合发出。记录答复前的工具批次；逐轮用 shell 切片或在 `execute` 里尝试包装 shell 都算偏离。正常执行或读取工具故障后的只读回退不算。
 
-决定能否退役时，在同一宿主、模型和源码上开新会话，对照有、无专项读法的两份派单，核实子任务里确实有这项差别。若无提示也能在这道题和实际源码调查中稳定答对、成批取证，不再反复补读，就缩短或删除专项措辞和本条目；一次答对或零 shell 都不足以定论。此项不进离线门禁。
+决定能否退役时，固定宿主、角色、模型和源码，用两个新会话对照有、无专项读法的派单，核实实际子角色和提示。若无提示也能在这道题和实际源码调查中稳定答对、成批取证，不再反复补读，就撤下该角色的专项要求；所有适用角色都不再需要时，再删共用措辞和本条目。一次答对或零 shell 都不足以定论。此项不进离线门禁。
 
 ## 模拟与真实宿主的边界
 
