@@ -109,7 +109,7 @@ OC_RELEASE="opencode-plugins-1.0.26"
 CFG="${OPENCODE_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/opencode}"
 PLUGINS="$CFG/plugins"
 CLAUDE_PLUGIN="$PLUGINS/claude-mem.js"
-SETTINGS="$HOME/.claude-mem/settings.json"
+SETTINGS="${CLAUDE_MEM_DATA_DIR:-$HOME/.claude-mem}/settings.json"
 MC_CFG="$HOME/.config/cortexkit/magic-context.jsonc"
 
 ask_builtin() { # $1=提示 $2=默认(Y/N,缺省 N)
@@ -444,6 +444,28 @@ print(f'{host}:{port}')
 PYEOF
 }
 
+# worker 是否响应健康检查；没有 curl 或超时都按"没在运行"处理
+mem_worker_alive() {
+  local url
+  url="$(mem_worker_url "$1")"
+  curl -fsS -m 2 -o /dev/null "http://$url/api/health" 2>/dev/null
+}
+
+# 官方安装器覆盖文件前会停 worker；只在安装前确实在运行时恢复，
+# 避免把本来没跑 worker 的机器变成常驻进程（恢复状态，不是启用功能）。
+mem_worker_restore() {  # $1=settings.json $2=安装前是否在运行(1/0)
+  [ "${2:-0}" = 1 ] || return 0
+  [ "${AGENT_SKILLS_MEM_RESTART:-1}" = 1 ] || return 0
+  local url
+  url="$(mem_worker_url "$1")"
+  if npx -y claude-mem@latest restart >/dev/null 2>&1 && mem_worker_alive "$1"; then
+    echo "claude-mem worker 已重启: http://$url/api/health"
+    return 0
+  fi
+  echo "WARN: claude-mem worker 未恢复运行;手工执行 npx -y claude-mem@latest restart" >&2
+  return 1
+}
+
 # ---- 网关/凭据预填:新机器只需填网关 + 各 api key ----
 # 环境变量优先(便于无人值守):PI_GATEWAY_BASE_URL / PI_GATEWAY_API_KEY(兜底给没单独给的槽)
 # / PI_{CLAUDE,CODEX,ANTHROPIC}_NEWAPI_API_KEY / PI_EMBEDDING_API_KEY / PI_CLAUDE_MEM_API_KEY / MCPHUB_HOST
@@ -748,7 +770,7 @@ collect_setup_plan() {
 
   if [ "$PLUGINS_ONLY" = 1 ]; then
     # 精简模式到此为止:配置、skills、uv、模块都不执行
-    if command -v npx >/dev/null 2>&1 && ask "更新 claude-mem runtime／官方插件／MCP（会停止共享 worker，之后手工重启）?" Y OC_CLAUDE_MEM; then
+    if command -v npx >/dev/null 2>&1 && ask "更新 claude-mem runtime／官方插件／MCP（会停止共享 worker，随后自动恢复）?" Y OC_CLAUDE_MEM; then
       PLAN_CLAUDE_MEM=1
     else PLAN_CLAUDE_MEM=0; fi
     PLAN_WRITE_CFG=1; PLAN_FORCE_MANUAL=0; PLAN_COMPACTION=0; PLAN_TUI_KEYS=0
@@ -771,7 +793,7 @@ collect_setup_plan() {
   fi
   if [ "$PLAN_WRITE_CFG" = 1 ]; then
     if { command -v npx >/dev/null 2>&1 || [ "$PLAN_NODE" = 1 ]; } \
-       && ask "更新 claude-mem runtime／官方插件／MCP（会停止共享 worker，之后手工重启）?" Y OC_CLAUDE_MEM; then
+       && ask "更新 claude-mem runtime／官方插件／MCP（会停止共享 worker，随后自动恢复）?" Y OC_CLAUDE_MEM; then
       PLAN_CLAUDE_MEM=1
     else PLAN_CLAUDE_MEM=0; fi
     if ask "在 opencode.json 写入 compaction auto=false(让 magic-context 接管压缩;已有 compaction 则跳过)?" Y OC_COMPACTION; then
@@ -1577,6 +1599,7 @@ else
 fi
 # ---- claude-mem：配置合并后由官方安装器更新 runtime、插件与 MCP ----
 if [ "$PLAN_CLAUDE_MEM" = 1 ]; then
+  mem_was_alive=0; mem_worker_alive "$SETTINGS" && mem_was_alive=1
   (
     backup="$CFG/.agent-skills-backups/$(date +%Y%m%d%H%M%S)-claude-mem"
     mkdir -p "$backup" || exit 1
@@ -1652,6 +1675,7 @@ elif ! command -v npx >/dev/null 2>&1; then
   echo "WARN: 未检测到 npx，跳过 claude-mem 更新" >&2
 fi
 if [ "$PLAN_WRITE_CFG" = 1 ]; then ensure_mem_provider "$SETTINGS"; fi
+mem_worker_restore "$SETTINGS" "${mem_was_alive:-0}" || true
 
 if [ "$PLAN_WRITE_CFG" = 1 ] && [ "${mem_install_skipped:-0}" = 0 ] && { [ "$PLAN_CLAUDE_MEM" = 1 ] || [ -f "$CLAUDE_PLUGIN" ]; }; then
   [ -f "$CLAUDE_PLUGIN" ] || { echo "ERROR: OpenCode claude-mem 插件未就绪，不能启用 mem-search" >&2; exit 1; }
@@ -1932,9 +1956,8 @@ if [ "$_ph" = 0 ]; then
   fi
 fi
 echo "   提示:claude-mem 走 openrouter(OpenAI 协议),它的 key 与 magic-context embedding 的各自独立"
-echo "$n. 重启 claude-mem worker 并验证:"; n=$((n+1))
-echo "      cd ~/.claude/plugins/marketplaces/thedotmack && npm run worker:restart"
-echo "      curl -s http://$(mem_worker_url "$SETTINGS")/api/health   # 端口取自 $SETTINGS(见下方提示)"
+echo "$n. claude-mem worker:安装前在运行的话会自动恢复;本次没在跑就手工启动:"; n=$((n+1))
+echo "      npx -y claude-mem@latest restart && curl -s http://$(mem_worker_url "$SETTINGS")/api/health   # 端口取自 $SETTINGS(见下方提示)"
 echo "$n. 记忆系统规则:已按计划写入 OpenCode 用户级 $CFG/AGENTS.md(或跳过);项目自身的 AGENTS.md 保持原样,项目规则仍写在仓库里"; n=$((n+1))
 if command -v codegraph >/dev/null 2>&1 || [ -x "$HOME/.local/bin/codegraph" ]; then
   echo "$n. 代码知识图谱(按项目):cd <项目> && codegraph init(建 .codegraph/ 索引,之后自动增量同步;不 init 则 MCP 无内容可查)"; n=$((n+1))

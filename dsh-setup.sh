@@ -267,6 +267,42 @@ resolve_python3() { # $1=最低 Python 3 小版本，默认 3.6；只接受能�
   done
   return 1
 }
+# claude-mem worker 的 host:port(与 claude-mem/桥接同一优先级:环境变量 > settings.json > 默认公式)
+mem_worker_url() {
+  python3 - "$1" <<'PYEOF'
+import json, os, sys
+try:
+    s = json.load(open(sys.argv[1], encoding='utf-8'))
+except Exception:
+    s = {}
+host = os.environ.get('CLAUDE_MEM_WORKER_HOST') or s.get('CLAUDE_MEM_WORKER_HOST') or '127.0.0.1'
+port = os.environ.get('CLAUDE_MEM_WORKER_PORT') or s.get('CLAUDE_MEM_WORKER_PORT') or str(37700 + getattr(os, 'getuid', lambda: 77)() % 100)
+print(f'{host}:{port}')
+PYEOF
+}
+
+# worker 是否响应健康检查；没有 curl 或超时都按"没在运行"处理
+mem_worker_alive() {
+  local url
+  url="$(mem_worker_url "$1")"
+  curl -fsS -m 2 -o /dev/null "http://$url/api/health" 2>/dev/null
+}
+
+# 官方安装器覆盖文件前会停 worker；只在安装前确实在运行时恢复，
+# 避免把本来没跑 worker 的机器变成常驻进程（恢复状态，不是启用功能）。
+# 统一入口会自己收口一次，此时各宿主设 AGENT_SKILLS_MEM_RESTART=0 跳过。
+mem_worker_restore() {  # $1=settings.json $2=安装前是否在运行(1/0)
+  [ "${2:-0}" = 1 ] || return 0
+  [ "${AGENT_SKILLS_MEM_RESTART:-1}" = 1 ] || return 0
+  local url
+  url="$(mem_worker_url "$1")"
+  if npx -y claude-mem@latest restart >/dev/null 2>&1 && mem_worker_alive "$1"; then
+    echo "claude-mem worker 已重启: http://$url/api/health"
+    return 0
+  fi
+  echo "WARN: claude-mem worker 未恢复运行;手工执行 npx -y claude-mem@latest restart" >&2
+  return 1
+}
 # 统一入口只借用上述单文件安装器的偏好、提问和 Python 探测函数。
 if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then return 0; fi
 YES=0

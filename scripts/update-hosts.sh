@@ -72,6 +72,16 @@ preferences_commit
 roles=0; case ",$hosts_arg," in *,claude,*) roles=1 ;; esac
 AGENT_SKILLS_COMMON=1 AGENT_SKILLS_CLAUDE_ROLES="$roles" AGENTS_TAIL=0 SKILLS_EXTERNAL="$SKILLS_EXTERNAL" \
   bash "$root/skills-sync.sh" "${groups[@]}"
+# claude-mem 是共享 worker：各宿主的官方安装器都会停掉它，逐个重启会互相打断。
+# 这里记下运行前状态，各宿主只装自己的 IDE 集成，收尾（含中途失败）只恢复一次。
+mem_settings="${CLAUDE_MEM_DATA_DIR:-$HOME/.claude-mem}/settings.json"
+mem_was_alive=0; mem_worker_alive "$mem_settings" && mem_was_alive=1
+restore_mem_worker() {
+  [ "${mem_was_alive:-0}" = 1 ] || return 0
+  mem_worker_alive "$mem_settings" && return 0
+  mem_worker_restore "$mem_settings" 1 || true
+}
+trap restore_mem_worker EXIT
 for host in ${hosts[@]+"${hosts[@]}"}; do
   echo "== $host 专用配置 =="
   case "$host" in
@@ -79,6 +89,7 @@ for host in ${hosts[@]+"${hosts[@]}"}; do
       if [ "${AGENTS_TAIL:-1}" = 1 ]; then python3 "$root/scripts/migrate-agents-tail.py" --sync-host "$host"; fi ;;
     *) case "$host" in opencode) prefix=OC ;; pi) prefix=PI ;; dsh) prefix=DSH ;; codex) prefix=CODEX ;; esac
        AGENT_SKILLS_HOST_ONLY=1 AGENT_SKILLS_HOST_PREFIX="$prefix" AGENT_SKILLS_SHARED_MODULES="$shared_modules" \
+         AGENT_SKILLS_MEM_RESTART=0 \
          bash "$root/$host-setup.sh" ${flags[@]+"${flags[@]}"} ;;
   esac
 done

@@ -34,7 +34,7 @@ bash /tmp/opencode-setup.sh --plugins-only
 
 - `later`：共用 Agent 工具逻辑；v1/v2 各有 TUI 适配。输入框排程与 Agent 工具排程独立，分别随 TUI／服务端进程退出清除。
 - `context_rewrite`：共用 `context-rewrite/core.mjs`，各宿主适配自己的历史 API；只负责近期纠错，大输出使用宿主原生门控。
-- `claude-mem`：由官方安装器维护 `$CFG/plugins/claude-mem.js`，bundle 自带 OpenCode v1 `server` 与 v2 `setup` 入口；setup 在配置合并之后调用官方安装器更新 runtime／入口／MCP，OpenCode 负责加载。安装器停止共享 worker；已有 settings 原样恢复，之后手工重启 worker。
+- `claude-mem`：由官方安装器维护 `$CFG/plugins/claude-mem.js`，bundle 自带 OpenCode v1 `server` 与 v2 `setup` 入口；setup 在配置合并之后调用官方安装器更新 runtime／入口／MCP，OpenCode 负责加载。安装器停止共享 worker；已有 settings 原样恢复，worker 只在安装前确实运行时由 setup 自动恢复一次。
 - v2 额外适配旧工具 API、会话事件与请求亲和性；不要求目标机编译。
 
 工具用法见 [上下文插件](../context-rewrite/README.md)，v2 文件与配置见 [v2 说明](v2/README.md)。

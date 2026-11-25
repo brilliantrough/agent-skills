@@ -395,6 +395,28 @@ print(f'{host}:{port}')
 PYEOF
 }
 
+# worker 是否响应健康检查；没有 curl 或超时都按"没在运行"处理
+mem_worker_alive() {
+  local url
+  url="$(mem_worker_url "$1")"
+  curl -fsS -m 2 -o /dev/null "http://$url/api/health" 2>/dev/null
+}
+
+# 官方安装器覆盖文件前会停 worker；只在安装前确实在运行时恢复，
+# 避免把本来没跑 worker 的机器变成常驻进程（恢复状态，不是启用功能）。
+mem_worker_restore() {  # $1=settings.json $2=安装前是否在运行(1/0)
+  [ "${2:-0}" = 1 ] || return 0
+  [ "${AGENT_SKILLS_MEM_RESTART:-1}" = 1 ] || return 0
+  local url
+  url="$(mem_worker_url "$1")"
+  if npx -y claude-mem@latest restart >/dev/null 2>&1 && mem_worker_alive "$1"; then
+    echo "claude-mem worker 已重启: http://$url/api/health"
+    return 0
+  fi
+  echo "WARN: claude-mem worker 未恢复运行;手工执行 npx -y claude-mem@latest restart" >&2
+  return 1
+}
+
 # ---- 网关/凭据预填:新机器只需填网关 + claude-mem 的 key ----
 # 环境变量优先(便于无人值守):PI_GATEWAY_BASE_URL / PI_CLAUDE_MEM_API_KEY(或 PI_GATEWAY_API_KEY)
 # codex 侧不配 models.json / magic-context:下面四个变量只为与 pi/opencode 的 fill/merge 保持逐字节一致
@@ -505,7 +527,7 @@ collect_setup_plan() {
     ask "写入/更新 $SETTINGS(claude-mem 记忆后端;字段级合并,现有 key/地址保留)?" Y CODEX_WRITE_CFG && PLAN_WRITE_CFG=1
     if ! mem_ready; then
       def=Y; [ ! -d "$MEM_ROOT" ] || def=N
-      ask '运行官方 claude-mem 安装器(更新共享资产并停止 worker)?' "$def" CODEX_MEM_INSTALLER && PLAN_MEM_INSTALLER=1
+      ask '运行官方 claude-mem 安装器(更新共享资产并停止 worker;随后按原状恢复)?' "$def" CODEX_MEM_INSTALLER && PLAN_MEM_INSTALLER=1
     fi
   fi
   ask '安装插件(claude-mem 原生注册、Ponytail;已显式禁用的保留)?' Y CODEX_PLUGINS && PLAN_PLUGINS=1
@@ -977,7 +999,8 @@ JSON
   if [ "$mem_ok" = 1 ] && ! mem_ready; then
     if [ "$PLAN_MEM_INSTALLER" = 1 ]; then
       echo 'claude-mem runtime 缺失或过旧;官方安装器会更新共享资产、Claude 插件注册并停止 worker。'
-      echo '已有 settings.json 将原样恢复;安装后需重新启动 worker。'
+      echo '已有 settings.json 将原样恢复;安装后按原状恢复 worker。'
+      mem_was_alive=0; mem_worker_alive "$SETTINGS" && mem_was_alive=1
       install_mem_runtime || { warn 'claude-mem runtime 安装失败'; mem_ok=0; }
     else mem_ok=0; fi
   fi
@@ -987,6 +1010,7 @@ JSON
     else warn 'claude-mem 资产不完整,请检查官方安装器输出'; fi
   fi
   if [ "$PLAN_WRITE_CFG" = 1 ]; then ensure_mem_provider "$SETTINGS"; fi
+  mem_worker_restore "$SETTINGS" "${mem_was_alive:-0}" || true
 fi
 
 # ---- 3. Ponytail + hooks ----
@@ -1083,7 +1107,7 @@ fi
 echo '== 配置步骤结束 =='
 echo '1. 在 Codex /hooks 审阅并信任插件 hooks,然后重开会话;更新 hooks 后可能需要重新信任。'
 echo '2. 用 /mcp 检查连接,实际调用 claude-mem 查询和 CodeGraph 工具。'
-echo "3. claude-mem worker 地址 http://$(mem_worker_url "$SETTINGS")(端口取自 $SETTINGS,默认 37700)。后端配置: $SETTINGS（启动时已检测已有配置并只收集缺项;留空的占位符按清单手工补;环境变量预填方式:PI_GATEWAY_BASE_URL / PI_CLAUDE_MEM_API_KEY)。如刚运行安装器,填好配置后执行 npx claude-mem@latest start。"
+echo "3. claude-mem worker 地址 http://$(mem_worker_url "$SETTINGS")(端口取自 $SETTINGS,默认 37700)。后端配置: $SETTINGS（启动时已检测已有配置并只收集缺项;留空的占位符按清单手工补;环境变量预填方式:PI_GATEWAY_BASE_URL / PI_CLAUDE_MEM_API_KEY)。安装前在运行的话会自动恢复;本次没在跑就手工执行 npx claude-mem@latest restart。"
 echo '4. 新项目执行 codegraph init;已有项目索引可复用。'
 echo '5. skills 原样复用;缺少 Magic Context 的 ctx_* 工具时仅 best effort,以 OpenCode 为主。'
 echo '6. 本脚本不升级已有插件；skills 已经共用同步器刷新，第三方由 npx skills 更新。'

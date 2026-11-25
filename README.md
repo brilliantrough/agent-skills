@@ -768,7 +768,9 @@ npx claude-mem install --ide pi --provider claude --no-auto-start
 - `pi-setup.sh` 与 `opencode-setup.sh` 都调用官方安装器更新 runtime 和对应宿主入口
 - agent-skills 不再复制 bundle、代理 hooks 或维护 claude-mem wrapper
 - Pi 默认只用官方原生 `mem_search`、`mem_timeline`、`mem_get_observations`，经 HTTP 连接共享 worker，不额外登记 claude-mem MCP
-- 官方安装器会停止共享 worker；`--no-auto-start` 只禁止自动启动。更新后手工重启 worker；已有 settings 在安装后原样恢复
+- 官方安装器覆盖文件前会停掉共享 worker，`--no-auto-start` 只禁止它的自动启动。setup 在安装前记下 worker 是否在跑，装完**仅在原本运行过时**用 `npx claude-mem restart` 恢复（不是替用户启用一个常驻进程）；已有 settings 在安装后原样恢复
+- claude-mem 的 runtime 与 worker 是全机共享的，各宿主脚本只装自己的 IDE 集成。`setup.sh` 同时更新多个宿主时把恢复动作收口到统一入口执行一次，避免逐个重启互相打断；单独跑某个 `*-setup.sh` 时由它自己恢复
+- `--ide` 一次只装一个 agent（上游 `parseArgs` 里是单值），所以多宿主仍会各调用一次安装器；重活只在第一次（下载 runtime、bun/npm 依赖），后续实测约 6 秒
 - 迁移期先备份再移除旧模板 MCP／旧 bridge；自定义 MCP 保留。需要额外 MCP 工具可自行登记
 
 **magic-context 版本守卫**
@@ -930,7 +932,7 @@ setup 先移除受管同名 MCP 项，交官方安装器刷新，再统一转换
 填好占位符后：
 
 ```bash
-cd ~/.claude/plugins/marketplaces/thedotmack && npm run worker:restart
+npx -y claude-mem@latest restart
 curl 127.0.0.1:37700/api/health     # 端口见 $SETTINGS 的 CLAUDE_MEM_WORKER_PORT
 ```
 

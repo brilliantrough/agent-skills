@@ -1554,10 +1554,22 @@ def check_unified_update():
             skill.mkdir(parents=True); (skill / "SKILL.md").write_text(group)
         for host in ("opencode", "pi"):
             (src / f"{host}-setup.sh").write_text(
-                f'echo {host}:"$AGENT_SKILLS_HOST_ONLY:$*" >> "$LOG"\n'
+                f'echo {host}:"$AGENT_SKILLS_HOST_ONLY:$AGENT_SKILLS_MEM_RESTART:$*" >> "$LOG"\n'
+                f'rm -f "$ALIVE_FLAG"\n'
                 f'test "${{FAIL_HOST:-}}" != "{host}" || exit 23\n'
                 f'mod="$SOURCE_ROOT/modules/run.sh"; selected=$(bash "$mod" --host {host} --select --yes)\n'
                 f'bash "$mod" --host {host} --selected "$selected"\n')
+        # 统一入口自己收口 claude-mem worker；桩掉 curl/npx，既不碰本机 worker 也能断言只重启一次。
+        bin_dir = tmp / "bin"; bin_dir.mkdir()
+        # 健康检查桩：flag 文件存在即"worker 在跑"。宿主桩模拟官方安装器把它停掉，
+        # 从而观察统一入口是否补做且只补做一次恢复。
+        (bin_dir / "curl").write_text('#!/bin/sh\n[ -f "$ALIVE_FLAG" ]\n')
+        # restart 桩把 flag 放回，模拟"重启成功、健康检查通过"；其它条目照旧记录调用。
+        (bin_dir / "npx").write_text(
+            '#!/bin/sh\necho "npx $*" >> "$LOG"\n'
+            '[ "$*" != "restart" ] || : > "$ALIVE_FLAG"\n')
+        for stub in bin_dir.iterdir():
+            stub.chmod(0o755)
         (src / "skills-external.sh").write_text('echo shared >> "$LOG"\n')
         (src / "modules").mkdir(); shutil.copy(ROOT / "modules/run.sh", src / "modules/run.sh")
         mod = src / "modules/example"; mod.mkdir()
@@ -1566,7 +1578,7 @@ def check_unified_update():
         (unused / 'setup.sh').write_text('# module: unused\n# hosts: any\n# default: Y\nexit 19\n')
         log = tmp / "calls"; pref = home / "preferences.conf"
         pref.write_text('SHARED_RESEARCH=1\nDSH_MODULES=example\nDSH_MODULES_KNOWN=example,unused\n')
-        env = dict(PATH=os.environ['PATH'], HOME=str(home), AGENT_SKILLS_SOURCE=str(src),
+        env = dict(PATH=f"{bin_dir}:{os.environ['PATH']}", HOME=str(home), AGENT_SKILLS_SOURCE=str(src),
                    AGENT_SKILLS_PREFERENCES=str(pref), SKILLS_EXTERNAL='skip', LOG=str(log))
         def run(*args, **extra):
             return subprocess.run(['bash', ROOT / 'setup.sh', *args], cwd=tmp, env=dict(env, **extra),
@@ -1574,7 +1586,7 @@ def check_unified_update():
         assert run('-y').returncode == 2 and not log.exists(), '首次无明确宿主时不得猜测'
         result = run('--hosts', 'opencode,pi,antigravity', '-y')
         assert result.returncode == 0, result.stdout + result.stderr
-        expected = ['shared', 'opencode:1:-y', 'pi:1:-y', 'module']
+        expected = ['shared', 'opencode:1:0:-y', 'pi:1:0:-y', 'module']
         assert log.read_text().splitlines() == expected
         assert (home / '.gemini/AGENTS.md').is_file() and not (home / '.claude/CLAUDE.md').exists()
         installed = home / '.agents/skills/demo-research/SKILL.md'
@@ -1588,11 +1600,61 @@ def check_unified_update():
         assert run('--hosts', 'bogus', '-y').returncode != 0 and pref.stat().st_mtime_ns == saved
         before = (home / '.gemini/AGENTS.md').stat().st_mtime_ns
         assert run('--hosts', 'opencode', '-y').returncode == 0
-        assert log.read_text().splitlines()[8:] == ['shared', 'opencode:1:-y', 'module']
+        assert log.read_text().splitlines()[8:] == ['shared', 'opencode:1:0:-y', 'module']
         assert (home / '.gemini/AGENTS.md').stat().st_mtime_ns == before
         assert 'SHARED_HOSTS=opencode\n' in pref.read_text()
-        assert run('-y', FAIL_HOST='opencode').returncode == 23 and log.read_text().splitlines()[-1] == 'opencode:1:-y'
-    print('统一更新：选中宿主、旧偏好继承、公共项只执行一次、重跑与失败传播')
+        assert run('-y', FAIL_HOST='opencode').returncode == 23 and log.read_text().splitlines()[-1] == 'opencode:1:0:-y'
+        # worker 本就没在跑时，绝不顺手启一个常驻进程
+        assert not [line for line in log.read_text().splitlines() if line.startswith('npx ')]
+        # 装前在跑时由统一入口收口一次，而不是每个宿主各自重启互相打断
+        log.unlink()
+        flag = tmp / "alive-flag"
+        flag.touch()
+        assert run("--hosts", "opencode,pi", "-y", ALIVE_FLAG=str(flag)).returncode == 0
+        restarts = [line for line in log.read_text().splitlines() if line.startswith('npx ')]
+        assert restarts == ['npx -y claude-mem@latest restart'], restarts
+        # 宿主中途失败也必须把 worker 恢复回来（EXIT trap），而不是留下一个停掉的记忆后端
+        log.unlink(); flag.touch()
+        assert run("--hosts", "opencode,pi", "-y", ALIVE_FLAG=str(flag), FAIL_HOST="pi").returncode == 23
+        restarts = [line for line in log.read_text().splitlines() if line.startswith('npx ')]
+        assert restarts == ['npx -y claude-mem@latest restart'], restarts
+    print('统一更新：选中宿主、旧偏好继承、公共项只执行一次、worker 只由入口收口、重跑与失败传播')
+
+
+def check_mem_worker_restore():
+    """安装器会停掉共享 worker；只在装前确实在跑时恢复，且统一入口只做一次。"""
+    with tempfile.TemporaryDirectory(prefix="mem-worker-") as td:
+        tmp = pathlib.Path(td); bin_dir = tmp / "bin"; bin_dir.mkdir()
+        log = tmp / "npx.log"
+        (bin_dir / "curl").write_text('#!/bin/sh\n[ "${ALIVE:-0}" = 1 ]\n')
+        (bin_dir / "npx").write_text('#!/bin/sh\necho "npx $*" >> "$LOG"\n[ "${RESTART_OK:-1}" = 1 ]\n')
+        for item in bin_dir.iterdir():
+            item.chmod(0o755)
+        settings = tmp / "settings.json"
+        settings.write_text('{"CLAUDE_MEM_WORKER_HOST": "127.0.0.1", "CLAUDE_MEM_WORKER_PORT": "37991"}')
+        bodies = [function(ROOT / name, fn)[0] for name in SETUPS
+                  for fn in ("mem_worker_url", "mem_worker_alive", "mem_worker_restore")]
+        assert len(set(bodies)) == 3, "四宿主 claude-mem worker 函数漂移"
+        script = tmp / "run.sh"
+        script.write_text("set -u\n" + "".join(bodies[i] for i in (0, 1, 2)) +
+                          f'mem_worker_restore "{settings}" "${{WAS_ALIVE}}"\n')
+        base = dict(PATH=f"{bin_dir}:{os.environ['PATH']}", LOG=str(log), HOME=str(tmp))
+
+        def run(**extra):
+            log.unlink(missing_ok=True)
+            return subprocess.run(["bash", str(script)], env={**base, **{k: str(v) for k, v in extra.items()}},
+                                  stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30)
+
+        got = run(ALIVE=1, WAS_ALIVE=1)
+        assert got.returncode == 0, got.stdout + got.stderr
+        assert log.read_text().splitlines() == ["npx -y claude-mem@latest restart"]
+        assert "已重启" in got.stdout
+        assert run(ALIVE=1, WAS_ALIVE=0).returncode == 0 and not log.exists(), "worker 原本没跑时不应启动它"
+        assert run(ALIVE=1, WAS_ALIVE=1, AGENT_SKILLS_MEM_RESTART=0).returncode == 0 and not log.exists(), \
+            "统一入口收口时各宿主不应各自重启"
+        failed = run(ALIVE=0, WAS_ALIVE=1, RESTART_OK=0)
+        assert failed.returncode != 0 and "手工执行" in failed.stderr, "重启失败必须报出可手工执行的补救命令"
+    print('claude-mem worker：装前在跑才恢复、入口只收口一次、失败给出补救命令')
 
 
 def main():
@@ -1624,6 +1686,7 @@ def main():
     check_mem_search_setup()
     check_setup_preferences()
     check_unified_update()
+    check_mem_worker_restore()
     print("PASS: setup 前置选择回归")
 
 

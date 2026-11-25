@@ -334,7 +334,8 @@ PI_OC = ["pi-setup.sh", "opencode-setup.sh"]
 # 宿主差异用参数表达；确实不同的实现改名，不放进这张表。
 LOCKED = {
     "npath": ALL3, "rpath": ALL3, "nbin": ALL3, "resolve_python3": ALL3,
-    "ask": ALL3, "ask_value": ALL3, "fill_template_placeholders": ALL3, "mem_worker_url": ALL3,
+    "ask": ALL3, "ask_value": ALL3, "fill_template_placeholders": ALL3, "mem_worker_url": SETUPS,
+    "mem_worker_alive": SETUPS, "mem_worker_restore": SETUPS,
     "file_url": SETUPS + ["skills-sync.sh", "setup.sh"], "acquire_source": SETUPS + ["skills-sync.sh", "setup.sh"],
     "preference_get": SETUPS, "preference_put": SETUPS, "preferences_init": SETUPS,
     "preferences_filter_modules": SETUPS, "preferences_lock": SETUPS,

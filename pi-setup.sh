@@ -113,7 +113,7 @@ fi
 MODELS="$AGENT_DIR/models.json"
 SETTINGS="$AGENT_DIR/settings.json"
 MCP_CONFIG="$AGENT_DIR/mcp.json"
-MC_SETTINGS="$HOME/.claude-mem/settings.json"
+MC_SETTINGS="${CLAUDE_MEM_DATA_DIR:-$HOME/.claude-mem}/settings.json"
 # 本仓库 Pi 包从本地源码树 staged 到这里；依赖安装在副本，不写候选工作树。
 REPO_PI_SPEC="$AGENT_DIR/vendor/agent-skills"
 REPO_PI_PKG="$REPO_PI_SPEC"
@@ -494,6 +494,28 @@ host = os.environ.get('CLAUDE_MEM_WORKER_HOST') or s.get('CLAUDE_MEM_WORKER_HOST
 port = os.environ.get('CLAUDE_MEM_WORKER_PORT') or s.get('CLAUDE_MEM_WORKER_PORT') or str(37700 + getattr(os, 'getuid', lambda: 77)() % 100)
 print(f'{host}:{port}')
 PYEOF
+}
+
+# worker 是否响应健康检查；没有 curl 或超时都按"没在运行"处理
+mem_worker_alive() {
+  local url
+  url="$(mem_worker_url "$1")"
+  curl -fsS -m 2 -o /dev/null "http://$url/api/health" 2>/dev/null
+}
+
+# 官方安装器覆盖文件前会停 worker；只在安装前确实在运行时恢复，
+# 避免把本来没跑 worker 的机器变成常驻进程（恢复状态，不是启用功能）。
+mem_worker_restore() {  # $1=settings.json $2=安装前是否在运行(1/0)
+  [ "${2:-0}" = 1 ] || return 0
+  [ "${AGENT_SKILLS_MEM_RESTART:-1}" = 1 ] || return 0
+  local url
+  url="$(mem_worker_url "$1")"
+  if npx -y claude-mem@latest restart >/dev/null 2>&1 && mem_worker_alive "$1"; then
+    echo "claude-mem worker 已重启: http://$url/api/health"
+    return 0
+  fi
+  echo "WARN: claude-mem worker 未恢复运行;手工执行 npx -y claude-mem@latest restart" >&2
+  return 1
 }
 
 # ---- 网关/凭据预填:新机器只需填网关 + 各 api key ----
@@ -1106,7 +1128,7 @@ PY_MCP_VERSION
   # 5. claude-mem runtime(npx 已存在,或本次 PLAN_NODE 会装好 npx 时都可前置选择)
   PLAN_MEM_RUNTIME=0
   if command -v npx >/dev/null 2>&1 || [ "$PLAN_NODE" = 1 ]; then
-    ask "更新 claude-mem runtime 与 Pi 插件（会停止共享 worker，之后手工重启）?" Y PI_MEM_RUNTIME && PLAN_MEM_RUNTIME=1
+    ask "更新 claude-mem runtime 与 Pi 插件（会停止共享 worker，随后自动恢复）?" Y PI_MEM_RUNTIME && PLAN_MEM_RUNTIME=1
   fi
 
   # 6.1 旧部署文件清理(合为一问)
@@ -1969,6 +1991,8 @@ ensure_image_gen
 if ! command -v npx >/dev/null 2>&1; then
   echo "WARN: 未检测到 npx，跳过 claude-mem runtime/Pi 插件更新" >&2
 elif [ "${PLAN_MEM_RUNTIME:-0}" = 1 ] && [ "${PLAN_WRITE_CFG:-1}" = 1 ]; then
+  # 安装器覆盖前会停 worker；先记下它是否本来在跑，稍后只按原状恢复。
+  mem_was_alive=0; mem_worker_alive "$MC_SETTINGS" && mem_was_alive=1
   # 安装器会写 provider；退出时原样恢复共享 settings，不启动 worker。
   (
     saved="$(mktemp)"; chmod 600 "$saved"
@@ -2063,6 +2087,8 @@ EOF
     echo "跳过: $MC_SETTINGS 未创建"
   fi
 fi
+
+mem_worker_restore "$MC_SETTINGS" "${mem_was_alive:-0}" || true
 
 mcc_rc=0; merge_cfg "$RAW/opencode/magic-context.jsonc" "$MC_CFG" || mcc_rc=$?
 if [ "$mcc_rc" = 1 ] && [ ! -f "$MC_CFG" ]; then
@@ -2272,9 +2298,8 @@ for _f in "$MODELS" "$AUTH" "$MCP_CONFIG" "$MC_SETTINGS" "$MC_CFG" "$HOME/.func"
 done
 [ "$_ph" = 0 ] && echo "   (无,凭据已齐)"
 echo "   提示:claude-mem 走 openrouter(OpenAI 协议),它的 key 与 magic-context embedding 的各自独立;historian/dreamer 的 model 用 <provider>/<model-id>"
-echo "$n. 重启 claude-mem worker 并验证:"; n=$((n+1))
-echo "      cd ~/.claude/plugins/marketplaces/thedotmack && npm run worker:restart"
-echo "      curl -s http://$(mem_worker_url "$MC_SETTINGS")/api/health   # 端口取自 $MC_SETTINGS(见下方提示)"
+echo "$n. claude-mem worker:安装前在运行的话会自动恢复;本次没在跑就手工启动:"; n=$((n+1))
+echo "      npx -y claude-mem@latest restart && curl -s http://$(mem_worker_url "$MC_SETTINGS")/api/health   # 端口取自 $MC_SETTINGS(见下方提示)"
 echo "$n. 记忆系统规则:已按计划写入 Pi 用户级 $AGENT_DIR/AGENTS.md(或跳过);项目自身的 AGENTS.md 保持原样,项目规则仍写在仓库里"; n=$((n+1))
 if [ -x "${CG_BIN:-}" ]; then
   echo "$n. 代码知识图谱(按项目):cd <项目> && codegraph init(建 .codegraph/ 索引;不 init 则 MCP 无内容可查)"; n=$((n+1))
