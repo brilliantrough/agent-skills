@@ -14,11 +14,14 @@ run_one() ( # 子 shell:每个 setup 的函数互不污染
   src="$(python3 - "$script" <<'PY'
 import re, sys
 s = open(sys.argv[1], encoding="utf-8").read()
-for n in ["npath", "rpath", "nbin", "fill_template_placeholders", "ask", "merge_cfg", "ensure_mem_provider", "deploy_file"]:
+functions = ["npath", "rpath", "nbin", "fill_template_placeholders", "ask", "merge_cfg", "ensure_mem_provider"]
+if sys.argv[1] == "pi-setup.sh":
+    functions += ["deploy_staged_file", "deploy_file"]
+for n in functions:
     m = re.search(r"^%s\(\)\s*\{.*?^\}\n" % n, s, re.M | re.S)
     if m:
         print(m.group(0))
-    elif n != "deploy_file":  # 整文件部署只有 Pi 有
+    else:
         sys.exit(f"{sys.argv[1]}: 找不到函数 {n}")
 PY
 )" || { echo "  FAIL: 抽取函数失败"; exit 1; }

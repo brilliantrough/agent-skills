@@ -1237,10 +1237,10 @@ if grep -qs '"mcphub-web"[[:space:]]*:' "$CFG/opencode.json" "$CFG/opencode.json
   [ "$CHECK_ONLY" = 1 ] || [ "$PLAN_WRITE_CFG" != 1 ] || web_args+=(--apply)
   if [ ! -f "$SOURCE_ROOT/migrate-web-mcp.py" ]; then
     web_mcp_ready=0
-    echo "ERROR: 源码树缺 migrate-web-mcp.py($SOURCE_ROOT);web MCP 改名未完成,跳过主配置模板合并" >&2
+    echo "ERROR: 源码树缺 migrate-web-mcp.py($SOURCE_ROOT);web MCP 改名未完成" >&2
   elif ! python3 "$(npath "$SOURCE_ROOT/migrate-web-mcp.py")" opencode "$(npath "$CFG/opencode.json")" "$(npath "$CFG/opencode.jsonc")" "${web_args[@]}"; then
     web_mcp_ready=0
-    echo "WARN: web MCP 改名未完成，跳过主配置模板合并；其他插件继续部署" >&2
+    echo "WARN: web MCP 改名未完成，保留冲突条目" >&2
   fi
 fi
 # deprecated: mcphub-web-rename 结束。
@@ -1362,7 +1362,13 @@ fi
 # 已转换为 V2；四个 newapi provider 与自有 MCP 的非敏感结构随模板刷新，敏感值与本地额外条目保留。
 # 老 opencode.jsonc 的值自动并入 opencode.json 后退役为 .migrated.bak
 # 自动更新默认关闭；已有 notify/disable 保留，auto 问一次。
-oc_tpl="$(mktemp "$oc_stage/template.XXXXXX")"; oc_cand="$(mktemp)"
+oc_tpl="$(mktemp "$oc_stage/template.XXXXXX")"; oc_cand="$(mktemp "$oc_stage/merged.XXXXXX")"
+if [ "$web_mcp_ready" != 1 ] || ! curl -fsSL --connect-timeout 8 -m 30 -o "$oc_tpl" "$RAW/opencode/opencode.json"; then
+  echo "ERROR: opencode.json 模板不可用或 web MCP 迁移未完成，未应用模板" >&2
+  exit 1
+fi
+bun "$(npath "$oc_stage/migrate-config.mjs")" --apply "$(npath "$oc_tpl")" || exit 1
+fill_template_placeholders "$oc_tpl"
 oc_link="$CFG/opencode.json"
 oc_target="$(rpath "$oc_link")"
 oc_force_manual="$PLAN_FORCE_MANUAL"
@@ -1373,10 +1379,7 @@ if [ -f "$CFG/opencode.json" ] && [ -n "$GW_BASE$K_CLAUDE$K_CODEX$K_ANTHROPIC$K_
   fill_template_placeholders "$CFG/opencode.json"
   echo "filled placeholders: $CFG/opencode.json"
 fi
-if [ "$web_mcp_ready" = 1 ] && curl -fsSL --connect-timeout 8 -m 30 -o "$oc_tpl" "$RAW/opencode/opencode.json"; then
-  bun "$(npath "$oc_stage/migrate-config.mjs")" --apply "$(npath "$oc_tpl")" || exit 1
-  fill_template_placeholders "$oc_tpl"
-  oc_out="$(python3 - "$CFG/opencode.json" "$CFG/opencode.jsonc" "$oc_tpl" "$oc_cand" "$OC_MAJOR" "$oc_force_manual" "$PLAN_COMPACTION" <<'PYEOF'
+oc_out="$(python3 - "$CFG/opencode.json" "$CFG/opencode.jsonc" "$oc_tpl" "$oc_cand" "$OC_MAJOR" "$oc_force_manual" "$PLAN_COMPACTION" <<'PYEOF'
 import json, re, os, sys
 
 target_p, jsonc_p, tpl_p = sys.argv[1:4]
@@ -1470,6 +1473,12 @@ for role in ('consolidation-reviewer', 'verification-reviewer'):
     reviewer = (tpl.get('agents') or {}).get(role, {})
     if 'model' in reviewer:
         merged['agents'][role]['model'] = reviewer['model']
+# deprecated: 仅迁移 general/explore 的旧套件默认；本机自选模型优先。
+for role in ('general', 'explore'):
+    default = (tpl.get('agents') or {}).get(role, {}).get('model')
+    agent = (merged.get('agents') or {}).get(role, {})
+    if default and agent.get('model') == 'anthropic-newapi/deepseek-flash':
+        agent['model'] = default
 # 已有更新策略保留，只有用户确认后才关闭 auto。
 major, force_manual = sys.argv[5], sys.argv[6] == '1'
 if major != '2':
@@ -1510,24 +1519,20 @@ if os.path.exists(jsonc_p):
 print(';'.join(msgs) if msgs else 'unchanged')
 PYEOF
 )"
-  case "$oc_out" in
-    unchanged) echo "unchanged: $CFG/opencode.json" ;;
-    "")        echo "WARN: opencode.json 合并失败,现有配置未改动" >&2 ;;
-    *)         if [ -s "$oc_cand" ]; then
-                 if [ -f "$CFG/opencode.json" ]; then
-                   cp -p "$CFG/opencode.json" "$CFG/opencode.json.bak-$(date +%Y%m%d%H%M%S)"
-                 fi
-                 mv "$oc_cand" "$oc_target"
+case "$oc_out" in
+  unchanged) echo "unchanged: $CFG/opencode.json" ;;
+  *)         if [ -s "$oc_cand" ]; then
+               if [ -f "$CFG/opencode.json" ]; then
+                 cp -p "$CFG/opencode.json" "$CFG/opencode.json.bak-$(date +%Y%m%d%H%M%S)"
                fi
-               echo "updated: $CFG/opencode.json($oc_out)"
-               if [ -f "$CFG/opencode.jsonc" ]; then
-                 mv "$CFG/opencode.jsonc" "$CFG/opencode.jsonc.migrated-$(date +%Y%m%d%H%M%S).bak"
-                 echo "retired: opencode.jsonc(值已并入 opencode.json)"
-               fi ;;
-  esac
-else
-  echo "跳过: opencode.json 模板下载或 web MCP 迁移未完成，保留现有配置"
-fi
+               mv "$oc_cand" "$oc_target"
+             fi
+             echo "updated: $CFG/opencode.json($oc_out)"
+             if [ -f "$CFG/opencode.jsonc" ]; then
+               mv "$CFG/opencode.jsonc" "$CFG/opencode.jsonc.migrated-$(date +%Y%m%d%H%M%S).bak"
+               echo "retired: opencode.jsonc(值已并入 opencode.json)"
+             fi ;;
+esac
 rm -f "$oc_tpl" "$oc_cand"
 
 fi # 完整安装的环境／配置步骤

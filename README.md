@@ -35,7 +35,7 @@
 
 表格里的共用能力都由脚本在开头统一选择并透传，宿主特有部分留在各自的 `*-setup.sh`。规范块写进各宿主的用户级文件（OpenCode `~/.config/opencode/AGENTS.md`、Pi `~/.pi/agent/AGENTS.md`、DSH `$DSH_HOME/AGENTS.md`、Codex `~/.codex/AGENTS.md`，Claude Code 为 `CLAUDE.md`），每个账号装一次、所有项目共用；项目自己的 `AGENTS.md` 不再被改写，项目规则仍写在仓库里。
 
-[快速安装](#快速安装) · [Skills](#skills本仓-48-个) · [首次部署](#首次部署只需要网关--6-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [DSH](dsh/README.md) · [OpenCode](#opencode-安装与迁移) · [更新](#更新) · [贡献](CONTRIBUTING.md)
+[快速安装](#快速安装) · [Skills](#skills本仓-49-个) · [首次部署](#首次部署只需要网关--6-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [DSH](dsh/README.md) · [OpenCode](#opencode-安装与迁移) · [更新](#更新) · [贡献](CONTRIBUTING.md)
 
 ## 快速安装
 
@@ -160,9 +160,9 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/pi-setup.sh)"
 ```
 
-## Skills（本仓 48 个）
+## Skills（本仓 49 个）
 
-五组共 48 个，默认 base 29 个；科研／算法研究 9 个、算力模板 7 个、公共知识 2 个与 PPT 1 个按需选装。`research`、`kb` 与 `ppt` 随仓库刷新，`accel` 缺才装；外部设计依赖在开头统一选择、默认安装，Light-Science 精选集成另行选择，不复制到本仓、不计入上述数量。
+五组共 49 个，默认 base 30 个；科研／算法研究 9 个、算力模板 7 个、公共知识 2 个与 PPT 1 个按需选装。`research`、`kb` 与 `ppt` 随仓库刷新，`accel` 缺才装；外部设计依赖在开头统一选择、默认安装，Light-Science 精选集成另行选择，不复制到本仓、不计入上述数量。
 
 ### 工程技能
 
@@ -239,7 +239,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 - Codex ≥0.158.0：setup 安装两份原生 TOML 角色。官方明确自定义 agent 文件中的 `sandbox_mode`、`model_provider` 等字段不覆盖父会话，因此两份角色都不写 `sandbox_mode`；仓库禁写、临时目录和禁联网是行为合同，不冒充独立文件系统沙箱。
 - DSH：原生 presets 加 `verification_review`／`consolidation_review` 委派工具；沿用 spawn，不新增执行器。
 - Claude Code：`skills-sync.sh` 随 base 组安装两份 `~/.claude/agents/` 定义；模型继承主会话，权限由提示词和工具清单约束。
-- 代理配置来自本仓 `templates/`；Pi/Codex/Claude Code 文件有变化先备份，OpenCode 完整 setup 经确认刷新两种 Reviewer 的模型／档位，其它角色及本地字段保留。只装 skill 不等于已经注册子代理。
+- 审查角色来自本仓 `templates/`。Pi、Codex、Claude Code 的角色文件有变化先备份；OpenCode 完整 setup 经确认刷新 Reviewer 模型／档位，保留本机提示词和权限。只装 skill 不等于已经注册子代理。
 
 本仓额外提供项目特化的漏装检查。默认只读并对漏装返回非零；`--apply` 才调用对应现有 setup，Reviewer 本身不修改 live：
 
@@ -249,7 +249,7 @@ bash scripts/verify-subagents.sh --apply          # 各 setup 仍在开头集中
 bash scripts/verify-subagents.sh --apply --yes    # 显式接受默认升级与共享 worker 副作用
 ```
 
-审查角色统一使用 **GPT 6.2 Sol + max**；只改 `verification-reviewer` 与 `consolidation-reviewer`，不改变 `explore/general` 或主会话默认值：
+以下审查角色配置使用 **GPT 6.2 Sol + max**，不设主会话的模型默认值：
 
 | 宿主 | 模型与思考强度的配置位置／字段 |
 | --- | --- |
@@ -276,6 +276,7 @@ bash scripts/verify-subagents.sh --apply --yes    # 显式接受默认升级与�
 | `steady-do` | 日常功能、插件、扩展；长程或无人值守运行 | 当前会话澄清、实现、验证；已有计划且用户要求执行时直接按计划做；明确要求“做到完成”时用可判定谓词＋原生唤醒＋`decisions.tsv` 逐轮推进 |
 | [`multi-agent`](skills/base/multi-agent/SKILL.md) | 独立分支、多 Agent 或 Swarm | 按分片覆盖或同题竞速派发，主会话集成；没有值得拆的分支就串行 |
 | [`plan-brief`](skills/base/plan-brief/SKILL.md) | 大框架、长程移植、多阶段任务 | 写清依赖、可并行分片和验收，规划完成后停下；用户可让原会话执行，指定跨会话时才生成启动 prompt、报告和审查 |
+| [`t3-plan-execute`](skills/base/t3-plan-execute/SKILL.md) | 仅在 T3 Code 的 Antigravity 会话显式调用 | Antigravity 规划和审阅；获授权后由 OpenCode 实施、去冗余和功能复核 |
 
 按不确定性、耦合、风险与交接需求选择，不按字数分档：
 
@@ -1144,6 +1145,8 @@ npm 缺失包在 OpenCode 启动时自动安装；已有包不会因重启自动
 | ppt（南京大学PPT，1） | 默认不选；选中后刷新并先备份漂移，再补齐引擎和独立Python环境 |
 
 客户端不分组：实体直落 `~/.agents/skills/<名>`；统一入口公共模式为 Claude Code 和 Antigravity 准备轻量发现入口，单宿主同步按已有 Claude 目录维护其入口。选组只决定本次安装／更新；不选不会卸载已安装的 skill。
+
+选中 OpenCode、Pi 且同意写配置时，统一入口更新两个原生角色的默认模型：`general` 用 `codex-newapi/gpt-6.2-sol`，`explore` 用 `codex-newapi/gpt-6.1-terra`。OpenCode 只迁移这两个角色的旧默认模型值；Pi 只迁移与旧套件定义一致的角色文件。其它本机选择、项目级覆盖和主会话模型不由这项迁移改动。`--hosts none` 只同步公共项，`--plugins-only` 不更新角色。
 
 第三方由共用同步器末尾的 `skills-external.sh` 处理：先询问是否安装三个设计依赖（默认Y；`--uninstall` 清理，`SKILLS_EXTERNAL=skip` 跳过设计依赖），选中ppt仍补装 `hugohe3/ppt-master`，再按锁表更新已登记第三方。同时排除本仓来源、已合并的 `redesign-existing-projects` 与 `skills/{base,research,accel,kb,ppt}` 下的名字，避免本仓skill误交给npx更新。Dashi 与 Light-Science 两个精选入口沿用固定基线，不参加套件通用更新；Light-Science 由可选模块或其底层脚本单独补装。
 

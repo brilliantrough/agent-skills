@@ -1447,24 +1447,48 @@ PY
   fi
 }
 
-# deploy_file <url> <dest> <label> — 整文件部署(用于 agents/*.md、extensions/*.ts):
-#   内容一致则不写;有差异存 .bak 后覆盖;dest 是符号链接时写入链接目标
-deploy_file() {
-  local url="$1" dest="$2" label="$3" tmp target
-  [ "${PLAN_WRITE_CFG:-1}" = 1 ] || { echo "跳过: $dest(前置计划未选择写入配置)"; return 2; }
+# deploy_staged_file <template> <dest> <label> [previous-model]
+#   内容一致不写，有差异先备份；指定旧模型时只更新套件旧定义。
+deploy_staged_file() {
+  local tmp="$1" dest="$2" label="$3" previous_model="${4:-}" target state
   target="$(rpath "$dest")" || return 1
-  tmp="$(mktemp)"
-  if ! curl -fsSL --connect-timeout 8 -m 30 -o "$tmp" "$url"; then
-    rm -f "$tmp"; echo "WARN: $label 下载失败,保留现有 $dest" >&2; return 1
+  if [ -e "$target" ] && [ ! -f "$target" ]; then
+    echo "ERROR: $dest 不是普通文件，未部署 $label" >&2; return 1
   fi
-  mkdir -p "$(dirname "$target")"
-  if [ -f "$dest" ] && cmp -s "$tmp" "$dest"; then
-    echo "unchanged: $dest"; rm -f "$tmp"; return 0
+  if [ -f "$dest" ]; then
+    if cmp -s "$tmp" "$dest"; then
+      echo "unchanged: $dest"; return 0
+    fi
+    if [ -n "$previous_model" ]; then
+      state="$(python3 - "$(npath "$tmp")" "$(npath "$dest")" "$previous_model" <<'PY'
+import re, sys
+from pathlib import Path
+new, live = (Path(path).read_bytes().replace(b'\r\n', b'\n') for path in sys.argv[1:3])
+old = re.sub(rb'^model: .*$', b'model: ' + sys.argv[3].encode(), new, count=1, flags=re.M)
+print('unchanged' if live == new else 'migrate' if live == old else '保留本机自定义')
+PY
+)" || return 1
+      if [ "$state" != migrate ]; then
+        echo "$state: $dest"; return 0
+      fi
+    fi
+    cp -p "$dest" "$dest.bak-$(date +%Y%m%d%H%M%S)" || return 1
   fi
-  local bak=""
-  [ -f "$dest" ] && bak="$dest.bak-$(date +%Y%m%d%H%M%S)"
-  [ -n "$bak" ] && cp "$dest" "$bak"
-  mv "$tmp" "$target"; echo "wrote: $dest"
+  mkdir -p "$(dirname "$target")" && mv "$tmp" "$target" || return 1
+  echo "wrote: $dest"
+}
+
+deploy_file() {
+  local url="$1" dest="$2" label="$3" tmp rc=0
+  [ "${PLAN_WRITE_CFG:-1}" = 1 ] || { echo "跳过: $dest(前置计划未选择写入配置)"; return 2; }
+  tmp="$(mktemp)" || return 1
+  if curl -fsSL --connect-timeout 8 -m 30 -o "$tmp" "$url"; then
+    deploy_staged_file "$tmp" "$dest" "$label" || rc=$?
+  else
+    echo "WARN: $label 下载失败,保留现有 $dest" >&2; rc=1
+  fi
+  rm -f "$tmp"
+  return "$rc"
 }
 
 echo "== Pi 一键配置 =="
@@ -2156,15 +2180,26 @@ if [ "$PI_OK" -eq 1 ]; then
       fi
     fi
   fi
-  # ---- 6. subagent 定义 + 个性化 UI 配置(仓库模板整文件覆盖;有差异先存 .bak)----
-  # 不做一次性迁移:仓库模板就是当前已验证的配置,直接覆盖。
+  # ---- 6. subagent 定义 + 个性化 UI 配置(有差异先存 .bak)----
   # 想保留本机在 /ui 里的改动,就把它同步回模板,否则下次 setup 会覆盖回去。
   prune_legacy_ui_packages
   deploy_file "$RAW/pi/agent-skills-ui.json" "$AGENT_DIR/agent-skills-ui.json" "个性化 UI 布局/侧栏" || true
   deploy_file "$RAW/pi/agent-skills-editor.json" "$AGENT_DIR/agent-skills-editor.json" "个性化 UI 编辑器/页脚" || true
   deploy_file "$RAW/pi/keybindings.json" "$AGENT_DIR/keybindings.json" "按键(Enter 发送、Shift+Enter 换行等)" || true
-  deploy_file "$RAW/pi/agents/explore.md" "$AGENT_DIR/agents/explore.md" "explore 子代理" || true
-  deploy_file "$RAW/pi/agents/general.md" "$AGENT_DIR/agents/general.md" "general 子代理" || true
+  if [ "$PLAN_WRITE_CFG" = 1 ]; then
+    (
+      umask 077
+      role_stage="$(mktemp -d)"
+      trap 'rm -rf -- "$role_stage"' EXIT
+      if ! curl -fsSL --connect-timeout 8 -m 30 -o "$role_stage/explore.md" "$RAW/pi/agents/explore.md" ||
+         ! curl -fsSL --connect-timeout 8 -m 30 -o "$role_stage/general.md" "$RAW/pi/agents/general.md"; then
+        echo "ERROR: Pi 角色模板读取失败，未部署 explore/general" >&2; exit 1
+      fi
+      # deprecated: 只迁移套件旧模型，保留本机定制的角色定义。
+      deploy_staged_file "$role_stage/explore.md" "$AGENT_DIR/agents/explore.md" "explore 子代理" codex-newapi/gpt-6-astra
+      deploy_staged_file "$role_stage/general.md" "$AGENT_DIR/agents/general.md" "general 子代理" codex-newapi/gpt-6-astra
+    )
+  fi
   deploy_file "$RAW/pi/agents/consolidation-reviewer.md" "$AGENT_DIR/agents/consolidation-reviewer.md" "整理审查子代理" || true
   deploy_file "$RAW/pi/agents/verification-reviewer.md" "$AGENT_DIR/agents/verification-reviewer.md" "功能复核子代理" || true
 fi

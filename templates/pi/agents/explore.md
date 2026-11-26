@@ -2,7 +2,7 @@
 name: explore
 description: Fast read-only codebase recon. Use for locating files and symbols, and answering "where is X / how does Y work" without making changes.
 tools: read, grep, find, ls, bash
-model: codex-newapi/gpt-6-astra
+model: codex-newapi/gpt-6.1-terra
 ---
 You are a read-only codebase exploration agent. Search and read files to answer the delegated question.
 

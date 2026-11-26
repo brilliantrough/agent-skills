@@ -52,6 +52,8 @@ bash scripts/verify-subagents.sh --apply   # 调用现有 setup，集中确认�
 
 Antigravity 的文件接入由 `tests/source-bench.py` 通过 `skills-sync.sh --antigravity base` 验证：清单路径能读到已安装的 Skill，重跑保留用户过滤条件，拒绝规则同步或遇到坏清单时保留原文。宿主实际发现另在 Customizations 或 `/skills` 核对。
 
+`t3-plan-execute` 随 base 分发；离线检查只证明源文件及手动触发声明到达发现入口。T3 中的显式触发、委派和回传需在 Antigravity 会话另验。OpenCode 旧角色模型合并由 `check_opencode_role_models()` 验证，Pi 角色文件部署由 `check_pi_role_deployment()` 验证；两者都覆盖旧默认迁移、自定义保留与幂等。
+
 统一入口的 `check_unified_update()` 在隔离 HOME 运行 `setup.sh`，核对多宿主只分发一次公共项、继承旧组选项、复用或更换名单、偏好无法保存时停止及子进程错误传播。夹具只替换会联网或升级宿主的步骤；它不证明真实客户端升级成功。
 
 该确定性条目保护引导契约，不证明模型每次都会委派。真实模型补充验收使用隔离配置，输入不出现 multi-agent、subagent、并行等提示词，例如：“只读调查：分别梳理 skills-sync.sh 的分组同步与 scripts/migrate-agents-tail.py 的规则迁移，各自给出入口、关键函数、失败路径和证据，最后汇总。”预期 `skill(multi-agent)` 先于任何 `subagent` 调用，主会话最终集成；记录宿主、模型、版本和事件序列。单次未触发应如实报告并调整引导，不得把静态通过写成行为通过。

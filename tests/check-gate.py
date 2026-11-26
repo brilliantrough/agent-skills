@@ -130,6 +130,7 @@ def main():
             "skills/base/multi-agent/references/guide.md",
             "skills/base/deepseek-efficiency/SKILL.md",
             "skills/base/unslop-changes/SKILL.md",
+            "skills/base/t3-plan-execute/SKILL.md",
         ]
         for name in required:
             if name != "scripts/check.sh":

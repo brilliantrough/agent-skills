@@ -291,12 +291,13 @@ def run_oc_merge(body, tmp, live, major, force, template=None, raw=None, compact
     target, jsonc, tpl, cand = tmp / "opencode.json", tmp / "opencode.jsonc", tmp / "tpl.json", tmp / "cand.json"
     target.write_text(raw if raw is not None else json.dumps(live, indent=2), encoding="utf-8")
     tpl.write_text(json.dumps(template or {"$schema": "x", "update": "disable", "retry": {"enabled": True}}, indent=2), encoding="utf-8")
+    cand.unlink(missing_ok=True)
     proc = subprocess.run(
         [sys.executable, str(engine), str(target), str(jsonc), str(tpl), str(cand), major, "1" if force else "0", "1" if compact else "0"],
         capture_output=True, text=True, encoding="utf-8", errors="replace")
     if proc.returncode:
         raise SystemExit(f"STOP: opencode.json 合并引擎退出码 {proc.returncode}: {proc.stderr.strip()}")
-    return json.loads(cand.read_text(encoding="utf-8"))
+    return json.loads((cand if cand.exists() else target).read_text(encoding="utf-8"))
 
 
 def check_opencode_update_policy():
@@ -348,6 +349,35 @@ def check_opencode_update_detection():
             ], env={"PLAN_WRITE_CFG": "1"}, capture_output=True, text=True, check=True)
         assert proc.stdout == want, f"{live}: 探测 = {proc.stdout!r},期望 {want!r}"
     print(f"opencode.json: 前置档位探测检查 {len(cases)} 项")
+
+
+def check_opencode_role_models():
+    body = OC_MERGE.search((ROOT / "opencode-setup.sh").read_text(encoding="utf-8")).group(1)
+    agents = json.loads((ROOT / "templates/opencode/opencode.json").read_text(encoding="utf-8"))["agents"]
+    template = {"agents": agents}
+    expected = {"general": "codex-newapi/gpt-6.2-sol", "explore": "codex-newapi/gpt-6.1-terra"}
+    old = "anthropic-newapi/deepseek-flash"
+    with tempfile.TemporaryDirectory() as d:
+        tmp = pathlib.Path(d)
+        live = {"model": "custom/primary", "agents": {role: {"model": old} for role in expected}}
+        live["agents"]["general"].update(system="keep", permissions=[{"action": "edit", "effect": "ask"}])
+        live["agents"]["other"] = {"model": old}
+        for existing in ({}, live):
+            merged = run_oc_merge(body, tmp, existing, "2", False, template)
+            assert {role: merged["agents"][role]["model"] for role in expected} == expected
+        assert merged["model"] == "custom/primary" and merged["agents"]["other"] == {"model": old}
+        general = merged["agents"]["general"]
+        assert general["system"] == "keep" and general["permissions"] == live["agents"]["general"]["permissions"]
+
+        layer = tmp / "opencode.jsonc"
+        custom = old + "#custom"
+        layer.write_text(json.dumps({"agents": {"explore": {"model": custom}}}), encoding="utf-8")
+        merged = run_oc_merge(body, tmp, live, "2", False, template)
+        assert merged["agents"]["explore"]["model"] == custom
+        layer.unlink()
+        assert run_oc_merge(body, tmp, merged, "2", False, template) == merged
+        assert not (tmp / "cand.json").exists(), "角色合并重跑不应写候选文件"
+    print("opencode.json: 角色旧默认迁移、JSONC 自定义保留、重跑不写通过")
 
 
 def check_opencode_managed_takeover():
@@ -635,6 +665,7 @@ def check_image_gen(tmp):
 def main():
     check_web_migration()
     check_opencode_update_policy()
+    check_opencode_role_models()
     check_opencode_managed_takeover()
     check_codegraph_mcp_takeover()
     check_dsh_gemini_catalog_migration()

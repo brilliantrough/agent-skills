@@ -256,26 +256,39 @@ PY
     const configDir = join(tmp, "oc-config");
     await mkdir(configDir);
     await mkdir(join(tmp, "oc-home"));
-    await writeFile(join(configDir, "opencode.json"), JSON.stringify({ agents: { "verification-reviewer": agent } }));
+    const { general, explore } = oc.agents;
+    await writeFile(join(configDir, "opencode.json"), JSON.stringify({ agents: { "verification-reviewer": agent, general, explore } }));
     const loaded = spawnSync(process.env.OPENCODE_TEST_BIN, ["--standalone", "debug", "agents"], {
+      cwd: configDir,
       env: {
         ...process.env,
         HOME: join(tmp, "oc-home"),
+        PWD: configDir,
+        XDG_CONFIG_HOME: configDir,
         XDG_DATA_HOME: join(tmp, "oc-data"),
         XDG_CACHE_HOME: join(tmp, "oc-cache"),
         XDG_STATE_HOME: join(tmp, "oc-state"),
         OPENCODE_CONFIG_DIR: configDir,
+        OPENCODE_CONFIG_CONTENT: "{}",
         NODE_DISABLE_COMPILE_CACHE: "1",
       },
       encoding: "utf8",
       timeout: 30000,
     });
     assert.equal(loaded.status, 0, loaded.stdout + loaded.stderr);
-    const native = JSON.parse(loaded.stdout).find((entry) => entry.id === "verification-reviewer");
+    const loadedAgents = JSON.parse(loaded.stdout);
+    const native = loadedAgents.find((entry) => entry.id === "verification-reviewer");
     assert.ok(native, "OpenCode 原生 agents 列表必须包含 verification-reviewer");
     assert.equal(native.mode, "subagent");
     const nativeRules = new Set(native.permissions.map((rule) => `${rule.action}:${rule.effect}`));
     for (const rule of ["shell:allow", "edit:deny", "subagent:deny"]) assert.ok(nativeRules.has(rule), rule);
+    for (const [role, modelID] of [["general", "gpt-6.2-sol"], ["explore", "gpt-6.1-terra"]]) {
+      const entry = loadedAgents.find(({ id }) => id === role);
+      assert.equal(entry?.mode, "subagent", role);
+      assert.equal(entry.model?.providerID, "codex-newapi", role);
+      assert.equal(entry.model?.id, modelID, role);
+    }
+    console.log("PASS HOST: OpenCode 原生 Reviewer 与 general/explore 模型加载");
   } else {
     console.log("SKIP HOST: OpenCode 原生角色加载（设 OPENCODE_TEST_BIN=opencode）");
   }

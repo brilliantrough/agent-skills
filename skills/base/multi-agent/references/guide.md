@@ -2,7 +2,7 @@
 
 Read this before delegating implementation writes. The default remains one primary Agent. Multi-agent execution is for independent delivery, evidence coverage, or isolation; it is not a presumed speedup. The primary session owns the goal, critical path, integration, and final verification.
 
-Do not add a scheduler, global DAG, task registry, or second memory system. Use native subagents, the existing session todo, and the project's normal checks. Start with at most two independent workers and no nested delegation; increase only with an explicit project budget and evidence that coordination remains useful. Delegation and isolation never expand the user's current write, resource, or compute authorization; project documentation alone does not authorize Git mutations or external writes.
+Do not add a scheduler, global DAG, task registry, or second memory system. Use native subagents, the existing session todo, and the project's normal checks. Start with at most two independent workers; increase only with an explicit project budget and evidence that coordination remains useful. Delegation and isolation never expand the user's current write, resource, or compute authorization; project documentation alone does not authorize Git mutations or external writes.
 
 ## 1. Split only after a useful reduction
 
@@ -51,7 +51,7 @@ Use the existing task record or a self-contained kickoff with:
 - acceptance command or observable result, budget, and stopping condition;
 - the evidence and unresolved gaps to return.
 
-A worktree belongs to a task branch, not to an Agent persona. Reuse its state for a fix round when relocation would be wasteful; otherwise use a fresh worker with the original brief and prior result. Workers do not delegate again or expand scope. They do not commit, push, merge, or contact external systems unless the user explicitly authorizes that exact action for the current run; project documentation alone does not grant it.
+A worktree belongs to a task branch, not to an Agent persona. Reuse its state for a fix round when relocation would be wasteful; otherwise use a fresh worker with the original brief and prior result. Workers stay within their scope and do not delegate again except for the explicit T3 handoff below. They do not commit, push, merge, or contact external systems unless the user explicitly authorizes that exact action for the current run; project documentation alone does not grant it.
 
 ## 4. Integrate and verify in the primary session
 
@@ -66,6 +66,7 @@ Stop fan-out when the remaining branches no longer change a decision, coordinati
 ## 5. Map to existing entries
 
 - **T3 Code**: `delegate_task` defaults to the parent checkout and offers explicit `worktree` isolation from the parent commit; uncommitted edits stay out. Its self-contained task brief, async wake-up, and lack of automatic child-branch merge match this contract.
+  - **Explicit handoff only**: When the user enables [`t3-plan-execute`](../../t3-plan-execute/SKILL.md), the Antigravity brief may authorize its OpenCode execution session to use native subagents within the existing scope. Those workers and reviewers are leaves: they never delegate further. Normal worker limits, `quick-do` and review rules still apply.
 - **Orca**: orchestration is optional and its worker recipe defaults to `--worktree current`, using a new worktree only on request or conflict. Keep its distinction between task outcome, dispatch attempt, and process liveness; do not import the DAG/mailbox runtime for ordinary delegation.
 - **Claude Code**: subagents can opt into `isolation: worktree`; agent teams instead rely on file ownership. Agent teams and scripted dynamic workflows serve long-lived peers and batch-scale stages, not the default two-worker case.
 - **Codex**: subagents inherit the parent turn's cwd, sandbox, and approval settings; a session-level worktree is not per-subagent isolation. Use explicit write ownership and a separately isolated session when a task needs it.

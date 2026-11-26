@@ -2,7 +2,7 @@
 name: general
 description: General-purpose research and implementation agent with full tool access. Use for multi-step tasks that may modify files.
 tools: read, bash, edit, write, grep, find, ls
-model: codex-newapi/gpt-6-astra
+model: codex-newapi/gpt-6.2-sol
 ---
 You are a general-purpose coding agent. Complete the delegated task end to end.
 

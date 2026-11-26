@@ -1226,7 +1226,74 @@ def check_opencode_source_assets():
     assert plan.count("acquire_source") >= 2, "精简模式(--plugins-only)未解析源码树"
     run = (ROOT / "modules/run.sh").read_text(encoding="utf-8")
     assert "archive/refs/heads" not in run and "m.tgz" not in run, "modules/run.sh 仍回退下载 tarball"
+    merge_stage = oc[oc.index('\noc_tpl="$(mktemp'):oc.index('\nfi # 完整安装的环境')]
+    with tempfile.TemporaryDirectory(prefix="setup-oc-template-") as d:
+        tmp = pathlib.Path(d)
+        config = tmp / "opencode.json"
+        original = '{"agents":{"general":{"model":"anthropic-newapi/deepseek-flash"}}}\n'
+        config.write_text(original, encoding="utf-8")
+        env = {"PATH": os.environ["PATH"], "HOME": d, "CFG": d, "oc_stage": d, "RAW": tmp.as_uri()}
+        for ready in ("0", "1"):
+            result = subprocess.run(["bash", "-euc", merge_stage], cwd=tmp, stdin=subprocess.DEVNULL,
+                                    env=dict(env, web_mcp_ready=ready), capture_output=True, text=True, timeout=10)
+            assert result.returncode != 0 and "未应用模板" in result.stderr, result.stdout + result.stderr
+            assert config.read_text(encoding="utf-8") == original
     print("OpenCode 源码资产：迁移脚本与模块统一来自 SOURCE_ROOT，无 raw/tarball 旁路")
+
+
+def check_pi_role_deployment():
+    script = ROOT / "pi-setup.sh"
+    pi = script.read_text(encoding="utf-8")
+    start = pi.index("\n", pi.index('  deploy_file "$RAW/pi/keybindings.json"'))
+    end = pi.index('  deploy_file "$RAW/pi/agents/consolidation-reviewer.md"', start)
+    body = "\n".join(function(script, name)[0] for name in ("npath", "rpath", "deploy_staged_file")) + pi[start:end]
+    with tempfile.TemporaryDirectory(prefix="setup-pi-agents-") as d:
+        tmp = pathlib.Path(d)
+        templates = tmp / "templates"
+        shutil.copytree(ROOT / "templates/pi/agents", templates / "pi/agents")
+        files = tmp / "home/agents"
+        files.mkdir(parents=True)
+        explore, general = (files / f"{role}.md" for role in ("explore", "general"))
+        new_explore, new_general = ((templates / "pi/agents" / p.name).read_bytes() for p in (explore, general))
+        assert b"\nmodel: codex-newapi/gpt-6.1-terra" in new_explore.replace(b"\r\n", b"\n")
+        assert b"\nmodel: codex-newapi/gpt-6.2-sol" in new_general.replace(b"\r\n", b"\n")
+        old_explore = new_explore.replace(b"gpt-6.1-terra", b"gpt-6-astra").replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+        old_general = new_general.replace(b"gpt-6.2-sol", b"gpt-6-astra")
+        explore.write_bytes(old_explore)
+        general.write_bytes(old_general)
+        env = {"PATH": os.environ["PATH"], "HOME": str(files.parent), "TMPDIR": d, "IS_WIN": "0",
+               "AGENT_DIR": str(files.parent), "RAW": templates.as_uri()}
+
+        def run(write="1"):
+            return subprocess.run(["bash", "-euc", body], cwd=tmp, stdin=subprocess.DEVNULL,
+                                  env=dict(env, PLAN_WRITE_CFG=write), capture_output=True, text=True, timeout=10)
+
+        general_template = templates / "pi/agents/general.md"
+        general_template.unlink()
+        failed = run()
+        assert failed.returncode != 0 and "未部署 explore/general" in failed.stderr, failed.stdout + failed.stderr
+        assert explore.read_bytes() == old_explore and general.read_bytes() == old_general, "第二份模板读取失败时两角色须原样保留"
+        assert not list(files.glob("*.bak-*")), "模板读取失败不创建角色备份"
+        general_template.write_bytes(new_general)
+
+        general.unlink()
+        migrated = run()
+        assert migrated.returncode == 0, migrated.stdout + migrated.stderr
+        assert explore.read_bytes() == new_explore and general.read_bytes() == new_general
+        backup, = files.glob("explore.md.bak-*")
+        assert backup.read_bytes() == old_explore
+        edits = old_general + b"\nMy custom brief.\n"
+        general.write_bytes(edits)
+        mtime = explore.stat().st_mtime_ns
+        repeated = run()
+        assert repeated.returncode == 0 and "保留本机自定义" in repeated.stdout, repeated.stdout + repeated.stderr
+        assert general.read_bytes() == edits and explore.stat().st_mtime_ns == mtime
+        assert list(files.glob("*.bak-*")) == [backup]
+        (templates / "pi/agents/explore.md").unlink()
+        failed = run()
+        assert failed.returncode != 0 and "未部署 explore/general" in failed.stderr, failed.stdout + failed.stderr
+        assert run("0").returncode == 0 and explore.read_bytes() == new_explore and general.read_bytes() == edits
+    print("Pi 角色：首次部署、迁移与自定义保留、幂等；模板任一缺失，两角色均不更新")
 
 
 def check_modules_local_only():
@@ -1755,6 +1822,7 @@ def main():
     check_opencode_compaction_plan()
     check_opencode_readonly_plans()
     check_opencode_source_assets()
+    check_pi_role_deployment()
     check_modules_local_only()
     check_agents_tail()
     check_multi_agent_auto_trigger()

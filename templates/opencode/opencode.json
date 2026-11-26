@@ -400,7 +400,7 @@
       ]
     },
     "explore": {
-      "model": "anthropic-newapi/deepseek-flash",
+      "model": "codex-newapi/gpt-6.1-terra",
       "permissions": [
         { "action": "read", "resource": "*", "effect": "allow" },
         { "action": "grep", "resource": "*", "effect": "allow" },
@@ -409,7 +409,7 @@
       ]
     },
     "general": {
-      "model": "anthropic-newapi/deepseek-flash",
+      "model": "codex-newapi/gpt-6.2-sol",
       "permissions": [
         { "action": "read", "resource": "*", "effect": "allow" },
         { "action": "grep", "resource": "*", "effect": "allow" },
