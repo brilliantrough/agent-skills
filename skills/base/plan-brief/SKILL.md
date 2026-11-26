@@ -13,6 +13,8 @@ Use a durable plan for a large framework, a migration, or work with consequentia
 - **Execute.** On “按这份计划执行” or “用 Multi Agent 执行这份计划”, enter [Execute an agreed plan](#execute-an-agreed-plan) in this session. A request to carry out an existing plan does not require authoring another one.
 - **Hand off or review.** If the user wants another session or machine to execute, provide the [launcher](#separate-session-handoff). Review a returned report against its plan. Preparing a handoff does not launch it.
 
+Development execution defaults to standard quality (Unslop, applicable checks and independent functional review); the user may explicitly choose light quality for low-risk work. Record the agreed quality tier and any stronger project gates in the plan. A quality tier never turns planning into permission to implement.
+
 Apply `goal-first`: plan only work that delivers the outcome or resolves a decision-critical unknown. Put the budget, stopping conditions and treatment of incidental findings in the plan.
 
 ## Phase 0 — Absorb the requirement

@@ -17,7 +17,7 @@ Apply `goal-first`: anchor work to the agreed outcome, current uncertainty, next
 ## 1. Understand the request and project
 
 - **User discipline first:** check any root AGENTS `user-discipline` block, apply relevant rules to scope and design, and immediately activate a newly invoked rule in the current plan and related work.
-- Read the complete requirement and the decisions already settled in this conversation. Separate explicit requirements from open questions; investigate before modifying files.
+- Read the complete requirement and the decisions already settled in this conversation. Separate explicit requirements from open questions; establish the task baseline and distinguish existing user work before modifying files.
 - If a proposed fix keeps recurring or two interpretations would pass the same check, use `problem-framing` to find a case that separates them. Carry the resulting behavior into acceptance; skip framing when the contract is clear.
 - Read project rules, README, relevant entry points and modules. Trace the real flow, reuse opportunities, affected callers, and compatibility boundaries. Expand by relevance: wider than a single function, narrower than a whole-repo tour.
 - **Look at the live site first (seconds, no approval):** activation command and interpreter, dependency versions that actually import now, launch commands, input/output formats, config paths, and whether anything relevant is already running. Inspect the interpreter instead of assuming system Python. Skipping ceremony is the point; skipping this look is not.
@@ -62,10 +62,15 @@ Use the round-based method below; it is self-contained and needs no separate ski
 ## 5. Verify and finish
 
 - **Discipline check:** verify each applicable user-discipline rule against the actual change and adjacent behavior, and report any violation.
+- Standard quality is the default: after implementation load and execute [`unslop-changes`](../unslop-changes/SKILL.md), separately inspecting the authorized diff, including a user draft explicitly placed in scope. Reading the skill alone is not cleanup.
+- After final checks, load [`verification`](../verification/SKILL.md) and call the independent `verification-reviewer`. Do not run the same cleanup twice for explicit consolidation.
+- Run the real behavior check after Unslop and before the Reviewer, even if cleanup changes nothing; a check run before Unslop does not replace it.
+- An explicitly selected light tier skips the separate Unslop and Reviewer for low-risk work; stronger project rules and high-risk review still apply.
+- A single-file security boundary is still high-risk: untrusted filesystem paths, traversal, or symlink escape require `verification-reviewer` even when light quality is selected. If review is unavailable, disclose it as incomplete.
 - Run the smallest real execution path, then reread the change and the adjacent behavior it touches. Check the agreed observable outcome, since a clean exit alone proves little. For documentation-only changes, inspect content and applicable format checks.
 - Check the source contract before expensive generation or broad validation: pin the relevant source/version and verify meanings, shapes, state transitions or parameter order against that source rather than against tables your own code produced. Validate a representative vertical slice before scaling out; the final agreed coverage still applies.
 - When review is warranted, provide the baseline, changed scope, evidence paths and unresolved questions together. Stabilize shared components before repeated per-item reviews; re-review changed items and affected dependents, unless the agreed full review is required. Distinguish semantic defects from environment defects before regenerating artifacts.
-- Do not add tests, TDD, or verification scripts by default. Explicit user requests and mandatory project checks still apply.
+- New features in either tier need a minimal executable regression in the existing gate; reuse existing coverage. Other changes do not add tests or TDD by default. Do not modify files the user excluded; report a required coverage gap instead.
 - Name the level of what ran: static check, successful load, local call, injected input, or complete user interaction. A loadable plugin is weaker evidence than a working feature, and injected input is weaker than a physical terminal interaction.
 - If execution needs the user's environment or is blocked, state what remains unverified and give concrete steps and expected observations. **Blocked is a legitimate outcome:** say so with the exact check the user must run. Never invent completion or silently omit blocked work.
 - Report what changed, what actually ran, and what needs user confirmation. Use one line only when it preserves all three.

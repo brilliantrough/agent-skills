@@ -46,11 +46,13 @@ bash scripts/verify-subagents.sh --apply   # 调用现有 setup，集中确认�
 
 **公共规范块条目**由 `tests/setup-preflight.py` 的 `check_agents_tail()`、`check_agents_tail_old_cache()` 与 `check_agents_tail_migration()` 提供并已接入统一门禁：`check_agents_tail()` 在隔离 HOME 里跑真实的 `inject_agents_md`，验证公共块只写各已安装宿主的用户级文件、重跑幂等、`AGENTS_TAIL=0` 零写入、`AGENTS_TAIL_HOST` 显式目标，以及 Codex 非空 override 与 Pi 现有规则文件被保留、残缺标记不被吞；`check_agents_tail_old_cache()` 把新 setup 的委派块接到一个仍写回 `$PWD/AGENTS.md` 的旧缓存 `skills-sync.sh`，验证它被发现、报错并以 `AGENTS_TAIL=0` 拒绝，不往当前项目写；`check_agents_tail_migration()` 在隔离 Git 夹具仓库跑真实 `scripts/migrate-agents-tail.py`，验证默认只预览、无宿主或用户级规则未部署时不清项目块、只有与发行历史完全匹配的块才被清理并留备份、定制块原样保留。三者都必须清除宿主目录环境变量并重定向 `HOME`，否则会改写本机 live 指令文件。
 
-**Multi-agent 主动发现条目**由 `tests/setup-preflight.py` 的 `check_multi_agent_auto_trigger()` 提供并已接入统一门禁：公共规则必须在实质独立线索出现时主动加载 `multi-agent`，`steady-do` 必须路由两个以上实质独立分支，skill description 必须包含非显式触发语义；同时锁定无合格分支、`quick-do` 和 skill 缺失时保持单会话。条目在隔离 HOME 运行真实 `inject_agents_md`，确认 OpenCode 和 Pi 的用户级文件都收到完整公共块。这验证分发，不验证模型执行。
+**工作流路由条目**由 `tests/setup-preflight.py` 的 `check_multi_agent_auto_trigger()` 提供并已接入统一门禁：公共规则在实质独立线索出现时主动加载 `multi-agent`；无合格分支或 skill 缺失时实现保持单会话。`quick-do` 保持单会话实现，但允许标准档的独立功能复核。条目检查标准档默认、轻量档显式选择及高风险不得降级的公共指引，并在隔离 HOME 运行真实 `inject_agents_md`，确认 OpenCode 和 Pi 收到完整公共块。`tests/source-bench.py` 另用真实 `skills-sync.sh` 检查 `unslop-changes` 随 base 安装。这些只验证分发和文本契约，不验证模型执行。
+
+**档位真实模型验收**只在获得模型调用授权时进行，不进离线门禁。隔离项目和 HOME，使用待验公共规则、Skill 和真实 Reviewer；凭据只通过受控环境变量传入，不写临时文件或日志。关闭子进程 stdin（如 `stdin=subprocess.DEVNULL`），并核对宿主入库的实际用户消息与预期提示完全一致，避免启动脚本混入提示。用相同的小型开发任务对照默认与显式轻量档：前者检查实现后单独审视并清理授权差异、主 Agent 验证、加载 `verification` 及 Reviewer 完成；审视后无需改动也可。后者检查低风险任务由主 Agent 验证且未委派；另用安全边界修复（如不可信路径或权限校验）检查轻量档仍委派，以及只读任务不启动开发流程。两档均核对真实保护和基线外用户改动。记录宿主、模型、工具轨迹和结果；单次成功不保证稳定，超时或只启动未完成不能算复核通过。
 
 Antigravity 的文件接入由 `tests/source-bench.py` 通过 `skills-sync.sh --antigravity base` 验证：清单路径能读到已安装的 Skill，重跑保留用户过滤条件，拒绝规则同步或遇到坏清单时保留原文。宿主实际发现另在 Customizations 或 `/skills` 核对。
 
-统一入口的 `check_unified_update()` 在隔离 HOME 运行 `setup.sh`，核对多宿主只分发一次公共项、继承旧组选项、复用或更换名单及子进程错误传播。夹具只替换会联网或升级宿主的步骤；它不证明真实客户端升级成功。
+统一入口的 `check_unified_update()` 在隔离 HOME 运行 `setup.sh`，核对多宿主只分发一次公共项、继承旧组选项、复用或更换名单、偏好无法保存时停止及子进程错误传播。夹具只替换会联网或升级宿主的步骤；它不证明真实客户端升级成功。
 
 该确定性条目保护引导契约，不证明模型每次都会委派。真实模型补充验收使用隔离配置，输入不出现 multi-agent、subagent、并行等提示词，例如：“只读调查：分别梳理 skills-sync.sh 的分组同步与 scripts/migrate-agents-tail.py 的规则迁移，各自给出入口、关键函数、失败路径和证据，最后汇总。”预期 `skill(multi-agent)` 先于任何 `subagent` 调用，主会话最终集成；记录宿主、模型、版本和事件序列。单次未触发应如实报告并调整引导，不得把静态通过写成行为通过。
 
@@ -103,10 +105,10 @@ DSH_TEST_RUNTIME=/path/to/isolated-dsh-runtime node tests/dsh-subagent-host.mjs
 - headless 请求、流式响应和真实插件树加载；
 - Pi／OpenCode 的实际加载与用户操作路径。
 
-真实宿主验收按各宿主 README 的维护说明执行，使用隔离配置、虚拟凭据和本地 dummy 服务，不发真实模型请求。`--dump-config`、进程仍存在、帮助信息或静态导出都不是加载成功证据。
+宿主加载验收按各宿主 README 的维护说明执行，使用隔离配置、虚拟凭据和本地 dummy 服务，不发真实模型请求。上述档位真实模型验收是另行授权的补充。`--dump-config`、进程仍存在、帮助信息或静态导出都不是加载成功证据。
 
 ## 功能复核与整理审查分开
 
-Verification 回答“用户要求的功能是否正确”。功能复核依据验收条件、真实使用路径、可复现证据和高风险场景；新功能及跨模块、高风险、发布或证据存疑时使用 `verification` 技能并委派 `verification-reviewer`，让它确认关键测试确实能因旧缺陷失败。角色未注册时必须披露；临时 `general` 审查不算角色安装验收。`consolidation-reviewer` 只服务显式整理任务，检查语义保持、简洁性及误删／该删未删，不作功能验收或发布签收。
+Verification 回答“用户要求的功能是否正确”。开发默认标准档，Unslop 和主 Agent 验证后委派 `verification-reviewer`；用户显式选择轻量档时，低风险任务可不委派。更强项目规则、跨模块共享接口、高风险、发布和证据存疑仍须独立复核。角色未注册时必须披露；临时 `general` 审查不算角色安装验收。`consolidation-reviewer` 只服务显式整理任务，检查语义保持、简洁性及误删／该删未删，不作功能验收或发布签收。
 
 本机专项检查、真实宿主验收和离线门禁分别报告，不能合并成一句“全部验证通过”。

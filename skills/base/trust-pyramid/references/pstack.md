@@ -65,7 +65,7 @@ pstack 是重度软件项目的可选实现，不是套件的全局依赖。`tru
 
 1. **补丁 Comment Sicko 的保留名单**：有效的既有 `shortcut: <限制>, <何时升级>` 是 `ponytail-debt` 的输入，不是普通注释。范围内解决债务并删除；确属范围外时保留并报告。不得为了躲过清理新写 `shortcut:`，也不把它当作免审理由。
 2. **补丁主流程的恢复与约束分支**：第 2 步允许保留或恢复已举证、因本次范围外而不能解决的有效 `shortcut:`，不得被上游“只有无法改变的事项才可保留”再次删除。算法、单位、硬件、数据格式或正确性约束，优先编码进类型、API、测试或检查后删除；同一步也允许恢复已被源码、外部契约或可复现行为证明为真的此类约束。第 5 步在未获准编码且当前无法修复时，保留一条最小注释并报告 open，不再执行原版的“否则删除”。无法证明或表述模糊时仍删除，不得把实现麻烦说成 out of scope。
-3. **保持 `quick-do` 单会话**：当前工作流为 `quick-do` 时不启动 Comment Sicko，由主会话按同一举证、删除和根因修复标准执行；需要独立审查时先按 `quick-do` 的切换规则说明原因并获准改用其他工作流。
+3. **保持 `quick-do` 实现单会话**：当前工作流为 `quick-do` 时不启动 Comment Sicko，由主会话按同一举证、删除和根因修复标准执行；标准档末尾的 `verification-reviewer` 是独立功能复核，不受此限制。需要 Comment Sicko 时先说明原因并获准切换工作流。
 4. **完成判据**：范围内的接受项已修复或有明确阻塞证据，合法例外和范围外债务可追踪，相关真实路径已验证。不能只交删除计数，也不能只删警告而留下已知风险。
 
 官方 skill 带 `disable-model-invocation: true`，单独安装不会自动运行；项目可显式调用，或在已完成上述补丁的 `poteto-mode` review 步骤中接入。跨模块或高风险重构仍按 `verification` 委派独立复核；只有用户显式要求整理时才进入 `consolidator` 与其 Reviewer。
@@ -76,6 +76,7 @@ pstack 是重度软件项目的可选实现，不是套件的全局依赖。`tru
 
 | pstack 的部分 | 处理 | 落点 |
 | --- | --- | --- |
+| `deslop` 与文字 `unslop` | 合并吸收 | `unslop-changes` 统一清理本次授权改动的代码、注释和文字；标准档自动执行 |
 | `create-verification-skill` 的"访谈仓库→生成→实跑一次才交付" | 吸收 | `verification` 的「生成」小节：Agent 自己读出该验什么，不让用户逐次口述 |
 | feature map 的"一功能一文件 + 四段契约" | 弱化吸收 | 多表面时用极简 map（一 surface 一行）；单表面直接在项目登记位置写条目，不造文件树 |
 | `maintain-verification-skill` 的 source wave → live pass → 三分法 | 吸收 | `verification` 的「维护」小节；product gap **不得改登记掩盖** |

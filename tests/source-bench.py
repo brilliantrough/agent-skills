@@ -73,7 +73,8 @@ def make_source(tmp):
     for skill in ("verification", "consolidator"):
         (repo / "skills/base" / skill).mkdir()
         (repo / "skills/base" / skill / "SKILL.md").write_text(f"{skill}\n", encoding="utf-8")
-    shutil.copytree(ROOT / "skills/base/deepseek-efficiency", repo / "skills/base/deepseek-efficiency")
+    for skill in ("deepseek-efficiency", "unslop-changes"):
+        shutil.copytree(ROOT / "skills/base" / skill, repo / "skills/base" / skill)
     (repo / "templates/pi").mkdir(parents=True)
     (repo / "templates/pi/settings.json").write_text('{"demo": true}\n', encoding="utf-8")
     (repo / "templates/claude/agents").mkdir(parents=True)
@@ -160,6 +161,7 @@ def entry_asset_closure():
         "skills/base/multi-agent/SKILL.md",
         "skills/base/multi-agent/references/guide.md",
         "skills/base/deepseek-efficiency/SKILL.md",
+        "skills/base/unslop-changes/SKILL.md",
         "setup.sh", "scripts/update-hosts.sh",
     }
     for line in text.splitlines():
@@ -353,7 +355,8 @@ def main():
         assert proc.returncode == 0, proc.stdout + proc.stderr
         assert "codeload" not in proc.stdout and "tarball" not in proc.stdout, proc.stdout
         assert (sync_home / ".agents/skills/demo/SKILL.md").read_text() == "demo skill\n"
-        assert (sync_home / ".agents/skills/deepseek-efficiency/SKILL.md").read_bytes() == (ROOT / "skills/base/deepseek-efficiency/SKILL.md").read_bytes()
+        for skill in ("deepseek-efficiency", "unslop-changes"):
+            assert (sync_home / f".agents/skills/{skill}/SKILL.md").read_bytes() == (ROOT / f"skills/base/{skill}/SKILL.md").read_bytes()
         # 第二次在同一 HOME 上跑:复用 clone,未变不重写
         proc = subprocess.run(["bash", str(ROOT / "skills-sync.sh"), "base"], capture_output=True,
                               text=True, env=env, stdin=subprocess.DEVNULL, timeout=180, check=False)

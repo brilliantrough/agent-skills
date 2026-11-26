@@ -202,19 +202,21 @@ preferences_filter_modules() {
   done < <(printf '%s\n' "$session")
 }
 preferences_lock() {
+  local tmp
   PREF_LOCK="${PREF_FILE}.lock"
-  if ! mkdir "$PREF_LOCK" 2>/dev/null; then
-    echo "WARN: 检测到安装偏好锁: $PREF_LOCK；若确认无安装进程，可人工删除该目录后重试" >&2
-    return 1
+  # uutils mkdir can report success on EEXIST; link creates the exact destination atomically.
+  tmp="$(mktemp "${PREF_LOCK}.XXXXXX")" || { echo "WARN: 无法暂存安装偏好锁" >&2; return 1; }
+  if printf '%s\n' "$$" > "$tmp" && link "$tmp" "$PREF_LOCK" 2>/dev/null \
+    && [ ! -L "$PREF_LOCK" ] && [ "$tmp" -ef "$PREF_LOCK" ]; then
+    rm -f "$tmp"; return 0
   fi
-  if ! printf '%s\n' "$$" > "$PREF_LOCK/pid"; then
-    rm -f "$PREF_LOCK/pid"; rmdir "$PREF_LOCK" 2>/dev/null || true
-    echo "WARN: 无法记录安装偏好锁，本次跳过" >&2; return 1
-  fi
+  rm -f "$tmp"
+  echo "WARN: 安装偏好锁已存在或无法创建: $PREF_LOCK；请确认 link 可用且文件系统支持硬链接，确认无安装进程后可人工删除残留锁" >&2
+  return 1
 }
 preferences_commit_locked() {
   (
-  trap 'rm -f "$PREF_LOCK/pid"; rmdir "$PREF_LOCK" 2>/dev/null || true' EXIT
+  trap 'rm -f "$PREF_LOCK"' EXIT
   local dir tmp current
   dir="$(dirname "$PREF_FILE")"
   if [ -L "$PREF_FILE" ] || { [ -e "$PREF_FILE" ] && [ ! -f "$PREF_FILE" ]; }; then

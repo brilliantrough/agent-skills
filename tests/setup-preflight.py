@@ -1066,13 +1066,24 @@ def check_multi_agent_auto_trigger():
     trigger = ("When substantial lines of inquiry can start independently, draw on distinct evidence, "
                "and each inform a decision, load `multi-agent` before dispatching and follow its guide")
     assert trigger in tail
-    assert "if it is unavailable, keep execution single-agent" in tail
+    assert "if it is unavailable, keep implementation single-agent" in tail
     assert "For two or more substantial independent branches or an explicit multi-agent request, use [multi-agent](../multi-agent/SKILL.md)" in steady
     assert "or when independent branches each change the deliverable" in description
     assert "Two substantial independent branches are a reason to use this skill" in skill
     assert "Default to one Agent when no branch qualifies" in skill
-    assert "If `quick-do` is active, preserve its single-session contract" in skill
+    assert "`quick-do` keeps implementation in one session" in skill
+    assert "standard-quality `verification-reviewer` is independent review" in skill
     assert "Read the complete [task decomposition and optional worktree guide](references/guide.md) before launching workers" in skill
+    assert "Development changes default to standard quality" in tail
+    assert "load `unslop-changes`" in tail and "load the `verification` skill" in tail
+    assert "separately inspect the task's authorized diff as a cleanup pass" in tail
+    assert "native `verification-reviewer`" in tail
+    assert "Tests run before Unslop do not replace the post-Unslop real behavior check" in tail
+    assert "Users may explicitly select light quality for a low-risk task" in tail
+    assert "Light is not a risk waiver" in tail and "symlink-escape fix is a security boundary" in tail
+    assert "Never modify files the user explicitly excluded" in tail
+    quick = (ROOT / "skills/base/quick-do/SKILL.md").read_text(encoding="utf-8")
+    assert all("New features in either tier need a minimal executable regression" in s for s in (quick, steady))
 
     # 用户在原会话点名执行时，从可发现的 skill 进入执行段，而不是被送去新会话。
     plan = (ROOT / "skills/base/plan-brief/SKILL.md").read_text(encoding="utf-8")
@@ -1463,6 +1474,51 @@ grep -q '人工删除' orphan-lock
 rmdir "$AGENT_SKILLS_PREFERENCES.lock"
 preferences_commit > recovered-lock
 grep -q '已保存' recovered-lock
+# 某些 mkdir 实现遇到并发 EEXIST 仍返回成功，锁不能依赖其退出码。
+mkdir() {{
+  if [ "${{1:-}}" = "$AGENT_SKILLS_PREFERENCES.lock" ]; then
+    command mkdir "$@" 2>/dev/null || :
+  else
+    command mkdir "$@"
+  fi
+}}
+preferences_lock
+[ "$(stat -c %a "$AGENT_SKILLS_PREFERENCES.lock")" = 600 ]
+if preferences_lock; then echo 'FAIL: 锁被重复获取' >&2; exit 1; fi
+rm "$AGENT_SKILLS_PREFERENCES.lock"
+unset -f mkdir
+ln -s "$PWD/link-target" "$AGENT_SKILLS_PREFERENCES.lock"
+if preferences_lock 2>/dev/null; then echo 'FAIL: 符号链接锁被获取' >&2; exit 1; fi
+[ "$(cat link-target)" = 'SHARED_RESEARCH=1' ]
+rm "$AGENT_SKILLS_PREFERENCES.lock"
+ln -s missing-lock "$AGENT_SKILLS_PREFERENCES.lock"
+if preferences_lock 2>/dev/null; then echo 'FAIL: 断链锁被获取' >&2; exit 1; fi
+[ ! -e missing-lock ]
+rm "$AGENT_SKILLS_PREFERENCES.lock"
+ln -s /dev/null "$AGENT_SKILLS_PREFERENCES.lock"
+if preferences_lock 2>/dev/null; then echo 'FAIL: 设备符号链接锁被获取' >&2; exit 1; fi
+rm "$AGENT_SKILLS_PREFERENCES.lock"
+mkfifo "$AGENT_SKILLS_PREFERENCES.lock"
+cat "$AGENT_SKILLS_PREFERENCES.lock" > fifo-data & fifo_reader=$!
+if preferences_lock 2>/dev/null; then
+  wait "$fifo_reader" || true
+  echo 'FAIL: FIFO 锁被获取' >&2; exit 1
+fi
+kill "$fifo_reader" 2>/dev/null || true
+wait "$fifo_reader" 2>/dev/null || true
+[ -p "$AGENT_SKILLS_PREFERENCES.lock" ]
+rm "$AGENT_SKILLS_PREFERENCES.lock"
+link() {{ return 0; }}
+if preferences_lock 2>/dev/null; then echo 'FAIL: 未创建锁却报成功' >&2; exit 1; fi
+unset -f link
+link() {{ return 1; }}
+cp "$AGENT_SKILLS_PREFERENCES" before-no-link
+preferences_init
+preference_put SHARED_PPT 0
+preferences_commit > no-link 2>&1
+cmp -s "$AGENT_SKILLS_PREFERENCES" before-no-link
+grep -q '文件系统支持硬链接' no-link
+unset -f link
 printf 'SHARED_RESEARCH=1\n' > "$AGENT_SKILLS_PREFERENCES"
 rm -f ready-a ready-b race-a race-b
 (
@@ -1599,10 +1655,31 @@ def check_unified_update():
         assert installed.stat().st_mtime_ns == stamp and pref.stat().st_mtime_ns == saved
         assert run('--hosts', 'bogus', '-y').returncode != 0 and pref.stat().st_mtime_ns == saved
         before = (home / '.gemini/AGENTS.md').stat().st_mtime_ns
+        pi_config = home / '.pi/agent/settings.json'
+        pi_config.parent.mkdir(parents=True, exist_ok=True)
+        pi_config.write_text('{"custom":"preserve"}', encoding='utf-8')
+        pi_stamp = pi_config.stat().st_mtime_ns
         assert run('--hosts', 'opencode', '-y').returncode == 0
         assert log.read_text().splitlines()[8:] == ['shared', 'opencode:1:0:-y', 'module']
         assert (home / '.gemini/AGENTS.md').stat().st_mtime_ns == before
+        assert pi_config.read_text(encoding='utf-8') == '{"custom":"preserve"}' and pi_config.stat().st_mtime_ns == pi_stamp
         assert 'SHARED_HOSTS=opencode\n' in pref.read_text()
+        link_stub = bin_dir / 'link'
+        link_stub.write_text('#!/bin/sh\nexit 1\n'); link_stub.chmod(0o755)
+        lines = pref.read_text().splitlines()
+        variants = [('\r\n'.join(lines) + '\r\n').encode(),
+                    ('# user comment\n' + '\n'.join(reversed([line for line in lines if '=' in line]))).encode()]
+        for existing in variants:
+            pref.write_bytes(existing)
+            unchanged = run('-y')
+            assert unchanged.returncode == 0, unchanged.stdout + unchanged.stderr
+            assert pref.read_bytes() == existing, '格式不同但选择相同时不得改写'
+        before_pref, before_log = pref.read_bytes(), log.read_bytes()
+        failed = run('--hosts', 'none', '-y')
+        assert failed.returncode != 0, '宿主名单未保存时不得报成功'
+        assert pref.read_bytes() == before_pref and log.read_bytes() == before_log, '名单未保存时不得执行更新'
+        assert '未保存' in failed.stderr
+        link_stub.unlink()
         assert run('-y', FAIL_HOST='opencode').returncode == 23 and log.read_text().splitlines()[-1] == 'opencode:1:0:-y'
         # worker 本就没在跑时，绝不顺手启一个常驻进程
         assert not [line for line in log.read_text().splitlines() if line.startswith('npx ')]

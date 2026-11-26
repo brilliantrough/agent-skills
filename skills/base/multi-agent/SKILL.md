@@ -15,7 +15,7 @@ When asked to execute a [Plan Brief](../plan-brief/SKILL.md), start from its dep
 
 1. State the shared outcome, the primary-session critical path, each proposed branch, and the decision or artifact each branch will change. Include the budget and stopping condition in the existing session todo.
 2. Start only branches that satisfy the guide's independence and useful-reduction tests. Two substantial independent branches are a reason to use this skill; a few lookups, coupled edits, sequential dependencies, or an unclear acceptance path are not.
-3. Default to one Agent when no branch qualifies. If `quick-do` is active, preserve its single-session contract; resolve an explicit multi-agent request as a workflow conflict before launching workers. Other task workflows keep their own scope and verification rules while this skill governs delegation.
+3. Default to one Agent when no branch qualifies. `quick-do` keeps implementation in one session; its default standard-quality `verification-reviewer` is independent review, not an implementation worker. Resolve an explicit multi-agent implementation request as a workflow conflict before launching workers. Other workflows keep their own scope and verification rules.
 
 ## Launch with explicit ownership
 

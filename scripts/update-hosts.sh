@@ -69,6 +69,14 @@ if [ "$YES" != 1 ] && have_tty; then ask_builtin '按以上选择更新？' Y ||
 minor=6; case " ${groups[*]} " in *' ppt '*) minor=10 ;; esac
 resolve_python3 "$minor" || { echo "共享发现入口需要 Python 3.$minor+（python3 / python / py -3），请安装后重跑。" >&2; exit 1; }
 preferences_commit
+saved="$(if [ ! -L "$PREF_FILE" ] && [ -f "$PREF_FILE" ]; then
+  YES=1 preferences_init
+  printf '%s\n' "$PREF_SESSION" | LC_ALL=C sort
+fi)"
+if [ "$saved" != "$(printf '%s\n' "$PREF_SESSION" | LC_ALL=C sort)" ]; then
+  echo 'ERROR: 本轮安装偏好未保存；未执行更新。请处理上述告警后重跑。' >&2
+  exit 1
+fi
 roles=0; case ",$hosts_arg," in *,claude,*) roles=1 ;; esac
 AGENT_SKILLS_COMMON=1 AGENT_SKILLS_CLAUDE_ROLES="$roles" AGENTS_TAIL=0 SKILLS_EXTERNAL="$SKILLS_EXTERNAL" \
   bash "$root/skills-sync.sh" "${groups[@]}"

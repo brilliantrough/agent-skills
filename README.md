@@ -35,7 +35,7 @@
 
 表格里的共用能力都由脚本在开头统一选择并透传，宿主特有部分留在各自的 `*-setup.sh`。规范块写进各宿主的用户级文件（OpenCode `~/.config/opencode/AGENTS.md`、Pi `~/.pi/agent/AGENTS.md`、DSH `$DSH_HOME/AGENTS.md`、Codex `~/.codex/AGENTS.md`，Claude Code 为 `CLAUDE.md`），每个账号装一次、所有项目共用；项目自己的 `AGENTS.md` 不再被改写，项目规则仍写在仓库里。
 
-[快速安装](#快速安装) · [Skills](#skills本仓-47-个) · [首次部署](#首次部署只需要网关--6-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [DSH](dsh/README.md) · [OpenCode](#opencode-安装与迁移) · [更新](#更新) · [贡献](CONTRIBUTING.md)
+[快速安装](#快速安装) · [Skills](#skills本仓-48-个) · [首次部署](#首次部署只需要网关--6-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [DSH](dsh/README.md) · [OpenCode](#opencode-安装与迁移) · [更新](#更新) · [贡献](CONTRIBUTING.md)
 
 ## 快速安装
 
@@ -135,6 +135,8 @@ Antigravity 的[规则文件](https://antigravity.google/docs/rules)有 24,000 �
 
 首次完整计划会保存非敏感选择到 `${XDG_CONFIG_HOME:-~/.config}/agent-skills/preferences.conf`。只允许声明过的宿主名单、是／否选项和模块名单，不存凭据。文件以 `0600` 原子写入，内容相同不重写。模块名按当前 `modules/` 的有效 ID 过滤；校验前不显示原始模块值。检测到并发修改时告警并跳过，不覆盖另一份选择；遇到遗留锁，确认没有安装进程后再按提示清理。符号链接和非普通文件目标不读取、不替换。
 
+保存偏好需要 `link` 命令，且偏好目录所在文件系统须支持硬链接。统一入口发现本轮选择未保存时，会在公共项和宿主更新前停止；处理告警后重跑。单宿主安装器会告警并继续，但下一次不能假定本轮选择已保存。
+
 | 模式 | 行为 |
 |---|---|
 | 默认交互 | 有偏好时显示摘要，集中确认一次后复用；本轮新普通选项取内置默认值，新高风险项仍单独确认；选择否则逐项修改 |
@@ -158,9 +160,9 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/pi-setup.sh)"
 ```
 
-## Skills（本仓 47 个）
+## Skills（本仓 48 个）
 
-五组共 47 个，默认 base 28 个；科研／算法研究 9 个、算力模板 7 个、公共知识 2 个与 PPT 1 个按需选装。`research`、`kb` 与 `ppt` 随仓库刷新，`accel` 缺才装；外部设计依赖在开头统一选择、默认安装，Light-Science 精选集成另行选择，不复制到本仓、不计入上述数量。
+五组共 48 个，默认 base 29 个；科研／算法研究 9 个、算力模板 7 个、公共知识 2 个与 PPT 1 个按需选装。`research`、`kb` 与 `ppt` 随仓库刷新，`accel` 缺才装；外部设计依赖在开头统一选择、默认安装，Light-Science 精选集成另行选择，不复制到本仓、不计入上述数量。
 
 ### 工程技能
 
@@ -226,9 +228,11 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 
 ### 功能 Verification 与整理审查
 
-主 Agent 负责运行真实路径并留下证据。新功能及跨模块、高风险、发布或证据存疑改动，委派 `verification-reviewer` 独立复核验收条件、功能行为和测试有效性；局部低风险修补不每次委派。新功能验证后，主 Agent 把最小可执行条目接入项目现有测试／检查入口，不另建平行清单。Reviewer 聚焦当前功能后，默认快查相关旧条目，不要求每次全量重跑，未运行项如实披露。套件只提供角色与简洁优先的证据纪律，具体验收条件、命令、fixture、平台和风险矩阵以项目本地资料为准，不预制通用测试。Reviewer 的仓库只读是行为合同，Bash／shell 仍可能写文件，不冒充文件系统沙箱；需要硬隔离的项目使用宿主沙箱或容器。显式使用 `consolidator` 整理时，才由 `consolidation-reviewer` 检查语义保持、真实保护、简洁性及误删／该删未删。两种 Reviewer 都不代替 lint、真实宿主或用户最终验收。
+开发默认**标准档**：实现后用 `unslop-changes` 清理本次代码、注释和文字，再运行适用的静态检查与真实路径，加载 `verification` 并由 `verification-reviewer` 独立复核最终版本。用户也可明确说“这次用轻量档”：低风险任务（包括小新功能）仍由主 Agent 验证，但不单独执行 Unslop 或委派 Reviewer。项目强制要求、跨模块共享接口、高风险、发布和证据存疑仍须独立复核；例如不可信路径的穿越／符号链接越界修复，即使只改一个文件也须复核。只读调查、规划或纯文字写作不启动开发质量流程。
 
-- `skills/base/verification/` 提供风险触发与功能交接合同，`references/reviewer.md` 是唯一功能审查规范；`skills/base/consolidator/` 继续维护整理审查规范。
+新功能验证后，主 Agent 把最小可执行条目接入项目现有测试／检查入口，不另建平行清单。Reviewer 先看当前功能，再快查相关旧条目；未运行项如实披露。适用的验收条件、命令、fixture 和平台以项目资料为准。Reviewer 的仓库只读是行为合同，不是文件系统沙箱；需要硬隔离时使用宿主沙箱或容器。显式使用 `consolidator` 整理时，才由 `consolidation-reviewer` 检查整理结果；两种 Reviewer 都不代替 lint、真实宿主或用户最终验收。
+
+- `skills/base/verification/` 提供档位、风险触发与功能交接合同，`references/reviewer.md` 是唯一功能审查规范；`skills/base/consolidator/` 继续维护整理审查规范。
 - 条目由 Agent 自己从真实入口生成，不要求用户逐次口述：先认定用户可见表面、启动方式和可编程驱动手段，再把一个关键行为接入项目现有登记位置，未实跑过的不算条目。条目会腐化，系统复查时按「源码一遍 → 实跑一遍 → 文档漂移／harness 缺口／产品缺陷三分」处理；产品缺陷记录给用户，不得改登记掩盖；无法到达的条目标 `verified-unreachable` 并写明缺的前置条件。
 - Pi：由 setup 安装两份 Markdown 角色定义；继续使用原版 `pi-subagents-j0k3r`。
 - OpenCode：完整 setup 配置原生 `agents.verification-reviewer` 与 `agents.consolidation-reviewer`；仅 `--plugins-only` 不更新代理配置。
@@ -265,9 +269,10 @@ bash scripts/verify-subagents.sh --apply --yes    # 显式接受默认升级与�
 | `goal-first` | 研究、开发和计划的主线约束 | 保持交付、当前未知、下一步和收口条件；不因意外发现静默扩展范围 |
 | [`problem-framing`](skills/base/problem-framing/SKILL.md) | 同类补丁反复出现，或设计、实验该回答什么还没说清 | 辨认问题结构，借用成熟解法，用一个反例确定验收或区分解释的证据 |
 | [`trust-pyramid`](skills/base/trust-pyramid/SKILL.md) | 日常开发、重构与审查的工程质量约束 | 五层原则＋六类条件化规则配方＋工具映射；按项目选择并落实 |
-| [`verification`](skills/base/verification/SKILL.md) | 新功能与跨模块、高风险、发布或证据存疑的功能复核 | 主 Agent 从真实入口生成最小条目并实跑 → Reviewer 复核当前功能并快查相关旧条目；条目腐化时按三分法维护；套件更新另核对资产闭包、Release、部署和运行进程 |
+| [`verification`](skills/base/verification/SKILL.md) | 标准档与强制复核任务的功能验收 | 主 Agent 验证后由 Reviewer 复核当前功能并快查相关旧条目；新功能接入最小回归 |
+| [`unslop-changes`](skills/base/unslop-changes/SKILL.md) | 本次改动的代码、注释和文字去冗余 | 标准档自动执行；保留真实保护、必要证据和已有用户工作，不做全仓整理 |
 | [`deepseek-efficiency`](skills/base/deepseek-efficiency/SKILL.md) | 显式调用时优化 DeepSeek 的文件读取 | 原生搜索与读取、独立调用同轮发出；配合当前任务工作流，不限制正常 Shell 命令 |
-| `quick-do` | 行为明确的小修小补 | 读代码 → 当前会话修改、验证；不 grilling、不写计划 |
+| `quick-do` | 行为明确的小改动 | 当前会话实现；标准档可在末尾独立复核，不 grilling、不写计划 |
 | `steady-do` | 日常功能、插件、扩展；长程或无人值守运行 | 当前会话澄清、实现、验证；已有计划且用户要求执行时直接按计划做；明确要求“做到完成”时用可判定谓词＋原生唤醒＋`decisions.tsv` 逐轮推进 |
 | [`multi-agent`](skills/base/multi-agent/SKILL.md) | 独立分支、多 Agent 或 Swarm | 按分片覆盖或同题竞速派发，主会话集成；没有值得拆的分支就串行 |
 | [`plan-brief`](skills/base/plan-brief/SKILL.md) | 大框架、长程移植、多阶段任务 | 写清依赖、可并行分片和验收，规划完成后停下；用户可让原会话执行，指定跨会话时才生成启动 prompt、报告和审查 |
@@ -278,10 +283,12 @@ bash scripts/verify-subagents.sh --apply --yes    # 显式接受默认升级与�
 - 两个以上实质独立分支，或用户明确要求联合开发：用 `multi-agent`；少量查询、耦合编辑和串行依赖不强行拆分
 - 适合交接但用户未要求：先建议 `plan-brief` 并确认，不擅自把“现在实现”改成“只交计划”
 
+上述技能选择任务复杂度；标准档／轻量档选择验证深度，两者独立。只说 `quick-do` 不会自动选轻量档。标准档若缺少技能、Reviewer 或必要验证，必须说明未完成，不能把自审当独立复核。复核后有修改时，重验受影响部分。
+
 共同要求：
 
 - 事实自己查，只问未决关键选择；遵循 ponytail 简洁品味
-- 最小真实运行 + 代码复读；默认不加测试/TDD，用户明确要求与项目强制检查除外
+- 最小真实运行 + 代码复读；新功能加入项目要求的最小回归，TDD 按用户或项目要求选用
 - 检查通过 ≠ 真实交互已验收；必须说明未验证项
 - 回复跟随用户语言（默认中文），不随 skill 正文语言切换
 

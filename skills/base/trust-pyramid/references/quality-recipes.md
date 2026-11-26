@@ -30,7 +30,7 @@ view.update(data);
 
 **合法例外与边界**：退避、节流、动画调度、协议等待是 timer 的合法用途，按模块边界放行。`view.ready` 的拒绝、取消及释放语义仍须处理并验证；把 timer 包进 `waitReady()` 没有修掉根因。注释质量靠审查判断，关键词和数量给不出完整结论。
 
-项目已采用 pstack 时，用 [pstack 接入与特化](pstack.md) 的 `no-comments` 流程执行本节：保留“默认删除、保留举证”的强约束，并同时遵守其中的 `shortcut:` 债务与未闭合真实约束规则，不把本节的合法例外扩大成免删理由。当前为 `quick-do` 时不启动 Comment Sicko，由主会话执行同一标准；需要独立审查时先按 `quick-do` 的切换规则说明原因并获准改用其他工作流。
+项目已采用 pstack 时，用 [pstack 接入与特化](pstack.md) 的 `no-comments` 流程执行本节：保留“默认删除、保留举证”的强约束，并同时遵守其中的 `shortcut:` 债务与未闭合真实约束规则，不把本节的合法例外扩大成免删理由。`quick-do` 不启动 Comment Sicko，主会话执行同一标准；标准档的独立功能 Reviewer 不受此限制。
 
 ## 2. 依赖与模块边界
 
