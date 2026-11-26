@@ -74,7 +74,7 @@ Reviewer 每次先复核当前功能，再默认快查与改动相关的旧条�
 - Pi：`subagent_run(agent="verification-reviewer")`；OpenCode：同名原生 `subagent`。
 - DSH：`verification_review`；Codex：`spawn_agent(agent_type="verification-reviewer")`。
 - Claude Code：`subagent_type="verification-reviewer"`。
-- Antigravity：不预装固定 Reviewer；T3 `t3-plan-execute` 下由 OpenCode 执行端调用原生 `verification-reviewer`，直接在 Antigravity 会话内修改时披露未注册固定角色（需要时可用原生只读 subagent 按 [references/reviewer.md](references/reviewer.md) 辅助检查，不冒充已注册角色）。
+- Antigravity：不预装固定 Reviewer；T3 `t3-plan-execute` 下由 OpenCode 执行端调用原生 `verification-reviewer` 做功能复核，再由 Antigravity 原生只读 subagent 审查代码结构、品味与观感；直接在 Antigravity 会话内修改时披露未注册固定角色（可用原生只读 subagent 按 [references/reviewer.md](references/reviewer.md) 辅助检查，不冒充已注册角色）。
 
 只装 skill 不等于角色已注册，缺失时披露。发现漏装或 live 漂移时，由主 Agent 使用项目现有安装入口显式更新，再复核真实加载；Reviewer 不直接修改 live。临时 `general` 可作功能审查，但不证明该角色已安装或可加载。
 

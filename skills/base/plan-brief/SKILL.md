@@ -11,7 +11,7 @@ Use a durable plan for a large framework, a migration, or work with consequentia
 
 - **Plan.** Resolve the material decisions and write the plan. A request to plan, or agreement with the design alone, does not authorize implementation or execution workers. End a planning-only request with the plan path and “计划已就绪，尚未执行”.
 - **Execute.** On “按这份计划执行” or “用 Multi Agent 执行这份计划”, enter [Execute an agreed plan](#execute-an-agreed-plan) in this session. A request to carry out an existing plan does not require authoring another one.
-- **Hand off or review.** If the user enabled [t3-plan-execute](../t3-plan-execute/SKILL.md) in T3 Code's Antigravity session, delegate execution to OpenCode after authorization; otherwise provide the [launcher](#separate-session-handoff) for another session or machine. Review a returned result or report against its plan. Preparing a handoff does not launch it.
+- **Hand off or review.** In T3 Code's Antigravity session, when the user asks to delegate execution to OpenCode or invokes [t3-plan-execute](../t3-plan-execute/SKILL.md), follow it after authorization; otherwise provide the [launcher](#separate-session-handoff) for another session or machine. Review a returned result or report against its plan. Preparing a handoff does not launch it.
 
 Development execution defaults to standard quality (Unslop, applicable checks and independent functional review); the user may explicitly choose light quality for low-risk work. Record the agreed quality tier and any stronger project gates in the plan. A quality tier never turns planning into permission to implement.
 

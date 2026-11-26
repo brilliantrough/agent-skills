@@ -277,7 +277,7 @@ bash scripts/verify-subagents.sh --apply --yes    # 显式接受默认升级与�
 | `steady-do` | 日常功能、插件、扩展；长程或无人值守运行 | 当前会话澄清、实现、验证；已有计划且用户要求执行时直接按计划做；明确要求“做到完成”时用可判定谓词＋原生唤醒＋`decisions.tsv` 逐轮推进 |
 | [`multi-agent`](skills/base/multi-agent/SKILL.md) | 独立分支、多 Agent 或 Swarm | 按分片覆盖或同题竞速派发，主会话集成；没有值得拆的分支就串行 |
 | [`plan-brief`](skills/base/plan-brief/SKILL.md) | 大框架、长程移植、多阶段任务 | 写清依赖、可并行分片和验收，规划完成后停下；用户可让原会话执行，指定跨会话时才生成启动 prompt、报告和审查 |
-| [`t3-plan-execute`](skills/base/t3-plan-execute/SKILL.md) | 仅在 T3 Code 的 Antigravity 会话显式调用 | Antigravity 规划和审阅；获授权后由 OpenCode 实施、去冗余和功能复核 |
+| [`t3-plan-execute`](skills/base/t3-plan-execute/SKILL.md) | T3 Code 的 Antigravity 主会话双核协作 | Gemini 规划并用原生只读子代理审结构、品味与观感；获授权后委派 OpenCode（默认 GPT）落地与功能复核 |
 
 按不确定性、耦合、风险与交接需求选择，不按字数分档：
 

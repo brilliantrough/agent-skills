@@ -358,8 +358,12 @@ def main():
         assert (sync_home / ".agents/skills/demo/SKILL.md").read_text() == "demo skill\n"
         for skill in ("deepseek-efficiency", "unslop-changes", "t3-plan-execute"):
             assert (sync_home / f".agents/skills/{skill}/SKILL.md").read_bytes() == (ROOT / f"skills/base/{skill}/SKILL.md").read_bytes()
-        t3_header = (sync_home / ".agents/skills/t3-plan-execute/SKILL.md").read_text(encoding="utf-8").split("---", 2)[1]
-        assert "disable-model-invocation: true" in t3_header.splitlines()
+        t3_skill = (sync_home / ".agents/skills/t3-plan-execute/SKILL.md").read_text(encoding="utf-8")
+        t3_header = t3_skill.split("---", 2)[1]
+        assert "disable-model-invocation" not in t3_header
+        for token in ("providerInstanceId", "codex-newapi/gpt-6.2-sol", "verification-reviewer",
+                      "EnableWriteTools", "invoke_subagent", "t3_thread_send"):
+            assert token in t3_skill, token
         # 第二次在同一 HOME 上跑:复用 clone,未变不重写
         proc = subprocess.run(["bash", str(ROOT / "skills-sync.sh"), "base"], capture_output=True,
                               text=True, env=env, stdin=subprocess.DEVNULL, timeout=180, check=False)

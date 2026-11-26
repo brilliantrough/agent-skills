@@ -10,7 +10,7 @@ Apply `goal-first`: anchor work to the agreed outcome, current uncertainty, next
 ## When this skill applies
 
 - Ordinary feature, plugin, extension, and cross-module work in an existing project, implemented and verified in this session.
-- The user's explicit workflow choice wins. Bounded and clear → `quick-do`; a large framework or migration needing a durable staged plan → [plan-brief](../plan-brief/SKILL.md). Do not turn ordinary implementation into a planning-only handoff.
+- The user's explicit workflow choice wins. Bounded and clear → `quick-do`; a large framework or migration needing a durable staged plan → [plan-brief](../plan-brief/SKILL.md); in T3 Code's Antigravity session, planning here and delegating execution to OpenCode → [t3-plan-execute](../t3-plan-execute/SKILL.md). Do not turn ordinary implementation into a planning-only handoff.
 - **An agreed plan plus an instruction to execute:** read the plan and project instructions, verify the baseline, prerequisites and task endpoint, then start at step 3. Use the plan's decisions, verification and deliverables; ask only if a changed premise affects them. Merely writing or approving a design is not an instruction to implement it.
 - These workflows govern requested development work; explanations and read-only questions need no workflow. Skill instructions are in English; replies and deliverables follow the user's language (Chinese by default).
 
