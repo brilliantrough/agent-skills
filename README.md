@@ -56,16 +56,17 @@ bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.co
 首次选这台机器要维护的宿主，例如 `opencode,antigravity`。以后运行同一条命令沿用名单和 Skill 组；不根据机器上多了哪个软件就自动接管。已有仓库也可直接用：
 
 ```bash
+bash setup.sh --hosts all                    # 配置本平台支持的全部宿主
 bash setup.sh --hosts opencode,antigravity   # 设置或替换名单
-bash setup.sh                               # 按本机选择更新
-bash setup.sh --choose                      # 重新选择宿主、Skill 组及安装选项
+bash setup.sh                                # 按本机选择更新
+bash setup.sh --choose                       # 重新选择宿主、Skill 组及安装选项
 bash setup.sh --hosts none                   # 只维护公共项
 ```
 
-可选宿主：`opencode`、`pi`、`dsh`、`codex`、`claude`、`antigravity`。删掉某个名字只停止更新，不卸载。无人值守首次必须显式给名单；`-y` 沿用已有答案、缺项取各宿主默认值，可能包含客户端升级或停止共享记忆 worker 的操作。
+可选宿主：`opencode`、`pi`、`dsh`、`codex`、`claude`、`antigravity`；单填 `all` 选中本平台支持的全部宿主（Windows 自动跳过仅支持 Linux／macOS 的 `dsh`），单填 `none` 只维护公共项。删掉某个名字只停止更新，不卸载。无人值守首次必须显式给名单；`-y` 沿用已有答案、缺项取各宿主默认值，可能包含客户端升级或停止共享记忆 worker 的操作。
 
-- **每台机器一次：**本次只取一次源码，只同步一次选中的 Skill 组、外部 Skill 和公共模块。Claude 的 Skill 链接和 Antigravity 的原生发现清单默认备好，不要求安装或勾选客户端。组内按现有策略更新，内容没变不重写，本机特化的 accel 仍缺才装。
-- **只对选中宿主：**OpenCode、Pi、DSH、Codex 运行各自原有安装器的专用部分，保留凭据合并和高风险操作选择。Claude Code 可加用户规则和两个 Reviewer；Antigravity 只加用户规则。每个完整宿主在自己的执行阶段前收集所缺参数。宿主升级、Release 检查仍遵循对应安装器，不承诺全程零下载。
+- **每台机器一次：**本次只取一次源码，只同步一次选中的 Skill 组、外部 Skill 和公共模块。Claude 和 Antigravity 的逐 Skill 发现链接默认备好，不要求安装或勾选客户端。组内按现有策略更新，内容没变不重写，本机特化的 accel 仍缺才装。
+- **只对选中宿主：**OpenCode、Pi、DSH、Codex 运行各自原有安装器的专用部分，保留凭据合并和高风险操作选择。Claude Code 可加用户规则和两个 Reviewer；Antigravity 同步用户规则与基础 MCP（复用本机已有的 `web`、`codegraph`、`claude-mem` 检索端并桥接 T3 隔离目录）。每个完整宿主在自己的执行阶段前收集所缺参数。宿主升级、Release 检查仍遵循对应安装器，不承诺全程零下载。
 - **记在哪里：**仍用 `${XDG_CONFIG_HOME:-~/.config}/agent-skills/preferences.conf`，`SHARED_HOSTS` 存宿主名单，沿用旧入口的 Skill 组偏好。新机器要有 Git、Bash、Python 3；外部设计依赖需 Node/npx，选 PPT 还需 Python 3.10+ 和 Node 20+。
 
 ### 单独运行某个宿主的安装器
@@ -123,9 +124,9 @@ bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.co
 bash -c "$(curl -fsSL --connect-timeout 8 -m 60 https://raw.githubusercontent.com/brilliantrough/agent-skills/main/skills-sync.sh)" -- --antigravity base
 ```
 
-`--antigravity` 在原生 `~/.gemini/config/skills.json` 中登记 `~/.agents/skills` 的本机绝对路径。`base` 决定本次安装的组；Antigravity 可发现这个共享目录里**所有已安装的 Skill**。已有入口、过滤条件和继承设置保留；配置目录是链接且相对路径指向不明确时，脚本提示改用绝对路径。无需复制 Skill 或安装插件。
+`--antigravity` 在 `~/.gemini/config/skills/<名>` 建指向 `~/.agents/skills/<名>` 的符号链接（Git Bash 无真链接时回退为复制），同时兼容终端 `agy`、独立 Antigravity App／IDE 与 T3 Code 的隔离 Antigravity 目录。`base` 决定本次安装的组；共享目录里**所有已安装的 Skill**都会同步补齐链接。旧版写进 `~/.gemini/config/skills.json` 的无过滤重复条目会先备份再清理；用户自定义的清单条目、过滤条件或同名自建 Skill 原样保留。
 
-选择同步公共规则时，脚本把同一受管块写入 `~/.gemini/AGENTS.md`，保留文件其余正文；`AGENTS_TAIL=0` 只接 Skill。项目根 `AGENTS.md` 由宿主直接读取，不用再抄一份 `GEMINI.md`。本机只有 `~/.gemini/` 不视为已安装 Antigravity。新开工作区，在 App／IDE 的 **Customizations** 查看规则和 Skill 来源；CLI 用 `/skills` 确认 `quick-do` 可见。规则与 Skill 使用原生文件入口，记忆和审查能力以宿主实际提供的为准。
+选择同步公共规则时，脚本把同一受管块写入 `~/.gemini/AGENTS.md`，保留文件其余正文（T3 Code 启动 Antigravity 会话时会自动桥接该文件）；`AGENTS_TAIL=0` 只接 Skill 与 MCP。同时脚本会按本机已就绪的 `MCPHUB_HOST`／Pi／OpenCode 配置、`codegraph` 与 `claude-mem` 运行时，将 `web`、`codegraph` 与 `claude-mem` 检索端合并写入 `~/.gemini/config/mcp_config.json`（沿用宿主默认懒加载以节省上下文，保留用户自定义项，不装 Antigravity Hooks），并将已存在的 T3 隔离目录 `~/.t3/userdata/providers/antigravity/*/config/mcp_config.json` 软链（Windows 为同步复制）到同一份配置。在 T3 中启用全局 MCP 后，后台标题生成等纯文本系统任务请在 T3 设置中改选其他 Provider 的轻量模型。项目根 `AGENTS.md` 由宿主直接读取，不用再抄一份 `GEMINI.md`。本机只有裸 `~/.gemini/` 不视为已安装 Antigravity。新开会话后，在 App／IDE 的 **Customizations**、CLI 的 `/skills` 与 `/mcp` 或 T3 Code 会话即可看到同一批规则、Skill 和 MCP。
 
 Antigravity 的[规则文件](https://antigravity.google/docs/rules)有 24,000 字节的单文件上限，过长会截断；关键项目要求放在文件开头。另见 [Skill](https://antigravity.google/docs/skills) 和[自定义目录与发现顺序](https://antigravity.google/docs/customization-discovery)。
 

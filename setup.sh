@@ -2,7 +2,7 @@
 # 套件统一入口；正式脚本从同一棵源码树运行，子安装器不再 fetch。
 set -euo pipefail
 for arg in "$@"; do
-  case "$arg" in -h|--help) echo '用法: bash setup.sh [--hosts opencode,pi,dsh,codex,claude,antigravity|none] [--choose] [-y]'; exit 0 ;; esac
+  case "$arg" in -h|--help) echo '用法: bash setup.sh [--hosts all|opencode,pi,dsh,codex,claude,antigravity|none] [--choose] [-y]'; exit 0 ;; esac
 done
 IS_WIN=0
 case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) IS_WIN=1 ;; esac

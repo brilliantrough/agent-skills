@@ -189,6 +189,18 @@ try {
   const discoveryOnly = spawnSync("bash", [verifier], { env: { ...verifyEnv, AGENT_SKILLS_PREFERENCES: savedHosts }, encoding: "utf8" });
   assert.equal(discoveryOnly.status, 0, discoveryOnly.stderr);
   assert.match(discoveryOnly.stdout, /未选择需要 Reviewer/);
+  await writeFile(savedHosts, "SHARED_HOSTS=all\n");
+  const fakeOcBin = join(tmp, "verify-all-oc");
+  await mkdir(fakeOcBin, { recursive: true });
+  await writeFile(join(fakeOcBin, "opencode"),
+    "#!/usr/bin/env bash\nprintf '[{\"id\":\"verification-reviewer\",\"mode\":\"subagent\",\"model\":{\"providerID\":\"codex-newapi\",\"id\":\"gpt-6.2-sol\",\"variant\":\"max\"}},{\"id\":\"consolidation-reviewer\",\"mode\":\"subagent\",\"model\":{\"providerID\":\"codex-newapi\",\"id\":\"gpt-6.2-sol\",\"variant\":\"max\"}}]'\n");
+  await chmod(join(fakeOcBin, "opencode"), 0o755);
+  const allInstalled = spawnSync("bash", [verifier], {
+    env: { ...verifyEnv, PATH: `${fakeOcBin}:${process.env.PATH}`, AGENT_SKILLS_PREFERENCES: savedHosts },
+    encoding: "utf8",
+  });
+  assert.equal(allInstalled.status, 0, allInstalled.stdout + allInstalled.stderr);
+  assert.match(allInstalled.stdout, /PASS：所选宿主/);
   assert.equal(spawnSync("bash", [verifier, "--yes"], { env: verifyEnv }).status, 2);
 
   // 默认只读检查必须与 live/项目隔离：不读项目级角色，也不把宿主状态写进真实 HOME

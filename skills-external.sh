@@ -50,8 +50,20 @@ const skills = lock.skills || {};
 let removed = 0;
 for (const name of names) {
   let hit = false;
-  for (const dir of [path.join(home, '.agents', 'skills', name), path.join(home, '.claude', 'skills', name)]) {
-    if (fs.existsSync(dir)) { fs.rmSync(dir, { recursive: true, force: true }); hit = true; }
+  const canonical = path.join(home, '.agents', 'skills', name);
+  const agy = path.join(home, '.gemini', 'config', 'skills', name);
+  const agyStat = fs.lstatSync(agy, { throwIfNoEntry: false });
+  if (agyStat?.isSymbolicLink()) {
+    const linkTarget = fs.readlinkSync(agy);
+    if (path.resolve(path.dirname(agy), linkTarget) === path.resolve(canonical) || linkTarget === `../../../.agents/skills/${name}`) {
+      fs.rmSync(agy, { force: true }); hit = true;
+    }
+  } else if (agyStat?.isDirectory() && fs.existsSync(path.join(canonical, 'SKILL.md')) && fs.existsSync(path.join(agy, 'SKILL.md'))
+             && fs.readFileSync(path.join(canonical, 'SKILL.md'), 'utf8') === fs.readFileSync(path.join(agy, 'SKILL.md'), 'utf8')) {
+    fs.rmSync(agy, { recursive: true, force: true }); hit = true;
+  }
+  for (const dir of [canonical, path.join(home, '.claude', 'skills', name)]) {
+    if (fs.lstatSync(dir, { throwIfNoEntry: false })) { fs.rmSync(dir, { recursive: true, force: true }); hit = true; }
   }
   if (skills[name]) { delete skills[name]; hit = true; }
   if (hit) { console.log('removed: ' + name); removed++; }
@@ -76,7 +88,14 @@ const dirs = [path.join(home, '.agents', 'skills', name), path.join(home, '.clau
 const present = dirs.some(d => fs.existsSync(d));
 const entry = skills[name];
 if (entry && (entry.source || '').includes('taste-skill')) {
-  for (const d of dirs) if (fs.existsSync(d)) fs.rmSync(d, { recursive: true, force: true });
+  const agy = path.join(home, '.gemini', 'config', 'skills', name);
+  if (fs.lstatSync(agy, { throwIfNoEntry: false })?.isSymbolicLink()) {
+    const linkTarget = fs.readlinkSync(agy);
+    if (path.resolve(path.dirname(agy), linkTarget) === path.resolve(dirs[0]) || linkTarget === `../../../.agents/skills/${name}`) {
+      fs.rmSync(agy, { force: true });
+    }
+  }
+  for (const d of dirs) if (fs.lstatSync(d, { throwIfNoEntry: false })) fs.rmSync(d, { recursive: true, force: true });
   delete skills[name];
   lock.skills = skills;
   fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2) + '\n');

@@ -1667,15 +1667,23 @@ def check_unified_update():
         tmp = pathlib.Path(td)
         src, home = tmp / "source tree", tmp / "home"
         src.mkdir(); home.mkdir()
-        for name in ("dsh-setup.sh", "skills-sync.sh", "scripts/update-hosts.sh", "scripts/migrate-agents-tail.py",
+        for name in ("skills-sync.sh", "scripts/update-hosts.sh", "scripts/migrate-agents-tail.py",
                      "AGENTS.tail.md", "templates"):
             dest = src / name
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.symlink_to(ROOT / name)
+        dsh_head = (ROOT / "dsh-setup.sh").read_text(encoding="utf-8").split(
+            'if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then return 0; fi\n', 1)[0]
+        (src / "dsh-setup.sh").write_text(
+            dsh_head + 'if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then return 0; fi\n'
+            'echo dsh:"$AGENT_SKILLS_HOST_ONLY:$AGENT_SKILLS_MEM_RESTART:$*" >> "$LOG"\n', encoding="utf-8")
         for group in ("base", "research"):
             skill = src / "skills" / group / f"demo-{group}"
             skill.mkdir(parents=True); (skill / "SKILL.md").write_text(group)
-        for host in ("opencode", "pi"):
+        for name in ("consolidator", "verification"):
+            skill = src / "skills/base" / name
+            skill.mkdir(parents=True); (skill / "SKILL.md").write_text(name)
+        for host in ("opencode", "pi", "codex"):
             (src / f"{host}-setup.sh").write_text(
                 f'echo {host}:"$AGENT_SKILLS_HOST_ONLY:$AGENT_SKILLS_MEM_RESTART:$*" >> "$LOG"\n'
                 f'rm -f "$ALIVE_FLAG"\n'
@@ -1691,6 +1699,7 @@ def check_unified_update():
         (bin_dir / "npx").write_text(
             '#!/bin/sh\necho "npx $*" >> "$LOG"\n'
             '[ "$*" != "restart" ] || : > "$ALIVE_FLAG"\n')
+        (bin_dir / "codegraph").write_text('#!/bin/sh\nexit 0\n')
         for stub in bin_dir.iterdir():
             stub.chmod(0o755)
         (src / "skills-external.sh").write_text('echo shared >> "$LOG"\n')
@@ -1712,6 +1721,8 @@ def check_unified_update():
         expected = ['shared', 'opencode:1:0:-y', 'pi:1:0:-y', 'module']
         assert log.read_text().splitlines() == expected
         assert (home / '.gemini/AGENTS.md').is_file() and not (home / '.claude/CLAUDE.md').exists()
+        assert (home / '.gemini/config/mcp_config.json').is_file()
+        assert (home / '.gemini/config/skills/demo-research/SKILL.md').read_text() == 'research'
         installed = home / '.agents/skills/demo-research/SKILL.md'
         assert installed.read_text() == 'research'
         stamp = installed.stat().st_mtime_ns; saved = pref.stat().st_mtime_ns
@@ -1719,9 +1730,12 @@ def check_unified_update():
         shutil.copytree(ROOT / new_skill, src / new_skill)
         assert run('-y').returncode == 0 and log.read_text().splitlines() == expected * 2
         assert (home / '.agents/skills/problem-framing/SKILL.md').read_bytes() == (ROOT / new_skill / 'SKILL.md').read_bytes()
+        assert (home / '.gemini/config/skills/problem-framing/SKILL.md').read_bytes() == (ROOT / new_skill / 'SKILL.md').read_bytes()
         assert installed.stat().st_mtime_ns == stamp and pref.stat().st_mtime_ns == saved
         assert run('--hosts', 'bogus', '-y').returncode != 0 and pref.stat().st_mtime_ns == saved
+        assert run('--hosts', 'all,pi', '-y').returncode != 0 and pref.stat().st_mtime_ns == saved
         before = (home / '.gemini/AGENTS.md').stat().st_mtime_ns
+        mcp_before = (home / '.gemini/config/mcp_config.json').stat().st_mtime_ns
         pi_config = home / '.pi/agent/settings.json'
         pi_config.parent.mkdir(parents=True, exist_ok=True)
         pi_config.write_text('{"custom":"preserve"}', encoding='utf-8')
@@ -1729,6 +1743,7 @@ def check_unified_update():
         assert run('--hosts', 'opencode', '-y').returncode == 0
         assert log.read_text().splitlines()[8:] == ['shared', 'opencode:1:0:-y', 'module']
         assert (home / '.gemini/AGENTS.md').stat().st_mtime_ns == before
+        assert (home / '.gemini/config/mcp_config.json').stat().st_mtime_ns == mcp_before
         assert pi_config.read_text(encoding='utf-8') == '{"custom":"preserve"}' and pi_config.stat().st_mtime_ns == pi_stamp
         assert 'SHARED_HOSTS=opencode\n' in pref.read_text()
         link_stub = bin_dir / 'link'
@@ -1762,6 +1777,23 @@ def check_unified_update():
         assert run("--hosts", "opencode,pi", "-y", ALIVE_FLAG=str(flag), FAIL_HOST="pi").returncode == 23
         restarts = [line for line in log.read_text().splitlines() if line.startswith('npx ')]
         assert restarts == ['npx -y claude-mem@latest restart'], restarts
+        # --hosts all 选中本平台全部宿主（含 Claude 审查角色与 Antigravity 规则），重跑沿用 SHARED_HOSTS=all；Windows 自动跳过 dsh。
+        log.unlink()
+        all_run = run("--hosts", "all", "-y")
+        assert all_run.returncode == 0, all_run.stdout + all_run.stderr
+        assert "SHARED_HOSTS=all\n" in pref.read_text()
+        assert log.read_text().splitlines() == [
+            "shared", "opencode:1:0:-y", "pi:1:0:-y", "dsh:1:0:-y", "codex:1:0:-y", "module"]
+        assert (home / ".claude/CLAUDE.md").is_file() and (home / ".claude/agents/verification-reviewer.md").is_file()
+        assert (home / ".gemini/AGENTS.md").is_file()
+        log.unlink()
+        uname_stub = bin_dir / "uname"
+        uname_stub.write_text("#!/bin/sh\necho MINGW64_NT-10.0\n"); uname_stub.chmod(0o755)
+        win_all = run("-y")
+        assert win_all.returncode == 0 and "跳过 dsh" in win_all.stdout, win_all.stdout + win_all.stderr
+        assert log.read_text().splitlines() == [
+            "shared", "opencode:1:0:-y", "pi:1:0:-y", "codex:1:0:-y", "module"]
+        uname_stub.unlink()
     print('统一更新：选中宿主、旧偏好继承、公共项只执行一次、worker 只由入口收口、重跑与失败传播')
 
 

@@ -381,26 +381,30 @@ def main():
         assert not list(gemini.iterdir()), "不能把 Gemini CLI 当成 Antigravity"
         print("PASS 候选源码树:公共块只进隔离 HOME 的用户级文件")
 
+        (sync_home / ".agents/skills/extra-installed").mkdir(parents=True)
+        (sync_home / ".agents/skills/extra-installed/SKILL.md").write_text("extra\n", encoding="utf-8")
         manifest = gemini / "config/skills.json"
         manifest.parent.mkdir()
         original = {"entries": [{"path": "local", "exclude": ["internal"]}], "inherits": []}
-        manifest.write_text(json.dumps(original))
+        with_legacy = {"entries": [*original["entries"], {"path": str(sync_home / ".agents/skills")}], "inherits": []}
+        manifest.write_text(json.dumps(with_legacy))
         (gemini / "AGENTS.md").write_text("LOCAL\n")
         def antigravity(env):
             return subprocess.run(["bash", str(ROOT / "skills-sync.sh"), "--antigravity", "base"],
                                   env=env, cwd=repo, capture_output=True, text=True, timeout=60)
         assert antigravity(dict(candidate_env, AGENTS_TAIL="0")).returncode == 0
-        config = json.loads(manifest.read_bytes())
-        shared = config["entries"].pop()
-        assert config == original and (manifest.parent / shared["path"] / "demo/SKILL.md").read_text() == "demo skill\n"
+        assert json.loads(manifest.read_bytes()) == original
+        assert any(p.name.startswith("antigravity-skills.json.bak-") for p in (empty / "agent-skills/.backups").iterdir())
+        assert (gemini / "config/skills/demo/SKILL.md").read_text() == "demo skill\n"
+        assert (gemini / "config/skills/extra-installed/SKILL.md").read_text() == "extra\n"
         assert (gemini / "AGENTS.md").read_text() == "LOCAL\n"
-        shared["exclude"] = ["private"]
-        config["entries"].append(shared)
-        prior = json.dumps(config)
+        manifest.write_text(json.dumps({"entries": [{"path": str(sync_home / ".agents/skills")}]}))
+        assert antigravity(candidate_env).returncode == 0 and not manifest.exists()
+        assert (gemini / "AGENTS.md").read_text().startswith("LOCAL\n") and (gemini / "AGENTS.md").read_text().count("TEST-BLOCK") == 1
+        prior = json.dumps({"entries": [{"path": str(sync_home / ".agents/skills"), "exclude": ["private"]}]})
         manifest.write_text(prior)
         assert antigravity(candidate_env).returncode == 0 and manifest.read_text() == prior
-        assert (gemini / "AGENTS.md").read_text().startswith("LOCAL\n") and (gemini / "AGENTS.md").read_text().count("TEST-BLOCK") == 1
-        for bad in ("broken", json.dumps({"entries": [shared, {"path": 123}]})):
+        for bad in ("broken", json.dumps({"entries": [{"path": 123}]})):
             manifest.write_text(bad)
             assert antigravity(candidate_env).returncode != 0 and manifest.read_text() == bad
         if os.name != "nt":
@@ -412,23 +416,52 @@ def main():
             manifest.write_text(filtered)
             assert antigravity(candidate_env).returncode != 0 and manifest.read_text() == filtered
             manifest.unlink()
+            (moved / "skills/extra-installed").unlink()
+            (moved / "skills/extra-installed").symlink_to("../../../.agents/skills/extra-installed")
             for _ in range(2):
                 assert antigravity(candidate_env).returncode == 0
-            entry, = json.loads(manifest.read_bytes())["entries"]
-            assert (moved / entry["path"]).samefile(sync_home / ".agents/skills")
-        print("PASS Antigravity:原生发现清单引用共享 Skill，保留规则正文、过滤条件与无效原件")
+            assert (moved / "skills/demo").samefile(sync_home / ".agents/skills/demo")
+            assert (moved / "skills/extra-installed").samefile(sync_home / ".agents/skills/extra-installed")
+        # 单跑模式(COMMON=0、无 --antigravity)检测到已装 Antigravity 特征时，同样补齐其他组/外部 Skill 并清理旧 skills.json。
+        solo_agy = tmp / "solo-agy-home"
+        (solo_agy / ".gemini/antigravity").mkdir(parents=True)
+        (solo_agy / ".agents/skills/extra-research").mkdir(parents=True)
+        (solo_agy / ".agents/skills/extra-research/SKILL.md").write_text("research\n", encoding="utf-8")
+        solo_manifest = solo_agy / ".gemini/config/skills.json"
+        solo_manifest.parent.mkdir(parents=True)
+        solo_manifest.write_text(json.dumps({"entries": [{"path": str(solo_agy / ".agents/skills")}]}))
+        (repo / "skills-external.sh").write_text(
+            '#!/usr/bin/env bash\n'
+            'if [ -n "${EXT_VER:-}" ]; then\n'
+            '  mkdir -p "$HOME/.agents/skills/ext-demo"\n'
+            '  printf "%s\\n" "$EXT_VER" > "$HOME/.agents/skills/ext-demo/SKILL.md"\n'
+            'fi\n'
+            'printf "%s\\n" "$*" >> "${EXTERNAL_LOG:-/dev/null}"\nexit 0\n', encoding="utf-8")
+        solo_proc = subprocess.run(
+            ["bash", str(ROOT / "skills-sync.sh"), "base"], capture_output=True, text=True,
+            env=dict(env, HOME=str(solo_agy), AGENT_SKILLS_SOURCE=str(repo), AGENTS_TAIL="0", EXT_VER="v1"),
+            cwd=repo, stdin=subprocess.DEVNULL, timeout=60, check=False)
+        assert solo_proc.returncode == 0, solo_proc.stdout + solo_proc.stderr
+        assert (solo_agy / ".gemini/config/skills/extra-research/SKILL.md").read_text() == "research\n"
+        assert (solo_agy / ".gemini/config/skills/ext-demo/SKILL.md").read_text() == "v1\n"
+        assert not solo_manifest.exists(), "单跑模式未清理已装 Antigravity 的旧重复 skills.json"
+        print("PASS Antigravity:发现目录链接共享与已装 Skill，清理旧重复清单并保留自定义过滤与规则正文")
 
         # 6b) 统一入口公共模式:没有装/选 Claude、Antigravity 也提供轻量发现，不动其他宿主配置。
         common_home = tmp / "common-home"
         foreign = common_home / ".claude/skills/demo"          # 用户自己的真实目录
         foreign.mkdir(parents=True)
         (foreign / "SKILL.md").write_text("mine\n", encoding="utf-8")
+        agy_foreign = common_home / ".gemini/config/skills/demo"
+        agy_foreign.mkdir(parents=True)
+        (agy_foreign / "SKILL.md").write_text("agy-mine\n", encoding="utf-8")
         outside = tmp / "user-own-skill"                      # 用户手工链接
         outside.mkdir()
         (outside / "SKILL.md").write_text("manual link\n", encoding="utf-8")
         posix_links = os.name != 'nt' and not sys.platform.startswith(('msys', 'cygwin'))
         if posix_links:
             (common_home / ".claude/skills/verification").symlink_to(outside, target_is_directory=True)
+            (common_home / ".gemini/config/skills/verification").symlink_to(outside, target_is_directory=True)
         common_env = dict(env, HOME=str(common_home), AGENT_SKILLS_SOURCE=str(repo),
                           AGENT_SKILLS_COMMON="1", AGENTS_TAIL="0")
         common_env.pop("CLAUDE_CONFIG_DIR", None)
@@ -440,22 +473,23 @@ def main():
         proc = common()
         assert proc.returncode == 0, proc.stdout + proc.stderr
         assert (foreign / "SKILL.md").read_text() == "mine\n", "覆盖了用户真实目录"
+        assert (agy_foreign / "SKILL.md").read_text() == "agy-mine\n", "覆盖了 Antigravity 用户真实目录"
         if posix_links:
             assert (common_home / ".claude/skills/verification").samefile(outside), "覆盖了用户手工链接"
+            assert (common_home / ".gemini/config/skills/verification").samefile(outside), "覆盖了 Antigravity 手工链接"
         link = common_home / ".claude/skills/consolidator"
+        agy_link = common_home / ".gemini/config/skills/consolidator"
         assert link.is_symlink() == posix_links and (link / "SKILL.md").read_text() == "consolidator\n"
+        assert agy_link.is_symlink() == posix_links and (agy_link / "SKILL.md").read_text() == "consolidator\n"
         assert not list(common_home.glob(".claude/agents")), "未选 Claude 也装了审查代理"
         touched = [p for p in (".pi", ".codex", ".config/opencode", ".dsh") if (common_home / p).exists()]
         assert not touched and not (common_home / ".local/share/agent-skills/dsh/home").exists(), touched
-        manifest = common_home / ".gemini/config/skills.json"
-        entries = json.loads(manifest.read_bytes())["entries"]
-        discovered = manifest.parent / entries[-1]["path"]
-        assert discovered.samefile(common_home / ".agents/skills")
-        assert (discovered / "t3-plan-execute/SKILL.md").is_file()
-        first = manifest.stat().st_mtime_ns, link.lstat().st_mtime_ns
+        assert not (common_home / ".gemini/config/skills.json").exists()
+        assert (common_home / ".gemini/config/skills/t3-plan-execute/SKILL.md").is_file()
+        first = agy_link.lstat().st_mtime_ns, link.lstat().st_mtime_ns
         proc = common()
         assert proc.returncode == 0 and "linked:" not in proc.stdout, proc.stdout
-        assert (manifest.stat().st_mtime_ns, link.lstat().st_mtime_ns) == first, "公共模式重跑不幂等"
+        assert (agy_link.lstat().st_mtime_ns, link.lstat().st_mtime_ns) == first, "公共模式重跑不幂等"
 
         # 改跑单一 Pi 入口不能把预置的两个发现目录当成选择 Claude/Antigravity。
         proc = common({"AGENT_SKILLS_COMMON": "0", "AGENTS_TAIL_HOST": "pi", "AGENTS_TAIL": "1"})
@@ -467,7 +501,7 @@ def main():
         assert (common_home / ".claude/agents/consolidation-reviewer.md").is_file()
         print("PASS 公共模式:轻量发现、不覆盖他源同名 Skill、未选不装代理、前后幂等")
 
-        # 复制回退(Windows Git Bash):上轮拷进 Claude 目录的受管副本随仓库升级，独立内容保留。
+        # 复制回退(Windows Git Bash):上轮拷进 Claude / Antigravity 目录的受管副本随仓库升级，独立内容保留。
         copy_home = tmp / "copy-home"
         fake_bin = tmp / "fake-win-bin"
         fake_bin.mkdir()
@@ -475,16 +509,25 @@ def main():
         (fake_bin / "uname").chmod(0o755)
         (copy_home / ".claude/skills/verification").mkdir(parents=True)
         (copy_home / ".claude/skills/verification/SKILL.md").write_text("mine\n", encoding="utf-8")
-        copy_env = {"HOME": str(copy_home), "PATH": f"{fake_bin}:{os.environ['PATH']}"}
+        (copy_home / ".gemini/config/skills/verification").mkdir(parents=True)
+        (copy_home / ".gemini/config/skills/verification/SKILL.md").write_text("agy-mine\n", encoding="utf-8")
+        copy_env = {"HOME": str(copy_home), "PATH": f"{fake_bin}:{os.environ['PATH']}", "EXT_VER": "v1"}
         proc = common(copy_env)
         assert proc.returncode == 0 and "copied:" in proc.stdout, proc.stdout + proc.stderr
         mirrored = copy_home / ".claude/skills/consolidator"
+        agy_mirrored = copy_home / ".gemini/config/skills/consolidator"
         assert mirrored.is_dir() and not mirrored.is_symlink()
+        assert agy_mirrored.is_dir() and not agy_mirrored.is_symlink()
+        assert (copy_home / ".gemini/config/skills/ext-demo/SKILL.md").read_text() == "v1\n"
         commit(repo, "skills/base/consolidator/SKILL.md", "consolidator v2\n")
-        proc = common(copy_env)
+        proc = common({**copy_env, "EXT_VER": "v2"})
         assert proc.returncode == 0, proc.stdout + proc.stderr
         assert (mirrored / "SKILL.md").read_text() == "consolidator v2\n", "受管副本没有随仓库升级"
+        assert (agy_mirrored / "SKILL.md").read_text() == "consolidator v2\n", "Antigravity 受管副本没有随仓库升级"
+        assert (copy_home / ".claude/skills/ext-demo/SKILL.md").read_text() == "v2\n", "Claude 外部受管副本未随更新升级"
+        assert (copy_home / ".gemini/config/skills/ext-demo/SKILL.md").read_text() == "v2\n", "Antigravity 外部受管副本未随更新升级"
         assert (copy_home / ".claude/skills/verification/SKILL.md").read_text() == "mine\n"
+        assert (copy_home / ".gemini/config/skills/verification/SKILL.md").read_text() == "agy-mine\n"
         assert "kept:" in proc.stderr and "verification" in proc.stderr, proc.stderr
         commit(repo, "skills/base/consolidator/SKILL.md", "consolidator\n")
         print("PASS 复制回退:受管副本随仓库升级，独立真实目录保留并说明")
@@ -558,6 +601,104 @@ def main():
         assert (tail_home / ".dsh/AGENTS.md").read_text().count("TEST-BLOCK") == 1
         assert not (tail_home / ".local/share/agent-skills/dsh").exists()
         print("PASS --sync-host:单宿主写入、缺目录也创建、幂等；--sync-global 保持原探测语义")
+
+        # 6d) --antigravity-mcp:复用本机 web/codegraph/claude-mem，保留自定义项并桥接 T3 隔离目录。
+        mcp_home = tmp / "agy-mcp-home"
+        mcp_bin = tmp / "agy-mcp-empty-bin"
+        mcp_home.mkdir()
+        mcp_bin.mkdir()
+        mcp_cfg = mcp_home / ".gemini/config/mcp_config.json"
+        assert sync("--antigravity-mcp", HOME=str(mcp_home), PATH=str(mcp_bin), MCPHUB_HOST="").returncode == 0
+        assert not mcp_cfg.exists(), "无可用基础 MCP 时不应生成空 mcp_config.json"
+        mcp_cfg.parent.mkdir(parents=True)
+        mcp_cfg.write_bytes(b"")  # T3 常见初始 0 字节文件
+        (mcp_home / ".pi/agent").mkdir(parents=True)
+        (mcp_home / ".pi/agent/mcp.json").write_text(json.dumps({
+            "mcpServers": {
+                "web": {
+                    "url": "https://mcp.example.test/mcp/web",
+                    "headers": {"X-Suite": "ok", "X-Skip": "<YOUR_TOKEN>"},
+                }
+            }
+        }), encoding="utf-8")
+        ext = ".exe" if os.name == "nt" else ""
+        cg_bin = mcp_home / f".local/bin/codegraph{ext}"
+        cg_bin.parent.mkdir(parents=True)
+        cg_bin.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        cg_bin.chmod(0o755)
+        node_bin = mcp_home / f".local/share/pi-node/current/bin/node{ext}"
+        node_bin.parent.mkdir(parents=True)
+        node_bin.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        node_bin.chmod(0o755)
+        fake_bun = mcp_bin / f"bun{ext}"
+        fake_bun.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        fake_bun.chmod(0o755)
+        (mcp_home / ".config/opencode").mkdir(parents=True)
+        (mcp_home / ".config/opencode/opencode.json").write_text(json.dumps({
+            "mcp": {"servers": {"claude-mem": {"command": [str(fake_bun), "legacy.js"]}}}
+        }), encoding="utf-8")
+        mem_script = mcp_home / ".claude/plugins/marketplaces/thedotmack/plugin/scripts/mcp-server.cjs"
+        mem_script.parent.mkdir(parents=True)
+        mem_script.write_text("// stub\n", encoding="utf-8")
+        t3_clean = mcp_home / ".t3/userdata/providers/antigravity/prof-clean/config/mcp_config.json"
+        t3_clean.parent.mkdir(parents=True)
+        t3_clean.write_bytes(b"")
+        t3_custom = mcp_home / ".t3/userdata/providers/antigravity/prof-custom/config/mcp_config.json"
+        t3_custom.parent.mkdir(parents=True)
+        custom_t3_raw = json.dumps({"mcpServers": {"t3-only": {"command": "echo"}}})
+        t3_custom.write_text(custom_t3_raw, encoding="utf-8")
+        proc = sync("--antigravity-mcp", HOME=str(mcp_home), PATH=str(mcp_bin), MCPHUB_HOST="")
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+        parsed_mcp = json.loads(mcp_cfg.read_text(encoding="utf-8"))
+        assert set(parsed_mcp["mcpServers"]) == {"web", "codegraph", "claude-mem"}, parsed_mcp
+        assert parsed_mcp["mcpServers"]["web"] == {
+            "url": "https://mcp.example.test/mcp/web",
+            "headers": {"X-Suite": "ok"},
+        }
+        assert parsed_mcp["mcpServers"]["codegraph"] == {"command": str(cg_bin), "args": ["serve", "--mcp"]}
+        assert parsed_mcp["mcpServers"]["claude-mem"] == {"command": str(node_bin), "args": [str(mem_script)]}
+        if os.name != "nt":
+            assert (mcp_cfg.stat().st_mode & 0o777) == 0o600
+        if posix_links:
+            assert t3_clean.is_symlink() and t3_clean.samefile(mcp_cfg)
+        else:
+            assert t3_clean.read_bytes() == mcp_cfg.read_bytes()
+        assert t3_custom.read_text(encoding="utf-8") == custom_t3_raw and "保留 T3 独立 MCP 配置" in proc.stderr
+        # 自定义 MCP（含全局与 T3 同名独立 MCP、stdio web 桥、自定义 claude-mem）与 npm .cmd shim 解析。
+        cg_bin.unlink()
+        cg_cmd = mcp_bin / "codegraph.cmd"
+        cg_cmd.write_text("@echo off\n", encoding="utf-8")
+        cg_cmd.chmod(0o755)
+        cg_shim = mcp_bin / "node_modules/@colbymchenry/codegraph/npm-shim.js"
+        cg_shim.parent.mkdir(parents=True)
+        cg_shim.write_text("// shim\n", encoding="utf-8")
+        t3_same_custom = mcp_home / ".t3/userdata/providers/antigravity/prof-same/config/mcp_config.json"
+        t3_same_custom.parent.mkdir(parents=True)
+        same_custom_raw = json.dumps({"mcpServers": {"custom-local": {"command": "t3-isolated-db"}}})
+        t3_same_custom.write_text(same_custom_raw, encoding="utf-8")
+        custom_cfg = {
+            "mcpServers": {
+                "custom-local": {"command": "global-db"},
+                "web": {"command": "npx", "args": ["-y", "mcp-remote", "https://bridge.example.test"]},
+                "claude-mem": {"command": "custom-mem", "args": ["--custom"]},
+            }
+        }
+        mcp_cfg.write_text(json.dumps(custom_cfg), encoding="utf-8")
+        proc2 = sync("--antigravity-mcp", HOME=str(mcp_home), PATH=str(mcp_bin), MCPHUB_HOST="override.example.test")
+        assert proc2.returncode == 0, proc2.stdout + proc2.stderr
+        parsed_mcp2 = json.loads(mcp_cfg.read_text(encoding="utf-8"))
+        assert parsed_mcp2["mcpServers"]["web"] == custom_cfg["mcpServers"]["web"], "stdio web 桥被注入冲突 url"
+        assert parsed_mcp2["mcpServers"]["claude-mem"] == custom_cfg["mcpServers"]["claude-mem"], "自定义 claude-mem 被覆盖"
+        assert parsed_mcp2["mcpServers"]["codegraph"] == {"command": str(node_bin), "args": [str(cg_shim), "serve", "--mcp"]}
+        assert t3_same_custom.read_text(encoding="utf-8") == same_custom_raw and not t3_same_custom.is_symlink()
+        assert "prof-same" in proc2.stderr
+        saved_mcp_bytes = mcp_cfg.read_bytes()
+        proc3 = sync("--antigravity-mcp", HOME=str(mcp_home), PATH=str(mcp_bin), MCPHUB_HOST="override.example.test")
+        assert proc3.returncode == 0 and mcp_cfg.read_bytes() == saved_mcp_bytes
+        mcp_cfg.write_text("{broken", encoding="utf-8")
+        assert sync("--antigravity-mcp", HOME=str(mcp_home), PATH=str(mcp_bin)).returncode != 0
+        assert mcp_cfg.read_text(encoding="utf-8") == "{broken"
+        print("PASS --antigravity-mcp:合并基础 MCP、保留自定义配置、0600 权限并安全桥接 T3")
 
         # 7) Pi 本地路径包：真实 Pi 会把绝对安装路径写成相对 agent dir 的 source。
         agent = tmp / "relative-agent"

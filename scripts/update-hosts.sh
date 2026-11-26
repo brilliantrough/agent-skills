@@ -24,15 +24,24 @@ if [ "$explicit" = 0 ]; then
     if ! have_tty || [ "$YES" = 1 ]; then
       echo '首次无人值守更新请指定 --hosts opencode,pi 等，或 --hosts none 只同步公共项。' >&2; exit 2
     fi
-    read -r -p "本机要配置哪些宿主？opencode,pi,dsh,codex,claude,antigravity；none 仅公共项 [${saved:-opencode}]: " hosts_arg </dev/tty || exit 1
+    read -r -p "本机要配置哪些宿主？all 全部，或 opencode,pi,dsh,codex,claude,antigravity；none 仅公共项 [${saved:-opencode}]: " hosts_arg </dev/tty || exit 1
     hosts_arg="${hosts_arg:-${saved:-opencode}}"
   fi
 fi
-preference_put SHARED_HOSTS "$hosts_arg" || { echo '宿主名单无效，请用逗号分隔，或单填 none。' >&2; exit 2; }
+preference_put SHARED_HOSTS "$hosts_arg" || { echo '宿主名单无效，请用逗号分隔，或单填 all / none。' >&2; exit 2; }
 hosts=()
-for host in opencode pi dsh codex claude antigravity; do
-  case ",$hosts_arg," in *,"$host",*) hosts+=("$host") ;; esac
-done
+if [ "$hosts_arg" = all ]; then
+  case "$(uname -s 2>/dev/null || true)" in
+    MINGW*|MSYS*|CYGWIN*)
+      echo '提示: DSH 仅支持 Linux / macOS，Windows 下 all 跳过 dsh。'
+      hosts=(opencode pi codex claude antigravity) ;;
+    *) hosts=(opencode pi dsh codex claude antigravity) ;;
+  esac
+else
+  for host in opencode pi dsh codex claude antigravity; do
+    case ",$hosts_arg," in *,"$host",*) hosts+=("$host") ;; esac
+  done
+fi
 if [ "$hosts_arg" != none ] && [ "$YES" != 1 ] && ! have_tty; then
   echo '无交互终端：请显式加 -y 以使用宿主安装偏好（可能升级客户端、更新共享 worker）。' >&2; exit 2
 fi
@@ -77,7 +86,7 @@ if [ "$saved" != "$(printf '%s\n' "$PREF_SESSION" | LC_ALL=C sort)" ]; then
   echo 'ERROR: 本轮安装偏好未保存；未执行更新。请处理上述告警后重跑。' >&2
   exit 1
 fi
-roles=0; case ",$hosts_arg," in *,claude,*) roles=1 ;; esac
+roles=0; case " ${hosts[*]+"${hosts[*]}"} " in *' claude '*) roles=1 ;; esac
 AGENT_SKILLS_COMMON=1 AGENT_SKILLS_CLAUDE_ROLES="$roles" AGENTS_TAIL=0 SKILLS_EXTERNAL="$SKILLS_EXTERNAL" \
   bash "$root/skills-sync.sh" "${groups[@]}"
 # claude-mem 是共享 worker：各宿主的官方安装器都会停掉它，逐个重启会互相打断。
@@ -93,8 +102,11 @@ trap restore_mem_worker EXIT
 for host in ${hosts[@]+"${hosts[@]}"}; do
   echo "== $host 专用配置 =="
   case "$host" in
-    claude|antigravity)
-      if [ "${AGENTS_TAIL:-1}" = 1 ]; then python3 "$root/scripts/migrate-agents-tail.py" --sync-host "$host"; fi ;;
+    claude)
+      if [ "${AGENTS_TAIL:-1}" = 1 ]; then python3 "$root/scripts/migrate-agents-tail.py" --sync-host claude; fi ;;
+    antigravity)
+      if [ "${AGENTS_TAIL:-1}" = 1 ]; then python3 "$root/scripts/migrate-agents-tail.py" --sync-host antigravity; fi
+      python3 "$root/scripts/migrate-agents-tail.py" --antigravity-mcp ;;
     *) case "$host" in opencode) prefix=OC ;; pi) prefix=PI ;; dsh) prefix=DSH ;; codex) prefix=CODEX ;; esac
        AGENT_SKILLS_HOST_ONLY=1 AGENT_SKILLS_HOST_PREFIX="$prefix" AGENT_SKILLS_SHARED_MODULES="$shared_modules" \
          AGENT_SKILLS_MEM_RESTART=0 \

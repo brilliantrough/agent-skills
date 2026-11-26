@@ -185,7 +185,7 @@ preference_put() {
   local key="$1" value="$2" current
   [[ "$key" =~ ^(SHARED|PI|OC|CODEX|DSH)_[A-Z0-9_]+$ ]] || return 1
   case " $PREF_KNOWN_KEYS " in *" $key "*) ;; *) return 1 ;; esac
-  case "$key" in SHARED_HOSTS) [[ "$value" = none || "$value" =~ ^(opencode|pi|dsh|codex|claude|antigravity)(,(opencode|pi|dsh|codex|claude|antigravity))*$ ]] || return 1 ;;
+  case "$key" in SHARED_HOSTS) [[ "$value" = all || "$value" = none || "$value" =~ ^(opencode|pi|dsh|codex|claude|antigravity)(,(opencode|pi|dsh|codex|claude|antigravity))*$ ]] || return 1 ;;
     *_MODULES|*_MODULES_KNOWN) [[ "$value" =~ ^[a-z0-9_,-]*$ ]] || return 1 ;;
     *) [[ "$value" =~ ^[01]$ ]] || return 1 ;;
   esac

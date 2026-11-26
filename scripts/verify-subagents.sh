@@ -18,9 +18,16 @@ if [ "${#HOSTS[@]}" = 0 ]; then
   source "$ROOT/dsh-setup.sh"
   CHECK_ONLY=1 preferences_init
   if saved="$(preference_get SHARED_HOSTS)"; then
-    for host in opencode dsh pi codex claude; do
-      case ",$saved," in *,"$host",*) HOSTS+=("$host") ;; esac
-    done
+    if [ "$saved" = all ]; then
+      case "$(uname -s 2>/dev/null || true)" in
+        MINGW*|MSYS*|CYGWIN*) HOSTS=(opencode pi codex claude) ;;
+        *) HOSTS=(opencode dsh pi codex claude) ;;
+      esac
+    else
+      for host in opencode dsh pi codex claude; do
+        case ",$saved," in *,"$host",*) HOSTS+=("$host") ;; esac
+      done
+    fi
     if [ "${#HOSTS[@]}" = 0 ]; then echo '本机未选择需要 Reviewer 的宿主。'; exit 0; fi
   else
     HOSTS=(opencode dsh pi codex claude)

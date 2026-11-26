@@ -3,16 +3,17 @@
 #
 # 分组 = 仓库 skills/ 下的目录(base/research/accel/kb/ppt):新增 skill 只需放入对应组目录。
 # 策略:base/research/ppt 每次刷新且漂移先备份;accel 缺才装(本机特化不覆盖);kb 每次刷新、不备份。
-# 安装:整目录复制到 ~/.agents/skills/<名>;装了 Claude Code 的机器在 ~/.claude/skills/<名> 建指向它的符号链接
-#       (Claude Code 不读 ~/.agents/skills,但跟随逐个 skill 的链接;Git Bash 无真链接时退回复制),并部署审查代理。
+# 安装:整目录复制到 ~/.agents/skills/<名>;Claude Code(~/.claude/skills/<名>)与 Antigravity
+#       (~/.gemini/config/skills/<名>,原生 CLI/App 与 T3 Code 隔离目录共用)建逐个 skill 的符号链接
+#       (Git Bash 无真链接时退回复制),Claude 另按选择部署审查代理。
 # 备份:~/.local/share/agent-skills/.backups/<组>/<名>.bak-<时间戳>(回流仓库后自行删除)。
 #
 # 用法:skills-sync.sh [--antigravity] [all|base|research|accel|kb|ppt ...]
-# --antigravity 将共享目录登记到宿主原生发现清单；公共规则仍由 AGENTS_TAIL 控制。
+# --antigravity 维护 ~/.gemini/config/skills/<名> 链接并清理旧 skills.json 重复项；公共规则仍由 AGENTS_TAIL 控制。
 #       无参数/all = 全部组;可传多个组(例如 base research);setup 默认至少传 base。
 # 统一入口公共模式：AGENT_SKILLS_COMMON=1 AGENTS_TAIL=0 bash skills-sync.sh …
-#       无论是否装/选 Claude、Antigravity，都给 Claude 逐 Skill 链接(自定义 CLAUDE_CONFIG_DIR
-#       尽力遵循)与 Antigravity 原生清单；只做轻量发现，不装客户端、不写其他宿主专用配置。
+#       无论是否装/选 Claude、Antigravity，都给 Claude(自定义 CLAUDE_CONFIG_DIR 尽力遵循)与
+#       Antigravity(~/.gemini/config/skills)建逐 Skill 链接；只做轻量发现，不装客户端、不写其他宿主专用配置。
 #       公共规则改为按宿主显式 `scripts/migrate-agents-tail.py --sync-host HOST`。
 #       AGENT_SKILLS_CLAUDE_ROLES=1 才在公共模式安装两个 Claude 审查代理。
 # 源:与四个 setup 共用一棵本地源码树(默认受管 clone,见 acquire_source);
@@ -172,14 +173,18 @@ copy_sync() {  # 整目录替换(先建临时再换名,避免半拷状态)
   mv "$tmp" "$dest"
 }
 
+SYNCED_SKILLS=" "
 sync_one() {  # $1=组 $2=策略(refresh|missing) $3=备份(1|0) $4=名
   local grp="$1" policy="$2" dobak="$3" s="$4"
   local src="$SRC/$grp/$s" live="$LIVE/$s"
-  # 复制回退平台上,上轮由本脚本拷进 Claude 目录的副本内容等于更新前的共享目录;
+  SYNCED_SKILLS="$SYNCED_SKILLS$s "
+  # 复制回退平台上,上轮由本脚本拷进宿主目录的副本内容等于更新前的共享目录;
   # 先比对再覆盖,之后才认它受管并继续跟随升级。真实独立内容不会被误判。
-  local managed=0
+  local managed_claude=0 managed_agy=0
   if [ -n "$claude_skills" ] && [ -d "$claude_skills/$s" ] && [ ! -L "$claude_skills/$s" ] \
-    && "${DIFF_RQ[@]}" "$live" "$claude_skills/$s" >/dev/null 2>&1; then managed=1; fi
+    && "${DIFF_RQ[@]}" "$live" "$claude_skills/$s" >/dev/null 2>&1; then managed_claude=1; fi
+  if [ -n "$agy_skills" ] && [ -d "$agy_skills/$s" ] && [ ! -L "$agy_skills/$s" ] \
+    && "${DIFF_RQ[@]}" "$live" "$agy_skills/$s" >/dev/null 2>&1; then managed_agy=1; fi
   if [ ! -d "$live" ]; then
     copy_sync "$src" "$live"; echo "installed: $grp/$s"; N_INST=$((N_INST+1))
   elif [ "$policy" = missing ]; then
@@ -195,37 +200,45 @@ sync_one() {  # $1=组 $2=策略(refresh|missing) $3=备份(1|0) $4=名
     fi
     copy_sync "$src" "$live"; N_UPD=$((N_UPD+1))
   fi
-  link_claude "$s" "$live" "$managed"
+  link_mirror "$claude_skills" "$s" "$live" "$managed_claude" "../../.agents/skills/$s"
+  link_mirror "$agy_skills" "$s" "$live" "$managed_agy" "../../../.agents/skills/$s"
 }
 
-# Claude 发现入口:公共模式总是提供(尽力遵循 CLAUDE_CONFIG_DIR),旧入口只在该机已有 ~/.claude 时维护。
-claude_home="$HOME/.claude"; claude_skills=""
+# 宿主发现入口:公共模式总是提供 Claude 与 Antigravity 链接目录;
+# 单宿主模式按已装特征维护(裸 ~/.gemini 可能是 Gemini CLI,不当成 Antigravity)。
+claude_home="$HOME/.claude"; claude_skills=""; agy_skills=""
 if [ "$COMMON" = 1 ]; then
   claude_home="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
   case "$claude_home" in "~/"*) claude_home="$HOME/${claude_home#\~/}" ;; esac
   claude_skills="$claude_home/skills"
-elif [ -d "$HOME/.claude" ]; then
-  claude_skills="$HOME/.claude/skills"
+  agy_skills="$HOME/.gemini/config/skills"
+else
+  if [ "$antigravity" != 1 ] && [ -d "$HOME/.claude" ]; then claude_skills="$HOME/.claude/skills"; fi
+  if [ "$antigravity" = 1 ] || [ -d "$HOME/.gemini/antigravity" ] \
+    || [ -d "$HOME/.gemini/antigravity-cli" ] || [ -d "$HOME/.gemini/config/skills" ]; then
+    agy_skills="$HOME/.gemini/config/skills"
+  fi
 fi
 
 keep_foreign() {  # 本机同名 Skill 来自其他来源或有改动:保留并说明
   echo "kept: $1 来自其他来源或有本机改动,不覆盖;要由本仓维护请先手动删除它" >&2
 }
 
-link_claude() {  # $1=名 $2=共享实体目录 $3=镜像是否为受管副本(1|0);只留一份实体
-  local s="$1" live="$2" managed="$3" mirror old_rel rel
-  [ -n "$claude_skills" ] || return 0
-  mirror="$claude_skills/$s"
-  old_rel="../../.agents/skills/$s"  # 旧版本写入的相对链接
-  rel="$live"                        # 绝对目标:claude 目录或其父级是符号链接时仍然正确
-  mkdir -p "$claude_skills"
+link_mirror() {  # $1=目标目录 $2=名 $3=共享实体目录 $4=镜像是否为受管副本(1|0) $5=旧版相对链接;只留一份实体
+  local target_dir="$1" s="$2" live="$3" managed="$4" old_rel="${5:-}" mirror rel target_link
+  [ -n "$target_dir" ] || return 0
+  mirror="$target_dir/$s"
+  rel="$live"                        # 绝对目标:宿主目录或其父级是符号链接时仍然正确
+  mkdir -p "$target_dir"
   if [ -e "$mirror" ] && [ "$mirror" -ef "$live" ]; then return 0; fi
   if [ -L "$mirror" ]; then
     if [ -e "$mirror" ]; then keep_foreign "$mirror"; return 0; fi
-    case "$(readlink "$mirror" 2>/dev/null || true)" in
-      "$rel"|"$old_rel") rm -f "$mirror" ;;
-      *) keep_foreign "$mirror"; return 0 ;;
-    esac
+    target_link="$(readlink "$mirror" 2>/dev/null || true)"
+    if [ "$target_link" = "$rel" ] || { [ -n "$old_rel" ] && [ "$target_link" = "$old_rel" ]; }; then
+      rm -f "$mirror"
+    else
+      keep_foreign "$mirror"; return 0
+    fi
   elif [ -e "$mirror" ]; then  # 真实目录:内容已一致就不再改写
     if "${DIFF_RQ[@]}" "$live" "$mirror" >/dev/null 2>&1; then return 0; fi
     # 只有内容等于更新前共享目录(受管副本)才继续跟随升级
@@ -253,6 +266,23 @@ for g in $SYNC_GROUPS; do
 done
 
 echo "== 本仓 skills 同步完成:装 $N_INST,更新 $N_UPD,保留 $N_KEEP,未变 $N_SAME =="
+
+MANAGED_CLAUDE_EXT=" "; MANAGED_AGY_EXT=" "
+if [ "$CAN_LINK" != 1 ]; then
+  for d in "$LIVE"/*/; do
+    [ -f "$d/SKILL.md" ] || continue
+    name="$(basename "$d")"
+    case "$SYNCED_SKILLS" in *" $name "*) continue ;; esac
+    if [ -n "$claude_skills" ] && [ -d "$claude_skills/$name" ] && [ ! -L "$claude_skills/$name" ] \
+      && "${DIFF_RQ[@]}" "${d%/}" "$claude_skills/$name" >/dev/null 2>&1; then
+      MANAGED_CLAUDE_EXT="$MANAGED_CLAUDE_EXT$name "
+    fi
+    if [ -n "$agy_skills" ] && [ -d "$agy_skills/$name" ] && [ ! -L "$agy_skills/$name" ] \
+      && "${DIFF_RQ[@]}" "${d%/}" "$agy_skills/$name" >/dev/null 2>&1; then
+      MANAGED_AGY_EXT="$MANAGED_AGY_EXT$name "
+    fi
+  done
+fi
 
 # Claude Code 的两类独立审查代理;有差异先备份再写,链接写入目标。
 # 公共模式只在明确选择(AGENT_SKILLS_CLAUDE_ROLES=1)时写,不因发现目录触发。
@@ -332,19 +362,33 @@ inject_agents_md() {
     python3 "$source_root/scripts/migrate-agents-tail.py" --sync-global
   fi
 }
-if [ "$antigravity" = 1 ]; then
-  python3 "$source_root/scripts/migrate-agents-tail.py" --antigravity-skills || exit 1
-  export AGENTS_TAIL_HOST=antigravity
-elif [ "$COMMON" = 1 ]; then
-  # 公共目录还可能有以前选过的组和刚装的第三方 Skill，只补缺失入口。
+backfill_mirrors() {  # $1=目标目录 $2=旧相对前缀 $3=受管副本名单
+  local target_dir="$1" old_prefix="$2" managed_list="$3" d name managed
+  [ -n "$target_dir" ] || return 0
   for d in "$LIVE"/*/; do
     [ -f "$d/SKILL.md" ] || continue
     name="$(basename "$d")"
-    if [ ! -e "$claude_skills/$name" ] && [ ! -L "$claude_skills/$name" ]; then
-      link_claude "$name" "${d%/}" 0
-    fi
+    case "$SYNCED_SKILLS" in *" $name "*) continue ;; esac
+    managed=0
+    case "$managed_list" in *" $name "*) managed=1 ;; esac
+    link_mirror "$target_dir" "$name" "${d%/}" "$managed" "$old_prefix/$name"
   done
-  python3 "$source_root/scripts/migrate-agents-tail.py" --antigravity-skills || status=1
+}
+# 发现目录还可能有以前选过的组和刚装/更新的第三方 Skill，统一经 link_mirror 补齐或修复旧链接。
+if [ -n "$claude_skills" ]; then
+  backfill_mirrors "$claude_skills" "../../.agents/skills" "$MANAGED_CLAUDE_EXT"
+fi
+if [ -n "$agy_skills" ]; then
+  backfill_mirrors "$agy_skills" "../../../.agents/skills" "$MANAGED_AGY_EXT"
+  if [ "$antigravity" = 1 ]; then
+    python3 "$source_root/scripts/migrate-agents-tail.py" --antigravity-skills || exit 1
+  else
+    python3 "$source_root/scripts/migrate-agents-tail.py" --antigravity-skills || status=1
+  fi
+fi
+if [ "$antigravity" = 1 ]; then
+  export AGENTS_TAIL_HOST=antigravity
+  python3 "$source_root/scripts/migrate-agents-tail.py" --antigravity-mcp || status=1
 fi
 inject_agents_md || status=1
 

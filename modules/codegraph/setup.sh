@@ -2,11 +2,12 @@
 # module: codegraph
 # desc: 代码知识图谱 CLI + MCP 注册（需 codegraph init 才有索引）
 # default: Y
-# hosts: pi,opencode,codex
+# hosts: pi,opencode,codex,antigravity
 #
 # CLI 本体宿主无关；MCP 注册按宿主分开：opencode 写 opencode.json（配置根与 opencode-setup.sh 一致：
 # OPENCODE_CONFIG_DIR > XDG_CONFIG_HOME/opencode > ~/.config/opencode），codex 用 codex mcp add，
-# Pi 的 mcp.json 由 本仓模板提供条目，不需要在这里写。
+# antigravity 经 migrate-agents-tail.py --antigravity-mcp 合并 ~/.gemini/config/mcp_config.json 并桥接 T3，
+# Pi 的 mcp.json 由本仓模板提供条目，不需要在这里写。
 # 已有的 remote 或带 url 的 codegraph 条目属用户自定义，不自动改成 local：保留原文件并提示手工处理。
 # 卸载: npm uninstall -g @colbymchenry/codegraph（或删 ~/.local/bin/codegraph），再删对应 MCP 条目。
 set -euo pipefail
@@ -169,6 +170,14 @@ PY
     fi
     echo "== 注册 codex MCP =="
     codex mcp add codegraph -- "$(native "$cg")" serve --mcp || { echo "WARN: CodeGraph MCP 注册失败" >&2; exit 1; }
+    ;;
+  antigravity)
+    if [ "${AGENT_SKILLS_NO_CONFIG_WRITE:-0}" = 1 ]; then
+      echo "跳过: 本次计划未写入配置，不登记 codegraph MCP 条目（CLI 已就绪，可重跑 setup 或手工添加）"
+      exit 0
+    fi
+    here="$(cd "$(dirname "$0")/../.." && pwd)"
+    python3 "$here/scripts/migrate-agents-tail.py" --antigravity-mcp
     ;;
   *)
     echo "MCP 条目由该宿主的配置模板提供，这里只装 CLI"
