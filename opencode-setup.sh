@@ -1474,10 +1474,11 @@ for role in ('consolidation-reviewer', 'verification-reviewer'):
     if 'model' in reviewer:
         merged['agents'][role]['model'] = reviewer['model']
 # deprecated: 仅迁移 general/explore 的旧套件默认；本机自选模型优先。
+legacy_models = ('anthropic-newapi/deepseek-flash', {'providerID': 'anthropic-newapi', 'model': 'deepseek-flash'})
 for role in ('general', 'explore'):
     default = (tpl.get('agents') or {}).get(role, {}).get('model')
     agent = (merged.get('agents') or {}).get(role, {})
-    if default and agent.get('model') == 'anthropic-newapi/deepseek-flash':
+    if default and agent.get('model') in legacy_models:
         agent['model'] = default
 # 已有更新策略保留，只有用户确认后才关闭 auto。
 major, force_manual = sys.argv[5], sys.argv[6] == '1'

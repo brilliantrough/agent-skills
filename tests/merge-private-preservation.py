@@ -357,6 +357,7 @@ def check_opencode_role_models():
     template = {"agents": agents}
     expected = {"general": "codex-newapi/gpt-6.2-sol", "explore": "codex-newapi/gpt-6.1-terra"}
     old = "anthropic-newapi/deepseek-flash"
+    old_native = {"providerID": "anthropic-newapi", "model": "deepseek-flash"}
     with tempfile.TemporaryDirectory() as d:
         tmp = pathlib.Path(d)
         live = {"model": "custom/primary", "agents": {role: {"model": old} for role in expected}}
@@ -369,11 +370,16 @@ def check_opencode_role_models():
         general = merged["agents"]["general"]
         assert general["system"] == "keep" and general["permissions"] == live["agents"]["general"]["permissions"]
 
-        layer = tmp / "opencode.jsonc"
-        custom = old + "#custom"
-        layer.write_text(json.dumps({"agents": {"explore": {"model": custom}}}), encoding="utf-8")
+        for role in expected:
+            live["agents"][role]["model"] = old_native
         merged = run_oc_merge(body, tmp, live, "2", False, template)
-        assert merged["agents"]["explore"]["model"] == custom
+        assert {role: merged["agents"][role]["model"] for role in expected} == expected, "V2 归一化后的旧默认未迁移"
+
+        layer = tmp / "opencode.jsonc"
+        for custom in (old + "#custom", {**old_native, "variant": "high"}):
+            layer.write_text(json.dumps({"agents": {"explore": {"model": custom}}}), encoding="utf-8")
+            merged = run_oc_merge(body, tmp, live, "2", False, template)
+            assert merged["agents"]["explore"]["model"] == custom
         layer.unlink()
         assert run_oc_merge(body, tmp, merged, "2", False, template) == merged
         assert not (tmp / "cand.json").exists(), "角色合并重跑不应写候选文件"
