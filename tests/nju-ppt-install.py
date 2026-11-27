@@ -15,7 +15,9 @@ assert BASH, "需要 Bash；Windows请指定Git Bash而不是WSL"
 
 
 def run(args, env=None):
-    return subprocess.run(args, env=env, capture_output=True, encoding="utf-8", errors="replace", timeout=90)
+    kw = {"start_new_session": True} if os.name != "nt" else {}
+    return subprocess.run(args, env=env, stdin=subprocess.DEVNULL, capture_output=True,
+                          encoding="utf-8", errors="replace", timeout=90, **kw)
 
 
 def posix(path):

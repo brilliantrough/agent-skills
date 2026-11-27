@@ -73,7 +73,7 @@ def make_source(tmp):
     for skill in ("verification", "consolidator"):
         (repo / "skills/base" / skill).mkdir()
         (repo / "skills/base" / skill / "SKILL.md").write_text(f"{skill}\n", encoding="utf-8")
-    for skill in ("deepseek-efficiency", "unslop-changes", "t3-plan-execute"):
+    for skill in ("deepseek-efficiency", "unslop-changes", "t3-plan-execute", "verification-setup"):
         shutil.copytree(ROOT / "skills/base" / skill, repo / "skills/base" / skill)
     (repo / "templates/pi").mkdir(parents=True)
     (repo / "templates/pi/settings.json").write_text('{"demo": true}\n', encoding="utf-8")
@@ -163,6 +163,8 @@ def entry_asset_closure():
         "skills/base/deepseek-efficiency/SKILL.md",
         "skills/base/unslop-changes/SKILL.md",
         "skills/base/t3-plan-execute/SKILL.md",
+        "skills/base/verification-setup/SKILL.md",
+        "skills/base/verification-setup/references/domain-probes.md",
         "setup.sh", "scripts/update-hosts.sh",
     }
     for line in text.splitlines():
@@ -356,7 +358,7 @@ def main():
         assert proc.returncode == 0, proc.stdout + proc.stderr
         assert "codeload" not in proc.stdout and "tarball" not in proc.stdout, proc.stdout
         assert (sync_home / ".agents/skills/demo/SKILL.md").read_text() == "demo skill\n"
-        for skill in ("deepseek-efficiency", "unslop-changes", "t3-plan-execute"):
+        for skill in ("deepseek-efficiency", "unslop-changes", "t3-plan-execute", "verification-setup"):
             assert (sync_home / f".agents/skills/{skill}/SKILL.md").read_bytes() == (ROOT / f"skills/base/{skill}/SKILL.md").read_bytes()
         t3_skill = (sync_home / ".agents/skills/t3-plan-execute/SKILL.md").read_text(encoding="utf-8")
         t3_header = t3_skill.split("---", 2)[1]
@@ -364,6 +366,13 @@ def main():
         for token in ("providerInstanceId", "codex-newapi/gpt-6.2-sol", "verification-reviewer",
                       "EnableWriteTools", "invoke_subagent", "t3_thread_send"):
             assert token in t3_skill, token
+        vs_skill = (sync_home / ".agents/skills/verification-setup/SKILL.md").read_text(encoding="utf-8")
+        vs_probes = (sync_home / ".agents/skills/verification-setup/references/domain-probes.md").read_text(encoding="utf-8")
+        assert vs_probes == (ROOT / "skills/base/verification-setup/references/domain-probes.md").read_text(encoding="utf-8")
+        for token in ("验证蓝图待确认", "红灯证明", "Evaluation", "references/domain-probes.md"):
+            assert token in vs_skill, token
+        for token in ("PyTorch", "插件", "桌面", "反伪绿灯"):
+            assert token in vs_probes, token
         # 第二次在同一 HOME 上跑:复用 clone,未变不重写
         proc = subprocess.run(["bash", str(ROOT / "skills-sync.sh"), "base"], capture_output=True,
                               text=True, env=env, stdin=subprocess.DEVNULL, timeout=180, check=False)
@@ -490,6 +499,7 @@ def main():
         assert not touched and not (common_home / ".local/share/agent-skills/dsh/home").exists(), touched
         assert not (common_home / ".gemini/config/skills.json").exists()
         assert (common_home / ".gemini/config/skills/t3-plan-execute/SKILL.md").is_file()
+        assert (common_home / ".gemini/config/skills/verification-setup/SKILL.md").is_file()
         first = agy_link.lstat().st_mtime_ns, link.lstat().st_mtime_ns
         proc = common()
         assert proc.returncode == 0 and "linked:" not in proc.stdout, proc.stdout

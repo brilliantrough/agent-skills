@@ -1615,7 +1615,8 @@ fi
             script = tmp / "check.sh"
             script.write_text("\n".join(parts) + driver, encoding="utf-8")
             proc = subprocess.run(["bash", str(script)], cwd=tmp, env=os.environ.copy(),
-                                  capture_output=True, text=True)
+                                  stdin=subprocess.DEVNULL, start_new_session=True,
+                                  capture_output=True, text=True, timeout=60)
             assert proc.returncode == 0, f"{name}: 偏好回归失败\n{proc.stdout}\n{proc.stderr}"
     with tempfile.TemporaryDirectory(prefix="setup-module-preferences-") as d:
         listed = subprocess.run(["bash", str(ROOT / "modules/run.sh"), "--host", "pi", "--list"],

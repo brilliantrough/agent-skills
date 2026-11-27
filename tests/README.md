@@ -52,7 +52,7 @@ bash scripts/verify-subagents.sh --apply   # 调用现有 setup，集中确认�
 
 Antigravity 的文件接入由 `tests/source-bench.py` 通过 `skills-sync.sh`（`--antigravity`、公共模式及检测到已装 Antigravity 的单跑模式）与 `migrate-agents-tail.py --antigravity-mcp` 验证：`~/.gemini/config/skills/<名>` 可读到本轮同步组、存量其他组与外部 Skill，无过滤的旧 `~/.gemini/config/skills.json` 重复项备份后清理，用户过滤条件、异源同名副本及坏清单原件均保留；`~/.gemini/config/mcp_config.json` 按 `0600` 合并本机 `web`、`codegraph`、`claude-mem` 检索端，保留自定义配置并桥接 T3 隔离目录。宿主实际发现另在 Customizations、CLI `/skills` 与 `/mcp` 或 T3 会话核对。
 
-`t3-plan-execute` 随 base 分发并保持对模型可发现（不设 `disable-model-invocation: true`）；离线检查核对其到达发现入口及双核契约（默认 OpenCode GPT 执行模型与功能 `verification-reviewer`、Antigravity 原生只读子代理的结构品味审查及返工归属）。T3 中的实际委派和回传需在 Antigravity 会话另验。OpenCode 旧角色模型合并由 `check_opencode_role_models()` 验证，Pi 角色文件部署由 `check_pi_role_deployment()` 验证；两者都覆盖旧默认迁移、自定义保留与幂等。
+`t3-plan-execute` 随 base 分发并保持对模型可发现（不设 `disable-model-invocation: true`）；离线检查核对其到达发现入口及双核契约（默认 OpenCode GPT 执行模型与功能 `verification-reviewer`、Antigravity 原生只读子代理的结构品味审查及返工归属）。`verification-setup` 随 base 分发并由 `tests/source-bench.py` 核对主正文、领域探针参考到达发现入口及默认停顿／红灯证明契约。T3 中的实际委派、项目扫描访谈与回传需在真实会话另验。OpenCode 旧角色模型合并由 `check_opencode_role_models()` 验证，Pi 角色文件部署由 `check_pi_role_deployment()` 验证；两者都覆盖旧默认迁移、自定义保留与幂等。
 
 统一入口的 `check_unified_update()` 在隔离 HOME 运行 `setup.sh`，核对 `--hosts all`（含 Windows 跳过仅支持 Linux／macOS 的 `dsh`）与显式名单下公共项只分发一次、继承旧组选项、复用或更换名单、偏好无法保存时停止及子进程错误传播。夹具只替换会联网或升级宿主的步骤；它不证明真实客户端升级成功。
 

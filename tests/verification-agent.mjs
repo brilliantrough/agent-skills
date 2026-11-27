@@ -4,7 +4,7 @@ import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 
 const root = resolve(".");
 const read = (path) => readFile(join(root, path), "utf8");
@@ -156,7 +156,24 @@ try {
   const empty = verify();
   assert.equal(empty.status, 1, empty.stdout + empty.stderr);
   assert.match(empty.stderr, /漏装或漂移/);
-  const unsafeApply = spawnSync("bash", [verifier, "--apply", "pi"], { env: verifyEnv, encoding: "utf8" });
+  // 在独立会话中脱离控制终端 /dev/tty，即使测试在交互终端或 PTY 中运行也能稳定命中非交互拒绝对话分支
+  const unsafeApply = await new Promise((resolveDone, rejectDone) => {
+    const child = spawn("bash", [verifier, "--apply", "pi"], {
+      env: verifyEnv,
+      detached: process.platform !== "win32",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "", stderr = "";
+    const timer = setTimeout(() => {
+      if (process.platform !== "win32" && child.pid) { try { process.kill(-child.pid, "SIGKILL"); } catch {} }
+      else child.kill("SIGKILL");
+      rejectDone(new Error("unsafeApply 超时未退出"));
+    }, 15000);
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.on("error", (err) => { clearTimeout(timer); rejectDone(err); });
+    child.on("close", (status) => { clearTimeout(timer); resolveDone({ status, stdout, stderr }); });
+  });
   assert.equal(unsafeApply.status, 2, unsafeApply.stdout + unsafeApply.stderr);
   assert.match(unsafeApply.stderr, /--apply --yes/);
   for (const role of ["verification-reviewer", "consolidation-reviewer"]) {
