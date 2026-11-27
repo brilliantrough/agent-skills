@@ -2,7 +2,7 @@
 
 Read this before delegating implementation writes. The default remains one primary Agent. Multi-agent execution is for independent delivery, evidence coverage, or isolation; it is not a presumed speedup. The primary session owns the goal, critical path, integration, and final verification.
 
-Do not add a scheduler, global DAG, task registry, or second memory system. Use native subagents, the existing session todo, and the project's normal checks. Start with at most two independent workers; increase only with an explicit project budget and evidence that coordination remains useful. Delegation and isolation never expand the user's current write, resource, or compute authorization; project documentation alone does not authorize Git mutations or external writes.
+Do not add a scheduler, global DAG, task registry, or second memory system. Use native subagents, the existing session todo, and the project's normal checks. Read-only divergent exploration across distinct information axes may launch 3-5 workers immediately with zero write conflict; writable branches start with at most two workers and scale to 3-5 only under an explicit high-budget workflow (such as `goal-run`) or explicit project budget with locked contracts and write isolation. Delegation and isolation never expand the user's current write, resource, or compute authorization; project documentation alone does not authorize Git mutations or external writes.
 
 ## 1. Split only after a useful reduction
 
@@ -20,6 +20,7 @@ Choose the mode explicitly:
 
 | Mode | Use | Aggregation |
 | --- | --- | --- |
+| Divergent exploration | Distinct read-only axes (codebase site, history/memory, external solutions, counterexamples/risks, alternative routes) | Deduplicate and synthesize only findings and candidate routes that change decisions; do not dump raw logs. |
 | Sectioning | Different modules, evidence sources, or independently deliverable slices | Collect evidence for every required slice. A missing or blocked slice leaves a gap, not a pass. |
 | Race | Independent candidates for the same question | Choose first passing candidate, rank all, or best-of before launch. State the common baseline and acceptance criteria. Majority opinion is not verification. |
 | Pipeline | Later steps depend on earlier outputs | Run the dependent steps serially; parallelize only independent stages |
@@ -66,7 +67,7 @@ Stop fan-out when the remaining branches no longer change a decision, coordinati
 ## 5. Map to existing entries
 
 - **T3 Code**: `delegate_task` defaults to the parent checkout and offers explicit `worktree` isolation from the parent commit; uncommitted edits stay out. Its self-contained task brief, async wake-up, and lack of automatic child-branch merge match this contract.
-  - **Explicit handoff only**: When [`t3-plan-execute`](../../t3-plan-execute/SKILL.md) is active, the Antigravity brief may authorize its OpenCode execution session to use leaf native subagents within the existing scope, and Antigravity runs a native read-only subagent afterwards to review structure, code taste, and presentation. Leaf workers and reviewers never delegate further; normal worker limits, `quick-do`, and review rules still apply.
+  - **Explicit handoff only**: When [`t3-plan-execute`](../../t3-plan-execute/SKILL.md) is active, the Antigravity brief may authorize its OpenCode execution session to use leaf native subagents within the existing scope, and Antigravity runs a native read-only subagent afterwards to review structure, code taste, and presentation. Under [`goal-run`](../../goal-run/SKILL.md) + `t3-plan-execute`, both T3 primary and OpenCode sessions may use 3-5 read-only exploration workers and authorized disjoint write slices under the agreed contract. Leaf workers and reviewers never delegate further; normal worker limits, `quick-do`, and review rules still apply.
 - **Orca**: orchestration is optional and its worker recipe defaults to `--worktree current`, using a new worktree only on request or conflict. Keep its distinction between task outcome, dispatch attempt, and process liveness; do not import the DAG/mailbox runtime for ordinary delegation.
 - **Claude Code**: subagents can opt into `isolation: worktree`; agent teams instead rely on file ownership. Agent teams and scripted dynamic workflows serve long-lived peers and batch-scale stages, not the default two-worker case.
 - **Codex**: subagents inherit the parent turn's cwd, sandbox, and approval settings; a session-level worktree is not per-subagent isolation. Use explicit write ownership and a separately isolated session when a task needs it.

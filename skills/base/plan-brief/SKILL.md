@@ -5,7 +5,7 @@ description: Plan large frameworks, migrations and multi-stage work, then execut
 
 # Plan Brief: design the plan, then execute on request
 
-Use a durable plan for a large framework, a migration, or work with consequential stage dependencies. For everyday development use [steady-do](../steady-do/SKILL.md).
+Use a durable plan for a large framework, a migration, or work with consequential stage dependencies. For everyday development use [steady-do](../steady-do/SKILL.md); for upfront high-density grilling, feedback-first calibration, and one-shot unattended execution across all milestones, use [goal-run](../goal-run/SKILL.md).
 
 ## Choose the entry from the user's request
 

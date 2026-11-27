@@ -35,7 +35,7 @@
 
 表格里的共用能力都由脚本在开头统一选择并透传，宿主特有部分留在各自的 `*-setup.sh`。规范块写进各宿主的用户级文件（OpenCode `~/.config/opencode/AGENTS.md`、Pi `~/.pi/agent/AGENTS.md`、DSH `$DSH_HOME/AGENTS.md`、Codex `~/.codex/AGENTS.md`，Claude Code 为 `CLAUDE.md`），每个账号装一次、所有项目共用；项目自己的 `AGENTS.md` 不再被改写，项目规则仍写在仓库里。
 
-[快速安装](#快速安装) · [Skills](#skills本仓-50-个) · [首次部署](#首次部署只需要网关--6-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [DSH](dsh/README.md) · [OpenCode](#opencode-安装与迁移) · [更新](#更新) · [贡献](CONTRIBUTING.md)
+[快速安装](#快速安装) · [Skills](#skills本仓-51-个) · [首次部署](#首次部署只需要网关--6-个-key) · [Windows](#windowsgit-bash) · [Codex](#codex-插件配置best-effort) · [Pi](#pi-配置) · [DSH](dsh/README.md) · [OpenCode](#opencode-安装与迁移) · [更新](#更新) · [贡献](CONTRIBUTING.md)
 
 ## 快速安装
 
@@ -161,9 +161,9 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-skills/main/pi-setup.sh)"
 ```
 
-## Skills（本仓 50 个）
+## Skills（本仓 51 个）
 
-五组共 50 个，默认 base 31 个；科研／算法研究 9 个、算力模板 7 个、公共知识 2 个与 PPT 1 个按需选装。`research`、`kb` 与 `ppt` 随仓库刷新，`accel` 缺才装；外部设计依赖在开头统一选择、默认安装，Light-Science 精选集成另行选择，不复制到本仓、不计入上述数量。
+五组共 51 个，默认 base 32 个；科研／算法研究 9 个、算力模板 7 个、公共知识 2 个与 PPT 1 个按需选装。`research`、`kb` 与 `ppt` 随仓库刷新，`accel` 缺才装；外部设计依赖在开头统一选择、默认安装，Light-Science 精选集成另行选择，不复制到本仓、不计入上述数量。
 
 ### 工程技能
 
@@ -276,8 +276,9 @@ bash scripts/verify-subagents.sh --apply --yes    # 显式接受默认升级与�
 | [`deepseek-efficiency`](skills/base/deepseek-efficiency/SKILL.md) | 显式调用时优化 DeepSeek 的文件读取 | 原生搜索与读取、独立调用同轮发出；配合当前任务工作流，不限制正常 Shell 命令 |
 | `quick-do` | 行为明确的小改动 | 当前会话实现；标准档可在末尾独立复核，不 grilling、不写计划 |
 | `steady-do` | 日常功能、插件、扩展；长程或无人值守运行 | 当前会话澄清、实现、验证；已有计划且用户要求执行时直接按计划做；明确要求“做到完成”时用可判定谓词＋原生唤醒＋`decisions.tsv` 逐轮推进 |
-| [`multi-agent`](skills/base/multi-agent/SKILL.md) | 独立分支、多 Agent 或 Swarm | 按分片覆盖或同题竞速派发，主会话集成；没有值得拆的分支就串行 |
+| [`multi-agent`](skills/base/multi-agent/SKILL.md) | 独立分支、多 Agent、发散调研或 Swarm | 只读发散探索按信息维度并行 3-5 路；写入分片按模块或竞速派发、主会话集成；没有值得拆的分支就串行 |
 | [`plan-brief`](skills/base/plan-brief/SKILL.md) | 大框架、长程移植、多阶段任务 | 写清依赖、可并行分片和验收，规划完成后停下；用户可让原会话执行，指定跨会话时才生成启动 prompt、报告和审查 |
+| [`goal-run`](skills/base/goal-run/SKILL.md) | 高密度对齐后拉满预算无人值守跑通全任务 | 只读发散调研→统一对齐需求与验证基座→落盘并先校准 M0→一键全速跑通全里程碑（支持原生 `/goal` 与 `t3-plan-execute`） |
 | [`t3-plan-execute`](skills/base/t3-plan-execute/SKILL.md) | T3 Code 的 Antigravity 主会话双核协作 | Gemini 规划并用原生只读子代理审结构、品味与观感；获授权后委派 OpenCode（默认 GPT）落地与功能复核 |
 
 按不确定性、耦合、风险与交接需求选择，不按字数分档：
@@ -285,6 +286,7 @@ bash scripts/verify-subagents.sh --apply --yes    # 显式接受默认升级与�
 - quick/steady 难判：用 `steady-do`
 - 两个以上实质独立分支，或用户明确要求联合开发：用 `multi-agent`；少量查询、耦合编辑和串行依赖不强行拆分
 - 适合交接但用户未要求：先建议 `plan-brief` 并确认，不擅自把“现在实现”改成“只交计划”
+- 需短时高密度对齐、先落验证基座并一键无人值守跑完：用 [`goal-run`](skills/base/goal-run/SKILL.md)；普通任务中途挂机仍用 `steady-do` 第 6 节
 
 上述技能选择任务复杂度；标准档／轻量档选择验证深度，两者独立。只说 `quick-do` 不会自动选轻量档。标准档若缺少技能、Reviewer 或必要验证，必须说明未完成，不能把自审当独立复核。复核后有修改时，重验受影响部分。
 

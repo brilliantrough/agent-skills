@@ -1068,7 +1068,10 @@ def check_multi_agent_auto_trigger():
                "and each inform a decision, load `multi-agent` before dispatching and follow its guide")
     assert trigger in tail
     assert "if it is unavailable, keep implementation single-agent" in tail
+    assert ("3-5 read-only branches for divergent exploration" in tail
+            and "at most two writable branches" in tail and "goal-run" in tail)
     assert "For two or more substantial independent branches or an explicit multi-agent request, use [multi-agent](../multi-agent/SKILL.md)" in steady
+    assert "../goal-run/SKILL.md" in steady
     assert "or when independent branches each change the deliverable" in description
     assert "Two substantial independent branches are a reason to use this skill" in skill
     assert "Default to one Agent when no branch qualifies" in skill
@@ -1089,6 +1092,7 @@ def check_multi_agent_auto_trigger():
     # 用户在原会话点名执行时，从可发现的 skill 进入执行段，而不是被送去新会话。
     plan = (ROOT / "skills/base/plan-brief/SKILL.md").read_text(encoding="utf-8")
     assert "按计划执行" in plan.split("---", 2)[1] and "Swarm" in description
+    assert "../goal-run/SKILL.md" in plan
     execution = plan.partition("\n## Execute an agreed plan\n")[2].partition("\n## ")[0]
     assert "../steady-do/SKILL.md" in execution and "../multi-agent/SKILL.md" in execution
 

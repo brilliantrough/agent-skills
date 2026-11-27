@@ -73,7 +73,7 @@ def make_source(tmp):
     for skill in ("verification", "consolidator"):
         (repo / "skills/base" / skill).mkdir()
         (repo / "skills/base" / skill / "SKILL.md").write_text(f"{skill}\n", encoding="utf-8")
-    for skill in ("deepseek-efficiency", "unslop-changes", "t3-plan-execute", "verification-setup"):
+    for skill in ("deepseek-efficiency", "unslop-changes", "t3-plan-execute", "verification-setup", "goal-run", "multi-agent"):
         shutil.copytree(ROOT / "skills/base" / skill, repo / "skills/base" / skill)
     (repo / "templates/pi").mkdir(parents=True)
     (repo / "templates/pi/settings.json").write_text('{"demo": true}\n', encoding="utf-8")
@@ -165,6 +165,7 @@ def entry_asset_closure():
         "skills/base/t3-plan-execute/SKILL.md",
         "skills/base/verification-setup/SKILL.md",
         "skills/base/verification-setup/references/domain-probes.md",
+        "skills/base/goal-run/SKILL.md",
         "setup.sh", "scripts/update-hosts.sh", "scripts/runtime-deps.sh",
     }
     for line in text.splitlines():
@@ -359,13 +360,13 @@ def main():
         assert proc.returncode == 0, proc.stdout + proc.stderr
         assert "codeload" not in proc.stdout and "tarball" not in proc.stdout, proc.stdout
         assert (sync_home / ".agents/skills/demo/SKILL.md").read_text() == "demo skill\n"
-        for skill in ("deepseek-efficiency", "unslop-changes", "t3-plan-execute", "verification-setup"):
+        for skill in ("deepseek-efficiency", "unslop-changes", "t3-plan-execute", "verification-setup", "goal-run", "multi-agent"):
             assert (sync_home / f".agents/skills/{skill}/SKILL.md").read_bytes() == (ROOT / f"skills/base/{skill}/SKILL.md").read_bytes()
         t3_skill = (sync_home / ".agents/skills/t3-plan-execute/SKILL.md").read_text(encoding="utf-8")
         t3_header = t3_skill.split("---", 2)[1]
         assert "disable-model-invocation" not in t3_header
         for token in ("providerInstanceId", "codex-newapi/gpt-6.2-sol", "verification-reviewer",
-                      "EnableWriteTools", "invoke_subagent", "t3_thread_send", "轻量档"):
+                      "EnableWriteTools", "invoke_subagent", "t3_thread_send", "轻量档", "goal-run", "3-5"):
             assert token in t3_skill, token
         vs_skill = (sync_home / ".agents/skills/verification-setup/SKILL.md").read_text(encoding="utf-8")
         vs_probes = (sync_home / ".agents/skills/verification-setup/references/domain-probes.md").read_text(encoding="utf-8")
@@ -374,6 +375,16 @@ def main():
             assert token in vs_skill, token
         for token in ("PyTorch", "插件", "桌面", "反伪绿灯"):
             assert token in vs_probes, token
+        gr_skill = (sync_home / ".agents/skills/goal-run/SKILL.md").read_text(encoding="utf-8")
+        gr_header = gr_skill.split("---", 2)[1]
+        assert "disable-model-invocation" not in gr_header
+        for token in ("只读发散探索", "verification-setup", "可判定出口谓词", "禁止中途停下请示", "3 轮", "/goal", "t3-plan-execute"):
+            assert token in gr_skill, token
+        ma_skill = (sync_home / ".agents/skills/multi-agent/SKILL.md").read_text(encoding="utf-8")
+        ma_guide = (sync_home / ".agents/skills/multi-agent/references/guide.md").read_text(encoding="utf-8")
+        assert ma_guide == (ROOT / "skills/base/multi-agent/references/guide.md").read_text(encoding="utf-8")
+        assert "divergent exploration" in ma_skill and "3-5" in ma_skill and "at most two" in ma_skill and "goal-run" in ma_skill
+        assert "Divergent exploration" in ma_guide and "3-5" in ma_guide and "at most two" in ma_guide and "goal-run" in ma_guide
         # 第二次在同一 HOME 上跑:复用 clone,未变不重写
         proc = subprocess.run(["bash", str(ROOT / "skills-sync.sh"), "base"], capture_output=True,
                               text=True, env=env, stdin=subprocess.DEVNULL, timeout=180, check=False)
@@ -501,6 +512,7 @@ def main():
         assert not (common_home / ".gemini/config/skills.json").exists()
         assert (common_home / ".gemini/config/skills/t3-plan-execute/SKILL.md").is_file()
         assert (common_home / ".gemini/config/skills/verification-setup/SKILL.md").is_file()
+        assert (common_home / ".gemini/config/skills/goal-run/SKILL.md").is_file()
         first = agy_link.lstat().st_mtime_ns, link.lstat().st_mtime_ns
         proc = common()
         assert proc.returncode == 0 and "linked:" not in proc.stdout, proc.stdout

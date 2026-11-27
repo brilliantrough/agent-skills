@@ -14,7 +14,8 @@ Antigravity（Gemini）负责前端需求对齐与后端结构、品味、观感
 - 先用只读搜索、直接读取或已挂载的 `codegraph`／`claude-mem` 查清现有实现、真实调用链与 [`trust-pyramid`](../trust-pyramid/SKILL.md) 约束。事实自行查证，只向用户询问影响行为、范围、兼容性、风险或验收的未决选择，每项给出推荐方案与简短利弊。
 - 按复杂度选择载体，不强加文档仪式：
   - 跨模块、多阶段或高风险改造：按 [`plan-brief`](../plan-brief/SKILL.md) 落盘计划文档；
-  - 边界清晰的中等任务：直接在对话中收敛执行契约（目标与非目标、允许写入的文件与禁区、关键接口或状态约定、验收入口及质量档，默认标准档）。
+  - 边界清晰的中等任务：直接在对话中收敛执行契约（目标与非目标、允许写入的文件与禁区、关键接口或状态约定、验收入口及质量档，默认标准档）；
+  - 需从零高密度对齐并一键无人值守跑通的重型目标：组合 [`goal-run`](../goal-run/SKILL.md)，先在 Antigravity 完成 3-5 路只读发散探索、统一访谈、验证基座蓝图与计划落盘。
 - **完成判据与门禁**：方案边界、验收方式和质量档已明确，且获得用户明确执行指令（如“按这个做”“交给 OpenCode 跑”）。当前线程处于禁止写入的 T3 Plan 模式时，等待用户切换后再委派，不提升权限或新建顶层线程绕行。
 
 ## 2. 委派 OpenCode (GPT) 落地与功能复核
@@ -24,8 +25,8 @@ Antigravity（Gemini）负责前端需求对齐与后端结构、品味、观感
   - 用户未指定模型时，默认在 `target` 设 `providerInstanceId`（取 `orchestrator_capabilities` 返回的 `opencode` 实例，必要时附 `driverKind: "opencode"`）、`model: "codex-newapi/gpt-6.2-sol"`、`options: { "variant": "high" }`（复杂状态联动或高风险边界用 `"xhigh"`）；若无该模型则改查 `codex-newapi/gpt-6.2-astra`；仍无可用 OpenCode GPT 模型、缺权限或缺委派工具时直接报告阻塞，不静默换用其他模型家族或 CLI 旁路。
 - **发起异步委派**：通过 T3 `delegate_task` 派单（Antigravity ACP 中若为懒加载工具，先读 `<appDataDir>/mcp/t3-code/delegate_task.json` 再经 `call_mcp_tool` 调用 `t3-code` 的 `delegate_task`）。设 `role: "implementation"`、`mode: "async"`、`interactionMode: "default"`，默认 `isolation: "shared"` 共用当前工作区；仅在用户授权隔离分支或并发写集冲突时设 `isolation: "worktree"`。发出后按 T3 唤醒通知或返回的 `next` 继续，不轮询 `task_status` 或 `sleep`。
 - **自包含派单内容**（子任务无父会话历史，禁传凭据）：
-  - 计划路径或对话执行契约、基线（当前 `HEAD` 与已有未提交改动，用户原有改动禁碰）、允许写入的文件集与禁区、Git／外部操作授权边界及中止条件；
-  - 仅当本任务存在两个以上实质独立分片时，明确允许 OpenCode 按 [`multi-agent`](../multi-agent/SKILL.md) 调用末级原生子代理（`explore`／`general`），末级代理不得再向下委派；
+  - 计划路径或对话执行契约、基线（当前 `HEAD` 与已有未提交改动，用户原有改动禁碰）、允许写入的文件集与禁区、Git／外部操作授权边界及中止条件（组合 `goal-run` 时透传出口谓词、自治授权表与 3 轮熔断；另开 OpenCode 线程以原生 `/goal` 接棒该计划时亦复用同一契约与回传审查）；
+  - 存在独立信息维度的只读调研或两个以上实质独立写分片时，明确允许 OpenCode 按 [`multi-agent`](../multi-agent/SKILL.md) 调用末级原生子代理（`explore`／`general`，只读发散或获授权互斥写分片可至 3-5 路，末级禁再向下委派）；
   - **执行端必做流程**：默认标准档——完成实现后单独审视本次差异并执行 [`unslop-changes`](../unslop-changes/SKILL.md)，再跑项目静态检查与最小真实路径（新功能按 [`verification`](../verification/SKILL.md) 将最小可重复条目接入现有入口），最后调用 OpenCode 原生 `verification-reviewer`（`gpt-6.2-sol#max`）独立复核功能并快查相关旧条目。用户显式选轻量档时按项目规则裁剪，安全与高风险边界仍须复核。
 - **完成判据**：OpenCode 回传改动文件与基线差异命令、实际执行的检查结果、`verification-reviewer` 结论，以及未验证项／SKIP；收到阻塞先排障或对齐，不重复发送同一派单。
 

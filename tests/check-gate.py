@@ -133,6 +133,7 @@ def main():
             "skills/base/t3-plan-execute/SKILL.md",
             "skills/base/verification-setup/SKILL.md",
             "skills/base/verification-setup/references/domain-probes.md",
+            "skills/base/goal-run/SKILL.md",
         ]
         for name in required:
             if name != "scripts/check.sh":

@@ -14,12 +14,15 @@ When asked to execute a [Plan Brief](../plan-brief/SKILL.md), start from its dep
 ## Enter and reduce
 
 1. State the shared outcome, the primary-session critical path, each proposed branch, and the decision or artifact each branch will change. Include the budget and stopping condition in the existing session todo.
-2. Start only branches that satisfy the guide's independence and useful-reduction tests. Two substantial independent branches are a reason to use this skill; a few lookups, coupled edits, sequential dependencies, or an unclear acceptance path are not.
+2. Start only branches that satisfy the guide's independence and useful-reduction tests. Two substantial independent branches are a reason to use this skill, as are 3-5 distinct read-only axes in divergent exploration; a few lookups, coupled edits, sequential dependencies, or an unclear acceptance path are not.
 3. Default to one Agent when no branch qualifies. `quick-do` keeps implementation in one session; its default standard-quality `verification-reviewer` is independent review, not an implementation worker. Resolve an explicit multi-agent implementation request as a workflow conflict before launching workers. Other workflows keep their own scope and verification rules.
 
 ## Launch with explicit ownership
 
-1. Choose sectioning, a candidate race, or only the independent stages of a pipeline. Start with at most two workers; increase only with an explicit project budget and evidence that coordination remains useful. No nested delegation except the [explicit T3 handoff](references/guide.md#5-map-to-existing-entries).
+1. Choose divergent exploration, sectioning, a candidate race, or only the independent stages of a pipeline.
+   - Read-only divergent exploration across distinct information axes: launch 3-5 workers in parallel (never pad with redundant lookups).
+   - Writable branches: start with at most two workers; scale to 3-5 only under an explicit high-budget workflow (such as [goal-run](../goal-run/SKILL.md)) or user-authorized budget once shared contracts and write isolation are locked.
+   - No nested delegation except the [explicit T3 handoff](references/guide.md#5-map-to-existing-entries).
 2. Choose isolation separately from delegation. Read-only branches share the checkout. Writable branches need declared file ownership; use worktrees only when the guide's overlap, baseline, race, duration, or clean-diff conditions hold. Creating a worktree or copying uncommitted changes requires current user authorization.
    - Isolate ports, devices, dependencies, databases, and other shared runtime state separately.
 3. Give every worker a self-contained brief: exact goal and slice, relevant paths and baseline, allowed write set and resources, forbidden actions, acceptance result or command, budget, stopping condition, and evidence to return. Do not dump the parent conversation or expand permissions.
