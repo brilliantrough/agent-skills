@@ -229,7 +229,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/brilliantrough/agent-ski
 
 ### 功能 Verification 与整理审查
 
-开发默认**标准档**：实现后用 `unslop-changes` 清理本次代码、注释和文字，再运行适用的静态检查与真实路径，加载 `verification` 并由 `verification-reviewer` 独立复核最终版本。用户也可明确说“这次用轻量档”：低风险任务（包括小新功能）仍由主 Agent 验证，但不单独执行 Unslop 或委派 Reviewer。项目强制要求、跨模块共享接口、高风险、发布和证据存疑仍须独立复核；例如不可信路径的穿越／符号链接越界修复，即使只改一个文件也须复核。只读调查、规划或纯文字写作不启动开发质量流程。
+开发默认**标准档**（这是默认选择，不是所有任务的强制门槛）：实现后用 `unslop-changes` 清理本次代码、注释和文字，再运行适用的静态检查与真实路径，加载 `verification` 并由 `verification-reviewer` 独立复核最终版本。需要轻快推进时，随时一句“这次用轻量档／简单来”即可切到**轻量档**：低风险任务（包括小新功能与小改动）由主 Agent 直接实现并跑最小真实路径即可，免去单独 Unslop、独立 Reviewer 与多轮流程，减轻小任务的心理负担。项目强制要求、跨模块共享接口、高风险、发布和证据存疑仍须独立复核；例如不可信路径的穿越／符号链接越界修复，即使只改一个文件也须复核。只读调查、规划或纯文字写作不启动开发质量流程。
 
 新功能验证后，主 Agent 把最小可执行条目接入项目现有测试／检查入口，不另建平行清单。Reviewer 先看当前功能，再快查相关旧条目；未运行项如实披露。适用的验收条件、命令、fixture 和平台以项目资料为准。Reviewer 的仓库只读是行为合同，不是文件系统沙箱；需要硬隔离时使用宿主沙箱或容器。显式使用 `consolidator` 整理时，才由 `consolidation-reviewer` 检查整理结果；两种 Reviewer 都不代替 lint、真实宿主或用户最终验收。
 
@@ -271,7 +271,7 @@ bash scripts/verify-subagents.sh --apply --yes    # 显式接受默认升级与�
 | [`problem-framing`](skills/base/problem-framing/SKILL.md) | 同类补丁反复出现，或设计、实验该回答什么还没说清 | 辨认问题结构，借用成熟解法，用一个反例确定验收或区分解释的证据 |
 | [`trust-pyramid`](skills/base/trust-pyramid/SKILL.md) | 日常开发、重构与审查的工程质量约束 | 五层原则＋六类条件化规则配方＋工具映射；按项目选择并落实 |
 | [`verification`](skills/base/verification/SKILL.md) | 标准档与强制复核任务的功能验收 | 主 Agent 验证后由 Reviewer 复核当前功能并快查相关旧条目；新功能接入最小回归 |
-| [`verification-setup`](skills/base/verification-setup/SKILL.md) | 开启工程／科研任务或补齐反馈体系前 | 先剖析任务与风险→对齐统一的 Verification／Evaluation 与静态快拦截蓝图待确认→校准尺子并反推规划推进 |
+| [`verification-setup`](skills/base/verification-setup/SKILL.md) | 开启工程／科研任务或补齐反馈体系前 | 默认标准档先剖析任务→对齐统一的 Verification／Evaluation 蓝图待确认→校准尺子并反推规划；小任务支持轻量一步法或跳过 |
 | [`unslop-changes`](skills/base/unslop-changes/SKILL.md) | 本次改动的代码、注释和文字去冗余 | 标准档自动执行；保留真实保护、必要证据和已有用户工作，不做全仓整理 |
 | [`deepseek-efficiency`](skills/base/deepseek-efficiency/SKILL.md) | 显式调用时优化 DeepSeek 的文件读取 | 原生搜索与读取、独立调用同轮发出；配合当前任务工作流，不限制正常 Shell 命令 |
 | `quick-do` | 行为明确的小改动 | 当前会话实现；标准档可在末尾独立复核，不 grilling、不写计划 |

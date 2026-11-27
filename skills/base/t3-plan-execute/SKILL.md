@@ -7,7 +7,7 @@ description: "在 T3 Code 的 Antigravity 主会话启用“Gemini 规划与品�
 
 仅在 T3 Code 的 Antigravity 主会话中，当用户调用本技能，或明确要求“在当前会话定方案、交给 OpenCode 实施／双核协作”时启用。OpenCode、Pi、DSH、Codex、Claude 主会话，脱离 T3 的独立 Antigravity，以及任何子代理均不启用；只读问答、仅讨论本模式或用户要求直接在当前会话完成的小改也不启用。
 
-Antigravity（Gemini）负责前端需求对齐与后端结构、品味、观感审查；OpenCode（GPT）负责具体代码落地、去冗余与独立功能复核。
+Antigravity（Gemini）负责前端需求对齐与后端结构、品味、观感审查；OpenCode（GPT）负责具体代码落地、去冗余与独立功能复核。**完整双核流程只是默认标准档，非强制门槛**：低风险小改可直接留在当前会话按 [`quick-do`](../quick-do/SKILL.md) 完成；即使用本模式，用户说“轻量档／简单来”时，OpenCode 端可省去单独 Unslop 与功能 Reviewer（安全边界与高风险改动除外），Antigravity 端也免拉独立审查子代理，由主会话快速复读核心差异后收口。
 
 ## 1. 对齐意图并收敛方案（Antigravity 主会话）
 

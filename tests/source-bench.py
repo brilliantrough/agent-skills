@@ -364,12 +364,12 @@ def main():
         t3_header = t3_skill.split("---", 2)[1]
         assert "disable-model-invocation" not in t3_header
         for token in ("providerInstanceId", "codex-newapi/gpt-6.2-sol", "verification-reviewer",
-                      "EnableWriteTools", "invoke_subagent", "t3_thread_send"):
+                      "EnableWriteTools", "invoke_subagent", "t3_thread_send", "轻量档"):
             assert token in t3_skill, token
         vs_skill = (sync_home / ".agents/skills/verification-setup/SKILL.md").read_text(encoding="utf-8")
         vs_probes = (sync_home / ".agents/skills/verification-setup/references/domain-probes.md").read_text(encoding="utf-8")
         assert vs_probes == (ROOT / "skills/base/verification-setup/references/domain-probes.md").read_text(encoding="utf-8")
-        for token in ("验证蓝图待确认", "同一层级", "红灯证明", "反推规划", "Evaluation", "references/domain-probes.md"):
+        for token in ("验证蓝图待确认", "同一层级", "红灯证明", "反推规划", "轻量版", "不是所有任务的必经门槛", "Evaluation", "references/domain-probes.md"):
             assert token in vs_skill, token
         for token in ("PyTorch", "插件", "桌面", "反伪绿灯"):
             assert token in vs_probes, token
