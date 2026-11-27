@@ -60,7 +60,7 @@ description: 把信任金字塔用于项目工程质量：改善 Codebase/API，
 | 副作用与错误处理 | 任务无人回收、失败被吞掉 | 明确生命周期、取消和失败语义 |
 | 工作区与产物管理 | 临时产物混入源码、重复入口和旧报告堆积 | 区分可重建产物与必要证据，明确生成与清理边界 |
 
-- 改代码交给当前 `quick-do`／`steady-do`；本 skill 只提供质量约束。为新项目或已有项目扫描全局风险并冷启动 Static Analysis／Verification／Evaluation 基座时，用 [`verification-setup`](../verification-setup/SKILL.md)。
+- 改代码交给当前 `quick-do`／`steady-do`；本 skill 只提供质量约束。开启重要工程／科研任务或给项目补课，需先剖析问题并搭建统一的验证与评价体系（Verification／Evaluation）再推进时，用 [`verification-setup`](../verification-setup/SKILL.md)。
 - 评估或安装 pstack 时，读取并执行[项目级接入与特化](references/pstack.md)。套件不全局代装；一旦项目明确采用，就在目标宿主交付能调用的 Swarm、Arena、worktree 和从 commit 到 PR／merge 的流程，把适用的静态检查接入项目。按约定终点验收，逐项说清阻塞或用户指定的裁剪。
 - 用户请求整理时调用 `consolidator` 并遵守其独立审查要求；`consolidation-reviewer` 检查 Codebase／API 语义、真实保护和整理价值，不代替 Static analysis 的确定性工具。普通开发只清理本次自建的临时物。
 - 开发默认标准档：用 [`unslop-changes`](../unslop-changes/SKILL.md) 清理本次改动，加载 [`verification`](../verification/SKILL.md) 并委派 `verification-reviewer` 独立复核。显式轻量档的低风险任务由主 Agent 验证；项目要求、跨模块共享接口、高风险、发布或证据存疑仍须独立复核。功能 Reviewer 快查相关旧条目，不作整理签收。

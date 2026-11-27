@@ -5,7 +5,7 @@ description: 开发标准档与高风险改动的独立功能 Verification：依
 
 # Verification：项目驱动的功能复核
 
-套件只提供角色和证据纪律：**简洁优先，覆盖关键风险，不追求形式上的大而全。** 具体验收条件、命令、fixture、平台和运行环境由项目决定，通用 skill 不预制测试矩阵。项目尚未建立检查入口，或需系统扫描风险并搭建 Static Analysis／Verification／Evaluation 基座时，先用 [`verification-setup`](../verification-setup/SKILL.md)。
+套件只提供角色和证据纪律：**简洁优先，覆盖关键风险，不追求形式上的大而全。** 具体验收条件、命令、fixture、平台和运行环境由项目决定，通用 skill 不预制测试矩阵。开启重要工程／科研任务前需先剖析问题、搭建统一的验证与评价体系（Verification／Evaluation）再推进时，先用 [`verification-setup`](../verification-setup/SKILL.md)。
 
 ## 分工
 

@@ -271,7 +271,7 @@ bash scripts/verify-subagents.sh --apply --yes    # 显式接受默认升级与�
 | [`problem-framing`](skills/base/problem-framing/SKILL.md) | 同类补丁反复出现，或设计、实验该回答什么还没说清 | 辨认问题结构，借用成熟解法，用一个反例确定验收或区分解释的证据 |
 | [`trust-pyramid`](skills/base/trust-pyramid/SKILL.md) | 日常开发、重构与审查的工程质量约束 | 五层原则＋六类条件化规则配方＋工具映射；按项目选择并落实 |
 | [`verification`](skills/base/verification/SKILL.md) | 标准档与强制复核任务的功能验收 | 主 Agent 验证后由 Reviewer 复核当前功能并快查相关旧条目；新功能接入最小回归 |
-| [`verification-setup`](skills/base/verification-setup/SKILL.md) | 新／老项目冷启动或补齐验证与评测体系 | 只读扫描风险面→输出 Static Analysis／Verification／Evaluation 蓝图待确认→获批后落地并做红灯证明 |
+| [`verification-setup`](skills/base/verification-setup/SKILL.md) | 开启工程／科研任务或补齐反馈体系前 | 先剖析任务与风险→对齐统一的 Verification／Evaluation 与静态快拦截蓝图待确认→校准尺子并反推规划推进 |
 | [`unslop-changes`](skills/base/unslop-changes/SKILL.md) | 本次改动的代码、注释和文字去冗余 | 标准档自动执行；保留真实保护、必要证据和已有用户工作，不做全仓整理 |
 | [`deepseek-efficiency`](skills/base/deepseek-efficiency/SKILL.md) | 显式调用时优化 DeepSeek 的文件读取 | 原生搜索与读取、独立调用同轮发出；配合当前任务工作流，不限制正常 Shell 命令 |
 | `quick-do` | 行为明确的小改动 | 当前会话实现；标准档可在末尾独立复核，不 grilling、不写计划 |

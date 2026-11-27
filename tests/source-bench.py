@@ -369,7 +369,7 @@ def main():
         vs_skill = (sync_home / ".agents/skills/verification-setup/SKILL.md").read_text(encoding="utf-8")
         vs_probes = (sync_home / ".agents/skills/verification-setup/references/domain-probes.md").read_text(encoding="utf-8")
         assert vs_probes == (ROOT / "skills/base/verification-setup/references/domain-probes.md").read_text(encoding="utf-8")
-        for token in ("验证蓝图待确认", "红灯证明", "Evaluation", "references/domain-probes.md"):
+        for token in ("验证蓝图待确认", "同一层级", "红灯证明", "反推规划", "Evaluation", "references/domain-probes.md"):
             assert token in vs_skill, token
         for token in ("PyTorch", "插件", "桌面", "反伪绿灯"):
             assert token in vs_probes, token
