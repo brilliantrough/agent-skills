@@ -54,7 +54,7 @@ Antigravity 的文件接入由 `tests/source-bench.py` 通过 `skills-sync.sh`�
 
 `t3-plan-execute` 随 base 分发并保持对模型可发现（不设 `disable-model-invocation: true`）；离线检查核对其到达发现入口及双核契约（默认 OpenCode GPT 执行模型与功能 `verification-reviewer`、Antigravity 原生只读子代理的结构品味审查、返工归属及轻量档快捷通道）。`verification-setup` 随 base 分发并由 `tests/source-bench.py` 核对主正文、领域探针参考到达发现入口，以及反馈先行、Verification／Evaluation 同层、默认停顿、红灯／基线校准、反推规划与轻量版／非强制出口契约。T3 中的实际委派、项目剖析访谈与回传需在真实会话另验。OpenCode 旧角色模型合并由 `check_opencode_role_models()` 验证，Pi 角色文件部署由 `check_pi_role_deployment()` 验证；两者都覆盖旧默认迁移、自定义保留与幂等。
 
-统一入口的 `check_unified_update()` 在隔离 HOME 运行 `setup.sh`，核对 `--hosts all`（含 Windows 跳过仅支持 Linux／macOS 的 `dsh`）与显式名单下公共项只分发一次、继承旧组选项、复用或更换名单、偏好无法保存时停止及子进程错误传播。夹具只替换会联网或升级宿主的步骤；它不证明真实客户端升级成功。
+统一入口的 `check_unified_update()` 在隔离 HOME 运行 `setup.sh`，核对 `--hosts all`（含 Windows 跳过仅支持 Linux／macOS 的 `dsh`）与显式名单下公共项只分发一次、继承旧组选项、复用或更换名单、偏好无法保存时停止及子进程错误传播；`check_runtime_deps_and_pi_node24()` 另覆盖 Node >=24.15（显式 `fnm install 24` 与 `--skip-shell`）、Bun >=1.1.31、`--hosts none` 免探测、共享失败阻断及旧 `pi-node` v22 就地升级与回滚，并与 `tests/pi-setup-windows-git-bash.py`、`tests/source-bench.py` 协同验证 `fnm PATH`、`fnm_multishells` 解析及 Pi 托管目录 `link_dev_types`。夹具只替换会联网或升级宿主的步骤；它不证明真实客户端升级成功。
 
 该确定性条目保护引导契约，不证明模型每次都会委派。真实模型补充验收使用隔离配置，输入不出现 multi-agent、subagent、并行等提示词，例如：“只读调查：分别梳理 skills-sync.sh 的分组同步与 scripts/migrate-agents-tail.py 的规则迁移，各自给出入口、关键函数、失败路径和证据，最后汇总。”预期 `skill(multi-agent)` 先于任何 `subagent` 调用，主会话最终集成；记录宿主、模型、版本和事件序列。单次未触发应如实报告并调整引导，不得把静态通过写成行为通过。
 

@@ -579,7 +579,8 @@ def check_python_fallback():
 
 
 def check_cold_windows_plan():
-    body, _, _ = function(ROOT / "pi-setup.sh", "collect_setup_plan")
+    body = "\n".join(function(ROOT / "pi-setup.sh", fn)[0]
+                     for fn in ("node_ver_ge", "runtime_activate_fnm", "bun_probe_state", "collect_setup_plan"))
     with tempfile.TemporaryDirectory(prefix="setup-cold-win-") as d:
         tmp = pathlib.Path(d)
         bin_dir = tmp / "bin"
@@ -606,13 +607,13 @@ acquire_source() {{ SOURCE_ROOT=/nonexistent; return 0; }}
 collect_gateway_values() {{ return 0; }}
 {body}
 collect_setup_plan
-printf '%s %s %s %s %s %s\n' "$PLAN_NODE" "$PLAN_PI_INSTALL" "$PLAN_PI_PKGS" "$PLAN_CM_GROUP" "$PLAN_MEM_RUNTIME" "$PLAN_SKILLS_EXTERNAL$PLAN_AGENTS_TAIL"
+printf '%s %s %s %s %s %s %s\n' "$PLAN_NODE" "$PLAN_BUN" "$PLAN_PI_INSTALL" "$PLAN_PI_PKGS" "$PLAN_CM_GROUP" "$PLAN_MEM_RUNTIME" "$PLAN_SKILLS_EXTERNAL$PLAN_AGENTS_TAIL"
 ''')
         env = os.environ.copy() | {"PATH": str(bin_dir), "HOME": str(tmp)}
         proc = subprocess.run([str(bin_dir / "bash"), str(runner)], env=env, stdin=subprocess.DEVNULL,
                               capture_output=True, text=True, start_new_session=True)
         assert proc.returncode == 0, proc.stderr + proc.stdout
-        assert proc.stdout.strip().splitlines()[-1] == "1 1 1 1 1 00", proc.stdout
+        assert proc.stdout.strip().splitlines()[-1] == "1 1 1 1 1 1 00", proc.stdout
     print("冷启动计划：无 Node/Python 仍选装 Pi 与配套包，环境预答不被覆盖")
 
 
@@ -1668,8 +1669,8 @@ def check_unified_update():
         tmp = pathlib.Path(td)
         src, home = tmp / "source tree", tmp / "home"
         src.mkdir(); home.mkdir()
-        for name in ("skills-sync.sh", "scripts/update-hosts.sh", "scripts/migrate-agents-tail.py",
-                     "AGENTS.tail.md", "templates"):
+        for name in ("skills-sync.sh", "scripts/update-hosts.sh", "scripts/runtime-deps.sh",
+                     "scripts/migrate-agents-tail.py", "AGENTS.tail.md", "templates"):
             dest = src / name
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.symlink_to(ROOT / name)
@@ -1700,7 +1701,12 @@ def check_unified_update():
         (bin_dir / "npx").write_text(
             '#!/bin/sh\necho "npx $*" >> "$LOG"\n'
             '[ "$*" != "restart" ] || : > "$ALIVE_FLAG"\n')
+        (bin_dir / "node").write_text('#!/bin/sh\n[ "${1:-}" = -v ] && echo v24.21.0\nexit 0\n')
+        (bin_dir / "bun").write_text('#!/bin/sh\n[ "${1:-}" = --version ] && echo 1.4.2\nexit 0\n')
+        (bin_dir / "uv").write_text('#!/bin/sh\n[ "${1:-}" = --version ] && echo "uv 0.13.9"\nexit 0\n')
         (bin_dir / "codegraph").write_text('#!/bin/sh\nexit 0\n')
+        (home / ".config/uv").mkdir(parents=True, exist_ok=True)
+        (home / ".config/uv/uv.toml").write_text('index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"\n')
         for stub in bin_dir.iterdir():
             stub.chmod(0o755)
         (src / "skills-external.sh").write_text('echo shared >> "$LOG"\n')
@@ -1834,6 +1840,372 @@ def check_mem_worker_restore():
     print('claude-mem worker：装前在跑才恢复、入口只收口一次、失败给出补救命令')
 
 
+def check_runtime_deps_and_pi_node24():
+    """Node >=24.15、Bun >=1.1.31 探测/安装、--skip-shell、统一入口门控及旧 pi-node 24 就地升级。"""
+    import hashlib
+    import platform
+    sys_map = {
+        ("Linux", "x86_64"): "linux-x64",
+        ("Linux", "amd64"): "linux-x64",
+        ("Linux", "aarch64"): "linux-arm64",
+        ("Linux", "arm64"): "linux-arm64",
+        ("Darwin", "x86_64"): "darwin-x64",
+        ("Darwin", "arm64"): "darwin-arm64",
+    }
+    plat = sys_map.get((platform.system(), platform.machine()))
+    assert plat, f"未知平台: {platform.system()}-{platform.machine()}"
+
+    with tempfile.TemporaryDirectory(prefix="runtime-deps-") as td:
+        tmp = pathlib.Path(td)
+
+        def base_tools(target_bin):
+            target_bin.mkdir(parents=True, exist_ok=True)
+            for name in ("bash", "sh", "grep", "sed", "head", "tail", "paste", "awk", "cut", "basename", "dirname",
+                         "mktemp", "rm", "cp", "mv", "mkdir", "uname", "date", "chmod", "tar", "tr",
+                         "cat", "sort", "ln", "readlink", "sha256sum", "shasum", "python3",
+                         "git", "cmp", "diff", "wc", "find", "xargs", "touch", "stat",
+                         "env", "link", "gzip", "ls", "realpath", "sleep", "tee", "id", "uniq"):
+                src_bin = shutil.which(name)
+                if src_bin and not (target_bin / name).exists():
+                    os.symlink(src_bin, target_bin / name)
+
+        # 1) 已有 fnm env 时 --skip-shell、显式 fnm install 24（非 --lts）、以及已有 fnm Node 24 会话激活
+        case1 = tmp / "case-fnm"
+        home1 = case1 / "home"; bin1 = case1 / "bin"; ver_root = home1 / ".local/share/fnm/node-versions"
+        (home1).mkdir(parents=True)
+        base_tools(bin1)
+        fnm_log = case1 / "fnm.log"
+        curl_log = case1 / "curl.log"
+        multi = home1 / ".local/state/fnm_multishells/test_0"
+        multi.parent.mkdir(parents=True)
+        (home1 / ".bashrc").write_text('eval "$(fnm env --shell bash)"\n', encoding="utf-8")
+        (bin1 / "curl").write_text(f'''#!/usr/bin/env bash
+printf '%s\\n' "$*" >> {shlex.quote(str(curl_log))}
+out=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in -o) out="$2"; shift 2 ;; *) shift ;; esac
+done
+[ -n "$out" ] || exit 1
+cat <<'SH' > "$out"
+#!/usr/bin/env bash
+printf 'INSTALL_ARGS:%s\\n' "$*" >> {shlex.quote(str(curl_log))}
+mkdir -p {shlex.quote(str(home1 / ".local/share/fnm"))}
+cat <<'FNM' > {shlex.quote(str(home1 / ".local/share/fnm/fnm"))}
+#!/usr/bin/env bash
+printf '%s\\n' "$*" >> {shlex.quote(str(fnm_log))}
+case "$1" in
+  env)
+    printf 'export FNM_MULTISHELL_PATH=%s\\n' {shlex.quote(str(multi))}
+    printf 'export PATH=%s:"$PATH"\\n' {shlex.quote(str(multi / "bin"))}
+    ;;
+  install)
+    ver="v24.22.3"
+    [ "$2" = "24" ] || exit 9
+    mkdir -p {shlex.quote(str(ver_root))}/"$ver"/installation/bin
+    printf '#!/usr/bin/env bash\\necho %s\\n' "$ver" > {shlex.quote(str(ver_root))}/"$ver"/installation/bin/node
+    printf '#!/usr/bin/env bash\\nexit 0\\n' > {shlex.quote(str(ver_root))}/"$ver"/installation/bin/npx
+    chmod +x {shlex.quote(str(ver_root))}/"$ver"/installation/bin/node {shlex.quote(str(ver_root))}/"$ver"/installation/bin/npx
+    ;;
+  list)
+    for d in {shlex.quote(str(ver_root))}/*/installation; do
+      [ -d "$d" ] || continue
+      if [ "${{STUB_FNM_CRLF:-0}}" = 1 ]; then
+        printf '* %s\\r\\n' "$(basename "$(dirname "$d")")"
+      else
+        basename "$(dirname "$d")"
+      fi
+    done
+    ;;
+  use)
+    ln -sfn {shlex.quote(str(ver_root))}/"$2"/installation {shlex.quote(str(multi))}
+    ;;
+  default) ;;
+esac
+FNM
+chmod +x {shlex.quote(str(home1 / ".local/share/fnm/fnm"))}
+SH
+''', encoding="utf-8")
+        (bin1 / "curl").chmod(0o755)
+        script1 = case1 / "run.sh"
+        script1.write_text(f'''#!/usr/bin/env bash
+set -euo pipefail
+IS_WIN=0; BIN_EXT=""; YES=1; PREF_REUSE=0; CHECK_ONLY=0; PLUGINS_ONLY=0
+source {shlex.quote(str(ROOT / "dsh-setup.sh"))}
+source {shlex.quote(str(ROOT / "scripts/runtime-deps.sh"))}
+YES=1 preferences_init
+runtime_plan_collect 1 0 0
+[ "$PLAN_NODE" = 1 ]
+runtime_apply_node "$PLAN_NODE"
+node -v
+''', encoding="utf-8")
+        p1 = subprocess.run(["bash", str(script1)],
+                            env={"PATH": str(bin1), "HOME": str(home1), "SHELL": "/bin/bash",
+                                 "XDG_CONFIG_HOME": str(home1 / ".config"), "XDG_DATA_HOME": str(home1 / ".local/share"),
+                                 "AGENT_SKILLS_PREFERENCES": str(home1 / "pref.conf")},
+                            capture_output=True, text=True, check=False)
+        assert p1.returncode == 0, p1.stdout + p1.stderr
+        assert "v24.22.3" in p1.stdout, p1.stdout
+        assert "INSTALL_ARGS:--skip-shell" in curl_log.read_text(encoding="utf-8")
+        fnm_calls = fnm_log.read_text(encoding="utf-8").splitlines()
+        assert "install 24" in fnm_calls and all("--lts" not in c for c in fnm_calls), fnm_calls
+        assert "default v24.22.3" in fnm_calls
+
+        # Subcase: 已有 fnm 与 v20 默认（PATH 只见 v20）+ 已装 v24.21.0；runtime_plan_collect 切到 v24，不下载、不重装
+        shutil.rmtree(ver_root / "v24.22.3")
+        if multi.is_symlink() or multi.exists():
+            multi.unlink()
+        (bin1 / "node").write_text("#!/usr/bin/env bash\necho v20.20.2\n", encoding="utf-8")
+        (bin1 / "npx").write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+        (bin1 / "node").chmod(0o755); (bin1 / "npx").chmod(0o755)
+        v24_inst = ver_root / "v24.21.0/installation/bin"
+        v24_inst.mkdir(parents=True)
+        (v24_inst / "node").write_text("#!/usr/bin/env bash\necho v24.21.0\n", encoding="utf-8")
+        (v24_inst / "npx").write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+        (v24_inst / "node").chmod(0o755); (v24_inst / "npx").chmod(0o755)
+        fnm_log.unlink(); curl_log.unlink()
+        script1b = case1 / "run1b.sh"
+        script1b.write_text(f'''#!/usr/bin/env bash
+set -euo pipefail
+IS_WIN=0; BIN_EXT=""; YES=1; PREF_REUSE=0; CHECK_ONLY=0; PLUGINS_ONLY=0
+source {shlex.quote(str(ROOT / "dsh-setup.sh"))}
+source {shlex.quote(str(ROOT / "scripts/runtime-deps.sh"))}
+YES=1 preferences_init
+runtime_plan_collect 1 0 0
+printf 'PLAN_NODE=%s NODE=%s\\n' "$PLAN_NODE" "$(node -v)"
+''', encoding="utf-8")
+        p1b = subprocess.run(["bash", str(script1b)],
+                             env={"PATH": str(bin1), "HOME": str(home1),
+                                  "XDG_CONFIG_HOME": str(home1 / ".config"), "XDG_DATA_HOME": str(home1 / ".local/share"),
+                                  "AGENT_SKILLS_PREFERENCES": str(home1 / "pref.conf"),
+                                  "STUB_FNM_CRLF": "1"},
+                             capture_output=True, text=True, check=False)
+        assert p1b.returncode == 0, p1b.stdout + p1b.stderr
+        assert "PLAN_NODE=0 NODE=v24.21.0" in p1b.stdout, p1b.stdout
+        assert not curl_log.exists(), "已有 fnm Node 24 时不应联网下载"
+
+        # Subcase: opencode-setup 已有最新 uv 时，前置计划 PLAN_UV_UPGRADE=0（不每次调 self update）
+        oc_uv_home = case1 / "oc-uv-home"; oc_uv_home.mkdir()
+        (oc_uv_home / ".config/uv").mkdir(parents=True)
+        (oc_uv_home / ".config/uv/uv.toml").write_text('index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"\n', encoding="utf-8")
+        oc_uv_bin = case1 / "oc-uv-bin"; base_tools(oc_uv_bin)
+        (oc_uv_bin / "uv").write_text("#!/usr/bin/env bash\necho 'uv 0.13.9'\n", encoding="utf-8")
+        (oc_uv_bin / "node").write_text("#!/usr/bin/env bash\necho v24.21.0\n", encoding="utf-8")
+        (oc_uv_bin / "npx").write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+        (oc_uv_bin / "bun").write_text('#!/usr/bin/env bash\n[ "${1:-}" = --version ] && echo 1.4.2\nexit 0\n', encoding="utf-8")
+        (oc_uv_bin / "curl").write_text('#!/usr/bin/env bash\necho \'{"tag_name": "0.13.9"}\'\n', encoding="utf-8")
+        for x in ("uv", "node", "npx", "bun", "curl"):
+            (oc_uv_bin / x).chmod(0o755)
+        oc_parts = "\n".join(function(ROOT / "opencode-setup.sh", fn)[0]
+                             for fn in ("node_ver_ge", "runtime_activate_fnm", "bun_probe_state", "collect_setup_plan"))
+        oc_uv_script = case1 / "oc_uv.sh"
+        oc_uv_script.write_text(f'''#!/usr/bin/env bash
+set -euo pipefail
+IS_WIN=0; BIN_EXT=""; CHECK_ONLY=0; PLUGINS_ONLY=0; AGENT_SKILLS_RUNTIME_DONE=0
+CFG={shlex.quote(str(oc_uv_home / ".config/opencode"))}; mkdir -p "$CFG"
+SKILLS_EXTERNAL=skip; AGENTS_TAIL=0
+ask() {{ [ "${{2:-N}}" = Y ]; }}
+net_ok() {{ return 0; }}
+plan_pony_default() {{ echo N; }}
+preference_put() {{ return 0; }}
+acquire_source() {{ SOURCE_ROOT=/nonexistent; return 0; }}
+collect_gateway_values() {{ return 0; }}
+MODULE_RUN=""
+{oc_parts}
+collect_setup_plan
+printf 'PLAN_UV_UPGRADE=%s\\n' "$PLAN_UV_UPGRADE"
+''', encoding="utf-8")
+        oc_uv_res = subprocess.run(["bash", str(oc_uv_script)],
+                                   env={"PATH": str(oc_uv_bin), "HOME": str(oc_uv_home),
+                                        "XDG_CONFIG_HOME": str(oc_uv_home / ".config")},
+                                   stdin=subprocess.DEVNULL, start_new_session=True,
+                                   capture_output=True, text=True, timeout=30, check=False)
+        assert oc_uv_res.returncode == 0 and "PLAN_UV_UPGRADE=0" in oc_uv_res.stdout, oc_uv_res.stdout + oc_uv_res.stderr
+
+        # 2) Bun >= 1.1.31 探测：低版本升级、1.1.31 免升级、sqlite 坏掉失败
+        case2 = tmp / "case-bun"
+        bin2 = case2 / "bin"; base_tools(bin2)
+        bun_log = case2 / "bun.log"
+        bun_ver_file = case2 / "bun.ver"
+        bun_bin = bin2 / "bun"
+        bun_bin.write_text(f'''#!/usr/bin/env bash
+printf '%s\\n' "$*" >> {shlex.quote(str(bun_log))}
+case "${{1:-}}" in
+  --version)
+    if [ -n "${{STUB_BUN_VER:-}}" ]; then echo "$STUB_BUN_VER"; else cat {shlex.quote(str(bun_ver_file))}; fi
+    ;;
+  upgrade)
+    echo 1.4.2 > {shlex.quote(str(bun_ver_file))}
+    echo "upgraded"
+    ;;
+  -e) [ "${{STUB_SQLITE_OK:-1}}" = 1 ] ;;
+esac
+''', encoding="utf-8")
+        bun_bin.chmod(0o755)
+        bun_probe_script = case2 / "bun.sh"
+        bun_probe_script.write_text(f'''#!/usr/bin/env bash
+set -euo pipefail
+IS_WIN=0; BIN_EXT=""; YES=1; PREF_REUSE=0; CHECK_ONLY=0; PLUGINS_ONLY=0
+source {shlex.quote(str(ROOT / "dsh-setup.sh"))}
+source {shlex.quote(str(ROOT / "scripts/runtime-deps.sh"))}
+YES=1 preferences_init
+runtime_plan_collect 0 1 0
+printf 'PLAN_BUN=%s\\n' "$PLAN_BUN"
+if [ "${{DO_APPLY:-0}}" = 1 ]; then
+  runtime_apply_bun "$PLAN_BUN"
+fi
+''', encoding="utf-8")
+        env2 = {"PATH": str(bin2), "HOME": str(case2), "XDG_CONFIG_HOME": str(case2 / ".config"),
+                "AGENT_SKILLS_PREFERENCES": str(case2 / "pref.conf")}
+        bun_ver_file.write_text("1.0.5\n", encoding="utf-8")
+        up2 = subprocess.run(["bash", str(bun_probe_script)], env={**env2, "DO_APPLY": "1"}, capture_output=True, text=True, check=False)
+        assert up2.returncode == 0 and "PLAN_BUN=2" in up2.stdout and "1.4.2" in up2.stdout, up2.stdout + up2.stderr
+        assert "upgrade" in bun_log.read_text(encoding="utf-8").splitlines()
+        assert "PLAN_BUN=0" in subprocess.run(["bash", str(bun_probe_script)], env={**env2, "STUB_BUN_VER": "1.1.31"}, capture_output=True, text=True, check=True).stdout
+        bad_sqlite = subprocess.run(["bash", str(bun_probe_script)], env={**env2, "STUB_BUN_VER": "1.4.2", "STUB_SQLITE_OK": "0", "DO_APPLY": "1"}, capture_output=True, text=True, check=False)
+        assert "PLAN_BUN=3" in bad_sqlite.stdout and bad_sqlite.returncode != 0
+
+        # Subcase: codex-setup 单跑遇到 bun:sqlite 损坏(PLAN_BUN=3)必须在写配置或调 npx 前中止
+        codex_home = case2 / "codex-home"; (codex_home / ".codex").mkdir(parents=True)
+        npx_log2 = case2 / "codex-npx.log"
+        (bin2 / "codex").write_text("#!/usr/bin/env bash\necho 'codex-cli 0.160.0'\n", encoding="utf-8")
+        (bin2 / "node").write_text("#!/usr/bin/env bash\necho v24.21.0\n", encoding="utf-8")
+        (bin2 / "uv").write_text("#!/usr/bin/env bash\necho 'uv 0.13.9'\n", encoding="utf-8")
+        (bin2 / "npx").write_text(f"#!/usr/bin/env bash\nprintf '%s\\n' \"$*\" >> {shlex.quote(str(npx_log2))}\n", encoding="utf-8")
+        (bin2 / "curl").write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+        for x in ("codex", "node", "uv", "npx", "curl"):
+            (bin2 / x).chmod(0o755)
+        codex_bad = subprocess.run(
+            ["bash", str(ROOT / "codex-setup.sh"), "-y"],
+            env={"PATH": str(bin2), "HOME": str(codex_home), "AGENT_SKILLS_SOURCE": str(ROOT),
+                 "AGENT_SKILLS_PREFERENCES": str(codex_home / "pref.conf"),
+                 "PI_GATEWAY_BASE_URL": "https://gw.example", "PI_CLAUDE_MEM_API_KEY": "k",
+                 "STUB_BUN_VER": "1.4.2", "STUB_SQLITE_OK": "0", "AGENTS_TAIL": "0"},
+            stdin=subprocess.DEVNULL, start_new_session=True,
+            capture_output=True, text=True, timeout=30, check=False)
+        assert codex_bad.returncode != 0
+        assert not npx_log2.exists(), f"bun_rc=3 不得继续调用 npx: {npx_log2.read_text() if npx_log2.exists() else ''}"
+        assert not (codex_home / ".claude-mem/settings.json").exists()
+
+        # 3) 统一入口：--hosts none 不触及 runtime；公共依赖失败阻断后续宿主更新
+        case3 = tmp / "case-unified"
+        src3 = case3 / "src"; home3 = case3 / "home"; bin3 = case3 / "bin"
+        src3.mkdir(parents=True); home3.mkdir(); base_tools(bin3)
+        for rel in ("skills-sync.sh", "scripts/update-hosts.sh", "scripts/runtime-deps.sh", "scripts/migrate-agents-tail.py", "AGENTS.tail.md", "templates", "modules/run.sh"):
+            dst = src3 / rel; dst.parent.mkdir(parents=True, exist_ok=True); dst.symlink_to(ROOT / rel)
+        (src3 / "skills-external.sh").write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+        (src3 / "skills-external.sh").chmod(0o755)
+        dsh_head = (ROOT / "dsh-setup.sh").read_text(encoding="utf-8").split('if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then return 0; fi\n', 1)[0]
+        (src3 / "dsh-setup.sh").write_text(dsh_head + 'if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then return 0; fi\n', encoding="utf-8")
+        for g in ("base",):
+            (src3 / "skills" / g / "demo").mkdir(parents=True)
+            (src3 / "skills" / g / "demo/SKILL.md").write_text("base", encoding="utf-8")
+        (src3 / "skills/base/verification").mkdir(parents=True)
+        (src3 / "skills/base/verification/SKILL.md").write_text("v", encoding="utf-8")
+        log3 = case3 / "host.log"
+        for h in ("opencode", "pi"):
+            (src3 / f"{h}-setup.sh").write_text(f'echo {h} >> {shlex.quote(str(log3))}\n', encoding="utf-8")
+        (bin3 / "curl").write_text("#!/usr/bin/env bash\nexit 1\n"); (bin3 / "curl").chmod(0o755)
+        (bin3 / "node").write_text("#!/usr/bin/env bash\necho v20.0.0\n"); (bin3 / "node").chmod(0o755)
+        (bin3 / "bun").write_text('#!/usr/bin/env bash\n[ "${1:-}" = --version ] && echo 1.4.2\n[ "${1:-}" != -e ] || exit 1\n'); (bin3 / "bun").chmod(0o755)
+        env3 = {"PATH": str(bin3), "HOME": str(home3), "AGENT_SKILLS_SOURCE": str(src3),
+                "AGENT_SKILLS_PREFERENCES": str(home3 / "pref.conf"), "SKILLS_EXTERNAL": "skip"}
+        none_res = subprocess.run(["bash", str(ROOT / "setup.sh"), "--hosts", "none", "-y"],
+                                  env=env3, stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False)
+        assert none_res.returncode == 0, none_res.stdout + none_res.stderr
+        assert not log3.exists()
+        fail_res = subprocess.run(["bash", str(ROOT / "setup.sh"), "--hosts", "opencode,pi", "-y"],
+                                  env=env3, stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False)
+        assert fail_res.returncode != 0 and not log3.exists(), "共享依赖失败不得继续跑宿主"
+
+        # 4) 旧 ~/.local/share/pi-node(<24.15) 就地升 24：失败回滚不切 current；成功保留 22、重装包、提醒 rc
+        case4 = tmp / "case-pinode"
+        home4 = case4 / "home"; bin4 = case4 / "bin"; dist4 = case4 / "dist"
+        base_tools(bin4); dist4.mkdir()
+        pi_node_root = home4 / ".local/share/pi-node"
+        v22_dir = pi_node_root / "node-v22.18.0"
+        (v22_dir / "bin").mkdir(parents=True)
+        (v22_dir / "bin/node").write_text("#!/usr/bin/env bash\necho v22.18.0\n", encoding="utf-8")
+        (v22_dir / "bin/pi").write_text("#!/usr/bin/env bash\necho 1.6.0\n", encoding="utf-8")
+        (v22_dir / "bin/node").chmod(0o755); (v22_dir / "bin/pi").chmod(0o755)
+        for pkg_name, pkg_ver in (("@earendil-works/pi-coding-agent", "1.6.0"), ("@openai/codex", "0.9.0")):
+            pdir = v22_dir / "lib/node_modules" / pkg_name
+            pdir.mkdir(parents=True)
+            (pdir / "package.json").write_text(json.dumps({"name": pkg_name, "version": pkg_ver}), encoding="utf-8")
+        (pi_node_root / "current").symlink_to(v22_dir)
+        (home4 / ".bashrc").write_text(f'export PATH="{pi_node_root}/node-v22.18.0/bin:$PATH"\n', encoding="utf-8")
+
+        tar_name = f"node-v24.22.3-{plat}.tar.gz"
+        npm_log4 = case4 / "npm.log"
+        stage4 = case4 / "tarstage" / f"node-v24.22.3-{plat}"
+        (stage4 / "bin").mkdir(parents=True)
+        (stage4 / "bin/node").write_text("#!/usr/bin/env bash\necho v24.22.3\n", encoding="utf-8")
+        (stage4 / "bin/pi").write_text("#!/usr/bin/env bash\necho 1.6.0\n", encoding="utf-8")
+        (stage4 / "bin/npm").write_text(f'''#!/usr/bin/env bash
+printf '%s\\n' "$*" >> {shlex.quote(str(npm_log4))}
+[ "${{FAIL_NPM:-0}}" = 0 ] || exit 7
+''', encoding="utf-8")
+        for b in ("node", "pi", "npm"):
+            (stage4 / "bin" / b).chmod(0o755)
+        with tarfile.open(dist4 / tar_name, "w:gz") as tf:
+            tf.add(stage4, arcname=f"node-v24.22.3-{plat}")
+        good_sha = hashlib.sha256((dist4 / tar_name).read_bytes()).hexdigest()
+        (dist4 / "SHASUMS256.txt").write_text(f"{good_sha}  {tar_name}\n", encoding="utf-8")
+        (bin4 / "curl").write_text(f'''#!/usr/bin/env bash
+out=""; url=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in -o) out="$2"; shift 2 ;; -*) shift ;; *) url="$1"; shift ;; esac
+done
+fname="$(basename "$url")"
+cp {shlex.quote(str(dist4))}/"$fname" "$out"
+''', encoding="utf-8")
+        (bin4 / "curl").chmod(0o755)
+        up_script = case4 / "upgrade.sh"
+        up_script.write_text(f'''#!/usr/bin/env bash
+set -euo pipefail
+IS_WIN=0; BIN_EXT=""
+source {shlex.quote(str(ROOT / "scripts/runtime-deps.sh"))}
+runtime_upgrade_pi_node24
+''', encoding="utf-8")
+        env4 = {"PATH": str(bin4), "HOME": str(home4), "XDG_DATA_HOME": str(home4 / ".local/share"),
+                "PI_NODE_DIST_BASE": "https://dist.example.test"}
+        (dist4 / "SHASUMS256.txt").write_text(f"{'0' * 64}  {tar_name}\n", encoding="utf-8")
+        fail_sha = subprocess.run(["bash", str(up_script)], env=env4, capture_output=True, text=True, check=False)
+        assert fail_sha.returncode != 0 and "SHA256" in fail_sha.stderr
+        assert (pi_node_root / "current").resolve() == v22_dir.resolve()
+        assert not list(pi_node_root.glob(".upgrade-tmp-*"))
+
+        (dist4 / "SHASUMS256.txt").write_text(f"{good_sha}  {tar_name}\n", encoding="utf-8")
+        fail_npm = subprocess.run(["bash", str(up_script)], env={**env4, "FAIL_NPM": "1"}, capture_output=True, text=True, check=False)
+        assert fail_npm.returncode != 0
+        assert (pi_node_root / "current").resolve() == v22_dir.resolve()
+        assert not list(pi_node_root.glob(".upgrade-tmp-*"))
+
+        ok_up = subprocess.run(["bash", str(up_script)], env=env4, capture_output=True, text=True, check=False)
+        assert ok_up.returncode == 0, ok_up.stdout + ok_up.stderr
+        assert (pi_node_root / "current").resolve() == (pi_node_root / f"node-v24.22.3-{plat}").resolve()
+        assert v22_dir.is_dir(), "旧 node-v22.18.0 应保留用于回滚"
+        assert "pi-node/node-v22" in ok_up.stderr
+        npm_args = npm_log4.read_text(encoding="utf-8")
+        assert "@earendil-works/pi-coding-agent@1.6.0" in npm_args and "@openai/codex@0.9.0" in npm_args
+
+        # 5) context-mode v2：pi-node 仍是 22 时即使用 PATH 上有 24 也不更新
+        guard_script = case4 / "cm-guard.sh"
+        (v22_dir / "bin/node").write_text("#!/usr/bin/env bash\necho v22.18.0\n", encoding="utf-8")
+        (pi_node_root / "current").unlink(missing_ok=True)
+        (pi_node_root / "current").symlink_to(v22_dir)
+        (bin4 / "node").write_text("#!/usr/bin/env bash\necho v24.21.0\n", encoding="utf-8")
+        (bin4 / "node").chmod(0o755)
+        guard_script.write_text(f'''#!/usr/bin/env bash
+set -euo pipefail
+{function(ROOT / "pi-setup.sh", "node_ver_ge")[0]}
+pi_eff_node=""
+[ -x "$HOME/.local/share/pi-node/current/bin/node" ] && pi_eff_node="$HOME/.local/share/pi-node/current/bin/node"
+! node_ver_ge "$pi_eff_node" 24 15
+''', encoding="utf-8")
+        assert subprocess.run(["bash", str(guard_script)], env=env4, check=False).returncode == 0
+    print("runtime-deps：Node 24 / Bun >=1.1.31 / --skip-shell / 统一门控 / pi-node 24 就地升级回归")
+
+
 def main():
     check_no_late_questions()
     if os.name == "nt":
@@ -1864,6 +2236,7 @@ def main():
     check_mem_search_setup()
     check_setup_preferences()
     check_unified_update()
+    check_runtime_deps_and_pi_node24()
     check_mem_worker_restore()
     print("PASS: setup 前置选择回归")
 

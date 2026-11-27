@@ -118,7 +118,7 @@ def main():
         shutil.copy2(ROOT / "pi/extensions/context-rewrite.ts", static_root / "pi/extensions/context-rewrite.ts")
         write_fixture("scripts/check.sh", "  t_case \"tests/formal.mjs\" \"$why\" node tests/formal.mjs\n")
         required = [
-            "setup.sh", "scripts/update-hosts.sh",
+            "setup.sh", "scripts/update-hosts.sh", "scripts/runtime-deps.sh",
             "scripts/check.sh", "scripts/verify-subagents.sh", "tests/setup-preflight.py",
             "tests/nju-ppt-editability.py", "skills/base/verification/SKILL.md",
             "skills/base/save-mem/scripts/check_size.py",

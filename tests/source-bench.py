@@ -165,7 +165,7 @@ def entry_asset_closure():
         "skills/base/t3-plan-execute/SKILL.md",
         "skills/base/verification-setup/SKILL.md",
         "skills/base/verification-setup/references/domain-probes.md",
-        "setup.sh", "scripts/update-hosts.sh",
+        "setup.sh", "scripts/update-hosts.sh", "scripts/runtime-deps.sh",
     }
     for line in text.splitlines():
         stripped = line.lstrip()
@@ -218,7 +218,8 @@ def entry_asset_closure():
 def source_channel_contract():
     """本仓源码只走受管 Git／显式源码树；Release 与第三方仓库不受此禁令影响。"""
     files = [ROOT / name for name in FILES] + [ROOT / "modules/run.sh", ROOT / "setup.sh",
-                                                ROOT / "scripts/update-hosts.sh"]
+                                                ROOT / "scripts/update-hosts.sh",
+                                                ROOT / "scripts/runtime-deps.sh"]
     files += sorted((ROOT / "modules").glob("*/setup.sh"))
     bad = []
     for path in files:
@@ -712,6 +713,28 @@ def main():
         mcp_cfg.write_text("{broken", encoding="utf-8")
         assert sync("--antigravity-mcp", HOME=str(mcp_home), PATH=str(mcp_bin)).returncode != 0
         assert mcp_cfg.read_text(encoding="utf-8") == "{broken"
+        if posix_links:
+            fnm_home = tmp / "fnm-home"
+            real_fnm_node = fnm_home / ".local/share/fnm/node-versions/v24.21.0/installation/bin/node"
+            real_fnm_node.parent.mkdir(parents=True)
+            real_fnm_node.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            real_fnm_node.chmod(0o755)
+            multi_bin = fnm_home / ".local/state/fnm_multishells/999_0/bin"
+            multi_bin.mkdir(parents=True)
+            (multi_bin / "node").symlink_to(real_fnm_node)
+            fnm_cg = fnm_home / "cg-bin"
+            fnm_cg.mkdir()
+            (fnm_cg / "node_modules/@colbymchenry/codegraph").mkdir(parents=True)
+            (fnm_cg / "node_modules/@colbymchenry/codegraph/npm-shim.js").write_text("// shim\n", encoding="utf-8")
+            (fnm_cg / "codegraph").symlink_to(fnm_cg / "node_modules/@colbymchenry/codegraph/npm-shim.js")
+            fnm_mem = fnm_home / ".claude/plugins/marketplaces/thedotmack/plugin/scripts/mcp-server.cjs"
+            fnm_mem.parent.mkdir(parents=True)
+            fnm_mem.write_text("// stub\n", encoding="utf-8")
+            proc_fnm = sync("--antigravity-mcp", HOME=str(fnm_home), PATH=f"{multi_bin}:{fnm_cg}", MCPHUB_HOST="")
+            assert proc_fnm.returncode == 0, proc_fnm.stdout + proc_fnm.stderr
+            parsed_fnm = json.loads((fnm_home / ".gemini/config/mcp_config.json").read_text(encoding="utf-8"))
+            mem_cmd = parsed_fnm["mcpServers"]["claude-mem"]["command"]
+            assert "fnm_multishells" not in mem_cmd and mem_cmd == str(real_fnm_node.resolve()), parsed_fnm
         print("PASS --antigravity-mcp:合并基础 MCP、保留自定义配置、0600 权限并安全桥接 T3")
 
         # 7) Pi 本地路径包：真实 Pi 会把绝对安装路径写成相对 agent dir 的 source。
@@ -773,6 +796,31 @@ def main():
         linked = subprocess.run(["bash", str(link_probe)], capture_output=True, text=True, cwd=repo, check=False)
         assert linked.returncode == 0 and "候选源码树只读" in linked.stdout, linked.stdout + linked.stderr
         assert not (repo / "node_modules").exists()
+        if posix_links:
+            managed_agent = tmp / "managed-agent"
+            managed_rel = managed_agent / "install/releases/0.68.0/node_modules"
+            (managed_rel / "@earendil-works/pi-coding-agent").mkdir(parents=True)
+            (managed_rel / "@earendil-works/pi-tui").mkdir(parents=True)
+            (managed_rel / "@types/node").mkdir(parents=True)
+            (managed_agent / "install/current-version").write_text("0.68.0\n", encoding="utf-8")
+            (managed_agent / "bin").mkdir(parents=True)
+            (managed_agent / "bin/pi").write_text("#!/usr/bin/env sh\nexit 0\n", encoding="utf-8")
+            (managed_agent / "bin/pi").chmod(0o755)
+            dev_work = tmp / "dev-work"
+            (dev_work / "pi/extensions/ui").mkdir(parents=True)
+            (dev_work / "pi/extensions/ui/index.ts").write_text("export {};\n", encoding="utf-8")
+            managed_probe = tmp / "link-managed.sh"
+            managed_probe.write_text(
+                f"set -euo pipefail\nIS_WIN=0\nHOME={shlex.quote(str(tmp / 'empty-home'))}\n"
+                f"SOURCE_ROOT={shlex.quote(str(repo))}\nAGENT_DIR={shlex.quote(str(managed_agent))}\n"
+                f"PI_BIN={shlex.quote(str(managed_agent / 'bin/pi'))}\n"
+                + function(ROOT / "pi-setup.sh", "link_dev_types") + "\nlink_dev_types\n",
+                encoding="utf-8")
+            m_linked = subprocess.run(["bash", str(managed_probe)], capture_output=True, text=True, cwd=dev_work, check=False)
+            assert m_linked.returncode == 0, m_linked.stdout + m_linked.stderr
+            assert (dev_work / "node_modules/@earendil-works/pi-coding-agent").resolve() == (managed_rel / "@earendil-works/pi-coding-agent").resolve()
+            assert (dev_work / "node_modules/@earendil-works/pi-tui").resolve() == (managed_rel / "@earendil-works/pi-tui").resolve()
+            assert (dev_work / "node_modules/@types/node").resolve() == (managed_rel / "@types/node").resolve()
         (repo / "package.json").write_text('{"name":"agent-skills","dependencies":{"acp-kernel":"0.0.101"}}\n', encoding="utf-8")
         (repo / "package-lock.json").write_text('{"lockfileVersion":3}\n', encoding="utf-8")
         npm_log = tmp / "npm.log"

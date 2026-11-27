@@ -236,8 +236,21 @@ def discover_node_bin(env, home):
     oc_node = oc_cmd[0] if isinstance(oc_cmd, list) and oc_cmd and isinstance(oc_cmd[0], str) else None
     if oc_node and Path(oc_node).name.lower() not in ('node', 'node.exe'):
         oc_node = None
-    for cand in (oc_node, str(home / f'.local/share/pi-node/current/bin/node{ext}'), shutil.which('node', path=path_env)):
+    candidates = (
+        oc_node,
+        str(home / f'.local/share/pi-node/current/bin/node{ext}'),
+        str(home / f'.local/share/fnm/aliases/default/bin/node{ext}'),
+        str(home / f'.fnm/aliases/default/bin/node{ext}'),
+        str(home / f'Library/Application Support/fnm/aliases/default/bin/node{ext}'),
+        shutil.which('node', path=path_env),
+    )
+    for cand in candidates:
         if cand and Path(cand).is_file() and os.access(cand, os.X_OK):
+            if 'fnm_multishells' in cand:
+                try:
+                    return str(Path(cand).resolve())
+                except OSError:
+                    pass
             return str(Path(cand))
     return None
 

@@ -88,6 +88,115 @@ rpath() { # 解析实际写入目标；更新内容时保留文件和父目录�
 nbin() { # 可执行文件的宿主路径:MSYS 的 command -v 会去掉 .exe,宿主 spawn 前显式补回
   if [ "$IS_WIN" = 1 ] && [ -f "$1.exe" ]; then npath "$1.exe"; else npath "$1"; fi
 }
+node_ver_ge() { # $1=node 路径(空则 PATH 中 node) $2=主版本(默认 24) $3=次版本(默认 15)
+  local bin="${1:-}" req_maj="${2:-24}" req_min="${3:-15}" raw maj min
+  [ -n "$bin" ] || bin="$(command -v node 2>/dev/null || true)"
+  [ -n "$bin" ] && [ -x "$bin" ] || return 1
+  raw="$("$bin" -v 2>/dev/null | head -1 | tr -d '\r' || true)"
+  raw="${raw#v}"
+  case "$raw" in
+    [0-9]*.[0-9]*) ;;
+    *) return 1 ;;
+  esac
+  maj="${raw%%.*}"
+  min="${raw#*.}"; min="${min%%.*}"; min="${min%%-*}"
+  case "$maj" in ''|*[!0-9]*) return 1 ;; esac
+  case "$min" in ''|*[!0-9]*) return 1 ;; esac
+  [ "$maj" -gt "$req_maj" ] && return 0
+  [ "$maj" -eq "$req_maj" ] && [ "$min" -ge "$req_min" ]
+}
+
+runtime_activate_fnm() { # 发现并激活已有 fnm；若已装 v24.15+ 则在当前会话切过去（不改 default）
+  local fnm_bin="" fnm_dir="" best=""
+  fnm_bin="$(command -v fnm 2>/dev/null || true)"
+  if [ -z "$fnm_bin" ]; then
+    for fnm_dir in "${FNM_DIR:-}" "${XDG_DATA_HOME:-$HOME/.local/share}/fnm" "$HOME/.local/share/fnm" "$HOME/.fnm" "$HOME/Library/Application Support/fnm"; do
+      if [ -n "$fnm_dir" ] && [ -x "$fnm_dir/fnm${BIN_EXT:-}" ]; then
+        fnm_bin="$fnm_dir/fnm${BIN_EXT:-}"
+        break
+      fi
+    done
+    if [ -z "$fnm_bin" ] && [ "${IS_WIN:-0}" = 1 ] && [ -n "${LOCALAPPDATA:-}" ] && command -v cygpath >/dev/null 2>&1; then
+      fnm_dir="$(cygpath -u "$LOCALAPPDATA")/fnm"
+      [ -x "$fnm_dir/fnm${BIN_EXT:-}" ] && fnm_bin="$fnm_dir/fnm${BIN_EXT:-}"
+    fi
+  fi
+  [ -n "$fnm_bin" ] && [ -x "$fnm_bin" ] || return 1
+  fnm_dir="$(dirname "$fnm_bin")"
+  case ":$PATH:" in
+    *":$fnm_dir:"*) ;;
+    *) export PATH="$fnm_dir:$PATH" ;;
+  esac
+  eval "$(fnm env --shell bash 2>/dev/null)" || true
+  if ! command -v npx >/dev/null 2>&1 || ! node_ver_ge "" 24 15; then
+    best="$(fnm list 2>/dev/null | tr -d '\r' | awk '
+      {
+        n = split($0, f)
+        for (k = 1; k <= n; k++) {
+          v = f[k]
+          if (v ~ /^v[0-9]+\.[0-9]+\.[0-9]+$/) {
+            s = substr(v, 2); split(s, p, ".")
+            maj = p[1] + 0; min = p[2] + 0; pat = p[3] + 0
+            if (maj > 24 || (maj == 24 && min >= 15)) {
+              if (maj == 24) {
+                if (!has24 || min > b24min || (min == b24min && pat > b24pat)) {
+                  has24 = 1; b24min = min; b24pat = pat; best24 = v
+                }
+              } else {
+                if (!hasgt || maj > bgtmaj || (maj == bgtmaj && min > bgtmin) || (maj == bgtmaj && min == bgtmin && pat > bgtpat)) {
+                  hasgt = 1; bgtmaj = maj; bgtmin = min; bgtpat = pat; bestgt = v
+                }
+              }
+            }
+            break
+          }
+        }
+      }
+      END { if (has24) print best24; else if (hasgt) print bestgt }
+    ')"
+    if [ -n "$best" ]; then
+      fnm use "$best" >/dev/null 2>&1 || true
+    fi
+  fi
+  return 0
+}
+
+bun_probe_state() { # 0=就绪(>=1.1.31 且 bun:sqlite 可用) 1=缺失 2=版本过低 3=sqlite 不可用
+  local bin raw maj min pat
+  PROBE_BUN_BIN=""; PROBE_BUN_VER=""
+  if [ "${IS_WIN:-0}" = 1 ] && [ -n "${BUN_INSTALL:-}" ] && command -v cygpath >/dev/null 2>&1; then
+    BUN_INSTALL="$(cygpath -u "$BUN_INSTALL")"; export BUN_INSTALL
+  fi
+  bin="$(command -v bun 2>/dev/null || true)"
+  if [ -z "$bin" ] && [ -x "${BUN_INSTALL:-$HOME/.bun}/bin/bun${BIN_EXT:-}" ]; then
+    bin="${BUN_INSTALL:-$HOME/.bun}/bin/bun${BIN_EXT:-}"
+  fi
+  [ -n "$bin" ] && [ -x "$bin" ] || return 1
+  PROBE_BUN_BIN="$bin"
+  raw="$("$bin" --version 2>/dev/null | head -1 | tr -d '\r' || true)"
+  PROBE_BUN_VER="$raw"
+  raw="${raw#v}"
+  raw="${raw%%[-+]*}"
+  case "$raw" in
+    [0-9]*.[0-9]*.[0-9]*)
+      maj="${raw%%.*}"
+      pat="${raw#*.}"; min="${pat%%.*}"; pat="${pat#*.}"
+      ;;
+    [0-9]*.[0-9]*)
+      maj="${raw%%.*}"
+      min="${raw#*.}"; pat=0
+      ;;
+    *) return 2 ;;
+  esac
+  case "$maj" in ''|*[!0-9]*) return 2 ;; esac
+  case "$min" in ''|*[!0-9]*) return 2 ;; esac
+  case "$pat" in ''|*[!0-9]*) return 2 ;; esac
+  if [ "$maj" -lt 1 ] || { [ "$maj" -eq 1 ] && [ "$min" -lt 1 ]; } || { [ "$maj" -eq 1 ] && [ "$min" -eq 1 ] && [ "$pat" -lt 31 ]; }; then
+    return 2
+  fi
+  "$bin" -e 'const {Database}=require("bun:sqlite"); const db=new Database(":memory:"); if(db.query("SELECT 1 AS ok").get().ok!==1) process.exit(1); db.close();' >/dev/null 2>&1 || return 3
+  return 0
+}
 
 # -y/--yes(或环境变量 ASSUME_YES=1)「默认安装」:前置计划不再逐项确认,一律取默认值 —— 默认 Y 的照做
 # (装缺件、字段级合并写配置、刷新 skills、写用户级 AGENTS 规则块),默认 N 的跳过(覆盖缓存、版本不一致时强启用、无代理继续)。
@@ -107,8 +216,22 @@ done
 AGENT_DIR="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
 case "$AGENT_DIR" in /*|[A-Za-z]:/*) ;; *) AGENT_DIR="$PWD/${AGENT_DIR#./}" ;; esac
 [ "$AGENT_DIR" = / ] || AGENT_DIR="${AGENT_DIR%/}"
-if [ "$IS_WIN" != 1 ] && [ -x "$HOME/.local/share/pi-node/current/bin/pi" ]; then
-  export PATH="$HOME/.local/share/pi-node/current/bin:$PATH"
+if [ "$IS_WIN" != 1 ]; then
+  if [ -d "$HOME/.local/bin" ]; then
+    case ":$PATH:" in
+      *":$HOME/.local/bin:"*) ;;
+      *) export PATH="$HOME/.local/bin:$PATH" ;;
+    esac
+  fi
+  if [ -d "$AGENT_DIR/bin" ]; then
+    case ":$PATH:" in
+      *":$AGENT_DIR/bin:"*) ;;
+      *) export PATH="$AGENT_DIR/bin:$PATH" ;;
+    esac
+  fi
+  if [ -x "$HOME/.local/share/pi-node/current/bin/pi" ]; then
+    export PATH="$HOME/.local/share/pi-node/current/bin:$PATH"
+  fi
 fi
 MODELS="$AGENT_DIR/models.json"
 SETTINGS="$AGENT_DIR/settings.json"
@@ -191,11 +314,11 @@ ask_builtin() { # $1=提示 $2=默认(Y/N,缺省 N)
 # 本机安装偏好：只保存经过校验的是非选择与模块名单，不保存凭据，也不执行文件内容。
 PREF_FILE=""; PREF_SESSION=""; PREF_ORIGINAL=""; PREF_REUSE=0; PREF_WRITE=1; PREF_COUNT=0
 PREF_KNOWN_KEYS="SHARED_PROXY SHARED_PYTHON_UV SHARED_NODE SHARED_BUN SHARED_UV_INSTALL SHARED_UV_UPGRADE SHARED_UV_MIRROR SHARED_RESEARCH SHARED_ACCEL SHARED_KB SHARED_PPT SHARED_EXTERNAL SHARED_AGENTS_TAIL \
-PI_AGENTS_TAIL PI_GIT_BASH PI_INSTALL PI_UPDATE PI_PKGS PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_CM_GROUP PI_MCP_MIGRATE PI_WRITE_CFG PI_MEM_RUNTIME PI_LEGACY_CLEAN PI_MODULES PI_MODULES_KNOWN \
+PI_AGENTS_TAIL PI_GIT_BASH PI_INSTALL PI_UPDATE PI_PKGS PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_CM_GROUP PI_MCP_MIGRATE PI_WRITE_CFG PI_MEM_RUNTIME PI_LEGACY_CLEAN PI_NODE_UPGRADE PI_MODULES PI_MODULES_KNOWN \
 OC_AGENTS_TAIL OC_UPGRADE OC_PONYTAIL OC_MC_REFRESH OC_CLAUDE_MEM OC_WRITE_CFG OC_FORCE_MANUAL OC_COMPACTION OC_TUI_KEYS OC_MODULES OC_MODULES_KNOWN \
 CODEX_AGENTS_TAIL CODEX_WRITE_CFG CODEX_MEM_INSTALLER CODEX_PLUGINS CODEX_HOOKS CODEX_REVIEWER CODEX_MODULES CODEX_MODULES_KNOWN \
 DSH_AGENTS_TAIL DSH_NODE DSH_SKILLS DSH_MODULES DSH_MODULES_KNOWN SHARED_HOSTS SHARED_MODULES SHARED_MODULES_KNOWN"
-PREF_RISKY_KEYS="SHARED_PROXY PI_AGENTS_TAIL OC_AGENTS_TAIL CODEX_AGENTS_TAIL DSH_AGENTS_TAIL OC_UPGRADE PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_MEM_RUNTIME OC_MC_REFRESH OC_CLAUDE_MEM CODEX_MEM_INSTALLER"
+PREF_RISKY_KEYS="SHARED_PROXY PI_AGENTS_TAIL OC_AGENTS_TAIL CODEX_AGENTS_TAIL DSH_AGENTS_TAIL OC_UPGRADE PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_MEM_RUNTIME PI_NODE_UPGRADE OC_MC_REFRESH OC_CLAUDE_MEM CODEX_MEM_INSTALLER"
 preference_get() {
   local key="$1" line
   line="$(printf '%s\n' "$PREF_SESSION" | grep "^${key}=" | tail -1)"
@@ -365,22 +488,46 @@ preferences_commit() {
 ensure_git_bash_startup() {
   [ "$IS_WIN" = 1 ] || return 0
   [ "${PLAN_GIT_BASH:-0}" = 1 ] || return 0
-  local bindir
+  local bindir fnm_dir="${1:-}" fnm_cand
   bindir="$(cygpath -u "$(dirname "$BUN_BIN")")" || return 1
+  if [ -z "$fnm_dir" ]; then
+    if command -v fnm >/dev/null 2>&1; then
+      fnm_dir="$(dirname "$(command -v fnm)")"
+    else
+      for fnm_cand in "${FNM_DIR:-}" "${XDG_DATA_HOME:-$HOME/.local/share}/fnm" "$HOME/.local/share/fnm" "$HOME/.fnm"; do
+        if [ -n "$fnm_cand" ] && [ -x "$fnm_cand/fnm${BIN_EXT:-}" ]; then
+          fnm_dir="$fnm_cand"; break
+        fi
+      done
+      if [ -z "$fnm_dir" ] && [ -n "${LOCALAPPDATA:-}" ] && command -v cygpath >/dev/null 2>&1; then
+        fnm_cand="$(cygpath -u "$LOCALAPPDATA")/fnm"
+        [ -x "$fnm_cand/fnm${BIN_EXT:-}" ] && fnm_dir="$fnm_cand"
+      fi
+    fi
+  fi
+  if [ -n "$fnm_dir" ] && command -v cygpath >/dev/null 2>&1; then
+    fnm_dir="$(cygpath -u "$fnm_dir")"
+  fi
   # 路径供 Bash 使用,不可被 MSYS 自动转换回 C:/...;仅对这一次 Python 调用禁用参数转换。
-  MSYS2_ARG_CONV_EXCL='*' python3 - "$(npath "$HOME")" "$bindir" "${TERM_PROGRAM:-}" <<'PY_GIT_BASH'
+  MSYS2_ARG_CONV_EXCL='*' python3 - "$(npath "$HOME")" "$bindir" "${TERM_PROGRAM:-}" "$fnm_dir" <<'PY_GIT_BASH'
 import os, pathlib, shlex, shutil, sys, tempfile
 home, bindir, terminal = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
-changes = []
+fnm_dir = sys.argv[4] if len(sys.argv) > 4 else ''
+disk = {}
+pending = {}
 
 def read(p):
-    if p.exists() and not p.is_file():
-        raise SystemExit(f'ERROR: {p} 不是普通文件,保留原样')
-    return p.read_bytes().decode('utf-8') if p.exists() else ''
+    if p in pending:
+        return pending[p]
+    if p not in disk:
+        if p.exists() and not p.is_file():
+            raise SystemExit(f'ERROR: {p} 不是普通文件,保留原样')
+        disk[p] = p.read_bytes().decode('utf-8') if p.exists() else ''
+    return disk[p]
 
 def stage(p, old, new):
     if old != new:
-        changes.append((p, new))
+        pending[p] = new
 
 def block(p, name, body):
     old = read(p)
@@ -399,6 +546,15 @@ block(home / '.bashrc', 'Bun PATH',
       f'  *{shlex.quote(":" + bindir + ":")}*) ;;\n'
       f'  *) export PATH={shlex.quote(bindir)}:"$PATH" ;;\n'
       'esac\n__agent_skills_bashrc_loaded=1')
+if fnm_dir:
+    old_bashrc = read(home / '.bashrc')
+    if '# >>> agent-skills fnm PATH >>>' in old_bashrc or 'fnm env' not in old_bashrc:
+        block(home / '.bashrc', 'fnm PATH',
+              'case ":$PATH:" in\n'
+              f'  *{shlex.quote(":" + fnm_dir + ":")}*) ;;\n'
+              f'  *) export PATH={shlex.quote(fnm_dir)}:"$PATH" ;;\n'
+              'esac\nif command -v fnm >/dev/null 2>&1; then\n'
+              '  eval "$(fnm env --shell bash 2>/dev/null || true)"\nfi')
 # Bash 只读第一个登录文件;不新建 .bash_profile 去遮蔽已有 .bash_login/.profile。
 profiles = [home / n for n in ('.bash_profile', '.bash_login', '.profile')]
 profile = next((p for p in profiles if p.exists() or p.is_symlink()), profiles[0])
@@ -419,7 +575,9 @@ if terminal == 'mintty':
     if extra:
         stage(p, old, old + ('\n' if old and not old.endswith('\n') else '') + extra)
 # 所有输入先验证,写前备份;临时文件与目标同目录,替换失败不截断原文。符号链接写入链接目标。
-for p, new in changes:
+for p, new in pending.items():
+    if new == disk.get(p, ''):
+        continue
     if p.is_symlink():
         p = pathlib.Path(os.path.realpath(p))
     if p.exists():
@@ -948,7 +1106,7 @@ for line in sys.stdin:
 # 先只读探测现状,再集中 ask 设置 PLAN_*,最后收集网关/凭据。默认值与原来逐项询问时一致;
 # 注入内容只写本宿主用户级规则文件，默认 Y。probe 与执行阶段用同一套判断,探测不到时执行阶段会再报。
 collect_setup_plan() {
-  local proxy pi_probe uvp uvcfg uv_cur uv_latest
+  local proxy pi_probe uvp uvcfg uv_cur uv_latest cur_node="" bun_rc=0 legacy_pi_node_ver="" cand=""
   # 0. 代理(大小写都查;未设则探测直连;都不通才问)
   proxy="${http_proxy:-${https_proxy:-${all_proxy:-${HTTP_PROXY:-${HTTPS_PROXY:-${ALL_PROXY:-}}}}}}"
   if [ -n "$proxy" ]; then
@@ -969,16 +1127,32 @@ collect_setup_plan() {
     ask "没有可用的 Python 3;用 uv 装一个自管理的 Python 3.12(会先装 uv 本体)?" Y SHARED_PYTHON_UV && PLAN_PYTHON_UV=1
   fi
 
-  # 1.1 npx(fnm + Node)
-  PLAN_NODE=0
-  if ! command -v npx >/dev/null 2>&1; then
-    ask "是否安装 fnm + Node LTS？" Y SHARED_NODE && PLAN_NODE=1
-  fi
+  PLAN_NODE=0; PLAN_BUN=0; PLAN_UV_INSTALL=0; PLAN_UV_UPGRADE=0; PLAN_UV_MIRROR=0
+  if [ "${AGENT_SKILLS_RUNTIME_DONE:-0}" != 1 ]; then
+    # 1.1 npx(fnm + Node >=24.15)
+    if ! command -v npx >/dev/null 2>&1 || ! node_ver_ge "" 24 15; then
+      runtime_activate_fnm || true
+    fi
+    if ! command -v npx >/dev/null 2>&1 || ! node_ver_ge "" 24 15; then
+      cur_node="$(node -v 2>/dev/null || true)"
+      if command -v fnm >/dev/null 2>&1; then
+        ask "当前 Node(${cur_node:-缺失}) 低于 24.15 或缺 npx；用 fnm 安装并启用 Node 24？" Y SHARED_NODE && PLAN_NODE=1
+      elif [ -n "$cur_node" ]; then
+        ask "当前 Node($cur_node) 低于 24.15 或缺 npx；安装 fnm + Node 24？" Y SHARED_NODE && PLAN_NODE=1
+      else
+        ask "未检测到 Node >=24.15 / npx；安装 fnm + Node 24？" Y SHARED_NODE && PLAN_NODE=1
+      fi
+    fi
 
-  # 1.2 bun
-  PLAN_BUN=0
-  if ! command -v bun >/dev/null 2>&1 && [ ! -x "${BUN_INSTALL:-$HOME/.bun}/bin/bun$BIN_EXT" ]; then
-    ask "是否安装 bun？" Y SHARED_BUN && PLAN_BUN=1
+    # 1.2 bun(>=1.1.31)
+    bun_probe_state || bun_rc=$?
+    case "$bun_rc" in
+      0) ;;
+      1) ask "是否安装 bun（>=1.1.31，claude-mem / context-mode 所需）？" Y SHARED_BUN && PLAN_BUN=1 ;;
+      2) ask "检测到 bun(${PROBE_BUN_VER:-未知}) 低于 1.1.31；执行 bun upgrade？" Y SHARED_BUN && PLAN_BUN=2 ;;
+      3) echo "WARN: 检测到 bun(${PROBE_BUN_VER:-未知}) 的 bun:sqlite 不可用；执行阶段将中止，请先修复 Bun" >&2
+         PLAN_BUN=3 ;;
+    esac
   fi
 
   # 1.2 Git Bash 启动文件(仅 Windows)
@@ -988,42 +1162,56 @@ collect_setup_plan() {
   fi
 
   # 1.3 uv(可选):安装 / 自升级 / 清华镜像
-  PLAN_UV_INSTALL=0; PLAN_UV_UPGRADE=0; PLAN_UV_MIRROR=0
-  uvp="$HOME/.local/bin/uv$BIN_EXT"
-  if ! command -v uv >/dev/null 2>&1 && [ ! -x "$uvp" ]; then
-    ask "未检测到 uv,安装 uv(astral.sh 官方脚本,装到 ~/.local/bin)?" Y SHARED_UV_INSTALL && PLAN_UV_INSTALL=1
-  fi
-  # 自升级只针对已装的 uv(本次新装的由官方脚本给最新版)
-  if command -v uv >/dev/null 2>&1 || [ -x "$uvp" ]; then
-    uv_cur="$( (command -v uv >/dev/null 2>&1 && uv --version) 2>/dev/null | awk '{print $2}' || true)"
-    uv_latest="$(curl -fsSL --connect-timeout 5 -m 8 https://api.github.com/repos/astral-sh/uv/releases/latest 2>/dev/null \
-      | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4 || true)"
-    if [ -z "$uv_latest" ]; then
-      echo "跳过 uv 自升级:查不到最新版本(检查网络/代理)"
-    elif [ "$uv_latest" != "$uv_cur" ]; then
-      ask "uv ${uv_cur:-未知} → $uv_latest,升级(uv self update)?" Y SHARED_UV_UPGRADE && PLAN_UV_UPGRADE=1
-    else
-      echo "uv 已是最新(${uv_cur:-未知})"
+  if [ "${AGENT_SKILLS_RUNTIME_DONE:-0}" != 1 ]; then
+    uvp="$HOME/.local/bin/uv$BIN_EXT"
+    if ! command -v uv >/dev/null 2>&1 && [ ! -x "$uvp" ]; then
+      ask "未检测到 uv,安装 uv(astral.sh 官方脚本,装到 ~/.local/bin)?" Y SHARED_UV_INSTALL && PLAN_UV_INSTALL=1
+    fi
+    # 自升级只针对已装的 uv(本次新装的由官方脚本给最新版)
+    if command -v uv >/dev/null 2>&1 || [ -x "$uvp" ]; then
+      uv_cur="$( (command -v uv >/dev/null 2>&1 && uv --version) 2>/dev/null | awk '{print $2}' || true)"
+      uv_latest="$(curl -fsSL --connect-timeout 5 -m 8 https://api.github.com/repos/astral-sh/uv/releases/latest 2>/dev/null \
+        | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4 || true)"
+      if [ -z "$uv_latest" ]; then
+        echo "跳过 uv 自升级:查不到最新版本(检查网络/代理)"
+      elif [ "$uv_latest" != "$uv_cur" ]; then
+        if [ "$IS_WIN" = 1 ] && [[ "$(command -v uv 2>/dev/null || echo "$uvp")" == */Python*/Scripts/uv* ]]; then
+          echo "uv 由 Python 环境安装(${uv_cur:-未知}),请用原安装方式升级;跳过 uv self update"
+        else
+          ask "uv ${uv_cur:-未知} → $uv_latest,升级(uv self update)?" Y SHARED_UV_UPGRADE && PLAN_UV_UPGRADE=1
+        fi
+      else
+        echo "uv 已是最新(${uv_cur:-未知})"
+      fi
+    fi
+    # 镜像:已装 uv 或本次将要安装时都按配置文件现状询问(新装的 uv 同样可配镜像)
+    if command -v uv >/dev/null 2>&1 || [ -x "$uvp" ] || [ "$PLAN_UV_INSTALL" = 1 ]; then
+      uvcfg="$HOME/.config/uv/uv.toml"
+      if [ "$IS_WIN" = 1 ] && [ -n "${APPDATA:-}" ]; then uvcfg="$(cygpath -u "$APPDATA")/uv/uv.toml"; fi
+      if grep -q 'pypi.tuna' "$uvcfg" 2>/dev/null; then
+        echo "uv PyPI 镜像已配置(清华),跳过"
+      elif [ -f "$uvcfg" ]; then
+        echo "跳过 uv 镜像:$uvcfg 已存在(非本脚本写入),不覆盖"
+      else
+        ask "配置 uv 用清华 PyPI 镜像($uvcfg)?" Y SHARED_UV_MIRROR && PLAN_UV_MIRROR=1
+      fi
     fi
   fi
-  # 镜像:已装 uv 或本次将要安装时都按配置文件现状询问(新装的 uv 同样可配镜像)
-  if command -v uv >/dev/null 2>&1 || [ -x "$uvp" ] || [ "$PLAN_UV_INSTALL" = 1 ]; then
-    uvcfg="$HOME/.config/uv/uv.toml"
-    if [ "$IS_WIN" = 1 ] && [ -n "${APPDATA:-}" ]; then uvcfg="$(cygpath -u "$APPDATA")/uv/uv.toml"; fi
-    if grep -q 'pypi.tuna' "$uvcfg" 2>/dev/null; then
-      echo "uv PyPI 镜像已配置(清华),跳过"
-    elif [ -f "$uvcfg" ]; then
-      echo "跳过 uv 镜像:$uvcfg 已存在(非本脚本写入),不覆盖"
-    else
-      ask "配置 uv 用清华 PyPI 镜像($uvcfg)?" Y SHARED_UV_MIRROR && PLAN_UV_MIRROR=1
-    fi
+
+  # 1.4 旧版 ~/.local/share/pi-node(<24.15) 就地升级到 Node 24
+  PLAN_PI_NODE_UPGRADE=0
+  if [ "$IS_WIN" != 1 ] && [ -e "$HOME/.local/share/pi-node/current/bin/node" ] && ! node_ver_ge "$HOME/.local/share/pi-node/current/bin/node" 24 15; then
+    legacy_pi_node_ver="$("$HOME/.local/share/pi-node/current/bin/node" -v 2>/dev/null | head -1 | tr -d '\r' || true)"
+    ask "检测到旧 ~/.local/share/pi-node/current(${legacy_pi_node_ver:-未知}) 低于 24.15；就地升级到 Node 24（保留旧目录可回滚并重装现有全局包）？" Y PI_NODE_UPGRADE && PLAN_PI_NODE_UPGRADE=1
   fi
 
   # 2/3. pi 本体、更新、缺失包
   PLAN_PI_INSTALL=0; PLAN_PI_UPDATE=0; PLAN_PI_PKGS=0
-  pi_probe="$(command -v pi 2>/dev/null || true)"
-  [ -x "$HOME/.local/share/pi-node/current/bin/pi" ] && pi_probe="$HOME/.local/share/pi-node/current/bin/pi"
-  [ -n "$pi_probe" ] || { [ -x "$HOME/.local/share/pi-node/current/bin/pi" ] && pi_probe="$HOME/.local/share/pi-node/current/bin/pi"; }
+  pi_probe=""
+  for cand in "$HOME/.local/share/pi-node/current/bin/pi" "$AGENT_DIR/bin/pi" "$HOME/.local/bin/pi"; do
+    if [ -x "$cand" ]; then pi_probe="$cand"; break; fi
+  done
+  [ -n "$pi_probe" ] || pi_probe="$(command -v pi 2>/dev/null || true)"
   if [ -z "$pi_probe" ]; then
     if [ "$IS_WIN" = 1 ]; then
       if command -v npm >/dev/null 2>&1 || [ "$PLAN_NODE" = 1 ]; then
@@ -1032,7 +1220,7 @@ collect_setup_plan() {
         echo "跳过 Pi 安装:未检测到 npm(先 winget install OpenJS.NodeJS.LTS,重开 Git Bash 后重跑)"
       fi
     else
-      ask "是否安装 Pi(官方 install.sh,装到 ~/.local/share/pi-node)?" Y PI_INSTALL && PLAN_PI_INSTALL=1
+      ask "是否安装 Pi(官方 install.sh；Node 24 就绪后使用托管安装)?" Y PI_INSTALL && PLAN_PI_INSTALL=1
     fi
   else
     ask "更新 pi 本体与已装包(逐个 pi update,不含 magic-context)?" Y PI_UPDATE && PLAN_PI_UPDATE=1
@@ -1508,46 +1696,23 @@ done
 # python3 缺失不致命:resolve_python3 用 uv 自管理的 3.12 兜底(Git for Windows 不带 python)
 resolve_python3 || { echo "ERROR: 没有可用的 Python 3(写配置依赖它)。可手工装(winget install Python.Python.3.12 / apt install python3)或允许脚本用 uv 装后重跑。" >&2; exit 1; }
 
-# ---- 1.1 依赖: npx(fnm + Node)----
-if ! command -v npx >/dev/null 2>&1; then
-  echo "未检测到 npx(claude-mem 官方安装器、npm 包安装与 skills 安装需要 Node)。"
-  if [ "${PLAN_NODE:-0}" = 1 ]; then
-    curl -fsSL --connect-timeout 8 -m 60 https://fnm.vercel.app/install | bash
-    export PATH="$HOME/.local/share/fnm:$PATH"
-    eval "$(fnm env)"
-    fnm install --lts
-    fnm default lts-latest
-    eval "$(fnm env)"
-    command -v npx >/dev/null 2>&1 || {
-      if [ "$IS_WIN" = 1 ]; then
-        echo "ERROR: 安装后 npx 仍不可用。可改用 winget install OpenJS.NodeJS.LTS 装 Node,重开 Git Bash 后重跑本脚本。" >&2
-      else
-        echo "ERROR: 安装后 npx 仍不可用,请重开终端后重跑本脚本" >&2
-      fi
-      exit 1
-    }
-    echo "Node $(node --version) 就绪"
-  else
-    echo "跳过 Node(claude-mem 安装、pi 包与 skills 安装将不可用)"
-  fi
+source "$SOURCE_ROOT/scripts/runtime-deps.sh"
+
+# ---- 1.1 依赖: npx(fnm + Node >=24.15)----
+if [ "${AGENT_SKILLS_RUNTIME_DONE:-0}" != 1 ]; then
+  runtime_apply_node "${PLAN_NODE:-0}" || exit 1
 fi
 
-# ---- 1.2 依赖: bun ----
+# ---- 1.2 依赖: bun(>=1.1.31) ----
+if [ "${AGENT_SKILLS_RUNTIME_DONE:-0}" != 1 ]; then
+  runtime_apply_bun "${PLAN_BUN:-0}" || exit 1
+fi
 # 已安装但没进当前 PATH 时直接复用,也尊重自定义 BUN_INSTALL。
 if [ "$IS_WIN" = 1 ] && [ -n "${BUN_INSTALL:-}" ]; then
   BUN_INSTALL="$(cygpath -u "$BUN_INSTALL")"; export BUN_INSTALL
 fi
 if [ -x "${BUN_INSTALL:-$HOME/.bun}/bin/bun$BIN_EXT" ]; then
   export PATH="${BUN_INSTALL:-$HOME/.bun}/bin:$PATH"
-fi
-if ! command -v bun >/dev/null 2>&1; then
-  echo "未检测到 bun(claude-mem runtime 与 context-mode 所需依赖)。"
-  if [ "${PLAN_BUN:-0}" = 1 ]; then
-    curl -fsSL --connect-timeout 8 -m 60 https://bun.sh/install | bash
-    export PATH="${BUN_INSTALL:-$HOME/.bun}/bin:$PATH"
-  else
-    echo "跳过 bun；相关依赖由官方安装器检查。"
-  fi
 fi
 # 只写真实存在的绝对路径;都没有时退化为裸命令名(交给运行时 PATH),别把猜测路径写进 MCP 配置
 BUN_BIN="$(command -v bun 2>/dev/null || true)"; [ -n "$BUN_BIN" ] || BUN_BIN="${BUN_INSTALL:-$HOME/.bun}/bin/bun$BIN_EXT"
@@ -1561,42 +1726,33 @@ else
 fi
 
 # ---- 1.3 依赖: uv(可选;strictdoc / .sdoc 校验用)----
-UVP="$HOME/.local/bin/uv$BIN_EXT"
-if ! command -v uv >/dev/null 2>&1 && [ ! -x "$UVP" ]; then
-  if [ "${PLAN_UV_INSTALL:-0}" = 1 ]; then
-    uv_sh="$(mktemp)"
-    if curl -fsSL --connect-timeout 8 -m 60 -o "$uv_sh" https://astral.sh/uv/install.sh; then
-      UV_INSTALL_DIR="$HOME/.local/bin" UV_NO_MODIFY_PATH=1 sh "$uv_sh" \
-        || echo "WARN: uv 安装脚本退出码非 0,请看上方输出" >&2
-    else
-      echo "WARN: uv 安装脚本下载失败(检查代理)" >&2
-    fi
-    rm -f "$uv_sh"
-  fi
-fi
-UV_BIN="$(command -v uv 2>/dev/null || echo "$UVP")"
-if [ -x "$UV_BIN" ]; then
+if [ "${AGENT_SKILLS_RUNTIME_DONE:-0}" != 1 ]; then
+  runtime_apply_uv "${PLAN_UV_INSTALL:-0}" "${PLAN_UV_UPGRADE:-0}" "${PLAN_UV_MIRROR:-0}" || exit 1
+elif [ -x "$HOME/.local/bin/uv$BIN_EXT" ]; then
   export PATH="$HOME/.local/bin:$PATH"
-  if [ "${PLAN_UV_UPGRADE:-0}" = 1 ]; then
-    "$UV_BIN" self update || echo "WARN: uv 自升级失败(系统包管理器装的请用系统方式升级)" >&2
+fi
+
+# ---- 1.4 旧版 ~/.local/share/pi-node(<24.15) 就地升级到 Node 24 ----
+if [ "$IS_WIN" != 1 ] && [ -e "$HOME/.local/share/pi-node/current/bin/node" ] && ! node_ver_ge "$HOME/.local/share/pi-node/current/bin/node" 24 15; then
+  if [ "${PLAN_PI_NODE_UPGRADE:-0}" = 1 ]; then
+    runtime_upgrade_pi_node24 || exit 1
+  else
+    echo "WARN: ~/.local/share/pi-node/current 仍低于 Node 24.15；context-mode v2 等模块可能受限" >&2
   fi
-  UVCFG="$HOME/.config/uv/uv.toml"
-  # uv 在 Windows 读 %APPDATA%\uv\uv.toml,不是 ~/.config
-  if [ "$IS_WIN" = 1 ] && [ -n "${APPDATA:-}" ]; then UVCFG="$(cygpath -u "$APPDATA")/uv/uv.toml"; fi
-  if [ "${PLAN_UV_MIRROR:-0}" = 1 ]; then
-    mkdir -p "$(dirname "$UVCFG")"
-    printf '%s\n' 'index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"' > "$UVCFG"
-    echo "wrote: $UVCFG"
-  fi
-else
-  echo "提示: 未检测到 uv;strictdoc 模块会跳过安装(.sdoc 校验依赖),装好 uv 后重跑本脚本即可"
 fi
 
 # ---- 2. pi 本体 ----
 PI_BIN="$(command -v pi 2>/dev/null || true)"
-if [ -x "$HOME/.local/share/pi-node/current/bin/pi" ]; then
-  PI_BIN="$HOME/.local/share/pi-node/current/bin/pi"
-  export PATH="$HOME/.local/share/pi-node/current/bin:$PATH"
+if [ "$IS_WIN" != 1 ]; then
+  for cand in "$HOME/.local/share/pi-node/current/bin/pi" "$AGENT_DIR/bin/pi" "$HOME/.local/bin/pi"; do
+    if [ -x "$cand" ]; then
+      PI_BIN="$cand"
+      break
+    fi
+  done
+  if [ -x "$HOME/.local/share/pi-node/current/bin/pi" ]; then
+    export PATH="$HOME/.local/share/pi-node/current/bin:$PATH"
+  fi
 fi
 if [ -z "$PI_BIN" ]; then
   echo "未检测到 pi。"
@@ -1612,14 +1768,20 @@ if [ -z "$PI_BIN" ]; then
   elif [ "${PLAN_PI_INSTALL:-0}" = 1 ]; then
     pi_sh="$(mktemp)"
     if curl -fsSL --connect-timeout 8 -m 60 -o "$pi_sh" https://pi.dev/install.sh; then
-      sh "$pi_sh" || echo "WARN: pi 安装脚本退出码非 0,请看上方输出" >&2
+      PI_CODING_AGENT_DIR="$AGENT_DIR" sh "$pi_sh" || echo "WARN: pi 安装脚本退出码非 0,请看上方输出" >&2
     else
       echo "WARN: pi 安装脚本下载失败(检查代理)" >&2
     fi
     rm -f "$pi_sh"
-    export PATH="$HOME/.local/share/pi-node/current/bin:$PATH"
-    PI_BIN="$(command -v pi 2>/dev/null || true)"
-    [ -n "$PI_BIN" ] || PI_BIN="$HOME/.local/share/pi-node/current/bin/pi"
+    for cand_dir in "$HOME/.local/bin" "$AGENT_DIR/bin" "$HOME/.local/share/pi-node/current/bin"; do
+      [ -d "$cand_dir" ] && export PATH="$cand_dir:$PATH"
+    done
+    for cand in "$AGENT_DIR/bin/pi" "$HOME/.local/bin/pi" "$HOME/.local/share/pi-node/current/bin/pi"; do
+      if [ -x "$cand" ]; then
+        PI_BIN="$cand"; break
+      fi
+    done
+    [ -n "$PI_BIN" ] || PI_BIN="$(command -v pi 2>/dev/null || true)"
   fi
 fi
 PI_OK=0
@@ -1887,8 +2049,12 @@ for line in sys.stdin:
   done <<< "$cm_stale"
   # 拉最新发布包:内容与已装的一致就不动(幂等),变了才替换
   cm_tmp="$(mktemp -d)"; cm_ok=0
-  if ! command -v node >/dev/null 2>&1 || ! node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>24||a===24&&b>=15?0:1)' 2>/dev/null; then
-    echo "WARN: context-mode v2 需要 Pi 实际运行的 Node >=24.15；保留现有安装，不更新。用 Node 24 启动 Pi 后重跑本步骤。" >&2
+  pi_eff_node=""
+  if [ "$IS_WIN" != 1 ] && [ -x "$HOME/.local/share/pi-node/current/bin/node" ]; then
+    pi_eff_node="$HOME/.local/share/pi-node/current/bin/node"
+  fi
+  if ! node_ver_ge "$pi_eff_node" 24 15; then
+    echo "WARN: context-mode v2 需要 Pi 实际运行的 Node >=24.15；保留现有安装，不更新。升级 Node 24 后重跑本步骤。" >&2
     cm_ok=1
   elif curl -fsSL --connect-timeout 8 -m 120 -o "$cm_tmp/vendor.tar.gz" "$CM_URL" 2>/dev/null && mkdir -p "$cm_tmp/pkg" && tar -xzf "$cm_tmp/vendor.tar.gz" -C "$cm_tmp/pkg"; then
     cm_ver="$(python3 -c "import json;print(json.load(open('$cm_tmp/pkg/VENDORED.json'))['upstream']['version'])" 2>/dev/null || echo '?')"
@@ -2266,22 +2432,38 @@ link_dev_types() {
   case "$(pwd -P)/" in "$SOURCE_ROOT/"*) echo "类型诊断软链: 跳过(候选源码树只读)"; return 0 ;; esac
   # Windows 上 ln -s 需要开发者模式,否则 MSYS 会退化成整目录深拷贝(pi 包很大),直接跳过
   if [ "$IS_WIN" = 1 ]; then echo "类型诊断软链: Windows 跳过"; return 0; fi
-  local pkg=""
+  local pkg="" nm="" managed_ver="" tui_src="" node_types_src="" cand=""
   if [ -n "${PI_BIN:-}" ]; then
     pkg="$(readlink -f "$PI_BIN" 2>/dev/null || true)"
     case "$pkg" in */dist/bundle/cli.js) pkg="${pkg%/dist/bundle/cli.js}" ;; *) pkg="" ;; esac
   fi
-  [ -d "$pkg/node_modules" ] || pkg="$HOME/.local/share/pi-node/current/lib/node_modules/@earendil-works/pi-coding-agent"
-  if [ ! -d "$pkg/node_modules" ]; then
+  if [ -z "$pkg" ] && [ -n "${AGENT_DIR:-}" ] && [ -f "$AGENT_DIR/install/current-version" ]; then
+    managed_ver="$(tr -d '[:space:]' < "$AGENT_DIR/install/current-version" 2>/dev/null || true)"
+    if [ -n "$managed_ver" ] && [ -d "$AGENT_DIR/install/releases/$managed_ver/node_modules/@earendil-works/pi-coding-agent" ]; then
+      pkg="$AGENT_DIR/install/releases/$managed_ver/node_modules/@earendil-works/pi-coding-agent"
+    fi
+  fi
+  [ -d "$pkg" ] || pkg="$HOME/.local/share/pi-node/current/lib/node_modules/@earendil-works/pi-coding-agent"
+  if [ ! -d "$pkg" ]; then
     echo "类型诊断软链: 跳过(未找到 Pi 包目录)"; return 0
+  fi
+  nm="$(dirname "$(dirname "$pkg")")"
+  for cand in "$pkg/node_modules/@earendil-works/pi-tui" "$nm/@earendil-works/pi-tui"; do
+    [ -d "$cand" ] && { tui_src="$cand"; break; }
+  done
+  for cand in "$pkg/node_modules/@types/node" "$nm/@types/node"; do
+    [ -d "$cand" ] && { node_types_src="$cand"; break; }
+  done
+  if [ -z "$tui_src" ] || [ -z "$node_types_src" ]; then
+    echo "类型诊断软链: 跳过(未找到 Pi 依赖类型目录)"; return 0
   fi
   mkdir -p "$PWD/node_modules/@earendil-works" "$PWD/node_modules/@types"
   [ -e "$PWD/node_modules/@earendil-works/pi-coding-agent" ] || \
     ln -sfn "$pkg" "$PWD/node_modules/@earendil-works/pi-coding-agent"
   [ -e "$PWD/node_modules/@earendil-works/pi-tui" ] || \
-    ln -sfn "$pkg/node_modules/@earendil-works/pi-tui" "$PWD/node_modules/@earendil-works/pi-tui"
+    ln -sfn "$tui_src" "$PWD/node_modules/@earendil-works/pi-tui"
   [ -e "$PWD/node_modules/@types/node" ] || \
-    ln -sfn "$pkg/node_modules/@types/node" "$PWD/node_modules/@types/node"
+    ln -sfn "$node_types_src" "$PWD/node_modules/@types/node"
   echo "类型诊断软链: node_modules/@earendil-works/* + @types/node 就绪(仅本机,已被 .gitignore 排除)"
 }
 link_dev_types

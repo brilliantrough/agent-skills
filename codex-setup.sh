@@ -57,6 +57,115 @@ resolve_python3() { # python3 就绪返回 0;否则 python → py → uv 自管�
   if [ "$IS_WIN" = 1 ] && command -v cygpath >/dev/null 2>&1; then p="$(cygpath -u "$p")"; fi
   UV_PY="$p"; export UV_PY; python3() { "$UV_PY" "$@"; }; export -f python3
 }
+node_ver_ge() { # $1=node 路径(空则 PATH 中 node) $2=主版本(默认 24) $3=次版本(默认 15)
+  local bin="${1:-}" req_maj="${2:-24}" req_min="${3:-15}" raw maj min
+  [ -n "$bin" ] || bin="$(command -v node 2>/dev/null || true)"
+  [ -n "$bin" ] && [ -x "$bin" ] || return 1
+  raw="$("$bin" -v 2>/dev/null | head -1 | tr -d '\r' || true)"
+  raw="${raw#v}"
+  case "$raw" in
+    [0-9]*.[0-9]*) ;;
+    *) return 1 ;;
+  esac
+  maj="${raw%%.*}"
+  min="${raw#*.}"; min="${min%%.*}"; min="${min%%-*}"
+  case "$maj" in ''|*[!0-9]*) return 1 ;; esac
+  case "$min" in ''|*[!0-9]*) return 1 ;; esac
+  [ "$maj" -gt "$req_maj" ] && return 0
+  [ "$maj" -eq "$req_maj" ] && [ "$min" -ge "$req_min" ]
+}
+
+runtime_activate_fnm() { # 发现并激活已有 fnm；若已装 v24.15+ 则在当前会话切过去（不改 default）
+  local fnm_bin="" fnm_dir="" best=""
+  fnm_bin="$(command -v fnm 2>/dev/null || true)"
+  if [ -z "$fnm_bin" ]; then
+    for fnm_dir in "${FNM_DIR:-}" "${XDG_DATA_HOME:-$HOME/.local/share}/fnm" "$HOME/.local/share/fnm" "$HOME/.fnm" "$HOME/Library/Application Support/fnm"; do
+      if [ -n "$fnm_dir" ] && [ -x "$fnm_dir/fnm${BIN_EXT:-}" ]; then
+        fnm_bin="$fnm_dir/fnm${BIN_EXT:-}"
+        break
+      fi
+    done
+    if [ -z "$fnm_bin" ] && [ "${IS_WIN:-0}" = 1 ] && [ -n "${LOCALAPPDATA:-}" ] && command -v cygpath >/dev/null 2>&1; then
+      fnm_dir="$(cygpath -u "$LOCALAPPDATA")/fnm"
+      [ -x "$fnm_dir/fnm${BIN_EXT:-}" ] && fnm_bin="$fnm_dir/fnm${BIN_EXT:-}"
+    fi
+  fi
+  [ -n "$fnm_bin" ] && [ -x "$fnm_bin" ] || return 1
+  fnm_dir="$(dirname "$fnm_bin")"
+  case ":$PATH:" in
+    *":$fnm_dir:"*) ;;
+    *) export PATH="$fnm_dir:$PATH" ;;
+  esac
+  eval "$(fnm env --shell bash 2>/dev/null)" || true
+  if ! command -v npx >/dev/null 2>&1 || ! node_ver_ge "" 24 15; then
+    best="$(fnm list 2>/dev/null | tr -d '\r' | awk '
+      {
+        n = split($0, f)
+        for (k = 1; k <= n; k++) {
+          v = f[k]
+          if (v ~ /^v[0-9]+\.[0-9]+\.[0-9]+$/) {
+            s = substr(v, 2); split(s, p, ".")
+            maj = p[1] + 0; min = p[2] + 0; pat = p[3] + 0
+            if (maj > 24 || (maj == 24 && min >= 15)) {
+              if (maj == 24) {
+                if (!has24 || min > b24min || (min == b24min && pat > b24pat)) {
+                  has24 = 1; b24min = min; b24pat = pat; best24 = v
+                }
+              } else {
+                if (!hasgt || maj > bgtmaj || (maj == bgtmaj && min > bgtmin) || (maj == bgtmaj && min == bgtmin && pat > bgtpat)) {
+                  hasgt = 1; bgtmaj = maj; bgtmin = min; bgtpat = pat; bestgt = v
+                }
+              }
+            }
+            break
+          }
+        }
+      }
+      END { if (has24) print best24; else if (hasgt) print bestgt }
+    ')"
+    if [ -n "$best" ]; then
+      fnm use "$best" >/dev/null 2>&1 || true
+    fi
+  fi
+  return 0
+}
+
+bun_probe_state() { # 0=就绪(>=1.1.31 且 bun:sqlite 可用) 1=缺失 2=版本过低 3=sqlite 不可用
+  local bin raw maj min pat
+  PROBE_BUN_BIN=""; PROBE_BUN_VER=""
+  if [ "${IS_WIN:-0}" = 1 ] && [ -n "${BUN_INSTALL:-}" ] && command -v cygpath >/dev/null 2>&1; then
+    BUN_INSTALL="$(cygpath -u "$BUN_INSTALL")"; export BUN_INSTALL
+  fi
+  bin="$(command -v bun 2>/dev/null || true)"
+  if [ -z "$bin" ] && [ -x "${BUN_INSTALL:-$HOME/.bun}/bin/bun${BIN_EXT:-}" ]; then
+    bin="${BUN_INSTALL:-$HOME/.bun}/bin/bun${BIN_EXT:-}"
+  fi
+  [ -n "$bin" ] && [ -x "$bin" ] || return 1
+  PROBE_BUN_BIN="$bin"
+  raw="$("$bin" --version 2>/dev/null | head -1 | tr -d '\r' || true)"
+  PROBE_BUN_VER="$raw"
+  raw="${raw#v}"
+  raw="${raw%%[-+]*}"
+  case "$raw" in
+    [0-9]*.[0-9]*.[0-9]*)
+      maj="${raw%%.*}"
+      pat="${raw#*.}"; min="${pat%%.*}"; pat="${pat#*.}"
+      ;;
+    [0-9]*.[0-9]*)
+      maj="${raw%%.*}"
+      min="${raw#*.}"; pat=0
+      ;;
+    *) return 2 ;;
+  esac
+  case "$maj" in ''|*[!0-9]*) return 2 ;; esac
+  case "$min" in ''|*[!0-9]*) return 2 ;; esac
+  case "$pat" in ''|*[!0-9]*) return 2 ;; esac
+  if [ "$maj" -lt 1 ] || { [ "$maj" -eq 1 ] && [ "$min" -lt 1 ]; } || { [ "$maj" -eq 1 ] && [ "$min" -eq 1 ] && [ "$pat" -lt 31 ]; }; then
+    return 2
+  fi
+  "$bin" -e 'const {Database}=require("bun:sqlite"); const db=new Database(":memory:"); if(db.query("SELECT 1 AS ok").get().ok!==1) process.exit(1); db.close();' >/dev/null 2>&1 || return 3
+  return 0
+}
 
 # -y/--yes(或环境变量 ASSUME_YES=1)「默认安装」:前置计划采用默认值,默认 Y 执行、默认 N 跳过;
 # 用户级 AGENTS 规则块默认写入。已有凭据不再询问,缺项凭据仍在计划阶段收集;无终端时占位符保留。
@@ -170,11 +279,11 @@ ask_builtin() { # $1=提示 $2=默认(Y/N,缺省 N)
 # 本机安装偏好：只保存经过校验的是非选择与模块名单，不保存凭据，也不执行文件内容。
 PREF_FILE=""; PREF_SESSION=""; PREF_ORIGINAL=""; PREF_REUSE=0; PREF_WRITE=1; PREF_COUNT=0
 PREF_KNOWN_KEYS="SHARED_PROXY SHARED_PYTHON_UV SHARED_NODE SHARED_BUN SHARED_UV_INSTALL SHARED_UV_UPGRADE SHARED_UV_MIRROR SHARED_RESEARCH SHARED_ACCEL SHARED_KB SHARED_PPT SHARED_EXTERNAL SHARED_AGENTS_TAIL \
-PI_AGENTS_TAIL PI_GIT_BASH PI_INSTALL PI_UPDATE PI_PKGS PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_CM_GROUP PI_MCP_MIGRATE PI_WRITE_CFG PI_MEM_RUNTIME PI_LEGACY_CLEAN PI_MODULES PI_MODULES_KNOWN \
+PI_AGENTS_TAIL PI_GIT_BASH PI_INSTALL PI_UPDATE PI_PKGS PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_CM_GROUP PI_MCP_MIGRATE PI_WRITE_CFG PI_MEM_RUNTIME PI_LEGACY_CLEAN PI_NODE_UPGRADE PI_MODULES PI_MODULES_KNOWN \
 OC_AGENTS_TAIL OC_UPGRADE OC_PONYTAIL OC_MC_REFRESH OC_CLAUDE_MEM OC_WRITE_CFG OC_FORCE_MANUAL OC_COMPACTION OC_TUI_KEYS OC_MODULES OC_MODULES_KNOWN \
 CODEX_AGENTS_TAIL CODEX_WRITE_CFG CODEX_MEM_INSTALLER CODEX_PLUGINS CODEX_HOOKS CODEX_REVIEWER CODEX_MODULES CODEX_MODULES_KNOWN \
 DSH_AGENTS_TAIL DSH_NODE DSH_SKILLS DSH_MODULES DSH_MODULES_KNOWN SHARED_HOSTS SHARED_MODULES SHARED_MODULES_KNOWN"
-PREF_RISKY_KEYS="SHARED_PROXY PI_AGENTS_TAIL OC_AGENTS_TAIL CODEX_AGENTS_TAIL DSH_AGENTS_TAIL OC_UPGRADE PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_MEM_RUNTIME OC_MC_REFRESH OC_CLAUDE_MEM CODEX_MEM_INSTALLER"
+PREF_RISKY_KEYS="SHARED_PROXY PI_AGENTS_TAIL OC_AGENTS_TAIL CODEX_AGENTS_TAIL DSH_AGENTS_TAIL OC_UPGRADE PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_MEM_RUNTIME PI_NODE_UPGRADE OC_MC_REFRESH OC_CLAUDE_MEM CODEX_MEM_INSTALLER"
 preference_get() {
   local key="$1" line
   line="$(printf '%s\n' "$PREF_SESSION" | grep "^${key}=" | tail -1)"
@@ -497,21 +606,37 @@ mem_disabled() {
 }
 
 collect_setup_plan() {
-  local proxy def
+  local proxy def bun_rc=0 cur_node=""
   # 最先建立只读解释器:后面的配置判定(pval/mem_disabled)全靠它;此处不装任何东西。
   PLAN_PYTHON_UV=0 resolve_python3 || true
   proxy="${http_proxy:-${https_proxy:-${all_proxy:-${HTTP_PROXY:-${HTTPS_PROXY:-${ALL_PROXY:-}}}}}}"
   if [ -z "$proxy" ] && ! curl -fsSI --connect-timeout 5 -m 8 -o /dev/null https://github.com; then
     ask '未设代理且 github.com 不可达,仍继续?' N SHARED_PROXY || { echo '未继续:用户选择中止'; exit 1; }
   fi
-  if ! command -v npx >/dev/null || ! command -v node >/dev/null; then
-    ask '安装 fnm + Node LTS?' Y SHARED_NODE && PLAN_NODE=1
-  fi
-  if ! command -v bun >/dev/null; then
-    ask '安装 Bun(claude-mem runtime)?' Y SHARED_BUN && PLAN_BUN=1
-  fi
-  if ! command -v uv >/dev/null && [ ! -x "$HOME/.local/bin/uv$BIN_EXT" ]; then
-    ask '安装 uv(claude-mem/StrictDoc 依赖)?' Y SHARED_UV_INSTALL && PLAN_UV=1
+  PLAN_NODE=0; PLAN_BUN=0; PLAN_UV=0
+  if [ "${AGENT_SKILLS_RUNTIME_DONE:-0}" != 1 ]; then
+    if ! command -v npx >/dev/null || ! node_ver_ge "" 24 15; then
+      runtime_activate_fnm || true
+    fi
+    if ! command -v npx >/dev/null || ! node_ver_ge "" 24 15; then
+      cur_node="$(node -v 2>/dev/null || true)"
+      if command -v fnm >/dev/null 2>&1; then
+        ask "当前 Node(${cur_node:-缺失}) 低于 24.15 或缺 npx；用 fnm 安装并启用 Node 24?" Y SHARED_NODE && PLAN_NODE=1
+      else
+        ask '安装 fnm + Node 24?' Y SHARED_NODE && PLAN_NODE=1
+      fi
+    fi
+    bun_probe_state || bun_rc=$?
+    case "$bun_rc" in
+      0) ;;
+      1) ask '安装 Bun(>=1.1.31，claude-mem runtime)?' Y SHARED_BUN && PLAN_BUN=1 ;;
+      2) ask "检测到 bun(${PROBE_BUN_VER:-未知}) 低于 1.1.31；执行 bun upgrade?" Y SHARED_BUN && PLAN_BUN=2 ;;
+      3) warn "检测到 bun(${PROBE_BUN_VER:-未知}) 的 bun:sqlite 不可用；执行阶段将中止，请先修复 Bun"
+         PLAN_BUN=3 ;;
+    esac
+    if ! command -v uv >/dev/null && [ ! -x "$HOME/.local/bin/uv$BIN_EXT" ]; then
+      ask '安装 uv(claude-mem/StrictDoc 依赖)?' Y SHARED_UV_INSTALL && PLAN_UV=1
+    fi
   fi
   # 没有 Python 时，无论 uv 是否已存在，都在前置阶段决定是否允许用它提供 3.12
   if ! PLAN_PYTHON_UV=0 resolve_python3; then
@@ -872,25 +997,22 @@ elif curl -fsSI --connect-timeout 5 -m 8 -o /dev/null https://github.com; then
 fi
 
 # ---- 1. runtime 依赖 ----
-if [ "$PLAN_NODE" = 1 ]; then
-  if download_run https://fnm.vercel.app/install; then
-    export PATH="$HOME/.local/share/fnm:$PATH"
-    eval "$(fnm env)"
-    fnm install --lts
-    fnm default lts-latest
-    eval "$(fnm env)"
-  else warn 'Node 安装失败'; fi
+if [ "${AGENT_SKILLS_RUNTIME_DONE:-0}" != 1 ]; then
+  source "$SOURCE_ROOT/scripts/runtime-deps.sh"
+  runtime_apply_node "${PLAN_NODE:-0}" || warn 'Node 安装失败'
 fi
 if command -v node >/dev/null; then
   node -e 'process.exit(Number(process.versions.node.split(".")[0]) < 20 ? 1 : 0)' || {
     echo 'ERROR: claude-mem 需要 Node >=20,请切换 Node 后重跑' >&2; exit 1;
   }
 fi
-if [ "$PLAN_BUN" = 1 ]; then
-  download_run https://bun.sh/install || warn 'Bun 安装失败'
-fi
-if [ "$PLAN_UV" = 1 ]; then
-  UV_INSTALL_DIR="$HOME/.local/bin" UV_NO_MODIFY_PATH=1 download_run https://astral.sh/uv/install.sh || warn 'uv 安装失败'
+if [ "${AGENT_SKILLS_RUNTIME_DONE:-0}" != 1 ]; then
+  if ! runtime_apply_bun "${PLAN_BUN:-0}"; then
+    bun_rc=0; bun_probe_state || bun_rc=$?
+    if [ "${PLAN_BUN:-0}" = 3 ] || [ "$bun_rc" = 3 ]; then exit 1; fi
+    warn 'Bun 安装失败'
+  fi
+  runtime_apply_uv "${PLAN_UV:-0}" 0 0 || warn 'uv 安装失败'
 fi
 
 # ---- 2. claude-mem:复用资产可避免改动共享 worker/provider ----

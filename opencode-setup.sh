@@ -62,6 +62,115 @@ resolve_python3() { # python3 就绪返回 0;否则 python → py → uv 自管�
   if [ "$IS_WIN" = 1 ] && command -v cygpath >/dev/null 2>&1; then p="$(cygpath -u "$p")"; fi
   UV_PY="$p"; export UV_PY; python3() { "$UV_PY" "$@"; }; export -f python3
 }
+node_ver_ge() { # $1=node 路径(空则 PATH 中 node) $2=主版本(默认 24) $3=次版本(默认 15)
+  local bin="${1:-}" req_maj="${2:-24}" req_min="${3:-15}" raw maj min
+  [ -n "$bin" ] || bin="$(command -v node 2>/dev/null || true)"
+  [ -n "$bin" ] && [ -x "$bin" ] || return 1
+  raw="$("$bin" -v 2>/dev/null | head -1 | tr -d '\r' || true)"
+  raw="${raw#v}"
+  case "$raw" in
+    [0-9]*.[0-9]*) ;;
+    *) return 1 ;;
+  esac
+  maj="${raw%%.*}"
+  min="${raw#*.}"; min="${min%%.*}"; min="${min%%-*}"
+  case "$maj" in ''|*[!0-9]*) return 1 ;; esac
+  case "$min" in ''|*[!0-9]*) return 1 ;; esac
+  [ "$maj" -gt "$req_maj" ] && return 0
+  [ "$maj" -eq "$req_maj" ] && [ "$min" -ge "$req_min" ]
+}
+
+runtime_activate_fnm() { # 发现并激活已有 fnm；若已装 v24.15+ 则在当前会话切过去（不改 default）
+  local fnm_bin="" fnm_dir="" best=""
+  fnm_bin="$(command -v fnm 2>/dev/null || true)"
+  if [ -z "$fnm_bin" ]; then
+    for fnm_dir in "${FNM_DIR:-}" "${XDG_DATA_HOME:-$HOME/.local/share}/fnm" "$HOME/.local/share/fnm" "$HOME/.fnm" "$HOME/Library/Application Support/fnm"; do
+      if [ -n "$fnm_dir" ] && [ -x "$fnm_dir/fnm${BIN_EXT:-}" ]; then
+        fnm_bin="$fnm_dir/fnm${BIN_EXT:-}"
+        break
+      fi
+    done
+    if [ -z "$fnm_bin" ] && [ "${IS_WIN:-0}" = 1 ] && [ -n "${LOCALAPPDATA:-}" ] && command -v cygpath >/dev/null 2>&1; then
+      fnm_dir="$(cygpath -u "$LOCALAPPDATA")/fnm"
+      [ -x "$fnm_dir/fnm${BIN_EXT:-}" ] && fnm_bin="$fnm_dir/fnm${BIN_EXT:-}"
+    fi
+  fi
+  [ -n "$fnm_bin" ] && [ -x "$fnm_bin" ] || return 1
+  fnm_dir="$(dirname "$fnm_bin")"
+  case ":$PATH:" in
+    *":$fnm_dir:"*) ;;
+    *) export PATH="$fnm_dir:$PATH" ;;
+  esac
+  eval "$(fnm env --shell bash 2>/dev/null)" || true
+  if ! command -v npx >/dev/null 2>&1 || ! node_ver_ge "" 24 15; then
+    best="$(fnm list 2>/dev/null | tr -d '\r' | awk '
+      {
+        n = split($0, f)
+        for (k = 1; k <= n; k++) {
+          v = f[k]
+          if (v ~ /^v[0-9]+\.[0-9]+\.[0-9]+$/) {
+            s = substr(v, 2); split(s, p, ".")
+            maj = p[1] + 0; min = p[2] + 0; pat = p[3] + 0
+            if (maj > 24 || (maj == 24 && min >= 15)) {
+              if (maj == 24) {
+                if (!has24 || min > b24min || (min == b24min && pat > b24pat)) {
+                  has24 = 1; b24min = min; b24pat = pat; best24 = v
+                }
+              } else {
+                if (!hasgt || maj > bgtmaj || (maj == bgtmaj && min > bgtmin) || (maj == bgtmaj && min == bgtmin && pat > bgtpat)) {
+                  hasgt = 1; bgtmaj = maj; bgtmin = min; bgtpat = pat; bestgt = v
+                }
+              }
+            }
+            break
+          }
+        }
+      }
+      END { if (has24) print best24; else if (hasgt) print bestgt }
+    ')"
+    if [ -n "$best" ]; then
+      fnm use "$best" >/dev/null 2>&1 || true
+    fi
+  fi
+  return 0
+}
+
+bun_probe_state() { # 0=就绪(>=1.1.31 且 bun:sqlite 可用) 1=缺失 2=版本过低 3=sqlite 不可用
+  local bin raw maj min pat
+  PROBE_BUN_BIN=""; PROBE_BUN_VER=""
+  if [ "${IS_WIN:-0}" = 1 ] && [ -n "${BUN_INSTALL:-}" ] && command -v cygpath >/dev/null 2>&1; then
+    BUN_INSTALL="$(cygpath -u "$BUN_INSTALL")"; export BUN_INSTALL
+  fi
+  bin="$(command -v bun 2>/dev/null || true)"
+  if [ -z "$bin" ] && [ -x "${BUN_INSTALL:-$HOME/.bun}/bin/bun${BIN_EXT:-}" ]; then
+    bin="${BUN_INSTALL:-$HOME/.bun}/bin/bun${BIN_EXT:-}"
+  fi
+  [ -n "$bin" ] && [ -x "$bin" ] || return 1
+  PROBE_BUN_BIN="$bin"
+  raw="$("$bin" --version 2>/dev/null | head -1 | tr -d '\r' || true)"
+  PROBE_BUN_VER="$raw"
+  raw="${raw#v}"
+  raw="${raw%%[-+]*}"
+  case "$raw" in
+    [0-9]*.[0-9]*.[0-9]*)
+      maj="${raw%%.*}"
+      pat="${raw#*.}"; min="${pat%%.*}"; pat="${pat#*.}"
+      ;;
+    [0-9]*.[0-9]*)
+      maj="${raw%%.*}"
+      min="${raw#*.}"; pat=0
+      ;;
+    *) return 2 ;;
+  esac
+  case "$maj" in ''|*[!0-9]*) return 2 ;; esac
+  case "$min" in ''|*[!0-9]*) return 2 ;; esac
+  case "$pat" in ''|*[!0-9]*) return 2 ;; esac
+  if [ "$maj" -lt 1 ] || { [ "$maj" -eq 1 ] && [ "$min" -lt 1 ]; } || { [ "$maj" -eq 1 ] && [ "$min" -eq 1 ] && [ "$pat" -lt 31 ]; }; then
+    return 2
+  fi
+  "$bin" -e 'const {Database}=require("bun:sqlite"); const db=new Database(":memory:"); if(db.query("SELECT 1 AS ok").get().ok!==1) process.exit(1); db.close();' >/dev/null 2>&1 || return 3
+  return 0
+}
 
 # -y/--yes(或环境变量 ASSUME_YES=1)「默认安装」:计划阶段不再逐项确认,一律取默认值 —— 默认 Y 的照做
 # (装缺件、字段级合并写配置、刷新 base skills、写用户级 AGENTS 规则块),默认 N 的跳过(算力/知识/ppt 组)。
@@ -134,11 +243,11 @@ ask_builtin() { # $1=提示 $2=默认(Y/N,缺省 N)
 # 本机安装偏好：只保存经过校验的是非选择与模块名单，不保存凭据，也不执行文件内容。
 PREF_FILE=""; PREF_SESSION=""; PREF_ORIGINAL=""; PREF_REUSE=0; PREF_WRITE=1; PREF_COUNT=0
 PREF_KNOWN_KEYS="SHARED_PROXY SHARED_PYTHON_UV SHARED_NODE SHARED_BUN SHARED_UV_INSTALL SHARED_UV_UPGRADE SHARED_UV_MIRROR SHARED_RESEARCH SHARED_ACCEL SHARED_KB SHARED_PPT SHARED_EXTERNAL SHARED_AGENTS_TAIL \
-PI_AGENTS_TAIL PI_GIT_BASH PI_INSTALL PI_UPDATE PI_PKGS PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_CM_GROUP PI_MCP_MIGRATE PI_WRITE_CFG PI_MEM_RUNTIME PI_LEGACY_CLEAN PI_MODULES PI_MODULES_KNOWN \
+PI_AGENTS_TAIL PI_GIT_BASH PI_INSTALL PI_UPDATE PI_PKGS PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_CM_GROUP PI_MCP_MIGRATE PI_WRITE_CFG PI_MEM_RUNTIME PI_LEGACY_CLEAN PI_NODE_UPGRADE PI_MODULES PI_MODULES_KNOWN \
 OC_AGENTS_TAIL OC_UPGRADE OC_PONYTAIL OC_MC_REFRESH OC_CLAUDE_MEM OC_WRITE_CFG OC_FORCE_MANUAL OC_COMPACTION OC_TUI_KEYS OC_MODULES OC_MODULES_KNOWN \
 CODEX_AGENTS_TAIL CODEX_WRITE_CFG CODEX_MEM_INSTALLER CODEX_PLUGINS CODEX_HOOKS CODEX_REVIEWER CODEX_MODULES CODEX_MODULES_KNOWN \
 DSH_AGENTS_TAIL DSH_NODE DSH_SKILLS DSH_MODULES DSH_MODULES_KNOWN SHARED_HOSTS SHARED_MODULES SHARED_MODULES_KNOWN"
-PREF_RISKY_KEYS="SHARED_PROXY PI_AGENTS_TAIL OC_AGENTS_TAIL CODEX_AGENTS_TAIL DSH_AGENTS_TAIL OC_UPGRADE PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_MEM_RUNTIME OC_MC_REFRESH OC_CLAUDE_MEM CODEX_MEM_INSTALLER"
+PREF_RISKY_KEYS="SHARED_PROXY PI_AGENTS_TAIL OC_AGENTS_TAIL CODEX_AGENTS_TAIL DSH_AGENTS_TAIL OC_UPGRADE PI_OC_CACHE_CLEAN PI_MC_UPGRADE PI_MC_FORCE PI_MEM_RUNTIME PI_NODE_UPGRADE OC_MC_REFRESH OC_CLAUDE_MEM CODEX_MEM_INSTALLER"
 preference_get() {
   local key="$1" line
   line="$(printf '%s\n' "$PREF_SESSION" | grep "^${key}=" | tail -1)"
@@ -706,7 +815,7 @@ plan_pony_default() { # 只读:与 deploy.py 的 plugin_versions 同规则;钉�
 }
 
 collect_setup_plan() {
-  local proxy uv_present=0 npx_present=0 bun_present=0 uvcfg
+  local proxy uv_present=0 uvcfg uvp uv_bin uv_cur uv_latest
   # --check 只校验下载与配置:不询问,也不做代理探测等任何安装前判断。
   if [ "$CHECK_ONLY" = 1 ]; then
     PLAN_PROXY=1; PLAN_UPGRADE=0; PLAN_PYTHON_UV=0; PLAN_BUN=0; PLAN_NODE=0; PLAN_PONYTAIL=0
@@ -734,9 +843,8 @@ collect_setup_plan() {
     if ask "仍要继续吗？" N SHARED_PROXY; then PLAN_PROXY=1; else PLAN_PROXY=0; fi
   fi
 
+  bun_rc=0; cur_node=""
   if command -v uv >/dev/null 2>&1 || [ -x "$HOME/.local/bin/uv$BIN_EXT" ]; then uv_present=1; fi
-  if command -v npx >/dev/null 2>&1; then npx_present=1; fi
-  if command -v bun >/dev/null 2>&1; then bun_present=1; fi
 
   # 1) 宿主升级与依赖
   if [ "$PLUGINS_ONLY" = 0 ]; then
@@ -749,13 +857,30 @@ collect_setup_plan() {
   else
     PLAN_UPGRADE=0; PLAN_PYTHON_UV=0
   fi
-  if [ "$PLUGINS_ONLY" = 0 ] && [ "$bun_present" = 0 ]; then
-    if ask "是否安装 Bun（配置转换与 context-mode 所需）？" Y SHARED_BUN; then PLAN_BUN=1; else PLAN_BUN=0; fi
-  else PLAN_BUN=0; fi
-  if [ "$PLUGINS_ONLY" = 0 ] && [ "$npx_present" = 0 ]; then
-    echo "未检测到 npx(claude-mem 官方安装器与 skills 安装需要 Node)。"
-    if ask "是否安装 fnm + Node LTS？" Y SHARED_NODE; then PLAN_NODE=1; else PLAN_NODE=0; fi
-  else PLAN_NODE=0; fi
+  PLAN_BUN=0; PLAN_NODE=0
+  if [ "$PLUGINS_ONLY" = 0 ] && [ "${AGENT_SKILLS_RUNTIME_DONE:-0}" != 1 ]; then
+    bun_probe_state || bun_rc=$?
+    case "$bun_rc" in
+      0) ;;
+      1) if ask "是否安装 Bun（>=1.1.31，配置转换与 context-mode 所需）？" Y SHARED_BUN; then PLAN_BUN=1; fi ;;
+      2) if ask "检测到 bun(${PROBE_BUN_VER:-未知}) 低于 1.1.31；执行 bun upgrade？" Y SHARED_BUN; then PLAN_BUN=2; fi ;;
+      3) echo "WARN: 检测到 bun(${PROBE_BUN_VER:-未知}) 的 bun:sqlite 不可用；执行阶段将中止，请先修复 Bun" >&2
+         PLAN_BUN=3 ;;
+    esac
+    if ! command -v npx >/dev/null 2>&1 || ! node_ver_ge "" 24 15; then
+      runtime_activate_fnm || true
+    fi
+    if ! command -v npx >/dev/null 2>&1 || ! node_ver_ge "" 24 15; then
+      cur_node="$(node -v 2>/dev/null || true)"
+      if command -v fnm >/dev/null 2>&1; then
+        echo "当前 Node(${cur_node:-缺失}) 低于 24.15 或缺 npx(claude-mem 官方安装器与 skills 安装需要 Node 24+)。"
+        if ask "是否用 fnm 安装并启用 Node 24？" Y SHARED_NODE; then PLAN_NODE=1; fi
+      else
+        echo "未检测到 Node >=24.15 / npx(claude-mem 官方安装器与 skills 安装需要 Node 24+)。"
+        if ask "是否安装 fnm + Node 24？" Y SHARED_NODE; then PLAN_NODE=1; fi
+      fi
+    fi
+  fi
 
   # 2) 第三方插件缓存刷新
   # Ponytail 默认值由只读探测直接决定：只有确认有可更新版本才询问，其余（钉版/本地路径/同版本/更高/探测失败）跳过。
@@ -810,19 +935,37 @@ collect_setup_plan() {
   fi
 
   # 4) uv(安装/升级/镜像);镜像目标按平台算好
-  uvcfg="$HOME/.config/uv/uv.toml"
-  if [ "$IS_WIN" = 1 ] && [ -n "${APPDATA:-}" ]; then uvcfg="$(cygpath -u "$APPDATA")/uv/uv.toml"; fi
-  if [ "$uv_present" = 0 ]; then
-    if ask "未检测到 uv,安装 uv(astral.sh 官方脚本,装到 ~/.local/bin)?" Y SHARED_UV_INSTALL; then PLAN_UV_INSTALL=1; else PLAN_UV_INSTALL=0; fi
-    PLAN_UV_UPGRADE=0
+  if [ "${AGENT_SKILLS_RUNTIME_DONE:-0}" = 1 ]; then
+    PLAN_UV_INSTALL=0; PLAN_UV_UPGRADE=0; PLAN_UV_MIRROR=0
   else
-    PLAN_UV_INSTALL=0
-    if ask "uv 有新版本时升级(uv self update)?" Y SHARED_UV_UPGRADE; then PLAN_UV_UPGRADE=1; else PLAN_UV_UPGRADE=0; fi
+    uvp="$HOME/.local/bin/uv$BIN_EXT"
+    uvcfg="$HOME/.config/uv/uv.toml"
+    if [ "$IS_WIN" = 1 ] && [ -n "${APPDATA:-}" ]; then uvcfg="$(cygpath -u "$APPDATA")/uv/uv.toml"; fi
+    PLAN_UV_INSTALL=0; PLAN_UV_UPGRADE=0
+    if [ "$uv_present" = 0 ]; then
+      if ask "未检测到 uv,安装 uv(astral.sh 官方脚本,装到 ~/.local/bin)?" Y SHARED_UV_INSTALL; then PLAN_UV_INSTALL=1; fi
+    else
+      uv_bin="$(command -v uv 2>/dev/null || echo "$uvp")"
+      uv_cur="$("$uv_bin" --version 2>/dev/null | awk '{print $2}' || true)"
+      uv_latest="$(curl -fsSL --connect-timeout 5 -m 8 https://api.github.com/repos/astral-sh/uv/releases/latest 2>/dev/null \
+        | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4 || true)"
+      if [ -z "$uv_latest" ]; then
+        echo "跳过 uv 自升级:查不到最新版本(检查网络/代理)"
+      elif [ "$uv_latest" != "$uv_cur" ]; then
+        if [ "$IS_WIN" = 1 ] && [[ "$uv_bin" == */Python*/Scripts/uv* ]]; then
+          echo "uv 由 Python 环境安装(${uv_cur:-未知}),请用原安装方式升级;跳过 uv self update"
+        elif ask "uv ${uv_cur:-未知} → $uv_latest,升级(uv self update)?" Y SHARED_UV_UPGRADE; then
+          PLAN_UV_UPGRADE=1
+        fi
+      else
+        echo "uv 已是最新(${uv_cur:-未知})"
+      fi
+    fi
+    if grep -q 'pypi.tuna' "$uvcfg" 2>/dev/null || [ -f "$uvcfg" ]; then
+      PLAN_UV_MIRROR=0   # 已配置或已有用户自建文件:沿用现有处理,只报告
+    elif ask "配置 uv 用清华 PyPI 镜像($uvcfg)?" Y SHARED_UV_MIRROR; then PLAN_UV_MIRROR=1
+    else PLAN_UV_MIRROR=0; fi
   fi
-  if grep -q 'pypi.tuna' "$uvcfg" 2>/dev/null || [ -f "$uvcfg" ]; then
-    PLAN_UV_MIRROR=0   # 已配置或已有用户自建文件:沿用现有处理,只报告
-  elif ask "配置 uv 用清华 PyPI 镜像($uvcfg)?" Y SHARED_UV_MIRROR; then PLAN_UV_MIRROR=1
-  else PLAN_UV_MIRROR=0; fi
 
   # 5) skills 分组、外部设计依赖、用户级 AGENTS 规则块
   # 统一入口已在公共模式分发一次(AGENT_SKILLS_HOST_ONLY=1);这里只保留 OpenCode 自己的规则块。
@@ -1225,9 +1368,16 @@ migrate_opencode_config() {
 }
 
 # ---- 配置迁移依赖：完整安装补齐 Bun；精简模式只检查 ----
-if [ "$PLAN_BUN" = 1 ]; then
-  curl -fsSL --connect-timeout 8 -m 60 https://bun.sh/install | bash
-  export PATH="$HOME/.bun/bin:$PATH"
+if [ "$PLUGINS_ONLY" != 1 ] && [ "${AGENT_SKILLS_RUNTIME_DONE:-0}" != 1 ]; then
+  source "$SOURCE_ROOT/scripts/runtime-deps.sh"
+  runtime_apply_bun "${PLAN_BUN:-0}" || exit 1
+elif [ "$PLUGINS_ONLY" = 1 ]; then
+  if [ "$IS_WIN" = 1 ] && [ -n "${BUN_INSTALL:-}" ]; then
+    BUN_INSTALL="$(cygpath -u "$BUN_INSTALL")"; export BUN_INSTALL
+  fi
+  if [ -x "${BUN_INSTALL:-$HOME/.bun}/bin/bun$BIN_EXT" ]; then
+    export PATH="${BUN_INSTALL:-$HOME/.bun}/bin:$PATH"
+  fi
 fi
 
 # deprecated: mcphub-web-rename；用户确认退役后删除此段及 migrate-web-mcp.py。
@@ -1269,33 +1419,9 @@ else
   echo "跳过 Magic Context 刷新：保留缓存，仅迁移可安全复用的旧缓存路径登记；如有 WARN，启动前仍需处理。"
 fi
 
-if [ "$PLUGINS_ONLY" != 1 ]; then
+if [ "$PLUGINS_ONLY" != 1 ] && [ "${AGENT_SKILLS_RUNTIME_DONE:-0}" != 1 ]; then
 # ---- 1.1 依赖: npx(fnm + Node)----
-if ! command -v npx >/dev/null 2>&1 && command -v fnm >/dev/null 2>&1; then
-  # Git Bash 不加载 PowerShell 的 fnm 初始化；复用已有 default Node，避免重复安装。
-  eval "$(fnm env --shell bash)"
-  fnm use default || true
-fi
-if [ "$PLAN_NODE" = 1 ]; then
-  echo "未检测到 npx(claude-mem 官方安装器与 skills 安装需要 Node)。"
-  curl -fsSL --connect-timeout 8 -m 60 https://fnm.vercel.app/install | bash
-  export PATH="$HOME/.local/share/fnm:$PATH"
-  eval "$(fnm env)"
-  fnm install --lts
-  fnm default lts-latest
-  eval "$(fnm env)"
-  command -v npx >/dev/null 2>&1 || {
-    if [ "$IS_WIN" = 1 ]; then
-      echo "ERROR: 安装后 npx 仍不可用。可改用 winget install OpenJS.NodeJS.LTS 装 Node,重开 Git Bash 后重跑本脚本。" >&2
-    else
-      echo "ERROR: 安装后 npx 仍不可用,请重开终端后重跑本脚本" >&2
-    fi
-    exit 1
-  }
-  echo "Node $(node --version) 就绪"
-elif ! command -v npx >/dev/null 2>&1; then
-  echo "跳过 Node(claude-mem 安装与 skills 安装将不可用)"
-fi
+runtime_apply_node "${PLAN_NODE:-0}" || exit 1
 
 fi
 
@@ -1880,48 +2006,8 @@ else
 fi
 
 # ---- 8. uv(可选;strictdoc 由 modules/strictdoc 安装)----
-UVP="$HOME/.local/bin/uv$BIN_EXT"
-if [ "$PLAN_UV_INSTALL" = 1 ]; then
-  uv_sh="$(mktemp)"
-  if curl -fsSL --connect-timeout 8 -m 60 -o "$uv_sh" https://astral.sh/uv/install.sh; then
-    UV_INSTALL_DIR="$HOME/.local/bin" UV_NO_MODIFY_PATH=1 sh "$uv_sh" \
-      || echo "WARN: uv 安装脚本退出码非 0,请看上方输出" >&2
-  else
-    echo "WARN: uv 安装脚本下载失败(检查代理)" >&2
-  fi
-  rm -f "$uv_sh"
-fi
-UV_BIN="$(command -v uv 2>/dev/null || echo "$UVP")"
-if [ -x "$UV_BIN" ]; then
-  export PATH="$HOME/.local/bin:$PATH"
-  uv_cur="$("$UV_BIN" --version 2>/dev/null | awk '{print $2}' || true)"
-  uv_latest="$(curl -fsSL --connect-timeout 5 -m 8 https://api.github.com/repos/astral-sh/uv/releases/latest 2>/dev/null \
-    | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4 || true)"
-  if [ -z "$uv_latest" ]; then
-    echo "跳过 uv 自升级:查不到最新版本(检查网络/代理)"
-  elif [ "$uv_latest" != "$uv_cur" ]; then
-    if [ "$IS_WIN" = 1 ] && [[ "$UV_BIN" == */Python*/Scripts/uv* ]]; then
-      echo "uv 由 Python 环境安装(${uv_cur:-未知}),请用原安装方式升级;跳过 uv self update"
-    elif [ "$PLAN_UV_UPGRADE" = 1 ]; then
-      "$UV_BIN" self update || echo "WARN: uv 自升级失败(系统包管理器装的请用系统方式升级)" >&2
-    fi
-  else
-    echo "uv 已是最新(${uv_cur:-未知})"
-  fi
-  UVCFG="$HOME/.config/uv/uv.toml"
-  # uv 在 Windows 读 %APPDATA%\uv\uv.toml,不是 ~/.config
-  if [ "$IS_WIN" = 1 ] && [ -n "${APPDATA:-}" ]; then UVCFG="$(cygpath -u "$APPDATA")/uv/uv.toml"; fi
-  if grep -q 'pypi.tuna' "$UVCFG" 2>/dev/null; then
-    echo "uv PyPI 镜像已配置(清华),跳过"
-  elif [ -f "$UVCFG" ]; then
-    echo "跳过 uv 镜像:$UVCFG 已存在(非本脚本写入),不覆盖"
-  elif [ "$PLAN_UV_MIRROR" = 1 ]; then
-    mkdir -p "$(dirname "$UVCFG")"
-    printf '%s\n' 'index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"' > "$UVCFG"
-    echo "wrote: $UVCFG"
-  fi
-else
-  echo "提示: 未检测到 uv;strictdoc 模块会跳过安装(.sdoc 校验依赖),装好 uv 后重跑本脚本即可"
+if [ "${AGENT_SKILLS_RUNTIME_DONE:-0}" != 1 ]; then
+  runtime_apply_uv "${PLAN_UV_INSTALL:-0}" "${PLAN_UV_UPGRADE:-0}" "${PLAN_UV_MIRROR:-0}" || exit 1
 fi
 
 # ---- 可选模块:按计划阶段选好的名单执行(新增模块只加 modules/<名>/,本脚本不用改)----

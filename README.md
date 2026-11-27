@@ -65,9 +65,9 @@ bash setup.sh --hosts none                   # 只维护公共项
 
 可选宿主：`opencode`、`pi`、`dsh`、`codex`、`claude`、`antigravity`；单填 `all` 选中本平台支持的全部宿主（Windows 自动跳过仅支持 Linux／macOS 的 `dsh`），单填 `none` 只维护公共项。删掉某个名字只停止更新，不卸载。无人值守首次必须显式给名单；`-y` 沿用已有答案、缺项取各宿主默认值，可能包含客户端升级或停止共享记忆 worker 的操作。
 
-- **每台机器一次：**本次只取一次源码，只同步一次选中的 Skill 组、外部 Skill 和公共模块。Claude 和 Antigravity 的逐 Skill 发现链接默认备好，不要求安装或勾选客户端。组内按现有策略更新，内容没变不重写，本机特化的 accel 仍缺才装。
-- **只对选中宿主：**OpenCode、Pi、DSH、Codex 运行各自原有安装器的专用部分，保留凭据合并和高风险操作选择。Claude Code 可加用户规则和两个 Reviewer；Antigravity 同步用户规则与基础 MCP（复用本机已有的 `web`、`codegraph`、`claude-mem` 检索端并桥接 T3 隔离目录）。每个完整宿主在自己的执行阶段前收集所缺参数。宿主升级、Release 检查仍遵循对应安装器，不承诺全程零下载。
-- **记在哪里：**仍用 `${XDG_CONFIG_HOME:-~/.config}/agent-skills/preferences.conf`，`SHARED_HOSTS` 存宿主名单，沿用旧入口的 Skill 组偏好。新机器要有 Git、Bash、Python 3；外部设计依赖需 Node/npx，选 PPT 还需 Python 3.10+ 和 Node 20+。
+- **每台机器一次：**本次只取一次源码，并由统一入口先对选中的宿主或依赖项做一次 **Node >=24.15（fnm + Node 24）**、**Bun >=1.1.31（含 `bun:sqlite` 校验）** 与 **uv** 探测安装，再只同步一次选中的 Skill 组、外部 Skill 和公共模块。Claude 和 Antigravity 的逐 Skill 发现链接默认备好，不要求安装或勾选客户端。组内按现有策略更新，内容没变不重写，本机特化的 accel 仍缺才装。
+- **只对选中宿主：**OpenCode、Pi、DSH、Codex 运行各自原有安装器的专用部分，保留凭据合并和高风险操作选择（含旧版 `~/.local/share/pi-node` 从 Node 22 就地升级到 Node 24 的可选确认）。Claude Code 可加用户规则和两个 Reviewer；Antigravity 同步用户规则与基础 MCP（复用本机已有的 `web`、`codegraph`、`claude-mem` 检索端并桥接 T3 隔离目录）。每个完整宿主在自己的执行阶段前收集所缺参数。宿主升级、Release 检查仍遵循对应安装器，不承诺全程零下载。
+- **记在哪里：**仍用 `${XDG_CONFIG_HOME:-~/.config}/agent-skills/preferences.conf`，`SHARED_HOSTS` 存宿主名单，沿用旧入口的 Skill 组偏好。新机器要有 Git、Bash、Python 3；外部设计依赖需 Node/npx，选 PPT 还需 Python 3.10+ 和 Node >=24.15。
 
 ### 单独运行某个宿主的安装器
 
@@ -531,7 +531,7 @@ Pi、OpenCode、Codex 三个 setup 在开头统一收集凭据。本机已有对
 | 缺件 | 处理方式 |
 |---|---|
 | Python 3 | 询问后用 uv 自管理的 3.12 兜底；或 `winget install Python.Python.3.12` |
-| Node LTS | fnm 官方脚本；失败则 `winget install OpenJS.NodeJS.LTS` |
+| Node 24 | fnm 官方脚本安装并默认启用 Node 24（`fnm install 24`）；失败则 `winget install OpenJS.NodeJS.LTS` |
 | bun / uv | 各自官方脚本（支持 MinGW）；失败时提示手工命令 |
 
 PS：上游 `install.ps1` / winget 面向零前提用户；本项目约定 Git Bash，三个脚本均用 bash。

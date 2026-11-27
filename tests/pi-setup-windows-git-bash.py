@@ -54,8 +54,8 @@ def posix(p):
     return str(p)
 
 
-def configure(home, bindir, terminal="mintty", ok=True):
-    return run([sys.executable, "-c", BODY, str(home), bindir, terminal], ok=ok)
+def configure(home, bindir, terminal="mintty", ok=True, fnm_dir=""):
+    return run([sys.executable, "-c", BODY, str(home), bindir, terminal, fnm_dir], ok=ok)
 
 
 def snapshot(home):
@@ -98,6 +98,24 @@ def main():
             assert "probe-ok" in shell(fresh, "agent_skills_probe", mode)
         path = shell(fresh, '. "$HOME/.bashrc"; . "$HOME/.bashrc"; printf %s "$PATH"')
         assert path.split(":").count(bp) == 1, path
+
+        fnm_bindir = root / "fnm bin"
+        fnm_bindir.mkdir()
+        fnm_stub = fnm_bindir / "fnm"
+        fnm_stub.write_text("#!/usr/bin/env bash\necho 'export __FNM_TEST_ENV=1'\n", encoding="utf-8")
+        fnm_stub.chmod(0o755)
+        fp = posix(fnm_bindir)
+        fnm_home = root / "fnm home"
+        fnm_home.mkdir()
+        configure(fnm_home, bp, fnm_dir=fp)
+        bashrc_fnm = (fnm_home / ".bashrc").read_text(encoding="utf-8")
+        assert "# >>> agent-skills Bun PATH >>>" in bashrc_fnm
+        assert "# >>> agent-skills fnm PATH >>>" in bashrc_fnm
+        before_fnm = snapshot(fnm_home)
+        configure(fnm_home, bp, fnm_dir=fp)
+        assert snapshot(fnm_home) == before_fnm
+        fnm_path = shell(fnm_home, '. "$HOME/.bashrc"; printf %s "$PATH"')
+        assert fnm_path.split(":").count(fp) == 1, fnm_path
         before = snapshot(fresh)
         configure(fresh, bp)
         assert snapshot(fresh) == before, "重复配置不得重写文件/新增备份"

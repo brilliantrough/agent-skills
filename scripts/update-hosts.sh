@@ -2,7 +2,11 @@
 # setup.sh 已固定本次源码版本；借用现有前置选择，不启动 DSH。
 set -euo pipefail
 root="${SOURCE_ROOT:?请通过 setup.sh 启动}"
+IS_WIN=0
+case "$(uname -s 2>/dev/null || true)" in MINGW*|MSYS*|CYGWIN*) IS_WIN=1 ;; esac
+BIN_EXT=""; [ "$IS_WIN" = 1 ] && BIN_EXT=".exe"
 source "$root/dsh-setup.sh"
+source "$root/scripts/runtime-deps.sh"
 YES=0; CHOOSE=0; hosts_arg=''; explicit=0; flags=()
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -73,6 +77,22 @@ selected="$(env ${mod_env[@]+"${mod_env[@]}"} bash "$mod" --host common ${mod_fl
 shared_modules="${selected//$'\n'/,}"
 preference_put SHARED_MODULES "$shared_modules"
 preference_put SHARED_MODULES_KNOWN "$known"
+need_node=0; need_bun=0; need_uv=0
+for h in ${hosts[@]+"${hosts[@]}"}; do
+  case "$h" in
+    opencode|pi|dsh|codex) need_node=1; need_bun=1; need_uv=1 ;;
+    antigravity) need_node=1 ;;
+  esac
+done
+[ "$SKILLS_EXTERNAL" != install ] || need_node=1
+case " ${groups[*]} " in *' ppt '*) need_node=1 ;; esac
+case ",$shared_modules," in
+  *,light-science,*) need_node=1 ;;
+esac
+case ",$shared_modules," in
+  *,strictdoc,*) need_uv=1 ;;
+esac
+runtime_plan_collect "$need_node" "$need_bun" "$need_uv"
 echo "本机宿主: $hosts_arg；共享 Skill: ${groups[*]}；外部设计: $SKILLS_EXTERNAL；公共模块: ${shared_modules:-无}"
 if [ "$YES" != 1 ] && have_tty; then ask_builtin '按以上选择更新？' Y || exit 0; fi
 minor=6; case " ${groups[*]} " in *' ppt '*) minor=10 ;; esac
@@ -86,6 +106,7 @@ if [ "$saved" != "$(printf '%s\n' "$PREF_SESSION" | LC_ALL=C sort)" ]; then
   echo 'ERROR: 本轮安装偏好未保存；未执行更新。请处理上述告警后重跑。' >&2
   exit 1
 fi
+runtime_apply || exit 1
 roles=0; case " ${hosts[*]+"${hosts[*]}"} " in *' claude '*) roles=1 ;; esac
 AGENT_SKILLS_COMMON=1 AGENT_SKILLS_CLAUDE_ROLES="$roles" AGENTS_TAIL=0 SKILLS_EXTERNAL="$SKILLS_EXTERNAL" \
   bash "$root/skills-sync.sh" "${groups[@]}"
